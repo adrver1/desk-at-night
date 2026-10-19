@@ -50,6 +50,11 @@ npm run dev        # http://localhost:5173, hot reload
 npm run build      # static site in web/dist, host anywhere
 ```
 
+Every push to `main` publishes `web/dist` to GitHub Pages
+(`.github/workflows/pages.yml`). Turn it on once under Settings → Pages →
+Source: GitHub Actions. The site then lives at
+https://adrver1.github.io/desk-at-night/.
+
 ## QA
 
 ```bash
