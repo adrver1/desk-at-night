@@ -163,59 +163,132 @@ def _bezier(p0, p1, p2, n):
 
 # -------------------------------------------------------------------- props
 
+# Full-size ANSI layout in key units (1u = 19.05 mm): per row, a list of
+# (width, material key); None is a gap. Rows run front (space bar) to back.
+_TYPING = [
+    [(1.25, "key"), (1.25, "key"), (1.25, "key"), (6.25, "key"), (1.25, "key"), (1.25, "key"), (1.25, "key"), (1.25, "key")],
+    [(2.25, "key")] + [(1, "key")] * 10 + [(2.75, "key")],
+    [(1.75, "key")] + [(1, "key")] * 11 + [(2.25, "key")],
+    [(1.5, "key")] + [(1, "key")] * 12 + [(1.5, "key")],
+    [(1, "key")] * 13 + [(2, "key")],
+]
+_FUNCTION = [(1, "key"), (1, None)] + [(1, "key_grey")] * 4 + [(0.5, None)] + [(1, "key_grey")] * 4 + \
+            [(0.5, None)] + [(1, "key_grey")] * 4  # Esc, F1-F4, F5-F8, F9-F12
+
+
 def make_keyboard(m, name="Keyboard"):
-    """Wide DCS operator keyboard: a block of alarm and display keys on the
-    left, a typing block in the middle and a numeric pad on the right, with
-    a row of function keys above. Its back edge sits a little higher."""
+    """Control-room operator keyboard: a full-size ANSI keyboard (function
+    row, typing block, navigation cluster with arrow keys, numeric pad) with
+    a block of operator keys on the left: alarm acknowledge and silence in
+    red and yellow on top, display and faceplate keys below. The back edge
+    sits a little higher than the front."""
     kb = Builder(name)
-    pitch, key, cap = 0.019, 0.0155, 0.007
-    w, d, tilt = 0.53, 0.175, math.radians(3)
+    u, cap = 0.01905, 0.007
+    gap = 0.0035                      # space between neighbouring caps
+    tilt = math.radians(3)
+    op_w, typing_w, nav_w, num_w = 4.0, 15.0, 3.0, 4.0
+    span = op_w + 0.75 + typing_w + 0.5 + nav_w + 0.5 + num_w  # in units
+    w, d = span * u + 0.030, 6.5 * u + 0.030
     lift = Matrix.Translation((0, 0, 0.024)) @ _rot(x=tilt)  # body frame: z = 0 is the top surface
     kb.box((w, d, 0.024), lift @ Vector((0, 0, -0.012)), m["black"], orient=_rot(x=tilt))
 
-    def key_at(x, y, mat, wide=1.0):
-        c = lift @ Vector((x, y, cap / 2))
-        kb.box((key + (wide - 1) * pitch, key, cap), c, mat, orient=_rot(x=tilt))
+    left, front = -w / 2 + 0.015, -d / 2 + 0.015  # outer corner of the key field
 
-    y0 = -d / 2 + 0.018
-    # Left: 6 x 5 operator block (alarm acknowledge, silence, display keys)
-    accents = {(0, 4): m["key_red"], (1, 4): m["key_yellow"], (2, 4): m["key_green"],
-               (0, 3): m["key_red"], (1, 3): m["key_yellow"]}
-    for col in range(6):
-        for row in range(5):
-            key_at(-w / 2 + 0.022 + col * pitch, y0 + row * pitch, accents.get((col, row), m["key_grey"]))
-    # Middle: 14 x 4 typing block plus a bottom row with a space bar
-    x0 = -w / 2 + 0.022 + 6 * pitch + 0.016
-    for row in range(1, 5):
-        for col in range(14):
-            key_at(x0 + col * pitch, y0 + row * pitch, m["key"])
-    for col in (0, 1, 2, 11, 12, 13):
-        key_at(x0 + col * pitch, y0, m["key"])
-    key_at(x0 + 6.5 * pitch, y0, m["key"], wide=8)
-    # Function row across the typing block
-    for col in range(14):
-        key_at(x0 + col * pitch, y0 + 5 * pitch + 0.006, m["key_grey"])
-    # Right: 4 x 5 numeric pad
-    x1 = x0 + 14 * pitch + 0.016
+    def key(col, row, mat, wide=1.0, tall=1.0):
+        """A cap whose front-left corner sits at (col, row) in units."""
+        x = left + (col + wide / 2) * u
+        y = front + (row + tall / 2) * u
+        c = lift @ Vector((x, y, cap / 2))
+        kb.box((wide * u - gap, tall * u - gap, cap), c, m[mat], orient=_rot(x=tilt))
+
+    def row_of(x, row, keys):
+        for width, mat in keys:
+            if mat:
+                key(x, row, mat, width)
+            x += width
+
+    # Operator block, 4 x 6: alarm keys along the back, display keys below
     for col in range(4):
-        for row in range(5):
-            key_at(x1 + col * pitch, y0 + row * pitch, m["key"])
+        for row in range(6):
+            mat = "key_grey"
+            if row == 5:
+                mat = ("key_red", "key_red", "key_yellow", "key_yellow")[col]
+            elif row == 4 and col == 0:
+                mat = "key_green"
+            key(col, row if row < 5 else 5.5, mat)
+    x0 = op_w + 0.75
+    # Typing block and function row (half a unit gap above the number row)
+    for row, keys in enumerate(_TYPING):
+        row_of(x0, row, keys)
+    row_of(x0, 5.5, _FUNCTION)
+    # Navigation cluster: arrows, then Ins/Home/PgUp and Del/End/PgDn, then PrtSc/ScrLk/Pause
+    xn = x0 + typing_w + 0.5
+    key(xn, 0, "key"), key(xn + 1, 0, "key"), key(xn + 2, 0, "key")
+    key(xn + 1, 1, "key")
+    for col in range(3):
+        key(xn + col, 3, "key"), key(xn + col, 4, "key"), key(xn + col, 5.5, "key_grey")
+    # Numeric pad: 0 is double wide, + and Enter are double tall
+    xp = xn + nav_w + 0.5
+    key(xp, 0, "key", wide=2), key(xp + 2, 0, "key")
+    for col in range(3):
+        key(xp + col, 1, "key"), key(xp + col, 2, "key"), key(xp + col, 3, "key")
+    for col in range(4):
+        key(xp + col, 4, "key")
+    key(xp + 3, 0, "key", tall=2), key(xp + 3, 2, "key", tall=2)
     return kb.done()
 
 
 def make_mouse(m, name="Mouse"):
-    """A plain right-handed mouse: a squashed sphere with a flat bottom and
-    a scroll wheel."""
+    """A plain symmetric mouse: a rounded footprint, narrower at the front,
+    with a dome that peaks behind the middle where the palm rests, a short
+    vertical skirt, and a scroll wheel set into a slot between the buttons."""
     ms = Builder(name)
+    length, n_exp, skirt = 0.114, 3.4, 0.004
+
+    def half_width(y):  # wider toward the palm (+Y is the back)
+        return 0.0300 + 0.0025 * (y / (length / 2))
+
+    def height(x, y):
+        along = max(0.0, 1 - ((y - 0.014) / 0.072) ** 2)          # profile front to back
+        across = max(0.0, 1 - (x / (half_width(y) * 1.05)) ** 2)  # profile side to side
+        return skirt + 0.030 * along ** 0.5 * across ** 0.6
+
+    def outline(t):
+        c, s = math.cos(t), math.sin(t)
+        y = length / 2 * math.copysign(abs(s) ** (2 / n_exp), s)
+        x = half_width(y) * math.copysign(abs(c) ** (2 / n_exp), c)
+        return x, y
 
     def make():
-        g = bmesh.ops.create_uvsphere(ms.bm, u_segments=32, v_segments=16, radius=1.0)
-        for v in g["verts"]:
-            x, y, z = v.co
-            back = 1.0 + 0.15 * max(y, 0)  # a little fuller toward the palm
-            v.co = Vector((0.031 * x * back, 0.058 * y, max(0.0, 0.034 * z + 0.004 * (y + 1) - 0.004)))
-    ms._new(m["black"], make)
-    ms.cyl(0.006, 0.006, 0.005, Vector((0, -0.025, 0.026)), m["key_grey"], segs=16, orient=_rot(y=math.pi / 2))
+        bm, segs, rings = ms.bm, 48, 10
+        top = bm.verts.new((0, 0.0, height(0, 0)))
+        grid = []
+        for i in range(1, rings + 1):
+            f = i / rings
+            ring = []
+            for j in range(segs):
+                ox, oy = outline(2 * math.pi * j / segs)
+                x, y = ox * f, oy * f
+                ring.append(bm.verts.new((x, y, height(x, y) if i < rings else skirt)))
+            grid.append(ring)
+        base = [bm.verts.new((v.co.x, v.co.y, 0.0)) for v in grid[-1]]
+        for j in range(segs):
+            k = (j + 1) % segs
+            bm.faces.new((top, grid[0][j], grid[0][k]))
+            for i in range(rings - 1):
+                bm.faces.new((grid[i][j], grid[i + 1][j], grid[i + 1][k], grid[i][k]))
+            bm.faces.new((grid[-1][j], base[j], base[k], grid[-1][k]))
+        bm.faces.new(base[::-1])
+    ms._new(m["key"], make)
+    # Seams: one between the two buttons, one across where the buttons end
+    seam = [Vector((0, y, height(0, y) + 0.0002)) for y in (-length / 2 + 0.004 + 0.002 * i for i in range(27))]
+    ms.tube(seam, 0.0007, m["black"], segs=6)
+    hw = half_width(0.004) * 0.92
+    across = [Vector((x, 0.004, height(x, 0.004) + 0.0002)) for x in (-hw + 2 * hw * i / 30 for i in range(31))]
+    ms.tube(across, 0.0007, m["black"], segs=6, normal=Vector((0, 1, 0)))
+    wy = -0.024
+    ms.cyl(0.0060, 0.0060, 0.0045, Vector((0, wy, height(0, wy) - 0.0040)), m["black"],  # scroll wheel
+           segs=24, orient=_rot(y=math.pi / 2))
     return ms.done(smooth=True)
 
 

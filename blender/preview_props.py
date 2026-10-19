@@ -100,5 +100,13 @@ close = {  # prop: (aim, offset, lens)
     "pencil": ((0.80, -0.13, 0.01), (0.04, -0.14, 0.09), 50),
     "notepad": ((0.80, -0.12, 0.01), (0.05, -0.30, 0.25), 40),
 }
+# Straight down on the keyboard, to check the key layout
+top_d = bpy.data.cameras.new("KeyboardTop")
+top_d.type = "ORTHO"
+top_d.ortho_scale = 0.62
+top = bpy.data.objects.new("KeyboardTop", top_d)
+top.location = (0.0, -0.05, 0.5)
+bpy.context.collection.objects.link(top)
+shot(top, "top-keyboard", w, w * 3 // 8)
 for k, (aim, off, lens) in close.items():
     shot(camera("Close_" + k, aim, off, lens), "close-" + k, w * 2 // 3, w * 4 // 9)
