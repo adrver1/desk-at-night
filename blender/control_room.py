@@ -1,7 +1,7 @@
 """
-Blockout of an offshore-style control room: one long curved operator desk,
-a row of desk monitors along its back edge, and a band of large displays on
-posts above them. The rest of the room (shell, chairs, window, meeting
+Blockout of an offshore-style control room: two curved operator desks on a
+shared semicircle, six monitors on each (3 + 3), and a band of large
+displays on posts a step behind them. The rest of the room (shell, chairs, window, meeting
 table) is placeholder and free to change.
 
     python blender/control_room.py                 # clay + night + plan stills
@@ -10,8 +10,8 @@ table) is placeholder and free to change.
 Renders quick Cycles stills only. Nothing is baked: light maps for this room
 belong on a GPU. Saves blender/build/control_room.blend for inspection.
 
-Layout: the desk is an arc around the origin, operators sit inside it facing
-outward (+Y at the centre station). Angles are measured from +Y, positive
+Layout: the desks are arcs around the origin, one operator per desk sitting
+inside the curve and facing outward. Angles are measured from +Y, positive
 toward +X.
 """
 import argparse
@@ -25,22 +25,22 @@ import build as b  # noqa: E402  (imports bpy)
 bpy, bmesh, Vector = b.bpy, b.bmesh, b.Vector
 box, cylinder, mat_flat = b.box, b.cylinder, b.mat_flat
 
-# Desk (metres)
+# Desks (metres): two arcs of 80 degrees with a small gap between them
 DESK_Z, DESK_T = 0.74, 0.04
-DESK_SPAN = math.radians(62)          # half-angle of the arc
-R_BACK = 3.55                         # outer (screen-side) edge
-R_FRONT, BAY_DEPTH = 2.70, 0.22       # operator edge, and how far it recedes into each bay
-STATIONS = [math.radians(a) for a in (-40, 0, 40)]
-STATION_PITCH = math.radians(40)
-SHELF_R0, SHELF_H = 3.18, 0.07        # raised rail the monitors stand on
+DESK_HALF, DESK_GAP = math.radians(40), math.radians(3)
+DESKS = [-(DESK_HALF + DESK_GAP / 2), DESK_HALF + DESK_GAP / 2]  # centre angle of each desk
+R_BACK = 2.95                         # outer (screen-side) edge
+R_FRONT, BAY_DEPTH = 1.95, 0.20       # operator edge at the desk ends, and how far it recedes at the chair
+SHELF_R0, SHELF_H = 2.62, 0.07        # raised rail the monitors stand on
+LEG_ANGLE = math.radians(26)          # two legs per desk, this far either side of its centre
 
-# Desk monitors: 24" class, white bezels
-MON_R, MON_PITCH = 3.34, 0.60
+# Desk monitors: 24" class, white bezels, 3 + 3 per desk with a small gap
+MON_R, MON_PITCH, MON_GAP = 2.78, 0.575, 0.10
 MON_W, MON_H, MON_D, MON_Z0 = 0.56, 0.36, 0.05, DESK_Z + SHELF_H + 0.10
 MON_TILT = math.radians(8)
 
-# Video wall: 65" class displays on posts, a little further out
-WALL_R, WALL_N = 3.95, 6
+# Video wall: 65" class displays on posts, 1-1.5 m behind the monitor row
+WALL_R, WALL_N = MON_R + 1.25, 7  # one continuous band across both desks
 WALL_W, WALL_H, WALL_Z0 = 1.45, 0.83, 1.32
 
 # Room shell
@@ -124,10 +124,10 @@ def emissive(name, color, strength):
 # --------------------------------------------------------------------- desk
 
 def r_front(a):
-    """Operator edge: closest to the centre between stations, receding into a
-    bay around each chair so the desk wraps the operator."""
-    s = math.sin(math.pi * a / STATION_PITCH) ** 2   # 0 at a station, 1 between
-    return R_FRONT + BAY_DEPTH * (1 - s)
+    """Operator edge: closest to the centre at the desk ends, receding into a
+    bay around the chair so the desk wraps the operator."""
+    c = min(DESKS, key=lambda d: abs(a - d))
+    return R_FRONT + BAY_DEPTH * math.cos(0.5 * math.pi * min(abs(a - c) / DESK_HALF, 1)) ** 2
 
 
 def arc_slab(name, r_in, r_out, z0, z1, a0, a1, mat, n=96):
@@ -155,14 +155,21 @@ def arc_slab(name, r_in, r_out, z0, z1, a0, a1, mat, n=96):
 
 
 def build_desk(m):
-    a0, a1 = -DESK_SPAN, DESK_SPAN
     const = lambda r: (lambda a: r)  # noqa: E731
-    arc_slab("DeskTop", r_front, const(R_BACK), DESK_Z - DESK_T, DESK_Z, a0, a1, m["birch"])
-    # Dark body under the top, set back from the operator edge for knees
-    arc_slab("DeskBody", lambda a: r_front(a) + 0.45, const(R_BACK - 0.02), 0.0, DESK_Z - DESK_T,
-             a0 + 0.01, a1 - 0.01, m["desk_body"])
-    arc_slab("DeskShelf", const(SHELF_R0), const(R_BACK - 0.02), DESK_Z, DESK_Z + SHELF_H,
-             a0 + 0.01, a1 - 0.01, m["shelf"])
+    for k, c in enumerate(DESKS):
+        a0, a1 = c - DESK_HALF, c + DESK_HALF
+        arc_slab(f"Desk{k}Top", r_front, const(R_BACK), DESK_Z - DESK_T, DESK_Z, a0, a1, m["birch"])
+        arc_slab(f"Desk{k}Shelf", const(SHELF_R0), const(R_BACK - 0.02), DESK_Z, DESK_Z + SHELF_H,
+                 a0 + 0.01, a1 - 0.01, m["shelf"])
+        # Cable spine under the back edge, carried by two T-legs
+        arc_slab(f"Desk{k}Spine", const(R_BACK - 0.30), const(R_BACK - 0.10), 0.50, DESK_Z - DESK_T,
+                 a0 + 0.05, a1 - 0.05, m["desk_body"])
+        for s in (-1, 1):
+            a = c + s * LEG_ANGLE
+            r = R_BACK - 0.35
+            box(f"Desk{k}Leg{s:+d}", (0.12, 0.12, DESK_Z - DESK_T), polar(r, a, (DESK_Z - DESK_T) / 2), m["post"], rot_z=-a)
+            box(f"Desk{k}Foot{s:+d}", (0.08, 0.75, 0.04), polar(r - 0.05, a, 0.02), m["post"], rot_z=-a)
+            box(f"Desk{k}Arm{s:+d}", (0.08, 0.70, 0.04), polar(r - 0.10, a, DESK_Z - DESK_T - 0.02), m["post"], rot_z=-a)
 
 
 def monitor(name, pos, a, m, screen_mat):
@@ -187,12 +194,13 @@ def monitor(name, pos, a, m, screen_mat):
 
 
 def build_monitors(m):
-    arc = 2 * (DESK_SPAN - math.radians(3)) * MON_R
-    n = int(arc // MON_PITCH)
-    step = MON_PITCH / MON_R
-    for i in range(n):
-        a = (i - (n - 1) / 2) * step
-        monitor(f"Mon{i:02d}", polar(MON_R, a, MON_Z0 + MON_H / 2), a, m, m["screen"])
+    n = 0
+    for k, c in enumerate(DESKS):
+        for i in range(6):
+            s = (i - 2.5) * MON_PITCH + (MON_GAP / 2 if i >= 3 else -MON_GAP / 2)  # arc length from centre
+            a = c + s / MON_R
+            monitor(f"Desk{k}Mon{i}", polar(MON_R, a, MON_Z0 + MON_H / 2), a, m, m["screen"])
+            n += 1
     return n
 
 
@@ -215,7 +223,7 @@ def build_video_wall(m):
 
 def build_desk_props(m):
     """Per station: operator keyboard, mouse, phone, gooseneck PA mic, touch panel."""
-    for k, a in enumerate(STATIONS):
+    for k, a in enumerate(DESKS):
         def at(dr, da, z, size, mat, name, rz=0.0):
             p = polar(r_front(a) + dr, a + da, z)
             return box(f"S{k}{name}", size, p, mat, rot_z=-(a + da) + rz)
@@ -249,7 +257,7 @@ def chair(name, pos, facing, m):
 
 
 def build_chairs(m):
-    for k, a in enumerate(STATIONS):
+    for k, a in enumerate(DESKS):
         chair(f"Chair{k}", polar(r_front(a) - 0.35, a), a, m)
 
 
@@ -271,10 +279,14 @@ def build_shell(m):
         y = WIN_Y0 + (WIN_Y1 - WIN_Y0) * i / 4
         box(f"Mullion{i}", (0.08, 0.06, WIN_Z1 - WIN_Z0), (-X, y, (WIN_Z0 + WIN_Z1) / 2), m["frame"])
     box("Transom", (0.08, WIN_Y1 - WIN_Y0, 0.06), (-X, (WIN_Y0 + WIN_Y1) / 2, WIN_Z0), m["frame"])
-    # Recessed square LED panels in a ceiling grid
-    for ix in range(-4, 5):
-        for iy in range(-2, 4):
-            box(f"Led{ix}_{iy}", (0.58, 0.58, 0.01), (ix * 1.4, iy * 1.4, Z - 0.004), m["led_panel"])
+    # Recessed LED panels on the 0.6 m ceiling-tile grid, placed irregularly
+    # like the real room (they follow the ducts, not a pattern), plus two
+    # air-conditioning cassettes
+    for i, (gx, gy) in enumerate([(-7, -4), (-4, -5), (-1, -3), (3, -5), (6, -3), (-6, 0), (-2, 1), (2, -1),
+                                  (5, 1), (8, -1), (-5, 4), (0, 5), (4, 4), (7, 6), (-8, 6), (-2, 7)]):
+        box(f"Led{i}", (0.58, 0.58, 0.01), (gx * 0.6, gy * 0.6, Z - 0.004), m["led_panel"])
+    for i, (gx, gy) in enumerate([(-3, 3), (6, -6)]):
+        box(f"AirCassette{i}", (0.62, 0.62, 0.04), (gx * 0.6, gy * 0.6, Z - 0.02), m["post"])
 
 
 def build_meeting_corner(m):
@@ -320,8 +332,9 @@ def cameras():
         o.rotation_euler = (Vector(aim) - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
         bpy.context.collection.objects.link(o)
         return o
-    main = cam("Camera", (3.4, -1.5, 1.65), (-0.7, 2.9, 0.95), 20)
-    seat = cam("Operator", (0.0, 2.5, 1.22), (0.0, 4.0, 1.15), 16)
+    main = cam("Camera", (3.0, -2.6, 1.65), (-0.6, 2.2, 0.95), 20)
+    a = DESKS[1]
+    seat = cam("Operator", polar(r_front(a) - 0.30, a, 1.22), polar(WALL_R, a, 1.25), 16)
     window = cam("Window", (-1.6, 0.2, 1.45), (-5.4, 1.0, 1.45), 24)
     plan_d = bpy.data.cameras.new("Plan")
     plan_d.type = "ORTHO"
@@ -358,7 +371,7 @@ def main():
     build_shell(m)
     build_meeting_corner(m)
     build_outside(m)
-    print(f"{n_mon} desk monitors, {WALL_N} wall displays, {len(STATIONS)} stations", flush=True)
+    print(f"{len(DESKS)} desks, {n_mon} desk monitors, {WALL_N} wall displays", flush=True)
 
     world = bpy.data.worlds.new("Night")
     world.use_nodes = True

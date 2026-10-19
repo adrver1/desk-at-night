@@ -49,8 +49,9 @@ GPU, a full 1024² bake takes seconds instead of minutes, so you can afford
 .venv/bin/python blender/control_room.py --samples 8   # quick draft
 ```
 
-A second, separate scene: a control room with a long curved operator desk,
-a row of desk monitors and a band of large displays above them. It renders
+A second, separate scene: a control room with two curved operator desks on
+a shared semicircle, six monitors on each, and a band of large displays on
+posts a step behind them. It renders
 Cycles preview stills only (clay, night, operator view, window, plan) and
 does not bake light maps yet; that is a job for a GPU.
 
