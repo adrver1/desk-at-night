@@ -10,6 +10,8 @@ Outputs (web/public/scene/):
     albedo.png         surface color, no light (sRGB)
     light_ambient.png  irradiance from moon + sky only   (encoded, see meta)
     light_lamp.png     irradiance from the desk lamp only (encoded, see meta)
+    env_ambient.png    the room seen from the desk toy, moon + sky only, for
+    env_lamp.png       ... and lamp only: the chrome balls reflect these
     meta.json          decode scales for the light maps
     reference.png      (optional) full Cycles render, lamp on, for QA diffs
 
@@ -44,6 +46,7 @@ LAMP_POS = Vector((0.25, 1.62, 1.10))  # inside the shade, pointing down
 TOY_POS = Vector((0.20, 1.71, 0.75))
 TOY_YAW = math.radians(-20)
 TOY_BALLS, TOY_R = 5, 0.0125
+TOY_PITCH = 2 * TOY_R + 0.0003  # ball spacing: just not touching
 TOY_RAIL_Z, TOY_BALL_Z, TOY_HALF_Y = 0.15, 0.04, 0.04  # local, above the base top
 
 
@@ -52,6 +55,7 @@ def parse_args():
     p.add_argument("--res", type=int, default=1024, help="atlas resolution")
     p.add_argument("--samples", type=int, default=256, help="Cycles samples per light bake")
     p.add_argument("--reference", action="store_true", help="also render a Cycles reference still")
+    p.add_argument("--env-res", type=int, default=256, help="height of the reflection panoramas (width is 2x)")
     p.add_argument("--ref-samples", type=int, default=64, help="samples for the reference render (it is denoised)")
     p.add_argument("--device", choices=["auto", "cpu", "optix", "cuda", "metal", "hip"], default="auto",
                    help="Cycles device; auto tries OptiX, CUDA, Metal, HIP, then falls back to CPU")
@@ -268,7 +272,9 @@ def build_toy():
     balls; each one's origin is its pivot on the rail axis, so swinging is a
     rotation about the object's local Y."""
     walnut = mat_wood("ToyWalnut", (0.10, 0.05, 0.025), (0.22, 0.12, 0.06), scale=30.0)
-    steel = mat_metal("ToySteel", (0.62, 0.62, 0.64), 0.3)
+    # The frame is baked, and a bake stores diffuse light only: a true metal
+    # would come out black. A light grey dielectric reads as brushed steel.
+    steel = mat_flat("ToySteel", (0.55, 0.56, 0.58), 0.35)
     chrome = mat_metal("ToyChrome", (0.92, 0.92, 0.94), 0.06)
     thread = mat_flat("ToyThread", (0.85, 0.84, 0.80), 0.8)
 
@@ -291,35 +297,33 @@ def build_toy():
         put(rail)
 
     balls = []
-    pitch = 2 * TOY_R + 0.0003
-    ball_z = base_h + TOY_BALL_Z
+    pitch = TOY_PITCH
+    drop = TOY_RAIL_Z - TOY_BALL_Z  # pivot to ball centre
     for i in range(TOY_BALLS):
         x = (i - (TOY_BALLS - 1) / 2) * pitch
-        parts = []
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=TOY_R, segments=32, ring_count=16, location=(x, 0, ball_z))
-        bpy.ops.object.shade_smooth()
-        parts.append(_link(bpy.context.active_object, chrome))
-        hook = Vector((x, 0, ball_z + TOY_R * 0.95))
-        for py in (-TOY_HALF_Y, TOY_HALF_Y):
-            a, b = hook, Vector((x, py, top))
-            s_ = cylinder("thread", 0.0006, (b - a).length, (a + b) / 2, thread, verts=6)
-            s_.rotation_euler = (b - a).to_track_quat("Z", "Y").to_euler()
-            parts.append(s_)
-        bpy.ops.object.select_all(action="DESELECT")
-        for o in parts:
-            o.select_set(True)
-        bpy.context.view_layer.objects.active = parts[0]
-        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-        bpy.ops.object.join()
+        # Built around its pivot (the rail axis straight above it), so the
+        # object's origin is the pivot and a swing is one local-Y rotation.
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=TOY_R, segments=32, ring_count=16, location=(0, 0, -drop))
         ball = bpy.context.active_object
+        bpy.ops.object.transform_apply(location=True)
+        bpy.ops.object.shade_smooth()
         ball.name = f"Ball{i}"
-        # Pivot on the line between the two rails, straight above the ball
-        pivot = Vector((x, 0, top))
-        ball.data.transform(Matrix.Translation(-pivot))
-        ball.location = place @ pivot
+        _link(ball, chrome)
+        ball.location = place @ Vector((x, 0, base_h + TOY_RAIL_Z))
         ball.rotation_euler = (0, 0, TOY_YAW)
+        hook = Vector((0, 0, -drop + TOY_R * 0.95))
+        for j, py in enumerate((-TOY_HALF_Y, TOY_HALF_Y)):
+            end_ = Vector((0, py, 0))
+            t = cylinder(f"Ball{i}Thread{j}", 0.0006, (end_ - hook).length, (hook + end_) / 2, thread, verts=6)
+            t.rotation_euler = (end_ - hook).to_track_quat("Z", "Y").to_euler()
+            t.parent = ball  # identity parent inverse: location is in the ball's frame
         balls.append(ball)
     return balls
+
+
+def toy_parts(balls):
+    """The balls and their threads: everything that moves, so nothing to bake."""
+    return [o for b in balls for o in (b, *b.children)]
 
 
 def swing(balls, angles):
@@ -382,7 +386,7 @@ def texel_weight(name):
         return 0.08
     if name.startswith(("Wall", "Floor", "Reveal")):
         return 0.25
-    if name.startswith(("Desk", "Lamp", "Book", "Paper", "Mug")):
+    if name.startswith(("Desk", "Lamp", "Book", "Paper", "Mug", "Toy")):
         return 2.0
     return 1.0
 
@@ -422,8 +426,8 @@ def unwrap_weighted(objs):
         bm.free()
 
 
-def join_static(bulb):
-    meshes = [o for o in bpy.context.scene.objects if o.type == "MESH" and o is not bulb]
+def join_static(live):
+    meshes = [o for o in bpy.context.scene.objects if o.type == "MESH" and o not in live]
     unwrap_weighted(meshes)
     bpy.ops.object.select_all(action="DESELECT")
     for o in meshes:
@@ -457,6 +461,50 @@ def bake(room, image, pass_filter, label):
     bpy.ops.object.bake(type="DIFFUSE", pass_filter=pass_filter, use_clear=True,
                         margin=12, margin_type="EXTEND")
     print(f"  baked {label:8s} in {time.time() - t:5.1f}s", flush=True)
+
+
+def bake_env(label, samples, res):
+    """Render the room as seen from the middle of the cradle's swing into an
+    equirectangular HDR panorama. The chrome balls reflect it in the browser.
+    Linear radiance, no view transform. Mapping (Blender axes): the centre
+    column looks along +X, u = 0.5 - atan2(y, x) / 2pi, and the top row looks
+    straight up. web/src/shaders.js envUv() undoes it."""
+    scene = bpy.context.scene
+    cam_data = bpy.data.cameras.new("EnvCam")
+    cam_data.type = "PANO"
+    cam_data.panorama_type = "EQUIRECTANGULAR"
+    cam_data.clip_start = 0.001  # the toy's base is only centimetres away
+    cam = bpy.data.objects.new("EnvCam", cam_data)
+    cam.location = toy_env_center()
+    cam.rotation_euler = (math.pi / 2, 0, -math.pi / 2)  # look along +X, Z up
+    bpy.context.collection.objects.link(cam)
+    prev = (scene.camera, scene.render.resolution_x, scene.render.resolution_y, scene.cycles.samples,
+            scene.cycles.use_denoising, scene.view_settings.view_transform, scene.render.filepath,
+            scene.render.image_settings.file_format)
+    scene.camera = cam
+    scene.render.resolution_x, scene.render.resolution_y = 2 * res, res
+    scene.render.resolution_percentage = 100
+    scene.cycles.samples = samples
+    scene.cycles.use_denoising = True
+    scene.view_settings.view_transform = "Standard"
+    scene.render.image_settings.file_format = "OPEN_EXR"
+    scene.render.filepath = os.path.join(BUILD, f"env_{label}.exr")
+    t = time.time()
+    bpy.ops.render.render(write_still=True)
+    print(f"  env     {label:8s} in {time.time() - t:5.1f}s", flush=True)
+    img = bpy.data.images.load(scene.render.filepath, check_existing=False)
+    (scene.camera, scene.render.resolution_x, scene.render.resolution_y, scene.cycles.samples,
+     scene.cycles.use_denoising, scene.view_settings.view_transform, scene.render.filepath,
+     scene.render.image_settings.file_format) = prev
+    bpy.data.objects.remove(cam)
+    w, h = img.size
+    a = np.empty(w * h * 4, np.float32)
+    img.pixels.foreach_get(a)
+    return np.flipud(a.reshape(h, w, 4)[:, :, :3])
+
+
+def toy_env_center():
+    return TOY_POS + Vector((0, 0, 0.015 + TOY_BALL_Z + 0.01))
 
 
 def pixels(image):
@@ -552,12 +600,16 @@ def main():
 
     print("building scene", flush=True)
     bulb = build_room()
+    balls = build_toy()
+    live = [bulb, *toy_parts(balls)]
     sun, world, spot = build_lights()
     build_camera()
-    room = join_static(bulb)
+    room = join_static(live)
 
-    # The bulb would occlude the spot inside it, so hide it from the renderer.
-    bulb.hide_render = True
+    # The bulb would occlude the spot inside it, and the balls move, so none
+    # of them belong in the bake. The browser shades and shadows them live.
+    for o in live:
+        o.hide_render = True
     bg = world.node_tree.nodes["Background"].inputs["Strength"]
     res = args.res
     imgs = {k: bpy.data.images.new(k, res, res, float_buffer=True, alpha=False)
@@ -570,17 +622,24 @@ def main():
     scene.cycles.samples = args.samples
     spot.data.energy, energy_lamp = 0.0, spot.data.energy
     bake(room, imgs["ambient"], {"DIRECT", "INDIRECT"}, "ambient")
+    env_ambient = bake_env("ambient", args.samples, args.env_res)
 
     spot.data.energy = energy_lamp
     sun.data.energy, energy_sun = 0.0, sun.data.energy
     bg.default_value, bg_strength = 0.0, bg.default_value
     bake(room, imgs["lamp"], {"DIRECT", "INDIRECT"}, "lamp")
+    env_lamp = bake_env("lamp", args.samples, args.env_res)
 
     save_albedo(pixels(imgs["albedo"]), os.path.join(OUT, "albedo.png"))
     meta = {
         "scaleAmbient": save_light(pixels(denoise(imgs["ambient"])), os.path.join(OUT, "light_ambient.png")),
         "scaleLamp": save_light(pixels(denoise(imgs["lamp"])), os.path.join(OUT, "light_lamp.png")),
+        "scaleEnvAmbient": save_light(env_ambient, os.path.join(OUT, "env_ambient.png")),
+        "scaleEnvLamp": save_light(env_lamp, os.path.join(OUT, "env_lamp.png")),
         "encoding": "L = pow(texel, 3) * scale",
+        # glTF is Y-up: (x, y, z)_blender -> (x, z, -y)
+        "toy": {"radius": TOY_R, "drop": round(TOY_RAIL_Z - TOY_BALL_Z, 4), "pitch": TOY_PITCH,
+                "envCenter": [round(v, 4) for v in (toy_env_center().x, toy_env_center().z, -toy_env_center().y)]},
         "resolution": res,
         "samples": args.samples,
     }
@@ -591,7 +650,8 @@ def main():
     sun.data.energy, bg.default_value = energy_sun, bg_strength
 
     if args.reference:
-        bulb.hide_render = False
+        for o in live:
+            o.hide_render = False
         bulb.data.materials[0].node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = 20
         bulb.data.materials[0].node_tree.nodes["Principled BSDF"].inputs["Emission Color"].default_value = (1, 0.8, 0.55, 1)
         bulb.visible_shadow = False

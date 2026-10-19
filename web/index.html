@@ -16,7 +16,7 @@
   <header class="head">
     <p class="eyebrow">Baked lighting · Blender to WebGL</p>
     <h1>Desk at Night</h1>
-    <p class="lede">Every light in this room was path-traced offline in Blender's Cycles renderer and stored in textures. Your GPU only mixes them. Click the lamp to switch it.</p>
+    <p class="lede">Every light in this room was path-traced offline in Blender's Cycles renderer and stored in textures. Your GPU only mixes them. Click the lamp to switch it, or pull a ball of the desk toy.</p>
   </header>
 
   <section class="stage" id="stage">
@@ -28,7 +28,7 @@
       <span class="tag tag-r">Cycles, offline</span>
     </div>
     <p class="status" id="status">Loading scene…</p>
-    <p class="hint" id="hint">Drag to look around · scroll to move closer</p>
+    <p class="hint" id="hint">Drag to look around · scroll to move closer · pull a ball of the toy</p>
   </section>
 
   <section class="controls" aria-label="Scene controls">
@@ -53,12 +53,13 @@
       <button type="button" role="radio" data-mode="2" aria-checked="false">Moon bake</button>
       <button type="button" role="radio" data-mode="3" aria-checked="false">Lamp bake</button>
     </div>
+    <button id="swingBtn" class="ghost" type="button">Swing the cradle</button>
     <button id="compareBtn" class="ghost" type="button" aria-pressed="false">Compare with Cycles</button>
   </section>
 
   <section class="eq" aria-live="off">
     <code id="eq">pixel = albedo × ( 1.00 · E<sub>moon</sub> + 1.00 · E<sub>lamp</sub> )</code>
-    <p class="eq-note">The two E terms are baked irradiance maps. Light adds linearly, so the weights can change every frame for free. The lamp weight follows a first-order lag: τ = 90 ms heating, 250 ms cooling.</p>
+    <p class="eq-note">The two E terms are baked irradiance maps. Light adds linearly, so the weights can change every frame for free. The lamp weight follows a first-order lag: τ = 90 ms heating, 250 ms cooling. The desk toy moves, so it is the one thing not baked: its balls mirror two panoramas Cycles rendered from the toy, and they cast live shadows by taking their own light out of each E term.</p>
   </section>
 
   <section class="pipeline">

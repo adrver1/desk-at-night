@@ -183,6 +183,7 @@ input[type="range"] { width: 120px; accent-color: var(--tungsten); }
   background: transparent;
   font-size: 13px;
 }
+.ghost + .ghost { margin-left: 0; }
 .ghost[aria-pressed="true"] { border-color: var(--paper); }
 
 /* ---------------------------------------------------------- equation */
