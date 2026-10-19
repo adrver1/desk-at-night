@@ -42,6 +42,18 @@ which it chose. Force one with `--device cpu|optix|cuda|metal|hip`. On an RTX
 GPU, a full 1024² bake takes seconds instead of minutes, so you can afford
 `--res 2048 --samples 512`.
 
+## Control room blockout
+
+```bash
+.venv/bin/python blender/control_room.py               # stills in blender/build/control_room/
+.venv/bin/python blender/control_room.py --samples 8   # quick draft
+```
+
+A second, separate scene: a control room with a long curved operator desk,
+a row of desk monitors and a band of large displays above them. It renders
+Cycles preview stills only (clay, night, operator view, window, plan) and
+does not bake light maps yet; that is a job for a GPU.
+
 ## Run the viewer
 
 ```bash
