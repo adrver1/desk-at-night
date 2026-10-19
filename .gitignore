@@ -1,0 +1,7 @@
+.venv/
+node_modules/
+web/dist/
+web/qa/shots/
+blender/build/
+__pycache__/
+web/preview.html

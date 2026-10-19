@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Desk at Night</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+<main class="wrap">
+  <header class="head">
+    <p class="eyebrow">Baked lighting · Blender to WebGL</p>
+    <h1>Desk at Night</h1>
+    <p class="lede">Every light in this room was path-traced offline in Blender's Cycles renderer and stored in textures. Your GPU only mixes them. Click the lamp to switch it.</p>
+  </header>
+
+  <section class="stage" id="stage">
+    <canvas id="view" aria-label="3D view of a desk at night. Drag to look around."></canvas>
+    <div class="ref" id="ref" hidden>
+      <img id="refImg" alt="The same view rendered by Cycles">
+      <div class="handle" id="handle"></div>
+      <span class="tag tag-l">WebGL, live</span>
+      <span class="tag tag-r">Cycles, offline</span>
+    </div>
+    <p class="status" id="status">Loading scene…</p>
+    <p class="hint" id="hint">Drag to look around · scroll to move closer</p>
+  </section>
+
+  <section class="controls" aria-label="Scene controls">
+    <button id="lampBtn" class="switch" type="button" aria-pressed="true">
+      <span class="filament" aria-hidden="true"></span>
+      <span>Desk lamp</span>
+      <span class="switch-state" id="lampState">On</span>
+    </button>
+    <label class="slider" for="moon">
+      <span class="slider-label">Moonlight</span>
+      <input id="moon" type="range" min="0" max="3" step="0.01" value="1">
+      <output id="moonOut" for="moon">×1.00</output>
+    </label>
+    <label class="slider" for="exposure">
+      <span class="slider-label">Exposure</span>
+      <input id="exposure" type="range" min="-2" max="2" step="0.1" value="0">
+      <output id="expOut" for="exposure">+0.0 EV</output>
+    </label>
+    <div class="seg" role="radiogroup" aria-label="What to show">
+      <button type="button" role="radio" data-mode="0" aria-checked="true">Final</button>
+      <button type="button" role="radio" data-mode="1" aria-checked="false">Albedo</button>
+      <button type="button" role="radio" data-mode="2" aria-checked="false">Moon bake</button>
+      <button type="button" role="radio" data-mode="3" aria-checked="false">Lamp bake</button>
+    </div>
+    <button id="compareBtn" class="ghost" type="button" aria-pressed="false">Compare with Cycles</button>
+  </section>
+
+  <section class="eq" aria-live="off">
+    <code id="eq">pixel = albedo × ( 1.00 · E<sub>moon</sub> + 1.00 · E<sub>lamp</sub> )</code>
+    <p class="eq-note">The two E terms are baked irradiance maps. Light adds linearly, so the weights can change every frame for free. The lamp weight follows a first-order lag: τ = 90 ms heating, 250 ms cooling.</p>
+  </section>
+
+  <section class="pipeline">
+    <h2>How a frame is made</h2>
+    <ol class="steps">
+      <li>
+        <h3>Script the scene</h3>
+        <p>One Python file builds every mesh and procedural material through Blender's API. No hand-edited .blend files.</p>
+        <p class="fact"><span>Geometry</span> <b id="factGlb">…</b></p>
+      </li>
+      <li>
+        <h3>Bake the light</h3>
+        <p>Cycles path-traces the moon and the lamp separately into one shared atlas, then OpenImageDenoise cleans the grain.</p>
+        <p class="fact"><span>Atlas</span> <b id="factRes">…</b> <span>at</span> <b id="factSamples">…</b></p>
+      </li>
+      <li>
+        <h3>Mix in the browser</h3>
+        <p>Three.js draws the mesh with a small shader: three texture reads and a weighted sum per pixel, then AgX tone mapping.</p>
+        <p class="fact"><span>Textures</span> <b id="factMaps">…</b></p>
+      </li>
+    </ol>
+  </section>
+</main>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

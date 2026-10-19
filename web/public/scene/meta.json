@@ -1,0 +1,7 @@
+{
+  "scaleAmbient": 0.6657686829566956,
+  "scaleLamp": 13.182313919067383,
+  "encoding": "L = pow(texel, 3) * scale",
+  "resolution": 1024,
+  "samples": 128
+}
