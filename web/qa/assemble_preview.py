@@ -1,15 +1,21 @@
-"""Fold the Vite build (dist/) into one HTML file with inline JS and CSS, for
-hosts that only take a single page plus data files (like a Claude artifact).
+"""Fold the Vite build into one HTML file with inline JS and CSS, for hosts
+that only take a single page plus data files (like a Claude artifact).
 The scene files stay separate and are fetched from scene/ next to the page.
 
-    npm run build && python3 qa/assemble_preview.py
+Such hosts may also refuse binary .glb files and block data: URIs, so the
+model ships as base64 inside a JSON file and main.js decodes it.
+
+    VITE_MODEL=scene.glb.b64.json npx vite build --outDir dist-preview
+    python3 qa/assemble_preview.py
 """
+import base64
 import glob
+import json
 import os
 import re
 
 here = os.path.dirname(os.path.abspath(__file__))
-dist = os.path.join(here, "..", "dist")
+dist = os.path.join(here, "..", os.environ.get("DIST", "dist-preview"))
 html = open(os.path.join(dist, "index.html"), encoding="utf-8").read()
 
 js = "".join(open(p, encoding="utf-8").read() for p in glob.glob(os.path.join(dist, "assets", "*.js")))
@@ -20,33 +26,12 @@ body = re.search(r"<body>(.*?)</body>", html, re.S).group(1)
 title = re.search(r"<title>.*?</title>", head).group(0)
 fonts = re.search(r'<link rel="stylesheet" href="https://fonts[^>]+>', head).group(0)
 body = re.sub(r"<script[^>]*src=[^>]*></script>", "", body)
-
 js = js.replace("</script", "<\\/script")
 
+glb = open(os.path.join(dist, "scene", "scene.glb"), "rb").read()
+with open(os.path.join(dist, "scene", "scene.glb.b64.json"), "w") as f:
+    json.dump({"base64": base64.b64encode(glb).decode()}, f)
 
-def glb_to_gltf_json(src, dst):
-    """Some static hosts refuse .glb. glTF's JSON form with the binary chunk
-    embedded as a data URI holds the same scene, and GLTFLoader reads both."""
-    import base64, json, struct
-    data = open(src, "rb").read()
-    magic, _, _ = struct.unpack_from("<4sII", data, 0)
-    assert magic == b"glTF"
-    off, doc, binary = 12, None, b""
-    while off < len(data):
-        length, kind = struct.unpack_from("<I4s", data, off)
-        chunk = data[off + 8: off + 8 + length]
-        if kind == b"JSON":
-            doc = json.loads(chunk)
-        elif kind == b"BIN\x00":
-            binary = chunk
-        off += 8 + length
-    doc["buffers"][0]["uri"] = "data:application/octet-stream;base64," + base64.b64encode(binary).decode()
-    open(dst, "w").write(json.dumps(doc, separators=(",", ":")))
-
-
-if os.environ.get("GLTF_AS_JSON"):
-    glb_to_gltf_json(os.path.join(dist, "scene", "scene.glb"), os.path.join(dist, "scene", "scene.gltf.json"))
-    js = js.replace("scene.glb", "scene.gltf.json")
 page = f"""{title}
 <meta name="claude:viewport-fit-sides" content="cover">
 {fonts}

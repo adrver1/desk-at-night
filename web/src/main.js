@@ -55,9 +55,17 @@ let roomMaterial, bulbMaterial, glow, room, bulb;
 
 // --------------------------------------------------------------- loading
 
+// Hosts that refuse binary .glb files can serve the model as base64 in JSON
+// instead: build with VITE_MODEL=scene.glb.b64.json (see qa/assemble_preview.py).
+const MODEL = import.meta.env.VITE_MODEL || 'scene.glb';
+
 async function fetchBytes(name) {
   const res = await fetch(SCENE + name);
   if (!res.ok) throw new Error(`Could not load ${name} (HTTP ${res.status}). Run the Blender build first.`);
+  if (name.endsWith('.b64.json')) {
+    const { base64 } = await res.json();
+    return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)).buffer;
+  }
   return res.arrayBuffer();
 }
 
@@ -91,7 +99,7 @@ function glowSprite() {
 async function load() {
   const [meta, glbBuf, albedoBuf, moonBuf, lampBuf] = await Promise.all([
     fetch(SCENE + 'meta.json').then((r) => { if (!r.ok) throw new Error('Could not load meta.json. Run the Blender build first.'); return r.json(); }),
-    fetchBytes('scene.glb'), fetchBytes('albedo.png'), fetchBytes('light_ambient.png'), fetchBytes('light_lamp.png'),
+    fetchBytes(MODEL), fetchBytes('albedo.png'), fetchBytes('light_ambient.png'), fetchBytes('light_lamp.png'),
   ]);
   const [albedo, lightMoon, lightLamp] = await Promise.all([
     textureFrom(albedoBuf, true), textureFrom(moonBuf, false), textureFrom(lampBuf, false),
