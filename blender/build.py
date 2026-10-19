@@ -26,7 +26,7 @@ import time
 import bpy  # must come first: it makes bmesh and mathutils importable
 import bmesh
 import numpy as np
-from mathutils import Vector
+from mathutils import Matrix, Vector
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -38,6 +38,13 @@ RX, RY, RZ = 2.0, 2.0, 2.6
 WIN_X, WIN_Z0, WIN_Z1, WALL_T = 0.55, 1.0, 1.95, 0.15
 
 LAMP_POS = Vector((0.25, 1.62, 1.10))  # inside the shade, pointing down
+
+# Newton's cradle on the desk, under the lamp. Its frame is baked with the
+# room; the balls swing, so they stay separate and the browser lights them.
+TOY_POS = Vector((0.20, 1.71, 0.75))
+TOY_YAW = math.radians(-20)
+TOY_BALLS, TOY_R = 5, 0.0125
+TOY_RAIL_Z, TOY_BALL_Z, TOY_HALF_Y = 0.15, 0.04, 0.04  # local, above the base top
 
 
 def parse_args():
@@ -65,6 +72,14 @@ def _new_mat(name):
 def mat_flat(name, color, rough=0.6):
     m, _, bsdf = _new_mat(name)
     bsdf.inputs["Base Color"].default_value = (*color, 1)
+    bsdf.inputs["Roughness"].default_value = rough
+    return m
+
+
+def mat_metal(name, color, rough=0.2):
+    m, _, bsdf = _new_mat(name)
+    bsdf.inputs["Base Color"].default_value = (*color, 1)
+    bsdf.inputs["Metallic"].default_value = 1.0
     bsdf.inputs["Roughness"].default_value = rough
     return m
 
@@ -245,6 +260,72 @@ def build_room():
     _link(bulb, mat_flat("BulbMat", (1, 0.9, 0.7)))
     bpy.ops.object.shade_smooth()
     return bulb
+
+
+def build_toy():
+    """Newton's cradle: a walnut base, four steel posts, two rails, and five
+    chrome balls, each hung from both rails by a V of thread. Returns the
+    balls; each one's origin is its pivot on the rail axis, so swinging is a
+    rotation about the object's local Y."""
+    walnut = mat_wood("ToyWalnut", (0.10, 0.05, 0.025), (0.22, 0.12, 0.06), scale=30.0)
+    steel = mat_metal("ToySteel", (0.62, 0.62, 0.64), 0.3)
+    chrome = mat_metal("ToyChrome", (0.92, 0.92, 0.94), 0.06)
+    thread = mat_flat("ToyThread", (0.85, 0.84, 0.80), 0.8)
+
+    place = Matrix.Translation(TOY_POS) @ Matrix.Rotation(TOY_YAW, 4, "Z")
+    base_h, half_x = 0.015, 0.085
+
+    def put(o):
+        bpy.context.view_layer.update()  # matrix_world lags behind rotation_euler
+        o.matrix_world = place @ o.matrix_world
+        return o
+
+    put(box("ToyBase", (0.20, 0.11, base_h), (0, 0, base_h / 2), walnut))
+    top = base_h + TOY_RAIL_Z
+    for i, (px, py) in enumerate([(-half_x, -TOY_HALF_Y), (half_x, -TOY_HALF_Y),
+                                  (-half_x, TOY_HALF_Y), (half_x, TOY_HALF_Y)]):
+        put(cylinder(f"ToyPost{i}", 0.0028, TOY_RAIL_Z, (px, py, base_h + TOY_RAIL_Z / 2), steel, verts=12))
+    for i, py in enumerate((-TOY_HALF_Y, TOY_HALF_Y)):
+        rail = cylinder(f"ToyRail{i}", 0.0028, 2 * half_x, (0, py, top), steel, verts=12)
+        rail.rotation_euler = (0, math.pi / 2, 0)
+        put(rail)
+
+    balls = []
+    pitch = 2 * TOY_R + 0.0003
+    ball_z = base_h + TOY_BALL_Z
+    for i in range(TOY_BALLS):
+        x = (i - (TOY_BALLS - 1) / 2) * pitch
+        parts = []
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=TOY_R, segments=32, ring_count=16, location=(x, 0, ball_z))
+        bpy.ops.object.shade_smooth()
+        parts.append(_link(bpy.context.active_object, chrome))
+        hook = Vector((x, 0, ball_z + TOY_R * 0.95))
+        for py in (-TOY_HALF_Y, TOY_HALF_Y):
+            a, b = hook, Vector((x, py, top))
+            s_ = cylinder("thread", 0.0006, (b - a).length, (a + b) / 2, thread, verts=6)
+            s_.rotation_euler = (b - a).to_track_quat("Z", "Y").to_euler()
+            parts.append(s_)
+        bpy.ops.object.select_all(action="DESELECT")
+        for o in parts:
+            o.select_set(True)
+        bpy.context.view_layer.objects.active = parts[0]
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        bpy.ops.object.join()
+        ball = bpy.context.active_object
+        ball.name = f"Ball{i}"
+        # Pivot on the line between the two rails, straight above the ball
+        pivot = Vector((x, 0, top))
+        ball.data.transform(Matrix.Translation(-pivot))
+        ball.location = place @ pivot
+        ball.rotation_euler = (0, 0, TOY_YAW)
+        balls.append(ball)
+    return balls
+
+
+def swing(balls, angles):
+    """Pose the cradle: one angle (radians) per ball, positive swings toward +X."""
+    for ball, a in zip(balls, angles):
+        ball.rotation_euler = (0, -a, TOY_YAW)
 
 
 def build_lights():
