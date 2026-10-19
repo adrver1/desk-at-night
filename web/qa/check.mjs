@@ -37,6 +37,8 @@ await shot('albedo');
 await page.click('[data-mode="3"]');
 await shot('lamp-bake');
 await page.click('[data-mode="0"]');
+await page.click('#swingBtn');
+await shot('toy-swing');
 await page.screenshot({ path: `${out}page.png`, fullPage: true });
 
 await page.setViewportSize({ width: 400, height: 900 });

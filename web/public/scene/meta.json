@@ -1,7 +1,19 @@
 {
-  "scaleAmbient": 0.6657686829566956,
-  "scaleLamp": 13.182313919067383,
+  "scaleAmbient": 0.6635904312133789,
+  "scaleLamp": 22.555482864379883,
+  "scaleEnvAmbient": 0.3501473069190979,
+  "scaleEnvLamp": 8.1171875,
   "encoding": "L = pow(texel, 3) * scale",
+  "toy": {
+    "radius": 0.0125,
+    "drop": 0.11,
+    "pitch": 0.025300000000000003,
+    "envCenter": [
+      0.2,
+      0.815,
+      -1.71
+    ]
+  },
   "resolution": 1024,
   "samples": 128
 }

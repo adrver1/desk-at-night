@@ -10,6 +10,8 @@ Outputs (web/public/scene/):
     albedo.png         surface color, no light (sRGB)
     light_ambient.png  irradiance from moon + sky only   (encoded, see meta)
     light_lamp.png     irradiance from the desk lamp only (encoded, see meta)
+    env_ambient.png    the room seen from the desk toy, moon + sky only, for
+    env_lamp.png       ... and lamp only: the chrome balls reflect these
     meta.json          decode scales for the light maps
     reference.png      (optional) full Cycles render, lamp on, for QA diffs
 
@@ -26,7 +28,7 @@ import time
 import bpy  # must come first: it makes bmesh and mathutils importable
 import bmesh
 import numpy as np
-from mathutils import Vector
+from mathutils import Matrix, Vector
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -39,12 +41,21 @@ WIN_X, WIN_Z0, WIN_Z1, WALL_T = 0.55, 1.0, 1.95, 0.15
 
 LAMP_POS = Vector((0.25, 1.62, 1.10))  # inside the shade, pointing down
 
+# Newton's cradle on the desk, under the lamp. Its frame is baked with the
+# room; the balls swing, so they stay separate and the browser lights them.
+TOY_POS = Vector((0.20, 1.71, 0.75))
+TOY_YAW = math.radians(-20)
+TOY_BALLS, TOY_R = 5, 0.0125
+TOY_PITCH = 2 * TOY_R + 0.0003  # ball spacing: just not touching
+TOY_RAIL_Z, TOY_BALL_Z, TOY_HALF_Y = 0.15, 0.04, 0.04  # local, above the base top
+
 
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--res", type=int, default=1024, help="atlas resolution")
     p.add_argument("--samples", type=int, default=256, help="Cycles samples per light bake")
     p.add_argument("--reference", action="store_true", help="also render a Cycles reference still")
+    p.add_argument("--env-res", type=int, default=256, help="height of the reflection panoramas (width is 2x)")
     p.add_argument("--ref-samples", type=int, default=64, help="samples for the reference render (it is denoised)")
     p.add_argument("--device", choices=["auto", "cpu", "optix", "cuda", "metal", "hip"], default="auto",
                    help="Cycles device; auto tries OptiX, CUDA, Metal, HIP, then falls back to CPU")
@@ -65,6 +76,14 @@ def _new_mat(name):
 def mat_flat(name, color, rough=0.6):
     m, _, bsdf = _new_mat(name)
     bsdf.inputs["Base Color"].default_value = (*color, 1)
+    bsdf.inputs["Roughness"].default_value = rough
+    return m
+
+
+def mat_metal(name, color, rough=0.2):
+    m, _, bsdf = _new_mat(name)
+    bsdf.inputs["Base Color"].default_value = (*color, 1)
+    bsdf.inputs["Metallic"].default_value = 1.0
     bsdf.inputs["Roughness"].default_value = rough
     return m
 
@@ -247,6 +266,72 @@ def build_room():
     return bulb
 
 
+def build_toy():
+    """Newton's cradle: a walnut base, four steel posts, two rails, and five
+    chrome balls, each hung from both rails by a V of thread. Returns the
+    balls; each one's origin is its pivot on the rail axis, so swinging is a
+    rotation about the object's local Y."""
+    walnut = mat_wood("ToyWalnut", (0.10, 0.05, 0.025), (0.22, 0.12, 0.06), scale=30.0)
+    # The frame is baked, and a bake stores diffuse light only: a true metal
+    # would come out black. A light grey dielectric reads as brushed steel.
+    steel = mat_flat("ToySteel", (0.55, 0.56, 0.58), 0.35)
+    chrome = mat_metal("ToyChrome", (0.92, 0.92, 0.94), 0.06)
+    thread = mat_flat("ToyThread", (0.85, 0.84, 0.80), 0.8)
+
+    place = Matrix.Translation(TOY_POS) @ Matrix.Rotation(TOY_YAW, 4, "Z")
+    base_h, half_x = 0.015, 0.085
+
+    def put(o):
+        bpy.context.view_layer.update()  # matrix_world lags behind rotation_euler
+        o.matrix_world = place @ o.matrix_world
+        return o
+
+    put(box("ToyBase", (0.20, 0.11, base_h), (0, 0, base_h / 2), walnut))
+    top = base_h + TOY_RAIL_Z
+    for i, (px, py) in enumerate([(-half_x, -TOY_HALF_Y), (half_x, -TOY_HALF_Y),
+                                  (-half_x, TOY_HALF_Y), (half_x, TOY_HALF_Y)]):
+        put(cylinder(f"ToyPost{i}", 0.0028, TOY_RAIL_Z, (px, py, base_h + TOY_RAIL_Z / 2), steel, verts=12))
+    for i, py in enumerate((-TOY_HALF_Y, TOY_HALF_Y)):
+        rail = cylinder(f"ToyRail{i}", 0.0028, 2 * half_x, (0, py, top), steel, verts=12)
+        rail.rotation_euler = (0, math.pi / 2, 0)
+        put(rail)
+
+    balls = []
+    pitch = TOY_PITCH
+    drop = TOY_RAIL_Z - TOY_BALL_Z  # pivot to ball centre
+    for i in range(TOY_BALLS):
+        x = (i - (TOY_BALLS - 1) / 2) * pitch
+        # Built around its pivot (the rail axis straight above it), so the
+        # object's origin is the pivot and a swing is one local-Y rotation.
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=TOY_R, segments=32, ring_count=16, location=(0, 0, -drop))
+        ball = bpy.context.active_object
+        bpy.ops.object.transform_apply(location=True)
+        bpy.ops.object.shade_smooth()
+        ball.name = f"Ball{i}"
+        _link(ball, chrome)
+        ball.location = place @ Vector((x, 0, base_h + TOY_RAIL_Z))
+        ball.rotation_euler = (0, 0, TOY_YAW)
+        hook = Vector((0, 0, -drop + TOY_R * 0.95))
+        for j, py in enumerate((-TOY_HALF_Y, TOY_HALF_Y)):
+            end_ = Vector((0, py, 0))
+            t = cylinder(f"Ball{i}Thread{j}", 0.0006, (end_ - hook).length, (hook + end_) / 2, thread, verts=6)
+            t.rotation_euler = (end_ - hook).to_track_quat("Z", "Y").to_euler()
+            t.parent = ball  # identity parent inverse: location is in the ball's frame
+        balls.append(ball)
+    return balls
+
+
+def toy_parts(balls):
+    """The balls and their threads: everything that moves, so nothing to bake."""
+    return [o for b in balls for o in (b, *b.children)]
+
+
+def swing(balls, angles):
+    """Pose the cradle: one angle (radians) per ball, positive swings toward +X."""
+    for ball, a in zip(balls, angles):
+        ball.rotation_euler = (0, -a, TOY_YAW)
+
+
 def build_lights():
     # Moon: a low, cool sun shining in through the window
     d = Vector((0.25, -1.0, -0.75)).normalized()
@@ -301,7 +386,7 @@ def texel_weight(name):
         return 0.08
     if name.startswith(("Wall", "Floor", "Reveal")):
         return 0.25
-    if name.startswith(("Desk", "Lamp", "Book", "Paper", "Mug")):
+    if name.startswith(("Desk", "Lamp", "Book", "Paper", "Mug", "Toy")):
         return 2.0
     return 1.0
 
@@ -341,8 +426,8 @@ def unwrap_weighted(objs):
         bm.free()
 
 
-def join_static(bulb):
-    meshes = [o for o in bpy.context.scene.objects if o.type == "MESH" and o is not bulb]
+def join_static(live):
+    meshes = [o for o in bpy.context.scene.objects if o.type == "MESH" and o not in live]
     unwrap_weighted(meshes)
     bpy.ops.object.select_all(action="DESELECT")
     for o in meshes:
@@ -376,6 +461,50 @@ def bake(room, image, pass_filter, label):
     bpy.ops.object.bake(type="DIFFUSE", pass_filter=pass_filter, use_clear=True,
                         margin=12, margin_type="EXTEND")
     print(f"  baked {label:8s} in {time.time() - t:5.1f}s", flush=True)
+
+
+def bake_env(label, samples, res):
+    """Render the room as seen from the middle of the cradle's swing into an
+    equirectangular HDR panorama. The chrome balls reflect it in the browser.
+    Linear radiance, no view transform. Mapping (Blender axes): the centre
+    column looks along +X, u = 0.5 - atan2(y, x) / 2pi, and the top row looks
+    straight up. web/src/shaders.js envUv() undoes it."""
+    scene = bpy.context.scene
+    cam_data = bpy.data.cameras.new("EnvCam")
+    cam_data.type = "PANO"
+    cam_data.panorama_type = "EQUIRECTANGULAR"
+    cam_data.clip_start = 0.001  # the toy's base is only centimetres away
+    cam = bpy.data.objects.new("EnvCam", cam_data)
+    cam.location = toy_env_center()
+    cam.rotation_euler = (math.pi / 2, 0, -math.pi / 2)  # look along +X, Z up
+    bpy.context.collection.objects.link(cam)
+    prev = (scene.camera, scene.render.resolution_x, scene.render.resolution_y, scene.cycles.samples,
+            scene.cycles.use_denoising, scene.view_settings.view_transform, scene.render.filepath,
+            scene.render.image_settings.file_format)
+    scene.camera = cam
+    scene.render.resolution_x, scene.render.resolution_y = 2 * res, res
+    scene.render.resolution_percentage = 100
+    scene.cycles.samples = samples
+    scene.cycles.use_denoising = True
+    scene.view_settings.view_transform = "Standard"
+    scene.render.image_settings.file_format = "OPEN_EXR"
+    scene.render.filepath = os.path.join(BUILD, f"env_{label}.exr")
+    t = time.time()
+    bpy.ops.render.render(write_still=True)
+    print(f"  env     {label:8s} in {time.time() - t:5.1f}s", flush=True)
+    img = bpy.data.images.load(scene.render.filepath, check_existing=False)
+    (scene.camera, scene.render.resolution_x, scene.render.resolution_y, scene.cycles.samples,
+     scene.cycles.use_denoising, scene.view_settings.view_transform, scene.render.filepath,
+     scene.render.image_settings.file_format) = prev
+    bpy.data.objects.remove(cam)
+    w, h = img.size
+    a = np.empty(w * h * 4, np.float32)
+    img.pixels.foreach_get(a)
+    return np.flipud(a.reshape(h, w, 4)[:, :, :3])
+
+
+def toy_env_center():
+    return TOY_POS + Vector((0, 0, 0.015 + TOY_BALL_Z + 0.01))
 
 
 def pixels(image):
@@ -471,12 +600,16 @@ def main():
 
     print("building scene", flush=True)
     bulb = build_room()
+    balls = build_toy()
+    live = [bulb, *toy_parts(balls)]
     sun, world, spot = build_lights()
     build_camera()
-    room = join_static(bulb)
+    room = join_static(live)
 
-    # The bulb would occlude the spot inside it, so hide it from the renderer.
-    bulb.hide_render = True
+    # The bulb would occlude the spot inside it, and the balls move, so none
+    # of them belong in the bake. The browser shades and shadows them live.
+    for o in live:
+        o.hide_render = True
     bg = world.node_tree.nodes["Background"].inputs["Strength"]
     res = args.res
     imgs = {k: bpy.data.images.new(k, res, res, float_buffer=True, alpha=False)
@@ -489,17 +622,24 @@ def main():
     scene.cycles.samples = args.samples
     spot.data.energy, energy_lamp = 0.0, spot.data.energy
     bake(room, imgs["ambient"], {"DIRECT", "INDIRECT"}, "ambient")
+    env_ambient = bake_env("ambient", args.samples, args.env_res)
 
     spot.data.energy = energy_lamp
     sun.data.energy, energy_sun = 0.0, sun.data.energy
     bg.default_value, bg_strength = 0.0, bg.default_value
     bake(room, imgs["lamp"], {"DIRECT", "INDIRECT"}, "lamp")
+    env_lamp = bake_env("lamp", args.samples, args.env_res)
 
     save_albedo(pixels(imgs["albedo"]), os.path.join(OUT, "albedo.png"))
     meta = {
         "scaleAmbient": save_light(pixels(denoise(imgs["ambient"])), os.path.join(OUT, "light_ambient.png")),
         "scaleLamp": save_light(pixels(denoise(imgs["lamp"])), os.path.join(OUT, "light_lamp.png")),
+        "scaleEnvAmbient": save_light(env_ambient, os.path.join(OUT, "env_ambient.png")),
+        "scaleEnvLamp": save_light(env_lamp, os.path.join(OUT, "env_lamp.png")),
         "encoding": "L = pow(texel, 3) * scale",
+        # glTF is Y-up: (x, y, z)_blender -> (x, z, -y)
+        "toy": {"radius": TOY_R, "drop": round(TOY_RAIL_Z - TOY_BALL_Z, 4), "pitch": TOY_PITCH,
+                "envCenter": [round(v, 4) for v in (toy_env_center().x, toy_env_center().z, -toy_env_center().y)]},
         "resolution": res,
         "samples": args.samples,
     }
@@ -510,7 +650,8 @@ def main():
     sun.data.energy, bg.default_value = energy_sun, bg_strength
 
     if args.reference:
-        bulb.hide_render = False
+        for o in live:
+            o.hide_render = False
         bulb.data.materials[0].node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = 20
         bulb.data.materials[0].node_tree.nodes["Principled BSDF"].inputs["Emission Color"].default_value = (1, 0.8, 0.55, 1)
         bulb.visible_shadow = False

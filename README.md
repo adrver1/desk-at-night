@@ -77,8 +77,23 @@ npm run qa         # screenshots in qa/shots/, error check, pixel diff
    pixel = albedo × (w_moon · E_moon + w_lamp · E_lamp)
    ```
 
-   Switching the lamp is just animating `w_lamp`. Objects that move would
-   need live lighting instead (the bulb here is the only one).
+   Switching the lamp is just animating `w_lamp`.
+
+4. Things that move can't be baked, so the Newton's cradle on the desk mixes
+   in cheap live tricks. Its frame is baked like everything else; its balls
+   are left out of the bake and
+
+   - mirror two small panoramas Cycles renders from the middle of the toy
+     (moon only and lamp only, mixed with the same weights), plus a live
+     highlight for the bulb;
+   - cast live shadows: each light renders a depth map of the balls alone,
+     and the room shader scales that light's `E` term down where a ball
+     blocks it;
+   - swing with a small pendulum simulation (`web/src/cradle.js`). Drag a
+     ball, or press "Swing the cradle".
+
+   What this misses is light bouncing off the balls onto the room, which is
+   too faint to notice here.
 
 Light maps are stored as `(L / scale)^(1/3)` in 8-bit PNGs, which puts more
 precision in the shadows than a linear encoding. The scales are in
