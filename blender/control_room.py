@@ -274,6 +274,21 @@ def build_desk_props(m):
         props.place(props.make_touchpanel(pm, f"S{k}TouchPanel"), p.x, p.y, DESK_Z, -a - 0.2 * flip)
 
 
+# Hanging ceiling microphones for room audio: (radius or None, angle or x, y, drop)
+CEILING_MICS = [
+    # above each operator, a little to either side of the chair
+    *[(2.35, d + s * 0.22, None, 0.55) for d in DESKS for s in (-1, 1)],
+    (None, 2.6, -2.6, 0.70),  # over the meeting table
+]
+
+
+def build_ceiling_mics(m):
+    pm = props.materials()
+    for i, (r, a, y, drop) in enumerate(CEILING_MICS):
+        p = polar(r, a) if r is not None else Vector((a, y, 0))
+        props.place(props.make_ceiling_mic(pm, f"CeilingMic{i}", drop), p.x, p.y, ROOM_Z)
+
+
 # ------------------------------------------------------------------- chairs
 
 def build_chairs(m):
@@ -432,6 +447,7 @@ def main():
     build_shell(m)
     build_meeting_corner(m)
     build_boards(m)
+    build_ceiling_mics(m)
     build_outside(m)
     print(f"{len(DESKS)} desks, {n_mon} desk monitors, {WALL_N} wall displays", flush=True)
 

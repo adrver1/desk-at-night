@@ -1,6 +1,6 @@
 """Close-up Cycles stills of the control room's newer assets, in the room,
 before anything is baked: desk phone, rear TV with its PTZ camera, the
-whiteboards, and the meeting table.
+whiteboards, the meeting table and the hanging ceiling microphones.
 
     python blender/preview_room_assets.py [--samples 64] [--out blender/build/room_assets]
 """
@@ -41,6 +41,7 @@ cr.build_chairs(m)
 cr.build_shell(m)
 cr.build_meeting_corner(m)
 cr.build_boards(m)
+cr.build_ceiling_mics(m)
 cr.build_outside(m)
 world = bpy.data.worlds.new("Night")
 world.use_nodes = True
@@ -68,7 +69,10 @@ phone = edge - right * 0.80 + ahead * 0.30 + Vector((0, 0, cr.DESK_Z + 0.05))
 a_tv = cr.TV_A
 tv = cr.polar(cr.WALL_R, a_tv, cr.TV_TOP - cr.TV_H / 2)
 
+mic = cr.polar(2.35, a0 + 0.22, cr.ROOM_Z - 0.58)
 shots = {  # name: (location, aim, lens, width, height)
+    "mic-close": (mic + Vector((0, 0, -0.10)) - ahead * 0.35 + right * 0.1, mic + Vector((0, 0, 0.12)), 45, 2, 3),
+    "mics-from-floor": (Vector((0.4, -1.6, 1.5)), cr.polar(2.35, 0, 2.5), 22, 16, 9),
     "phone": (phone - ahead * 0.38 + right * 0.12 + Vector((0, 0, 0.22)), phone, 45, 3, 2),
     "tv-camera": (cr.polar(1.6, a_tv + 0.15, 1.55), tv + Vector((0, 0, 0.15)), 30, 3, 2),
     "tv-from-seat": (cr.polar(cr.r_front(a0) - 0.30, a0, 1.22), tv, 18, 16, 9),

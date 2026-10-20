@@ -139,6 +139,7 @@ def main():
     cr.build_shell(m)
     cr.build_meeting_corner(m)
     cr.build_boards(m)
+    cr.build_ceiling_mics(m)
     cr.build_outside(m)
     world = bpy.data.worlds.new("Night")
     world.use_nodes = True

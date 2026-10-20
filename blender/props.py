@@ -599,6 +599,19 @@ def board_material(name, path, size):
     return mt
 
 
+def make_ceiling_mic(m, name="CeilingMic", drop=0.55):
+    """Hanging ceiling microphone for room audio: a small white ceiling
+    rose, a thin white cord, and a slim capsule at the end with a dark
+    grille pointing down. The origin is on the ceiling; it hangs below."""
+    c = Builder(name)
+    c.cyl(0.022, 0.018, 0.012, Vector((0, 0, -0.006)), m["ceramic"], segs=16)  # ceiling rose
+    c.cyl(0.0018, 0.0018, drop, Vector((0, 0, -drop / 2)), m["ceramic"], segs=6)  # cord
+    c.cyl(0.004, 0.0075, 0.012, Vector((0, 0, -drop - 0.006)), m["ceramic"], segs=12)  # strain relief
+    c.cyl(0.0075, 0.0075, 0.045, Vector((0, 0, -drop - 0.0345)), m["ceramic"], segs=16)  # capsule
+    c.cyl(0.0072, 0.0065, 0.006, Vector((0, 0, -drop - 0.060)), m["grille"], segs=16)   # grille
+    return c.done(smooth=True)
+
+
 ALL = [make_keyboard, make_mouse, make_mousepad, make_mug, make_mic, make_notepad, make_pencil,
        make_chair, make_videobar, make_touchpanel, make_lightpanel, make_deskphone, make_ptz_camera,
-       make_ceiling_tv, make_whiteboard]
+       make_ceiling_tv, make_whiteboard, make_ceiling_mic]
