@@ -447,5 +447,29 @@ def make_videobar(m, name="VideoBar"):
     return v.done()
 
 
+
+def make_touchpanel(m, name="TouchPanel"):
+    """Desk touch panel for the room systems (lights, blinds, PA): a glass
+    screen on a wedge stand, leaning back toward the operator at -Y."""
+    t = Builder(name)
+    lean = _rot(x=math.radians(-50))  # top falls away from the operator
+    c = Vector((0, 0.02, 0.06))
+    t.box((0.12, 0.08, 0.012), Vector((0, 0.03, 0.006)), m["black"])
+    t.rbox((0.21, 0.014, 0.14), c, m["black"], 0.006, orient=lean)
+    t.box((0.19, 0.002, 0.12), c + lean @ Vector((0, -0.0075, 0)), m["lens"], orient=lean)
+    return t.done()
+
+
+def make_lightpanel(m, name="LightPanel"):
+    """Wall keypad for the ceiling lights: an off-white plate with three
+    buttons (full, night, off). Its face points -Y; the origin is at the
+    middle of the plate's back."""
+    w = Builder(name)
+    w.rbox((0.09, 0.012, 0.15), Vector((0, -0.006, 0)), m["ceramic"], 0.004)
+    for i, z in enumerate((0.04, 0.0, -0.04)):
+        w.rbox((0.06, 0.006, 0.03), Vector((0, -0.014, z)), m["key_grey"], 0.003)
+    return w.done()
+
+
 ALL = [make_keyboard, make_mouse, make_mousepad, make_mug, make_mic, make_notepad, make_pencil,
-       make_chair, make_videobar]
+       make_chair, make_videobar, make_touchpanel, make_lightpanel]

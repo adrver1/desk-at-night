@@ -39,6 +39,22 @@
   .go { justify-self: start; font: 600 15px/1 var(--body); color: var(--night); background: var(--paper);
     border: 0; border-radius: 999px; padding: 12px 22px; cursor: pointer; }
   .go:disabled { opacity: 0.5; cursor: progress; }
+  .tp { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: #0006; }
+  .tp[hidden] { display: none; }
+  .tp-screen { width: min(100%, 420px); display: grid; gap: 18px; padding: 18px 20px 22px; border-radius: 18px;
+    background: var(--panel); border: 10px solid #05070c; box-shadow: 0 20px 60px #000a; color: var(--paper); }
+  .tp-head { display: flex; justify-content: space-between; align-items: center; font: 500 11px/1 var(--mono);
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+  .tp-close { font: 600 13px/1 var(--body); color: var(--paper); background: var(--line); border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+  .tp-row { display: grid; gap: 10px; }
+  .tp-row h2 { margin: 0; font: 600 16px/1.2 var(--body); }
+  .tp-row .slider { display: flex; }
+  .tp-row .slider input { flex: 1; min-width: 0; }
+  .tp-temp { display: flex; align-items: center; gap: 16px; font: 500 15px/1 var(--body); color: var(--dim); }
+  .tp-temp b { font: 600 34px/1 var(--display); color: var(--paper); }
+  .tp-temp button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: transparent;
+    color: var(--paper); font: 500 22px/1 var(--body); cursor: pointer; }
+  .tp-note { margin: 0; font-size: 13px; color: var(--dim); }
   .touch { display: none; }
   .coarse .touch { display: block; }
   .coarse .keys, .coarse .crosshair { display: none; }
@@ -57,29 +73,57 @@
   <div class="crosshair" id="crosshair"></div>
   <p class="prompt" id="prompt"></p>
   <p class="toast" id="toast"></p>
-  <p class="corner"><a href="./control.html">← Lighting viewer</a><br><span id="lightsHint">L · ceiling lights</span></p>
+  <p class="corner"><a href="./control.html">← Lighting viewer</a><br><span id="summary"></span></p>
 
   <div class="touch" aria-hidden="true">
     <div class="stick" id="stick"><i></i></div>
     <div class="buttons">
       <button type="button" id="spinBtn" hidden>Spin</button>
       <button type="button" id="useBtn" hidden>Use</button>
-      <button type="button" id="lightsBtn">Lights</button>
     </div>
+  </div>
+
+  <div class="tp" id="tp" hidden>
+    <section class="tp-screen" role="dialog" aria-label="Room control panel">
+      <header class="tp-head"><span>Room control</span><button type="button" class="tp-close" id="tpClose">Close</button></header>
+      <div class="tp-row">
+        <h2>Lights</h2>
+        <div class="seg" role="radiogroup" aria-label="Light scene">
+          <button type="button" role="radio" data-scene="full">Full</button>
+          <button type="button" role="radio" data-scene="night">Night</button>
+          <button type="button" role="radio" data-scene="off">Off</button>
+        </div>
+        <label class="slider"><span class="slider-label">Brightness</span>
+          <input id="tpLight" type="range" min="0" max="100" step="1"><output id="tpLightOut"></output></label>
+      </div>
+      <div class="tp-row">
+        <h2>Sound</h2>
+        <label class="slider"><span class="slider-label">Room tone</span>
+          <input id="tpVolume" type="range" min="0" max="100" step="1"><output id="tpVolumeOut"></output></label>
+      </div>
+      <div class="tp-row">
+        <h2>Temperature</h2>
+        <div class="tp-temp">
+          <button type="button" id="tpCooler" aria-label="Cooler">−</button>
+          <span><b id="tpSetpoint"></b> °C</span>
+          <button type="button" id="tpWarmer" aria-label="Warmer">+</button>
+        </div>
+        <p class="tp-note" id="tpTemp"></p>
+      </div>
+    </section>
   </div>
 
   <div class="overlay" id="overlay">
     <div class="card">
       <p class="eyebrow">Work in progress · first person</p>
       <h1>Night Shift</h1>
-      <p id="intro">03:10 on the platform. The ceiling is dimmed, the screens are up. Walk around, take a seat, have some coffee.</p>
+      <p id="intro">03:10 on the platform. The ceiling is dimmed, the screens are up. Walk around, take a seat, have some coffee. The lights, sound and temperature are on the touch panel at each desk; the switch by the door does the lights.</p>
       <dl class="keys">
         <dt>W A S D</dt><dd>walk (Shift to hurry)</dd>
         <dt>Mouse</dt><dd>look around</dd>
-        <dt>E</dt><dd>sit down, stand up, drink</dd>
+        <dt>E</dt><dd>sit, stand up, drink, use a panel</dd>
         <dt>Click</dt><dd>spin a chair</dd>
         <dt>A / D</dt><dd>spin while seated</dd>
-        <dt>L</dt><dd>ceiling lights</dd>
         <dt>Esc</dt><dd>pause</dd>
       </dl>
       <button class="go" id="go" type="button" disabled>Loading…</button>

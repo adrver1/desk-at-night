@@ -1,6 +1,6 @@
 {
-  "scaleCeiling": 0.5498073101043701,
-  "scaleScreens": 0.27972322702407837,
+  "scaleCeiling": 0.5298633575439453,
+  "scaleScreens": 0.2806828022003174,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
   "samples": 64,
@@ -99,7 +99,10 @@
     "Chair1",
     "S0Coffee",
     "S0Mug",
+    "S0TouchPanel",
     "S1Coffee",
-    "S1Mug"
+    "S1Mug",
+    "S1TouchPanel",
+    "WallLightPanel"
   ]
 }
