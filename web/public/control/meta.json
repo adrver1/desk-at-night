@@ -1,0 +1,63 @@
+{
+  "scaleCeiling": 0.9268416166305542,
+  "scaleScreens": 0.28061234951019287,
+  "encoding": "L = pow(texel, 3) * scale",
+  "resolution": 2048,
+  "samples": 64,
+  "emitters": {
+    "EmitScreen": {
+      "color": [
+        0.5735,
+        0.6475,
+        0.74
+      ],
+      "strength": 2.0,
+      "group": "screens"
+    },
+    "EmitScreenCam": {
+      "color": [
+        0.1665,
+        0.2405,
+        0.37
+      ],
+      "strength": 1.600000023841858,
+      "group": "screens"
+    },
+    "EmitClock": {
+      "color": [
+        1.0,
+        0.05,
+        0.02
+      ],
+      "strength": 6.0,
+      "group": "ceiling"
+    },
+    "EmitLedPanel": {
+      "color": [
+        1.0,
+        0.92,
+        0.8
+      ],
+      "strength": 1.5,
+      "group": "ceiling"
+    },
+    "EmitPlatformLight": {
+      "color": [
+        1.0,
+        0.75,
+        0.4
+      ],
+      "strength": 40.0,
+      "group": "ceiling"
+    },
+    "EmitFlare": {
+      "color": [
+        1.0,
+        0.45,
+        0.1
+      ],
+      "strength": 80.0,
+      "group": "ceiling"
+    }
+  }
+}
