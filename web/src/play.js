@@ -182,11 +182,21 @@ function rFront(a) {
   return layout.rFront + layout.bayDepth * Math.cos(0.5 * Math.PI * t) ** 2;
 }
 
+// Is a body of radius BODY at Blender (x, y) inside the room, the rest
+// corner behind it, or the opening between the two?
+function walkable(bx, by) {
+  const inside = ([x0, y0, x1, y1]) => bx > x0 + BODY && bx < x1 - BODY && by > y0 + BODY && by < y1 - BODY;
+  if (inside(layout.room)) return true;
+  if (!layout.nook) return false;
+  if (inside(layout.nook)) return true;
+  const [d0, d1] = layout.nookDoor, wall = layout.room[1];
+  return bx > d0 + BODY && bx < d1 - BODY && Math.abs(by - wall) <= BODY + 0.02;
+}
+
 // Is a body of radius BODY at three (x, z) inside anything solid?
 function blocked(x, z) {
   const bx = x, by = -z;
-  const [x0, y0, x1, y1] = layout.room;
-  if (bx < x0 + BODY || bx > x1 - BODY || by < y0 + BODY || by > y1 - BODY) return true;
+  if (!walkable(bx, by)) return true;
   const r = Math.hypot(bx, by), a = Math.atan2(bx, by);
   const spread = BODY / Math.max(r, 0.5);
   for (const c of layout.desks) {
@@ -200,6 +210,10 @@ function blocked(x, z) {
   if (layout.tv && Math.abs(a - layout.tv[0]) <= layout.tv[1] + spread && r > layout.wallR - 0.1 - BODY && r < layout.wallR + 0.15 + BODY) return true;
   const [tx, ty, trx, try_] = layout.table;
   if (((bx - tx) / (trx + BODY)) ** 2 + ((by - ty) / (try_ + BODY)) ** 2 < 1) return true;
+  for (const [cx, cy, hx, hy, yaw] of layout.boxes ?? []) {
+    const dx = bx - cx, dy = by - cy, c = Math.cos(yaw), s = Math.sin(yaw);
+    if (Math.abs(dx * c + dy * s) < hx + BODY && Math.abs(-dx * s + dy * c) < hy + BODY) return true;
+  }
   for (const c of chairs) {
     if (c === player.seat) continue;
     if (Math.hypot(x - c.obj.position.x, z - c.obj.position.z) < CHAIR_R + BODY) return true;

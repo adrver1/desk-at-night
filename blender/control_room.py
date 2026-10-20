@@ -1,8 +1,13 @@
 """
 Blockout of an offshore-style control room: two curved operator desks on a
 shared semicircle, six monitors on each (3 + 3), and a band of large
-displays on posts a step behind them. The rest of the room (shell, chairs, window, meeting
-table) is placeholder and free to change.
+displays on posts a step behind them, against a dark wall. Behind the
+operators: the meeting table and video-link screen, the hardwired ESD
+panel, binders and a pillar, and through an opening at the rear right a
+small rest corner with a sofa, a coffee machine and a mini fridge. Laid out
+after the reference photos and video (see control-room-game/reference/ in
+the project files); the window in the left wall is the one deliberate
+liberty.
 
     python blender/control_room.py                 # clay + night + plan stills
     python blender/control_room.py --samples 16    # faster, noisier
@@ -47,9 +52,20 @@ WALL_W, WALL_H, WALL_Z0 = 1.45, 0.83, 1.32
 TV_W, TV_H, TV_TOP = 1.24, 0.72, 2.40  # black 55" TV hung beyond the left end of the band
 TV_A = -(WALL_N - 1) / 2 * (WALL_W + 0.03) / WALL_R - (WALL_W / 2 + 0.15 + TV_W / 2) / WALL_R  # its centre angle
 
-# Room shell
+# Room shell: the control room proper, plus the rest corner behind its
+# rear wall at the right, reached through an opening next to the door
 ROOM_X, ROOM_Y0, ROOM_Y1, ROOM_Z = 5.4, -3.6, 4.6, 2.9
 WIN_Y0, WIN_Y1, WIN_Z0, WIN_Z1 = -2.4, 2.6, 0.85, 2.45  # window in the left (-X) wall
+NOOK_X0, NOOK_Y0 = 0.4, -5.6           # rest corner: x from here to ROOM_X, y from here to ROOM_Y0
+NOOK_DOOR = (3.55, 4.55)               # opening in the rear wall into it (x range)
+DOOR_Y, DOOR_W, DOOR_H = ROOM_Y0 + 1.1, 0.95, 2.10  # door in the right wall, near the rear
+GLASS_X0 = 2.0                         # behind the display band: dark wall left of this, glass to the right
+BULKHEAD = (GLASS_X0, 0.6, 0.38)       # white soffit over the glass: from x, depth, drop; carries the clock
+
+# Behind the operators
+TABLE = (2.15, -2.35, 1.0, 0.55)       # meeting table: centre x, y and the two radii of its oval top
+LINK = (2.15, ROOM_Y0 + 0.42)          # video-link screen on its floor stand, facing the table
+PILLAR = (0.15, -2.55, 0.40)           # concrete column: x, y, side
 
 
 def polar(r, a, z=0.0):
@@ -73,6 +89,9 @@ def materials():
         "frame": mat_flat("Frame", (0.25, 0.26, 0.27), 0.5),
         "table": mat_flat("Table", (0.72, 0.58, 0.40), 0.5),
         "deck": mat_flat("Deck", (0.06, 0.065, 0.07), 0.8),
+        "wall_dark": mat_flat("WallDark", (0.035, 0.036, 0.04), 0.9),   # behind the display band
+        "glass": mat_flat("Glass", (0.40, 0.46, 0.50), 0.08),          # partitions: opaque stand-in for glass
+        "frosted": mat_flat("Frosted", (0.70, 0.73, 0.74), 0.5),       # the frosted band across them
         "sea": mat_flat("SeaMat", (0.005, 0.01, 0.02), 0.08),
     }
     # Dark checkered carpet tiles
@@ -167,6 +186,9 @@ def build_desk(m):
         arc_slab(f"Desk{k}Top", r_front, const(R_BACK), DESK_Z - DESK_T, DESK_Z, a0, a1, m["birch"])
         arc_slab(f"Desk{k}Shelf", const(SHELF_R0), const(R_BACK - 0.02), DESK_Z, DESK_Z + SHELF_H,
                  a0 + 0.01, a1 - 0.01, m["shelf"])
+        # Black apron under the operator edge, with a shallow drawer
+        arc_slab(f"Desk{k}Apron", lambda a: r_front(a) + 0.06, lambda a: r_front(a) + 0.09, 0.60, DESK_Z - DESK_T,
+                 a0 + 0.04, a1 - 0.04, m["desk_body"])
         # Cable spine under the back edge, carried by two T-legs
         arc_slab(f"Desk{k}Spine", const(R_BACK - 0.30), const(R_BACK - 0.10), 0.50, DESK_Z - DESK_T,
                  a0 + 0.05, a1 - 0.05, m["desk_body"])
@@ -223,11 +245,12 @@ def build_video_wall(m):
         box(f"Wall{i}Bezel", (WALL_W, 0.06, WALL_H), c, m["bezel_black"], rot_z=-a)
         mat = m["screen_cam"] if i == 0 else m["screen"]  # leftmost shows a camera feed
         box(f"Wall{i}Screen", (WALL_W - 0.03, 0.002, WALL_H - 0.03), c - polar(0.031, a), mat, rot_z=-a)
-        # Two posts per display, floor to just above the top
-        for s in (-1, 1):
-            pa = a + s * (WALL_W / 2 - 0.25) / WALL_R
-            p = polar(WALL_R + 0.06, pa, (WALL_Z0 + WALL_H + 0.05) / 2)
-            box(f"Wall{i}Post{s:+d}", (0.10, 0.08, WALL_Z0 + WALL_H + 0.05), p, m["post"], rot_z=-pa)
+        # Wide grey posts behind every other seam, each carrying the two
+        # displays either side of it (and one at the right-hand end)
+        if i % 2 == 0 or i == WALL_N - 1:
+            pa = a + step / 2 if i < WALL_N - 1 else a + (WALL_W / 2 - 0.12) / WALL_R
+            p = polar(WALL_R + 0.08, pa, (WALL_Z0 + WALL_H + 0.05) / 2)
+            box(f"Wall{i}Post", (0.18, 0.09, WALL_Z0 + WALL_H + 0.05), p, m["post"], rot_z=-pa)
     # Beyond the leftmost display, a black TV hangs from the ceiling with a
     # PTZ conference camera on its own pole just in front of it
     pm = props.materials()
@@ -236,8 +259,10 @@ def build_video_wall(m):
     props.place(props.make_ceiling_tv(pm, "RearTv", (TV_W, TV_H), ROOM_Z - TV_TOP), p.x, p.y, p.z, -a)
     p = polar(WALL_R - 0.12, a, ROOM_Z)
     props.place(props.make_ptz_camera(pm, "PtzCameraWall", ROOM_Z - TV_TOP - 0.20), p.x, p.y, p.z, -a)
-    # Red digital clock above the middle of the band
-    box("Clock", (0.42, 0.05, 0.12), polar(WALL_R, 0, WALL_Z0 + WALL_H + 0.22), m["clock"])
+    # Red digital clock on the white bulkhead over the right part of the band
+    bx, depth, drop = BULKHEAD
+    box("ClockCase", (0.46, 0.04, 0.15), (bx + 1.1, ROOM_Y1 - depth - 0.02, ROOM_Z - drop / 2), m["bezel_black"])
+    box("Clock", (0.40, 0.005, 0.10), (bx + 1.1, ROOM_Y1 - depth - 0.043, ROOM_Z - drop / 2), m["clock"])
 
 
 # Per station, in the operator's frame: x to their right, y away from them
@@ -278,7 +303,7 @@ def build_desk_props(m):
 CEILING_MICS = [
     # above each operator, a little to either side of the chair
     *[(2.35, d + s * 0.22, None, 0.55) for d in DESKS for s in (-1, 1)],
-    (None, 2.6, -2.6, 0.70),  # over the meeting table
+    (None, TABLE[0], TABLE[1], 0.70),  # over the meeting table
 ]
 
 
@@ -300,14 +325,58 @@ def build_chairs(m):
 
 # --------------------------------------------------------------------- room
 
+def glass_wall(name, p0, p1, z0, z1, m, inside, pane=1.2):
+    """A glazed partition from p0 to p1 (x, y) between heights z0 and z1:
+    glass panes with a frosted band at eye height and thin frames. The
+    glass is an opaque stand-in; the bake cannot see through it anyway."""
+    p0, p1 = Vector((*p0, 0)), Vector((*p1, 0))
+    run = p1 - p0
+    n = max(1, round(run.length / pane))
+    yaw = math.atan2(run.y, run.x)
+    for nm, (za, zb, mat) in {"Low": (z0, 1.05, m["glass"]), "Band": (1.05, 1.55, m["frosted"]),
+                              "High": (1.55, z1, m["glass"])}.items():
+        q = [p0 + Vector((0, 0, za)), p1 + Vector((0, 0, za)), p1 + Vector((0, 0, zb)), p0 + Vector((0, 0, zb))]
+        b.quad(f"{name}{nm}", [tuple(v) for v in q], mat, inside)
+    for i in range(n + 1):
+        c = p0 + run * (i / n)
+        box(f"{name}Frame{i}", (0.05, 0.06, z1 - z0), (c.x, c.y, (z0 + z1) / 2), m["frame"], rot_z=yaw)
+    for z in (z0 + 0.03, z1 - 0.03):
+        c = (p0 + p1) / 2
+        box(f"{name}Rail{z:.2f}", (run.length, 0.06, 0.06), (c.x, c.y, z), m["frame"], rot_z=yaw)
+
+
 def build_shell(m):
     X, Y0, Y1, Z = ROOM_X, ROOM_Y0, ROOM_Y1, ROOM_Z
+    NX, NY = NOOK_X0, NOOK_Y0
     c = (0, 0, Z / 2)
+    cn = ((NX + X) / 2, (NY + Y0) / 2, Z / 2)  # inside the rest corner
     b.quad("Floor", [(-X, Y0, 0), (X, Y0, 0), (X, Y1, 0), (-X, Y1, 0)], m["carpet"], c)
     b.quad("Ceiling", [(-X, Y0, Z), (X, Y0, Z), (X, Y1, Z), (-X, Y1, Z)], m["ceiling"], c)
-    b.quad("WallBack", [(-X, Y1, 0), (X, Y1, 0), (X, Y1, Z), (-X, Y1, Z)], m["wall"], c)
-    b.quad("WallRear", [(-X, Y0, 0), (X, Y0, 0), (X, Y0, Z), (-X, Y0, Z)], m["wall"], c)
-    b.quad("WallR", [(X, Y0, 0), (X, Y1, 0), (X, Y1, Z), (X, Y0, Z)], m["wall"], c)
+    b.quad("FloorNook", [(NX, NY, 0), (X, NY, 0), (X, Y0, 0), (NX, Y0, 0)], m["carpet"], cn)
+    b.quad("CeilingNook", [(NX, NY, Z), (X, NY, Z), (X, Y0, Z), (NX, Y0, Z)], m["ceiling"], cn)
+    # Behind the display band: a dark wall, then glass at the right under a
+    # white bulkhead (with the clock on it)
+    gx = GLASS_X0
+    bx, depth, drop = BULKHEAD
+    b.quad("WallBack", [(-X, Y1, 0), (gx, Y1, 0), (gx, Y1, Z), (-X, Y1, Z)], m["wall_dark"], c)
+    glass_wall("GlassBack", (gx, Y1), (X, Y1), 0.0, Z - drop, m, c)
+    box("Bulkhead", (X - bx, depth, drop), ((bx + X) / 2, Y1 - depth / 2, Z - drop / 2), m["ceiling"])
+    # Rear wall: solid to the left (ESD panel, binders), then glass behind
+    # the video-link screen, the opening into the rest corner, and a stub
+    d0, d1 = NOOK_DOOR
+    b.quad("WallRear", [(-X, Y0, 0), (NX, Y0, 0), (NX, Y0, Z), (-X, Y0, Z)], m["wall"], c)
+    glass_wall("GlassRear", (NX, Y0), (d0, Y0), 0.0, Z, m, c)
+    b.quad("WallRearStub", [(d1, Y0, 0), (X, Y0, 0), (X, Y0, Z), (d1, Y0, Z)], m["wall"], c)
+    b.quad("WallRearHeader", [(d0, Y0, 2.15), (d1, Y0, 2.15), (d1, Y0, Z), (d0, Y0, Z)], m["wall"], c)
+    for x in (d0, d1):
+        box(f"NookJamb{x:.2f}", (0.06, 0.12, 2.15), (x, Y0, 1.075), m["frame"])
+    box("NookHead", (d1 - d0 + 0.06, 0.12, 0.05), ((d0 + d1) / 2, Y0, 2.15), m["frame"])
+    # The rest corner's own walls (the back of the rear wall faces it too)
+    b.quad("WallNookFront", [(NX, Y0 - 0.01, 0), (d0, Y0 - 0.01, 0), (d0, Y0 - 0.01, Z), (NX, Y0 - 0.01, Z)], m["wall"], cn)
+    b.quad("WallNookFrontR", [(d1, Y0 - 0.01, 0), (X, Y0 - 0.01, 0), (X, Y0 - 0.01, Z), (d1, Y0 - 0.01, Z)], m["wall"], cn)
+    b.quad("WallNookBack", [(NX, NY, 0), (X, NY, 0), (X, NY, Z), (NX, NY, Z)], m["wall"], cn)
+    b.quad("WallNookL", [(NX, NY, 0), (NX, Y0, 0), (NX, Y0, Z), (NX, NY, Z)], m["wall"], cn)
+    b.quad("WallR", [(X, NY, 0), (X, Y1, 0), (X, Y1, Z), (X, NY, Z)], m["wall"], c)
     # Left wall with a wide window: four panels around the opening
     for nm, (y0, y1, z0, z1) in {"L0": (Y0, WIN_Y0, 0, Z), "L1": (WIN_Y1, Y1, 0, Z),
                                  "LB": (WIN_Y0, WIN_Y1, 0, WIN_Z0), "LT": (WIN_Y0, WIN_Y1, WIN_Z1, Z)}.items():
@@ -317,15 +386,15 @@ def build_shell(m):
         box(f"Mullion{i}", (0.08, 0.06, WIN_Z1 - WIN_Z0), (-X, y, (WIN_Z0 + WIN_Z1) / 2), m["frame"])
     box("Transom", (0.08, WIN_Y1 - WIN_Y0, 0.06), (-X, (WIN_Y0 + WIN_Y1) / 2, WIN_Z0), m["frame"])
     # Recessed LED panels on the 0.6 m ceiling-tile grid, placed irregularly
-    # like the real room (they follow the ducts, not a pattern), plus two
-    # air-conditioning cassettes
-    for i, (gx, gy) in enumerate([(-7, -4), (-4, -5), (-1, -3), (3, -5), (6, -3), (-6, 0), (-2, 1), (2, -1),
-                                  (5, 1), (8, -1), (-5, 4), (0, 5), (4, 4), (7, 6), (-8, 6), (-2, 7)]):
-        box(f"Led{i}", (0.58, 0.58, 0.01), (gx * 0.6, gy * 0.6, Z - 0.004), m["led_panel"])
-    for i, (gx, gy) in enumerate([(-3, 3), (6, -6)]):
-        box(f"AirCassette{i}", (0.62, 0.62, 0.04), (gx * 0.6, gy * 0.6, Z - 0.02), m["post"])
+    # like the real room (they follow the ducts, not a pattern), plus
+    # air-conditioning cassettes; two more panels light the rest corner
+    for i, (gx_, gy) in enumerate([(-7, -4), (-4, -5), (-1, -3), (3, -5), (6, -3), (-6, 0), (-2, 1), (2, -1),
+                                   (5, 1), (8, -1), (-5, 4), (0, 5), (4, 4), (-8, 6), (-2, 7), (2, 8, ), (2, -8), (6, -8)]):
+        box(f"Led{i}", (0.58, 0.58, 0.01), (gx_ * 0.6, gy * 0.6, Z - 0.004), m["led_panel"])
+    for i, (gx_, gy) in enumerate([(-3, 3), (6, -5), (-6, -4)]):
+        box(f"AirCassette{i}", (0.62, 0.62, 0.04), (gx_ * 0.6, gy * 0.6, Z - 0.02), m["post"])
     # Door at the rear of the right-hand wall, with a green exit sign above it
-    dy, dw, dh = Y0 + 1.1, 0.95, 2.10
+    dy, dw, dh = DOOR_Y, DOOR_W, DOOR_H
     box("DoorFrame", (0.04, dw + 0.10, dh + 0.05), (X - 0.02, dy, (dh + 0.05) / 2), m["frame"])
     box("DoorLeaf", (0.03, dw, dh), (X - 0.045, dy, dh / 2), m["door"])
     box("DoorHandle", (0.06, 0.14, 0.025), (X - 0.08, dy + dw / 2 - 0.10, 1.05), m["post"])
@@ -337,37 +406,99 @@ def build_shell(m):
 
 
 def build_meeting_corner(m):
-    """Oval table behind the operators with a large video-link screen."""
-    t = cylinder("MeetingTable", 1.0, 0.04, (2.6, -2.8, 0.74), m["table"], verts=48)
-    t.scale = (1.0, 0.55, 1.0)
+    """Oval table behind the operators, with the large video-link screen on
+    a floor stand at its far end, in front of the glass that screens off
+    the rest corner."""
+    tx, ty, rx, ry = TABLE
+    t = cylinder("MeetingTable", rx, 0.04, (tx, ty, 0.74), m["table"], verts=48)
+    t.scale = (1.0, ry / rx, 1.0)
     # Two pedestal legs like a sit-stand table: a column on a flat foot,
     # a top arm under the table, and a beam joining them
     for s in (-1, 1):
-        x = 2.6 + s * 0.55
-        box(f"MeetingTableLeg{s:+d}", (0.10, 0.07, 0.66), (x, -2.8, 0.37), m["post"])
-        box(f"MeetingTableFoot{s:+d}", (0.08, 0.72, 0.03), (x, -2.8, 0.015), m["post"])
-        box(f"MeetingTableArm{s:+d}", (0.06, 0.70, 0.03), (x, -2.8, 0.705), m["post"])
-    box("MeetingTableBeam", (1.10, 0.06, 0.05), (2.6, -2.8, 0.66), m["post"])
-    box("LinkScreenBezel", (1.9, 0.08, 1.08), (2.6, ROOM_Y0 + 0.15, 1.55), m["bezel_black"])
-    box("LinkScreen", (1.85, 0.002, 1.03), (2.6, ROOM_Y0 + 0.19, 1.55), m["screen_cam"])
-    box("LinkScreenStand", (0.12, 0.10, 1.0), (2.6, ROOM_Y0 + 0.13, 0.5), m["post"])
-    props.place(props.make_ptz_camera(props.materials(), "PtzCameraLink", 0.45), 2.6, ROOM_Y0 + 0.30, ROOM_Z, math.pi)
+        x = tx + s * 0.55
+        box(f"MeetingTableLeg{s:+d}", (0.10, 0.07, 0.66), (x, ty, 0.37), m["post"])
+        box(f"MeetingTableFoot{s:+d}", (0.08, 0.72, 0.03), (x, ty, 0.015), m["post"])
+        box(f"MeetingTableArm{s:+d}", (0.06, 0.70, 0.03), (x, ty, 0.705), m["post"])
+    box("MeetingTableBeam", (1.10, 0.06, 0.05), (tx, ty, 0.66), m["post"])
+    lx, ly = LINK
+    pm = props.materials()
+    props.place(props.make_link_stand(pm, "LinkStand"), lx, ly, 0.0, math.pi)
+    box("LinkScreenBezel", (1.9, 0.08, 1.08), (lx, ly + 0.02, 1.55), m["bezel_black"])
+    box("LinkScreen", (1.85, 0.002, 1.03), (lx, ly + 0.061, 1.55), m["screen_cam"])
+    props.place(props.make_ptz_camera(pm, "PtzCameraLink", 0.45), lx, ly + 0.20, ROOM_Z, math.pi)
 
 
-# Whiteboards on the right-hand wall: name -> (texture, centre y, centre z, size)
+# Boards: name -> where it hangs or stands. "wall" boards hang on a wall,
+# "stand" boards are mobile ones on castors, "esd" is the hardwired ESD
+# panel's printed front. Each gets its own sharp texture in the bake.
+# (draw, size, (x, y, z of the face's middle back), yaw, kind)
 BOARDS = {
-    "Pnid": (boards.pnid_board, 1.45, 1.45, (2.4, 1.2)),
-    "Shift": (boards.shift_board, -0.45, 1.50, (1.2, 0.9)),
+    "Pnid": (boards.pnid_board, (2.4, 1.2), (ROOM_X, 1.45, 1.45), -math.pi / 2, "wall"),
+    "Shift": (boards.shift_board, (1.2, 0.9), (*polar(3.55, TV_A - 0.13).to_2d(), 1.25), -(TV_A - 0.13), "stand"),
+    "Notes": (boards.notes_board, (1.2, 0.9), (*polar(3.80, 1.47).to_2d(), 1.25), -1.47, "stand"),
+    "Esd": (boards.esd_panel, (1.6, 2.0), (-3.0, ROOM_Y0, 0.0), 0.0, "esd"),
 }
 
 
 def build_boards(m):
-    """Whiteboards on the right-hand wall, between the door and the video
-    wall: P&ID sheets held up with magnets, and the shift-status board."""
+    """The P&ID whiteboard on the right-hand wall, a shift board on castors
+    by the hanging TV, a mobile whiteboard at the right end of the band,
+    and the hardwired ESD panel on the rear wall with its fire & gas unit."""
     pm = props.materials()
-    for name, (draw, y, z, size) in BOARDS.items():
+    for name, (draw, size, (x, y, z), yaw, kind) in BOARDS.items():
         face = props.board_material("Board" + name, draw(), size)
-        props.place(props.make_whiteboard(pm, "Whiteboard" + name, size, face), ROOM_X, y, z, -math.pi / 2)
+        if kind == "esd":
+            o = props.make_esd_panel(pm, "Whiteboard" + name, face, size)
+            props.place(o, x, y, z, yaw + math.pi)
+            props.place(props.make_fg_panel(pm, "FgPanel"), x - size[0] / 2 - 0.35, y, 1.45, yaw + math.pi)
+            continue
+        o = props.make_whiteboard(pm, "Whiteboard" + name, size, face, stand=z if kind == "stand" else None)
+        props.place(o, x, y, z, yaw)
+
+
+def build_rear(m):
+    """Along the rear wall, left of the meeting table: open shelving full of
+    binders and the free-standing concrete pillar."""
+    pm = props.materials()
+    props.place(props.make_shelving(pm, "Shelving"), -1.05, ROOM_Y0, 0.0, math.pi)
+    px, py, side = PILLAR
+    props.place(props.make_pillar(pm, "Pillar", (side, side), ROOM_Z), px, py, 0.0)
+    props.place(props.make_plant(pm, "PlantRear"), -4.85, ROOM_Y0 + 0.35, 0.0)
+
+
+def build_lounge(m):
+    """The rest corner behind the rear wall: a sofa against the back wall
+    with a low table, and a counter with a coffee machine and a mini
+    fridge, by the opening."""
+    pm = props.materials()
+    NX, NY = NOOK_X0, NOOK_Y0
+    props.place(props.make_sofa(pm, "Sofa", 2.0), NX + 1.35, NY, 0.0, math.pi)
+    props.place(props.make_coffee_table(pm, "CoffeeTable"), NX + 1.35, NY + 1.30, 0.0)
+    props.place(props.make_kitchenette(pm, "Kitchenette", 1.8), ROOM_X - 0.9, NY, 0.0, math.pi)
+    props.place(props.make_plant(pm, "PlantNook", 1.2), NX + 0.30, ROOM_Y0 - 0.30, 0.0)
+
+
+# Floor-plan obstacles beyond the desks, band and table, for the walk:
+# oriented boxes (centre x, y, half sizes, yaw), in Blender metres
+def obstacles():
+    px, py, side = PILLAR
+    lx, ly = LINK
+    ex, ey = BOARDS["Esd"][2][:2]
+    out = [
+        (px, py, side / 2, side / 2, 0.0),
+        (-1.05, ROOM_Y0 + 0.20, 0.82, 0.20, 0.0),          # shelving
+        (ex, ey + 0.23, 0.83, 0.23, 0.0),                  # ESD panel
+        (lx, ly + 0.02, 0.50, 0.36, 0.0),                  # link-screen stand feet
+        (NOOK_X0 + 1.35, NOOK_Y0 + 0.42, 1.0, 0.43, 0.0),  # sofa
+        (NOOK_X0 + 1.35, NOOK_Y0 + 1.30, 0.55, 0.28, 0.0),  # coffee table
+        (ROOM_X - 0.9, NOOK_Y0 + 0.30, 0.9, 0.30, 0.0),    # counter
+        (-4.85, ROOM_Y0 + 0.35, 0.22, 0.22, 0.0),          # plants
+        (NOOK_X0 + 0.30, ROOM_Y0 - 0.30, 0.22, 0.22, 0.0),
+    ]
+    for name in ("Shift", "Notes"):
+        (x, y, _), yaw = BOARDS[name][2], BOARDS[name][3]
+        out.append((x, y, BOARDS[name][1][0] / 2 + 0.06, 0.32, yaw))
+    return out
 
 
 def build_outside(m):
@@ -414,9 +545,9 @@ def cameras():
     window = cam("Window", (-1.6, 0.2, 1.45), (-5.4, 1.0, 1.45), 24)
     plan_d = bpy.data.cameras.new("Plan")
     plan_d.type = "ORTHO"
-    plan_d.ortho_scale = 14.0
+    plan_d.ortho_scale = 11.6
     plan = bpy.data.objects.new("Plan", plan_d)
-    plan.location = (0, 0.4, 20)
+    plan.location = (0, (NOOK_Y0 + ROOM_Y1) / 2, 20)
     bpy.context.collection.objects.link(plan)
     return main, seat, station, window, plan
 
@@ -447,6 +578,8 @@ def main():
     build_shell(m)
     build_meeting_corner(m)
     build_boards(m)
+    build_rear(m)
+    build_lounge(m)
     build_ceiling_mics(m)
     build_outside(m)
     print(f"{len(DESKS)} desks, {n_mon} desk monitors, {WALL_N} wall displays", flush=True)
@@ -486,7 +619,7 @@ def main():
     shot(main_cam, "clay", w, w * 9 // 16)
     shot(station_cam, "clay-station", w, w * 9 // 16)
     for o in scene.objects:  # look down through the roof
-        if o.name == "Ceiling" or o.name.startswith("Led"):
+        if o.name.startswith(("Ceiling", "Led", "Bulkhead")):
             o.hide_render = True
     shot(plan_cam, "clay-plan", w * 3 // 4, w * 3 // 4)
 

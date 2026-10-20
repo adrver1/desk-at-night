@@ -48,9 +48,11 @@ def texel_weight(name):
         return 1e-6  # 800 m across: by area alone it would take the whole atlas
     if name.startswith(("Plat", "Flare")):
         return 0.002
-    if name in ("Ceiling", "WallRear") or name.startswith("AirCassette"):
+    if name in ("Ceiling", "WallRear", "CeilingNook") or name.startswith(("AirCassette", "WallNook", "Bulkhead")):
         return 0.08
-    if name.startswith(("Wall", "Floor", "Mullion", "Transom", "Link", "Meeting")):
+    if name.startswith(("Sofa", "CoffeeTable", "Kitchenette", "PlantNook", "FloorNook")):
+        return 0.15  # the rest corner, only seen from its doorway or up close
+    if name.startswith(("Wall", "Floor", "Mullion", "Transom", "Link", "Meeting", "Glass", "Nook", "Pillar")):
         return 0.2
     if name.startswith("Whiteboard"):
         return 1.0   # flat and bright: light-map noise shows on them
@@ -139,6 +141,8 @@ def main():
     cr.build_shell(m)
     cr.build_meeting_corner(m)
     cr.build_boards(m)
+    cr.build_rear(m)
+    cr.build_lounge(m)
     cr.build_ceiling_mics(m)
     cr.build_outside(m)
     world = bpy.data.worlds.new("Night")
@@ -178,7 +182,7 @@ def main():
     # too coarse for their writing: they are split out afterwards and get a
     # second UV set for a texture of their own. Remember each one's frame.
     boards = {}
-    for name, (draw, _, _, size) in cr.BOARDS.items():
+    for name, (draw, size, *_) in cr.BOARDS.items():
         o = scene.objects[f"Whiteboard{name}Face"]
         boards[o.name] = (o.matrix_world.inverted(), size, draw)
         o.vertex_groups.new(name=o.name).add(range(len(o.data.vertices)), 1.0, "REPLACE")
@@ -267,7 +271,10 @@ def main():
         "wallR": cr.WALL_R, "wallHalf": round(cr.WALL_N / 2 * step, 5),
         "tv": [round(cr.TV_A, 5), round(cr.TV_W / 2 / cr.WALL_R, 5), cr.TV_TOP - cr.TV_H],  # angle, half-width, bottom
         "room": [-cr.ROOM_X, cr.ROOM_Y0, cr.ROOM_X, cr.ROOM_Y1],
-        "table": [2.6, -2.8, 1.0, 0.55],  # centre and radii of the meeting table
+        "table": list(cr.TABLE),  # centre and radii of the meeting table
+        "nook": [cr.NOOK_X0, cr.NOOK_Y0, cr.ROOM_X, cr.ROOM_Y0],  # the rest corner behind the rear wall
+        "nookDoor": list(cr.NOOK_DOOR),  # the opening into it, an x range in the rear wall
+        "boxes": [[round(v, 4) for v in o] for o in cr.obstacles()],  # centre x, y, half sizes, yaw
         "deskZ": cr.DESK_Z,
     }
     meta["movable"] = sorted(movable)
