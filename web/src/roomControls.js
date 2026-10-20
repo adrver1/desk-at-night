@@ -1,6 +1,6 @@
 // The room's building controls, as an operator would find them on the desk
-// touch panel: ceiling lights (scene and brightness), sound (the room tone of
-// ventilation and equipment hum) and temperature. The wall panel by the door
+// touch panel: ceiling lights (scene and brightness), the screens, sound (the
+// room tone of ventilation and equipment hum) and temperature. The wall panel by the door
 // only steps through the light scenes.
 import * as THREE from 'three';
 
@@ -13,6 +13,7 @@ export class RoomControls {
   constructor(ui) {
     this.ui = ui;
     this.light = SCENES.night; // %
+    this.screens = true;       // off: dark and not redrawn
     this.volume = 40;          // %
     this.setpoint = 21.5;      // °C
     this.temp = 22.6;          // °C, drifts toward the setpoint
@@ -41,6 +42,7 @@ export class RoomControls {
     return NAMES[next];
   }
   nextSceneName() { return NAMES[ORDER[(ORDER.indexOf(this.scene) + 1) % ORDER.length]]; }
+  setScreens(on) { this.screens = on; this.sync(); }
   setVolume(pct) { this.volume = Math.round(Math.max(0, Math.min(100, pct))); this.sync(); }
   nudgeSetpoint(d) { this.setpoint = Math.max(17, Math.min(26, this.setpoint + d)); this.sync(); }
 
@@ -49,6 +51,7 @@ export class RoomControls {
     const u = this.ui;
     u.scenes.forEach((b) => b.addEventListener('click', () => this.setScene(b.dataset.scene)));
     u.light.addEventListener('input', () => this.setLight(Number(u.light.value)));
+    u.screens.forEach((b) => b.addEventListener('click', () => this.setScreens(b.dataset.screens === 'on')));
     u.volume.addEventListener('input', () => this.setVolume(Number(u.volume.value)));
     u.warmer.addEventListener('click', () => this.nudgeSetpoint(0.5));
     u.cooler.addEventListener('click', () => this.nudgeSetpoint(-0.5));
@@ -57,6 +60,7 @@ export class RoomControls {
   sync() {
     const u = this.ui;
     u.scenes.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.scene === this.scene)));
+    u.screens.forEach((b) => b.setAttribute('aria-checked', String((b.dataset.screens === 'on') === this.screens)));
     u.light.value = this.light;
     u.lightOut.textContent = `${this.light}%`;
     u.volume.value = this.volume;
