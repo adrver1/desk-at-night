@@ -243,3 +243,5 @@ h2 { margin: 0; font: 600 22px/1.2 var(--display); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+.eyebrow a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
