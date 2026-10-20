@@ -52,6 +52,7 @@ let target = null; // { kind: 'chair' | 'mug', item }
 async function load() {
   room = await loadControlRoom(renderer);
   layout = room.meta.layout;
+  if (!layout) throw new Error('This scene was baked before the walk-around existed. Reload the page; if that does not help, re-run blender/bake_control_room.py.');
   scene.add(room.root);
   const root = room.root;
   for (const name of room.meta.movable ?? []) {
@@ -297,11 +298,15 @@ function start() {
   if (ui.go.disabled) return;
   playing = true;
   ui.overlay.hidden = true;
-  if (!coarse) ui.canvas.requestPointerLock?.();
+  if (coarse || dragLook) return;
+  // Some browsers and embedded views refuse pointer lock: look by dragging instead
+  Promise.resolve(ui.canvas.requestPointerLock?.()).catch(() => { dragLook = true; });
 }
+let dragLook = false;
+document.addEventListener('pointerlockerror', () => { dragLook = true; });
 ui.overlay.addEventListener('click', start);
 document.addEventListener('pointerlockchange', () => {
-  if (coarse) return;
+  if (coarse || dragLook) return;
   if (document.pointerLockElement === ui.canvas) return;
   playing = false;
   keys.clear();
@@ -319,7 +324,8 @@ addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
 
 ui.canvas.addEventListener('mousemove', (e) => {
-  if (!playing || coarse || document.pointerLockElement !== ui.canvas) return;
+  if (!playing || coarse) return;
+  if (document.pointerLockElement !== ui.canvas && !(dragLook && e.buttons & 1)) return;
   player.yaw -= e.movementX * LOOK;
   player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - e.movementY * LOOK));
 });

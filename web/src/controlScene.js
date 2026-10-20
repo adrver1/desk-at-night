@@ -9,6 +9,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { roomVertex } from './shaders.js';
 
 const SCENE = 'control/';
+// GitHub Pages lets browsers reuse files for ten minutes without asking. After
+// a re-bake that can pair a new page with an old meta.json or atlas, so always
+// revalidate (a 304 costs next to nothing when nothing changed).
+const FRESH = { cache: 'no-cache' };
 export const SKY = new THREE.Color(0.012, 0.02, 0.045); // Blender world colour (linear)
 // The screens carry a pattern in Cycles but are drawn here in their average
 // colour; at full strength that reads as a white slab, so draw them dimmer.
@@ -45,7 +49,7 @@ const roomFragment = /* glsl */ `
 `;
 
 async function bytes(name) {
-  const res = await fetch(SCENE + name);
+  const res = await fetch(SCENE + name, FRESH);
   if (!res.ok) throw new Error(`Could not load ${name} (HTTP ${res.status}). Run blender/bake_control_room.py first.`);
   return res.arrayBuffer();
 }
@@ -62,7 +66,7 @@ async function texture(renderer, buffer, srgb) {
 
 export async function loadControlRoom(renderer) {
   const [meta, glb, albedoBuf, ceilBuf, scrBuf] = await Promise.all([
-    fetch(SCENE + 'meta.json').then((r) => { if (!r.ok) throw new Error('Could not load meta.json. Run blender/bake_control_room.py first.'); return r.json(); }),
+    fetch(SCENE + 'meta.json', FRESH).then((r) => { if (!r.ok) throw new Error('Could not load meta.json. Run blender/bake_control_room.py first.'); return r.json(); }),
     bytes('scene.glb'), bytes('albedo.png'), bytes('light_ceiling.png'), bytes('light_screens.png'),
   ]);
   const [albedo, lightCeiling, lightScreens] = await Promise.all([
