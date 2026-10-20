@@ -19,6 +19,7 @@
   .crosshair.on { transform: scale(1.7); opacity: 0.9; }
   .prompt { position: absolute; left: 50%; top: calc(50% + 28px); transform: translateX(-50%); pointer-events: none;
     font: 500 13px/1.4 var(--mono); color: var(--paper); text-align: center; text-shadow: 0 1px 6px #000; white-space: nowrap; }
+  .prompt.low { top: auto; bottom: max(18px, env(safe-area-inset-bottom)); }
   .prompt kbd { font: inherit; padding: 1px 6px; border: 1px solid var(--dim); border-radius: 4px; margin-right: 6px; }
   .toast { position: absolute; left: 50%; bottom: max(28px, env(safe-area-inset-bottom)); transform: translateX(-50%);
     font: 15px/1.4 var(--body); color: var(--paper); text-shadow: 0 1px 8px #000; text-align: center;
@@ -78,6 +79,7 @@
   <div class="touch" aria-hidden="true">
     <div class="stick" id="stick"><i></i></div>
     <div class="buttons">
+      <button type="button" id="zoomBtn" hidden>Zoom in</button>
       <button type="button" id="spinBtn" hidden>Spin</button>
       <button type="button" id="useBtn" hidden>Use</button>
     </div>
@@ -130,6 +132,7 @@
         <dt>W A S D</dt><dd>walk (Shift to hurry)</dd>
         <dt>Mouse</dt><dd>look around</dd>
         <dt>E</dt><dd>sit, stand up, drink, use a panel</dd>
+        <dt>Scroll</dt><dd>zoom in on a screen, and back out</dd>
         <dt>Click</dt><dd>spin a chair</dd>
         <dt>A / D</dt><dd>spin while seated</dd>
         <dt>Esc</dt><dd>pause</dd>

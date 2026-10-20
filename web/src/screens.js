@@ -513,8 +513,10 @@ function videoCall(ctx, w, h, t) {
     ctx.beginPath(); ctx.ellipse(x + tw / 2, y + th + 20 * s, 120 * s, 110 * s, 0, Math.PI, 0); ctx.fill();
     const talking = Math.floor(t / 6) % 4 === i;
     if (talking) { ctx.strokeStyle = C.ai; ctx.lineWidth = 4 * s; ctx.strokeRect(x + 2 * s, y + 2 * s, tw - 4 * s, th - 4 * s); }
-    rect(ctx, x + 10 * s, y + th - 44 * s, 300 * s, 34 * s, 'rgba(0,0,0,0.55)');
-    text(ctx, `${role} · ${where}`, x + 20 * s, y + th - 21 * s, { px: 16 * s, color: '#e8e8e8' });
+    const label = `${role} · ${where}`;
+    font(ctx, 16 * s);
+    rect(ctx, x + 10 * s, y + th - 44 * s, ctx.measureText(label).width + 20 * s, 34 * s, 'rgba(0,0,0,0.55)');
+    text(ctx, label, x + 20 * s, y + th - 21 * s, { px: 16 * s, color: '#e8e8e8' });
   });
 }
 
