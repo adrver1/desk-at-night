@@ -1,6 +1,6 @@
 {
-  "scaleCeiling": 0.5298633575439453,
-  "scaleScreens": 0.2806828022003174,
+  "scaleCeiling": 0.5298641324043274,
+  "scaleScreens": 0.28068169951438904,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
   "samples": 64,
@@ -104,5 +104,130 @@
     "S1Mug",
     "S1TouchPanel",
     "WallLightPanel"
-  ]
+  ],
+  "screens": {
+    "canvas": 2048,
+    "slots": {
+      "Wall0Screen": [
+        0,
+        0,
+        640,
+        360
+      ],
+      "Wall1Screen": [
+        640,
+        0,
+        640,
+        360
+      ],
+      "Wall2Screen": [
+        1280,
+        0,
+        640,
+        360
+      ],
+      "Wall3Screen": [
+        0,
+        360,
+        640,
+        360
+      ],
+      "Wall4Screen": [
+        640,
+        360,
+        640,
+        360
+      ],
+      "Wall5Screen": [
+        1280,
+        360,
+        640,
+        360
+      ],
+      "Wall6Screen": [
+        0,
+        720,
+        640,
+        360
+      ],
+      "LinkScreen": [
+        640,
+        720,
+        640,
+        360
+      ],
+      "Desk0Mon0Screen": [
+        0,
+        1083,
+        512,
+        305
+      ],
+      "Desk0Mon1Screen": [
+        512,
+        1083,
+        512,
+        305
+      ],
+      "Desk0Mon2Screen": [
+        1024,
+        1083,
+        512,
+        305
+      ],
+      "Desk0Mon3Screen": [
+        1536,
+        1083,
+        512,
+        305
+      ],
+      "Desk0Mon4Screen": [
+        0,
+        1388,
+        512,
+        305
+      ],
+      "Desk0Mon5Screen": [
+        512,
+        1388,
+        512,
+        305
+      ],
+      "Desk1Mon0Screen": [
+        1024,
+        1388,
+        512,
+        305
+      ],
+      "Desk1Mon1Screen": [
+        1536,
+        1388,
+        512,
+        305
+      ],
+      "Desk1Mon2Screen": [
+        0,
+        1693,
+        512,
+        305
+      ],
+      "Desk1Mon3Screen": [
+        512,
+        1693,
+        512,
+        305
+      ],
+      "Desk1Mon4Screen": [
+        1024,
+        1693,
+        512,
+        305
+      ],
+      "Desk1Mon5Screen": [
+        1536,
+        1693,
+        512,
+        305
+      ]
+    }
+  }
 }

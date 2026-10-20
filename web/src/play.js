@@ -438,6 +438,7 @@ renderer.setAnimationLoop((now) => {
   update(dt);
   controls.step(dt);
   room.setLights(controls.ceiling, 1);
+  room.updateScreens(now / 1000);
   const summary = controls.summary();
   if (ui.summary.textContent !== summary) ui.summary.textContent = summary;
   renderer.render(scene, camera);

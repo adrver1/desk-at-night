@@ -62,6 +62,50 @@ def strength(mat):
     return mat.node_tree.nodes["Principled BSDF"].inputs["Emission Strength"]
 
 
+# The viewer draws live content for every screen into one canvas (see
+# web/src/screens.js). Each screen gets a slot in it, in pixels, and its UVs
+# map its face onto that slot. Wall and link screens are 16:9, desk monitors
+# about 5:3; together they fill a 2048² canvas.
+SCREEN_CANVAS = 2048
+WALL_SLOT, DESK_SLOT = (640, 360), (512, 305)
+
+
+def screen_slots():
+    slots = {}
+    big = [f"Wall{i}Screen" for i in range(cr.WALL_N)] + ["LinkScreen"]
+    for k, name in enumerate(big):
+        slots[name] = ((k % 3) * WALL_SLOT[0], (k // 3) * WALL_SLOT[1]) + WALL_SLOT
+    y0 = 3 * WALL_SLOT[1] + 3
+    desk = [f"Desk{d}Mon{i}Screen" for d in range(len(cr.DESKS)) for i in range(6)]
+    for k, name in enumerate(desk):
+        slots[name] = ((k % 4) * DESK_SLOT[0], y0 + (k // 4) * DESK_SLOT[1]) + DESK_SLOT
+    return slots
+
+
+def screen_uvs(scene):
+    """Give each screen mesh one UV layer that maps its face onto its slot."""
+    slots = screen_slots()
+    for name, (x, y, w, h) in slots.items():
+        o = scene.objects[name]
+        me = o.data
+        while me.uv_layers:
+            me.uv_layers.remove(me.uv_layers[0])
+        uv = me.uv_layers.new(name="UVMap")
+        xs = [v.co.x for v in me.vertices]
+        zs = [v.co.z for v in me.vertices]
+        # Screens face local -Y; the link screen faces the other way round the room
+        flip = name == "LinkScreen"
+        for loop in me.loops:
+            co = me.vertices[loop.vertex_index].co
+            u = (co.x - min(xs)) / (max(xs) - min(xs))
+            v = (co.z - min(zs)) / (max(zs) - min(zs))
+            if flip:
+                u = 1 - u
+            # glTF UVs start top left, the canvas too
+            uv.data[loop.index].uv = ((x + u * w) / SCREEN_CANVAS, 1 - (y + (1 - v) * h) / SCREEN_CANVAS)
+    return {"canvas": SCREEN_CANVAS, "slots": {n: list(s) for n, s in slots.items()}}
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--res", type=int, default=2048)
@@ -191,6 +235,8 @@ def main():
         "deskZ": cr.DESK_Z,
     }
     meta["movable"] = sorted(movable)
+
+    meta["screens"] = screen_uvs(scene)
 
     # Join the glowing meshes per material and name them for the viewer
     for name, mat in mats.items():
