@@ -122,10 +122,6 @@ export class RoomControls {
     return `Room now ${this.temp.toFixed(1)} °C · ${doing}`;
   }
 
-  summary() {
-    return `Lights ${this.light}% · ${this.temp.toFixed(1)} °C · sound ${this.volume}%`;
-  }
-
   // The little screen on each desk panel
   draw() {
     this.dirty = false;

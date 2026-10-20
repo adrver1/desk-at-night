@@ -20,7 +20,7 @@ const LOOK = 0.0022;       // radians per pixel of mouse movement
 const $ = (id) => document.getElementById(id);
 const ui = {
   game: $('game'), canvas: $('view'), overlay: $('overlay'), go: $('go'), intro: $('intro'),
-  prompt: $('prompt'), toast: $('toast'), crosshair: $('crosshair'), summary: $('summary'),
+  prompt: $('prompt'), toast: $('toast'), crosshair: $('crosshair'),
   stick: $('stick'), useBtn: $('useBtn'), spinBtn: $('spinBtn'),
   tp: $('tp'), tpClose: $('tpClose'),
 };
@@ -235,7 +235,7 @@ function interact() {
   if (player.busy || panelOpen) return;
   if (target?.kind === 'mug') return drink(target.item);
   if (target?.kind === 'panel') return openPanel();
-  if (target?.kind === 'switch') return toast(`Ceiling lights: ${controls.nextScene()}`);
+  if (target?.kind === 'switch') return controls.nextScene(); // the room itself shows the change
   if (player.seat) return standUp();
   if (target?.kind === 'chair') return sit(target.item);
 }
@@ -439,8 +439,6 @@ renderer.setAnimationLoop((now) => {
   controls.step(dt);
   room.setLights(controls.ceiling, 1);
   room.updateScreens(now / 1000);
-  const summary = controls.summary();
-  if (ui.summary.textContent !== summary) ui.summary.textContent = summary;
   renderer.render(scene, camera);
 });
 
