@@ -99,6 +99,7 @@ close = {  # prop: (aim, offset, lens)
     "mic": ((-0.22, 0.12, 0.22), (0.40, -0.50, 0.05), 40),
     "pencil": ((0.80, -0.13, 0.01), (0.04, -0.14, 0.09), 50),
     "notepad": ((0.80, -0.12, 0.01), (0.05, -0.30, 0.25), 40),
+    "binding": ((0.82, -0.023, 0.008), (0.03, -0.09, 0.05), 60),
 }
 # Straight down on the keyboard, to check the key layout
 top_d = bpy.data.cameras.new("KeyboardTop")

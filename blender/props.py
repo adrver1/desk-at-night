@@ -33,6 +33,7 @@ def materials():
         flat("ceramic", "PropCeramic", (0.82, 0.81, 0.78), 0.15),
         flat("coffee", "PropCoffee", (0.06, 0.03, 0.015), 0.05),
         flat("steel", "PropSteel", (0.55, 0.56, 0.58), 0.35),
+        flat("wire", "PropWire", (0.22, 0.23, 0.25), 0.35),
         flat("foam", "PropFoam", (0.03, 0.03, 0.03), 1.0),
         flat("button", "PropButtonRed", (0.65, 0.04, 0.03), 0.4),
         flat("paper", "PropPaper", (0.86, 0.85, 0.80), 0.9),
@@ -141,6 +142,21 @@ class Builder:
             if caps:
                 self.bm.faces.new(rings[0][::-1])
                 self.bm.faces.new(rings[-1])
+        self._new(mat, make)
+
+    def ring(self, r_in, r_out, width, center, mat, segs=8, orient=Matrix()):
+        """A flat washer (annulus with a little thickness) around local Z."""
+        def make():
+            prof = [(r_in, -width / 2), (r_out, -width / 2), (r_out, width / 2), (r_in, width / 2)]
+            vs = [self.bm.verts.new((r, 0, z)) for r, z in prof]
+            es = [self.bm.edges.new((vs[i], vs[(i + 1) % 4])) for i in range(4)]
+            before = set(self.bm.verts)
+            bmesh.ops.spin(self.bm, geom=vs + es, cent=(0, 0, 0), axis=(0, 0, 1),
+                           angle=2 * math.pi, steps=segs)
+            new = (set(self.bm.verts) - before) | set(vs)
+            bmesh.ops.remove_doubles(self.bm, verts=list(new), dist=1e-7)
+            live = [v for v in new if v.is_valid]
+            self._xform(live, Matrix.Translation(center) @ orient)
         self._new(mat, make)
 
     def done(self, smooth=False):
@@ -328,7 +344,8 @@ def make_mic(m, name="PaMic"):
 
 
 def make_notepad(m, name="Notepad"):
-    """A5 spiral-bound pad, open to a ruled page, binding along the top."""
+    """A5 wire-bound pad, open to a ruled page, with a row of separate flat
+    rings along the top edge."""
     pad = Builder(name)
     w, d = 0.148, 0.210
     pad.box((w, d, 0.0015), Vector((0, 0, 0.00075)), m["card"])
@@ -336,9 +353,8 @@ def make_notepad(m, name="Notepad"):
     pad.box((w - 0.002, d - 0.012, 0.0004), Vector((0, -0.006, 0.0087)), m["ruled"])
     for i in range(23):
         x = -w / 2 + 0.010 + i * (w - 0.020) / 22
-        loop = [Vector((x, d / 2 - 0.006 + 0.0045 * math.sin(t), 0.0045 + 0.0060 * math.cos(t)))
-                for t in (2 * math.pi * k / 12 for k in range(13))]
-        pad.tube(loop, 0.0006, m["steel"], segs=6, caps=False)
+        pad.ring(0.0052, 0.0064, 0.0012, Vector((x, d / 2 - 0.003, 0.0045)), m["wire"],
+                 segs=10, orient=_rot(y=math.pi / 2))
     return pad.done()
 
 
