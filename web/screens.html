@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control Room Screens</title>
+<style>
+  html, body { margin: 0; background: #0d0f12; color: #9aa3ab; font: 14px system-ui, sans-serif; }
+  canvas { display: block; width: 100%; height: auto; }
+  p { margin: 8px 16px; }
+</style>
+</head>
+<body>
+<canvas id="wall" aria-label="Preview of all control room screens"></canvas>
+<p>Preview of the control room screens, laid out flat: the video wall on top, the two desks below, the meeting room's video link at the bottom. All data is made up. Add ?t=120 to freeze the shift at a given second.</p>
+<script type="module" src="/src/screensPreview.js"></script>
+</body>
+</html>
