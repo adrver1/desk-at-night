@@ -471,5 +471,129 @@ def make_lightpanel(m, name="LightPanel"):
     return w.done()
 
 
+def make_deskphone(m, name="DeskPhone"):
+    """IP desk phone: a wedge body that slopes up away from the operator
+    (at -Y), a tilted display, a 4 x 3 keypad, line keys beside the display,
+    and a handset in its cradle on the left with a coiled cord."""
+    p = Builder(name)
+    w, d = 0.23, 0.19
+    slope = math.radians(28)
+    tilt = _rot(x=slope)  # the face leans back, rising toward +Y
+    # Body: a low front lip rising to the back
+    body = lambda v: v + Vector((0, 0, (v.y / d + 0.5) * 0.05))
+    p.rbox((w, d, 0.03), Vector((0, 0, 0.015)), m["black"], 0.008, bend=body)
+    face = lambda u, v, lift=0.0: Vector((u, v * math.cos(slope), 0.032 + (v / d + 0.5) * 0.05 + lift))
+    # Display, upper right of the face
+    p.box((0.10, 0.006, 0.055), face(0.035, 0.045, 0.002), m["key_grey"], orient=tilt @ _rot(x=-math.pi / 2))
+    p.box((0.092, 0.002, 0.047), face(0.035, 0.045, 0.005), m["lens"], orient=tilt @ _rot(x=-math.pi / 2))
+    for i in range(4):  # line keys left of the display
+        p.box((0.014, 0.008, 0.004), face(-0.03, 0.068 - i * 0.015, 0.003), m["key_grey"], orient=tilt)
+    for r in range(4):  # keypad, lower right
+        for c in range(3):
+            p.rbox((0.017, 0.011, 0.005), face(0.012 + c * 0.023, -0.012 - r * 0.016, 0.003), m["key"], 0.002, orient=tilt)
+    p.rbox((0.03, 0.012, 0.005), face(0.085, -0.03, 0.003), m["key_red"], 0.002, orient=tilt)  # hang-up
+    p.rbox((0.03, 0.012, 0.005), face(0.085, -0.05, 0.003), m["key_green"], 0.002, orient=tilt)
+    # Handset in a cradle along the left edge: a long bar with ear and mouth cups
+    hx = -0.085
+    p.rbox((0.05, 0.18, 0.025), Vector((hx, 0.0, 0.065)), m["black"], 0.012, orient=tilt)
+    for y in (-0.07, 0.07):
+        p.rbox((0.052, 0.05, 0.022), Vector((hx, y * math.cos(slope), 0.065 + y * math.sin(slope) - 0.012)),
+               m["black"], 0.01, orient=tilt)
+    # Coiled cord from the bottom of the handset to the left side of the body
+    coil = []
+    for i in range(121):
+        t = i / 120
+        base = Vector((hx - 0.03 - 0.015 * t, -0.08 + 0.10 * t, 0.03 - 0.02 * math.sin(math.pi * t)))
+        a = t * 2 * math.pi * 14
+        coil.append(base + Vector((0.004 * math.cos(a), 0, 0.004 * math.sin(a))))
+    p.tube(coil, 0.0012, m["black"], segs=6, normal=Vector((1, 0, 0)))
+    return p.done()
+
+
+def make_ptz_camera(m, name="PtzCamera", drop=0.45):
+    """Pan-tilt-zoom conference camera hanging upside down from a ceiling
+    pole. The origin is on the ceiling, everything hangs below z = 0, and
+    the lens looks toward -Y."""
+    c = Builder(name)
+    c.cyl(0.05, 0.05, 0.01, Vector((0, 0, -0.005)), m["ceramic"], segs=24)           # ceiling plate
+    c.cyl(0.018, 0.018, drop, Vector((0, 0, -drop / 2)), m["ceramic"], segs=16)      # pole
+    c.box((0.10, 0.10, 0.012), Vector((0, 0, -drop - 0.006)), m["ceramic"])          # mounting plate
+    # Base turret (upside down: it hangs from the plate), then the yoke and head
+    c.cyl(0.065, 0.06, 0.04, Vector((0, 0, -drop - 0.032)), m["ceramic"], segs=32)
+    c.cyl(0.02, 0.02, 0.01, Vector((0, -0.055, -drop - 0.02)), m["lens"], segs=10,
+          orient=_rot(x=math.pi / 2))                                                 # status LED
+    for s in (-1, 1):
+        c.box((0.012, 0.05, 0.07), Vector((s * 0.052, 0, -drop - 0.082)), m["ceramic"])
+    head = _rot(x=math.radians(-12))  # tipped down toward the room
+    c.rbox((0.09, 0.11, 0.085), Vector((0, 0, -drop - 0.10)), m["ceramic"], 0.03, orient=head)
+    lens = _rot(x=math.pi / 2 - math.radians(12))
+    hc = Vector((0, 0, -drop - 0.10))
+    c.cyl(0.032, 0.032, 0.01, hc + head @ Vector((0, -0.056, 0)), m["black"], segs=32, orient=lens)
+    c.cyl(0.024, 0.022, 0.006, hc + head @ Vector((0, -0.063, 0)), m["lens"], segs=32, orient=lens)
+    return c.done(smooth=True)
+
+
+def make_ceiling_tv(m, name="CeilingTv", size=(1.24, 0.72), drop=0.5):
+    """Black 55" TV hanging from a ceiling pole, switched off. The origin is
+    on the ceiling; the screen faces -Y and its top edge is `drop` below."""
+    w, h = size
+    t = Builder(name)
+    t.box((w, 0.05, h), Vector((0, 0.01, -drop - h / 2)), m["black"])
+    t.box((w - 0.02, 0.002, h - 0.02), Vector((0, -0.016, -drop - h / 2)), m["lens"])
+    t.box((0.40, 0.03, 0.30), Vector((0, 0.05, -drop - h / 2)), m["black"])         # wall-plate on the back
+    t.cyl(0.03, 0.03, drop + h / 2, Vector((0, 0.08, -(drop + h / 2) / 2)), m["black"], segs=16)
+    t.cyl(0.08, 0.08, 0.01, Vector((0, 0.08, -0.005)), m["black"], segs=24)
+    t.box((0.12, 0.06, 0.04), Vector((0, 0.065, -drop - h / 2 + 0.17)), m["black"])  # tilt bracket
+    return t.done()
+
+
+def make_whiteboard(m, name="Whiteboard", size=(2.4, 1.2), face=None):
+    """Wall whiteboard with an aluminium frame and a pen tray. `face` is the
+    material for the writing surface (see board_material). The origin is at the middle of the back, the
+    face points -Y."""
+    w, h = size
+    wb = Builder(name)
+    wb.box((w, 0.012, h), Vector((0, -0.006, 0)), face or m["paper"])
+    f = 0.02
+    for s in (-1, 1):
+        wb.box((w + 2 * f, 0.02, f), Vector((0, -0.01, s * (h + f) / 2)), m["alu"])
+        wb.box((f, 0.02, h), Vector((s * (w + f) / 2, -0.01, 0)), m["alu"])
+    wb.box((w * 0.6, 0.06, 0.012), Vector((0, -0.04, -h / 2 - f - 0.006)), m["alu"])  # pen tray
+    wb.box((w * 0.6, 0.004, 0.025), Vector((0, -0.068, -h / 2 - f + 0.004)), m["alu"])
+    for i, mat in enumerate((m["key_red"], m["key_green"], m["black"])):  # markers
+        wb.cyl(0.008, 0.008, 0.13, Vector((-0.2 + i * 0.05, -0.04, -h / 2 - f + 0.008)), mat, segs=10,
+               orient=_rot(y=math.pi / 2))
+    return wb.done()
+
+
+def board_material(name, path, size):
+    """Image over a whiteboard face of the given size (w, h), mapped from
+    the object's own coordinates (x across, z up), so no UVs are needed."""
+    if name in bpy.data.materials:
+        return bpy.data.materials[name]
+    w, h = size
+    mt, nt, bsdf = b._new_mat(name)
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    comb = nt.nodes.new("ShaderNodeCombineXYZ")
+    img = nt.nodes.new("ShaderNodeTexImage")
+    img.image = bpy.data.images.load(path)
+    img.interpolation = "Cubic"
+    img.extension = "EXTEND"
+    nt.links.new(tc.outputs["Object"], sep.inputs["Vector"])
+    for axis, out, size_ in (("X", "X", w), ("Z", "Y", h)):
+        mad = nt.nodes.new("ShaderNodeMath")
+        mad.operation = "MULTIPLY_ADD"
+        mad.inputs[1].default_value = 1 / size_
+        mad.inputs[2].default_value = 0.5
+        nt.links.new(sep.outputs[axis], mad.inputs[0])
+        nt.links.new(mad.outputs[0], comb.inputs[out])
+    nt.links.new(comb.outputs["Vector"], img.inputs["Vector"])
+    nt.links.new(img.outputs["Color"], bsdf.inputs["Base Color"])
+    bsdf.inputs["Roughness"].default_value = 0.25  # glossy board
+    return mt
+
+
 ALL = [make_keyboard, make_mouse, make_mousepad, make_mug, make_mic, make_notepad, make_pencil,
-       make_chair, make_videobar, make_touchpanel, make_lightpanel]
+       make_chair, make_videobar, make_touchpanel, make_lightpanel, make_deskphone, make_ptz_camera,
+       make_ceiling_tv, make_whiteboard]

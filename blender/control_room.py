@@ -43,6 +43,7 @@ MON_TILT = math.radians(8)
 # Video wall: 65" class displays on posts, 1-1.5 m behind the monitor row
 WALL_R, WALL_N = MON_R + 1.25, 7  # one continuous band across both desks
 WALL_W, WALL_H, WALL_Z0 = 1.45, 0.83, 1.32
+TV_W, TV_H, TV_TOP = 1.24, 0.72, 2.40  # black 55" TV hung beyond the left end of the band
 
 # Room shell
 ROOM_X, ROOM_Y0, ROOM_Y1, ROOM_Z = 5.4, -3.6, 4.6, 2.9
@@ -225,10 +226,14 @@ def build_video_wall(m):
             pa = a + s * (WALL_W / 2 - 0.25) / WALL_R
             p = polar(WALL_R + 0.06, pa, (WALL_Z0 + WALL_H + 0.05) / 2)
             box(f"Wall{i}Post{s:+d}", (0.10, 0.08, WALL_Z0 + WALL_H + 0.05), p, m["post"], rot_z=-pa)
-    # Teleconference camera bar on top of the leftmost display
-    a = -(WALL_N - 1) / 2 * step
-    p = polar(WALL_R, a, WALL_Z0 + WALL_H)
-    props.place(props.make_videobar(props.materials(), "VideoBarWall"), p.x, p.y, p.z, -a)
+    # Beyond the leftmost display, a black TV hangs from the ceiling with a
+    # PTZ conference camera on its own pole just in front of it
+    pm = props.materials()
+    a = -(WALL_N - 1) / 2 * step - (WALL_W / 2 + 0.15 + TV_W / 2) / WALL_R
+    p = polar(WALL_R, a, ROOM_Z)
+    props.place(props.make_ceiling_tv(pm, "RearTv", (TV_W, TV_H), ROOM_Z - TV_TOP), p.x, p.y, p.z, -a)
+    p = polar(WALL_R - 0.12, a, ROOM_Z)
+    props.place(props.make_ptz_camera(pm, "PtzCameraWall", ROOM_Z - TV_TOP - 0.20), p.x, p.y, p.z, -a)
     # Red digital clock above the middle of the band
     box("Clock", (0.42, 0.05, 0.12), polar(WALL_R, 0, WALL_Z0 + WALL_H + 0.22), m["clock"])
 
@@ -249,7 +254,7 @@ STATION_PROPS = [  # (maker, x, y, yaw in degrees, z above the desk)
 
 def build_desk_props(m):
     """Keyboard, mouse, PA mic, notepad, pencil and mug at each station, plus
-    blockout boxes for the phone and touch panel."""
+    the desk phone and touch panel."""
     pm = props.materials()
     for k, a in enumerate(DESKS):
         flip = -1 if k else 1
@@ -261,11 +266,8 @@ def build_desk_props(m):
             pos = edge + right * x + ahead * y
             props.place(make(pm, f"S{k}{make.__name__[5:].title()}"), pos.x, pos.y, DESK_Z + dz,
                         -a + math.radians(flip * yaw))
-
-        def at(x, y, z, size, mat, name, rz=0.0):
-            p = edge + right * (flip * x) + ahead * y
-            return box(f"S{k}{name}", size, (p.x, p.y, z), mat, rot_z=-a + rz)
-        at(-0.80, 0.30, DESK_Z + 0.04, (0.22, 0.20, 0.08), m["plastic"], "Phone", rz=0.3 * flip)
+        p = edge + right * (flip * -0.80) + ahead * 0.30
+        props.place(props.make_deskphone(pm, f"S{k}Phone"), p.x, p.y, DESK_Z, -a + 0.3 * flip)
         p = edge + right * (flip * 0.95) + ahead * 0.24
         props.place(props.make_touchpanel(pm, f"S{k}TouchPanel"), p.x, p.y, DESK_Z, -a - 0.2 * flip)
 
@@ -321,11 +323,30 @@ def build_meeting_corner(m):
     """Oval table behind the operators with a large video-link screen."""
     t = cylinder("MeetingTable", 1.0, 0.04, (2.6, -2.8, 0.74), m["table"], verts=48)
     t.scale = (1.0, 0.55, 1.0)
-    cylinder("MeetingTableLeg", 0.08, 0.72, (2.6, -2.8, 0.36), m["post"], verts=16)
+    # Two pedestal legs like a sit-stand table: a column on a flat foot,
+    # a top arm under the table, and a beam joining them
+    for s in (-1, 1):
+        x = 2.6 + s * 0.55
+        box(f"MeetingTableLeg{s:+d}", (0.10, 0.07, 0.66), (x, -2.8, 0.37), m["post"])
+        box(f"MeetingTableFoot{s:+d}", (0.08, 0.72, 0.03), (x, -2.8, 0.015), m["post"])
+        box(f"MeetingTableArm{s:+d}", (0.06, 0.70, 0.03), (x, -2.8, 0.705), m["post"])
+    box("MeetingTableBeam", (1.10, 0.06, 0.05), (2.6, -2.8, 0.66), m["post"])
     box("LinkScreenBezel", (1.9, 0.08, 1.08), (2.6, ROOM_Y0 + 0.15, 1.55), m["bezel_black"])
     box("LinkScreen", (1.85, 0.002, 1.03), (2.6, ROOM_Y0 + 0.19, 1.55), m["screen_cam"])
     box("LinkScreenStand", (0.12, 0.10, 1.0), (2.6, ROOM_Y0 + 0.13, 0.5), m["post"])
-    props.place(props.make_videobar(props.materials(), "VideoBarLink"), 2.6, ROOM_Y0 + 0.15, 1.55 + 0.54, math.pi)
+    props.place(props.make_ptz_camera(props.materials(), "PtzCameraLink", 0.45), 2.6, ROOM_Y0 + 0.30, ROOM_Z, math.pi)
+
+
+def build_boards(m):
+    """Whiteboards on the right-hand wall, between the door and the video
+    wall: P&ID sheets held up with magnets, and the shift-status board."""
+    import boards
+    pm = props.materials()
+    X = ROOM_X
+    pnid = props.board_material("BoardPnid", boards.pnid_board(), (2.4, 1.2))
+    shift = props.board_material("BoardShift", boards.shift_board(), (1.2, 0.9))
+    props.place(props.make_whiteboard(pm, "WhiteboardPnid", (2.4, 1.2), pnid), X, 1.45, 1.45, -math.pi / 2)
+    props.place(props.make_whiteboard(pm, "WhiteboardShift", (1.2, 0.9), shift), X, -0.45, 1.50, -math.pi / 2)
 
 
 def build_outside(m):
@@ -404,6 +425,7 @@ def main():
     build_chairs(m)
     build_shell(m)
     build_meeting_corner(m)
+    build_boards(m)
     build_outside(m)
     print(f"{len(DESKS)} desks, {n_mon} desk monitors, {WALL_N} wall displays", flush=True)
 
