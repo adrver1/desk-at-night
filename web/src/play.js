@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { loadControlRoom, SKY } from './controlScene.js';
 import { RoomControls } from './roomControls.js';
+import { Highlight } from './highlight.js';
 
 const EYE = 1.65;          // standing eye height, m
 const SEATED_EYE = 1.18;
@@ -20,6 +21,8 @@ const CHAIR_R = 0.34;
 const LOOK = 0.0022;       // radians per pixel of mouse movement
 const SCREEN_REACH = 9;    // how far away a screen can be zoomed in on, m
 const ZOOM_TIME = 0.45;    // s to glide in or out
+const ASSIST = 0.06;       // radians: aiming this close to something still counts
+const TAP = { px: 12, ms: 350 }; // a touch that moves less than this is a tap, not a look
 
 const $ = (id) => document.getElementById(id);
 const ui = {
@@ -45,6 +48,7 @@ const scene = new THREE.Scene();
 scene.background = SKY.clone();
 const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.03, 500);
 camera.rotation.order = 'YXZ';
+const highlight = new Highlight(scene, renderer, { width: coarse ? 3 : 2.5, frameOf: (name, from) => room.screenFrame(name, from) });
 
 const player = {
   pos: new THREE.Vector3(1.6, EYE, 1.8), // three coordinates; feet at y = 0, eye at pos.y
@@ -55,10 +59,10 @@ const player = {
 const keys = new Set();
 const touch = { move: new THREE.Vector2() };
 let room, layout, playing = false, panelOpen = false;
-const chairs = [], mugs = [], pickables = [];
+const chairs = [], mugs = [], pickables = [], items = [];
 const raycaster = new THREE.Raycaster();
 raycaster.far = REACH;
-let target = null; // { kind: 'chair' | 'mug' | 'panel' | 'switch' | 'screen', item }
+let target = null; // { kind: 'chair' | 'mug' | 'panel' | 'switch' | 'screen', item, meshes }
 const screenRay = new THREE.Raycaster();
 screenRay.far = SCREEN_REACH;
 const pointer = new THREE.Vector2(); // the mouse, when looking by dragging rather than pointer lock
@@ -81,27 +85,29 @@ async function load() {
       mugs.push({ obj, coffee, sips: SIPS, rest: { p: obj.position.clone(), q: obj.quaternion.clone() } });
     }
   }
-  for (const c of chairs) { c.obj.userData.item = { kind: 'chair', item: c }; pickables.push(c.obj); }
-  for (const m of mugs) {
-    m.obj.userData.item = { kind: 'mug', item: m };
-    pickables.push(m.obj);
-    if (m.coffee) { m.coffee.userData.item = m.obj.userData.item; pickables.push(m.coffee); }
-  }
+  for (const c of chairs) usable({ kind: 'chair', item: c }, c.obj);
+  for (const m of mugs) usable({ kind: 'mug', item: m }, m.obj, m.coffee);
   for (const name of room.meta.movable ?? []) {
     const obj = root.getObjectByName(name);
     if (name.endsWith('TouchPanel')) {
-      obj.userData.item = { kind: 'panel', item: obj };
+      usable({ kind: 'panel', item: obj }, obj);
       obj.add(panelScreen());
-      pickables.push(obj);
     } else if (name.endsWith('LightPanel')) {
-      obj.userData.item = { kind: 'switch', item: obj };
-      pickables.push(obj);
+      usable({ kind: 'switch', item: obj }, obj);
     }
   }
   pickables.push(root.getObjectByName('Room')); // so walls and desks block the view of things behind them
   lookAt(-0.6, 2.2);
   ui.go.disabled = false;
   ui.go.textContent = coarse ? 'Tap to start' : 'Click to start';
+}
+
+// Something the player can aim at and use, made of these meshes (which light
+// up together when aimed at)
+function usable(item, ...meshes) {
+  item.meshes = meshes.filter(Boolean);
+  for (const mesh of item.meshes) { mesh.userData.item = item; pickables.push(mesh); }
+  items.push(item);
 }
 
 // The glowing face of a desk touch panel: a plane over its glass, in the
@@ -165,18 +171,54 @@ function move(dx, dz) {
 
 // ------------------------------------------------------------ interaction
 
-const center = new THREE.Vector2(0, 0);
-function findTarget() {
-  if (player.busy) return null;
-  raycaster.setFromCamera(center, camera);
-  const hit = raycaster.intersectObjects(pickables, false)[0];
-  const item = hit?.object.userData.item;
-  if (item) return item;
-  // Further out, screens can be zoomed in on (the room still hides them)
-  screenRay.setFromCamera(dragLook && !coarse ? pointer : center, camera);
+const center = new THREE.Vector2(0, 0), tapPoint = new THREE.Vector2();
+const aimDir = new THREE.Vector3(), toward = new THREE.Vector3(), bestCenter = new THREE.Vector3(), bounds = new THREE.Sphere();
+
+// What the ray from the camera through `ndc` (screen centre by default) lands
+// on, if it is something usable and not the chair we sit in
+function usableAt(ndc) {
+  raycaster.setFromCamera(ndc, camera);
+  const item = raycaster.intersectObjects(pickables, false)[0]?.object.userData.item;
+  return item && item.item !== player.seat ? item : null;
+}
+
+// A screen further out, which can be zoomed in on (the room still hides them)
+function screenAt(ndc) {
+  screenRay.setFromCamera(ndc, camera);
   const far = screenRay.intersectObjects([room.root.getObjectByName('Room'), ...room.screenMeshes], false)[0];
   const name = far && room.screenMeshes.includes(far.object) ? room.screenAt(far) : null;
   return name ? { kind: 'screen', item: name } : null;
+}
+
+function findTarget() {
+  if (player.busy || panelOpen) return null;
+  // Screens follow the mouse when looking by dragging
+  const direct = usableAt(center) ?? screenAt(dragLook && !coarse ? pointer : center);
+  if (direct) return direct;
+  // Nearly on it counts too, so a mug or a switch doesn't need pixel-perfect
+  // aim: take the thing whose bounds come closest to the crosshair, if
+  // nothing stands between it and the eye
+  camera.getWorldDirection(aimDir);
+  let best = null, bestAngle = ASSIST;
+  for (const item of items) {
+    if (item.item === player.seat) continue;
+    for (const mesh of item.meshes) {
+      if (!mesh.visible) continue;
+      if (!mesh.geometry.boundingSphere) mesh.geometry.computeBoundingSphere();
+      bounds.copy(mesh.geometry.boundingSphere).applyMatrix4(mesh.matrixWorld);
+      toward.subVectors(bounds.center, camera.position);
+      const d = toward.length();
+      if (d - bounds.radius > REACH) continue;
+      const angle = aimDir.angleTo(toward) - Math.asin(Math.min(1, bounds.radius / d));
+      if (angle < bestAngle) { best = item; bestAngle = angle; bestCenter.copy(bounds.center); }
+    }
+  }
+  if (best) {
+    raycaster.set(camera.position, toward.subVectors(bestCenter, camera.position).normalize());
+    const seen = raycaster.intersectObjects(pickables, false)[0]?.object.userData.item;
+    if (seen === best) return best;
+  }
+  return null;
 }
 
 // Glide the camera to face a screen, near enough that it fills the view
@@ -338,6 +380,9 @@ function update(dt) {
   if (player.busy) drinking(dt);
 
   target = playing && !zoom ? findTarget() : null;
+  highlight.set(target?.meshes);
+  highlight.frame(target?.kind === 'screen' ? target.item : null, camera.position);
+  highlight.update(dt);
   showPrompt();
 }
 
@@ -388,12 +433,13 @@ function showPrompt() {
   if (zoomable) text = `${player.seat ? text + '&nbsp;&nbsp;' : ''}<kbd>Click</kbd><kbd>Scroll</kbd>Zoom in`;
   if (zoom) text = '<kbd>Click</kbd><kbd>Scroll</kbd>Back';
   if (player.busy || panelOpen) text = '';
-  if (ui.prompt.innerHTML !== text) ui.prompt.innerHTML = coarse ? '' : text;
+  // On phones a tap (or the use button) zooms on a screen, before anything else
+  const btn = zoom ? 'Back' : zoomable ? 'Zoom in' : use;
+  if (coarse) text = btn && !player.busy && !panelOpen ? `<kbd>Tap</kbd>${btn}` : '';
+  if (ui.prompt.innerHTML !== text) ui.prompt.innerHTML = text;
   ui.crosshair.classList.toggle('on', Boolean(use) && !zoom);
   ui.crosshair.hidden = Boolean(zoom);
   ui.prompt.classList.toggle('low', Boolean(zoom)); // out of the way of the screen
-  // On phones the use button zooms on a screen, before anything else
-  const btn = zoom ? 'Back' : zoomable ? 'Zoom in' : use;
   ui.useBtn.hidden = !btn || Boolean(player.busy);
   ui.useBtn.textContent = btn;
   ui.spinBtn.hidden = !spinOk || Boolean(zoom);
@@ -477,17 +523,38 @@ function stickMove(e) {
   touch.move.copy(v);
   ui.stick.firstElementChild.style.transform = `translate(${v.x * 37}px, ${v.y * 37}px)`;
 }
-ui.canvas.addEventListener('pointerdown', (e) => { if (coarse) looks.set(e.pointerId, { x: e.clientX, y: e.clientY }); });
+// A short touch that barely moves is a tap: it uses what was tapped, or else
+// whatever is lit up under the crosshair
+ui.canvas.addEventListener('pointerdown', (e) => {
+  if (coarse) looks.set(e.pointerId, { x: e.clientX, y: e.clientY, moved: 0, t0: performance.now() });
+});
 ui.canvas.addEventListener('pointermove', (e) => {
   const last = looks.get(e.pointerId);
-  if (!last || !playing || zoom) return;
-  player.yaw -= (e.clientX - last.x) * 0.005;
-  player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - (e.clientY - last.y) * 0.005));
-  looks.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (!last || !playing) return;
+  const dx = e.clientX - last.x, dy = e.clientY - last.y;
+  last.x = e.clientX; last.y = e.clientY; last.moved += Math.hypot(dx, dy);
+  if (zoom) return;
+  player.yaw -= dx * 0.005;
+  player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - dy * 0.005));
 });
-const lookEnd = (e) => looks.delete(e.pointerId);
-ui.canvas.addEventListener('pointerup', lookEnd);
-ui.canvas.addEventListener('pointercancel', lookEnd);
+ui.canvas.addEventListener('pointerup', (e) => {
+  const look = looks.get(e.pointerId);
+  looks.delete(e.pointerId);
+  if (look && look.moved < TAP.px && performance.now() - look.t0 < TAP.ms) tap(e.clientX, e.clientY);
+});
+ui.canvas.addEventListener('pointercancel', (e) => looks.delete(e.pointerId));
+
+function tap(x, y) {
+  if (!playing || panelOpen || player.busy) return;
+  if (zoom) return zoomOut();
+  const r = ui.canvas.getBoundingClientRect();
+  tapPoint.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
+  const tapped = usableAt(tapPoint) ?? target ?? screenAt(tapPoint);
+  if (!tapped) return; // a stray tap shouldn't stand you up
+  if (tapped.kind === 'screen') return zoomIn(tapped.item); // seated too
+  target = tapped;
+  interact();
+}
 ui.useBtn.addEventListener('click', () => {
   if (zoom) zoomOut();
   else if (target?.kind === 'screen') zoomIn(target.item);
@@ -537,12 +604,13 @@ window.__game = {
   play() { playing = true; ui.overlay.hidden = true; },
   place(bx, by, lookX, lookY, pitch = -0.1) { player.seat = null; player.pos.set(bx, EYE, -by); lookAt(lookX, lookY); player.pitch = pitch; },
   look(yaw, pitch) { player.yaw += yaw; player.pitch = pitch; },
+  nudge(yaw) { player.yaw += yaw; },
   aim(name, up = 0.05) {
     const p = room.root.getObjectByName(name).getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, up, 0)).sub(player.pos);
     player.yaw = Math.atan2(-p.x, -p.z);
     player.pitch = Math.atan2(p.y, Math.hypot(p.x, p.z));
   },
-  interact, controls, closePanel, zoomIn, zoomOut,
+  interact, controls, closePanel, tap, zoomIn, zoomOut,
   get zoom() { return zoom && { name: zoom.name, k: zoom.k }; },
   get target() { return target; },
   get panelOpen() { return panelOpen; },
