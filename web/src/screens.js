@@ -548,9 +548,10 @@ export function screenFor(name) {
 }
 
 // Draw every screen into its slot of the shared canvas (meta.screens from the
-// bake), at `scale` times the slot's pixel size
-export function drawSlots(ctx, slots, t, scale = 1) {
-  for (const [name, [x, y, w, h]] of Object.entries(slots)) {
+// bake), at `scale` times the slot's pixel size; `names` picks a subset
+export function drawSlots(ctx, slots, t, scale = 1, names = Object.keys(slots)) {
+  for (const name of names) {
+    const [x, y, w, h] = slots[name];
     const fn = screenFor(name);
     if (!fn) continue;
     ctx.setTransform(scale, 0, 0, scale, x * scale, y * scale);
