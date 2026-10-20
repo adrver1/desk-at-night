@@ -1,8 +1,8 @@
 // First-person walk around the control room: walk with WASD and the mouse,
 // sit in an operator chair and spin it, drink the coffee on the desks, and
 // run the room from the desk touch panels and the light switch by the door.
-// Scroll (or E, or the Zoom button on phones) while looking at a screen to
-// glide in until it fills the view; it runs live and sharp while zoomed.
+// Scroll or click (or E, or tap Zoom in on phones) while looking at a screen
+// to glide in until it fills the view; it runs live and sharp while zoomed.
 //
 // Collision is 2D, on the floor plan the bake exports (meta.layout, in
 // Blender's X/Y). glTF swaps axes, so Blender (x, y) is three's (x, -z).
@@ -25,7 +25,7 @@ const $ = (id) => document.getElementById(id);
 const ui = {
   game: $('game'), canvas: $('view'), overlay: $('overlay'), go: $('go'), intro: $('intro'),
   prompt: $('prompt'), toast: $('toast'), crosshair: $('crosshair'),
-  stick: $('stick'), useBtn: $('useBtn'), spinBtn: $('spinBtn'), zoomBtn: $('zoomBtn'),
+  stick: $('stick'), useBtn: $('useBtn'), spinBtn: $('spinBtn'),
   tp: $('tp'), tpClose: $('tpClose'), perf: $('tpPerf'),
 };
 const controls = new RoomControls({
@@ -61,6 +61,7 @@ raycaster.far = REACH;
 let target = null; // { kind: 'chair' | 'mug' | 'panel' | 'switch' | 'screen', item }
 const screenRay = new THREE.Raycaster();
 screenRay.far = SCREEN_REACH;
+const pointer = new THREE.Vector2(); // the mouse, when looking by dragging rather than pointer lock
 let zoom = null; // { name, k: 0..1, dir: ±1, pos, quat }, while gliding to or looking at a screen
 
 // ---------------------------------------------------------------- loading
@@ -172,7 +173,7 @@ function findTarget() {
   const item = hit?.object.userData.item;
   if (item) return item;
   // Further out, screens can be zoomed in on (the room still hides them)
-  screenRay.setFromCamera(center, camera);
+  screenRay.setFromCamera(dragLook && !coarse ? pointer : center, camera);
   const far = screenRay.intersectObjects([room.root.getObjectByName('Room'), ...room.screenMeshes], false)[0];
   const name = far && room.screenMeshes.includes(far.object) ? room.screenAt(far) : null;
   return name ? { kind: 'screen', item: name } : null;
@@ -384,19 +385,18 @@ function showPrompt() {
   if (use) text = `<kbd>E</kbd>${use}`;
   if (spinOk) text += player.seat ? '&nbsp;&nbsp;<kbd>A</kbd><kbd>D</kbd>Spin' : '&nbsp;&nbsp;<kbd>Click</kbd>Spin';
   const zoomable = target?.kind === 'screen';
-  if (zoomable && player.seat) text += '&nbsp;&nbsp;<kbd>Scroll</kbd>Zoom in';
-  else if (zoomable) text = '<kbd>E</kbd><kbd>Scroll</kbd>Zoom in';
-  if (zoom) text = '<kbd>E</kbd><kbd>Scroll</kbd>Back';
+  if (zoomable) text = `${player.seat ? text + '&nbsp;&nbsp;' : ''}<kbd>Click</kbd><kbd>Scroll</kbd>Zoom in`;
+  if (zoom) text = '<kbd>Click</kbd><kbd>Scroll</kbd>Back';
   if (player.busy || panelOpen) text = '';
   if (ui.prompt.innerHTML !== text) ui.prompt.innerHTML = coarse ? '' : text;
   ui.crosshair.classList.toggle('on', Boolean(use) && !zoom);
   ui.crosshair.hidden = Boolean(zoom);
   ui.prompt.classList.toggle('low', Boolean(zoom)); // out of the way of the screen
-  ui.useBtn.hidden = !use || Boolean(player.busy) || Boolean(zoom) || use === 'Zoom in';
-  ui.useBtn.textContent = use;
+  // On phones the use button zooms on a screen, before anything else
+  const btn = zoom ? 'Back' : zoomable ? 'Zoom in' : use;
+  ui.useBtn.hidden = !btn || Boolean(player.busy);
+  ui.useBtn.textContent = btn;
   ui.spinBtn.hidden = !spinOk || Boolean(zoom);
-  ui.zoomBtn.hidden = !zoomable && !zoom;
-  ui.zoomBtn.textContent = zoom ? 'Back' : 'Zoom in';
 }
 
 // ------------------------------------------------------------------ input
@@ -435,6 +435,10 @@ addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
 
 ui.canvas.addEventListener('mousemove', (e) => {
+  if (dragLook) {
+    const r = ui.canvas.getBoundingClientRect();
+    pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, 1 - ((e.clientY - r.top) / r.height) * 2);
+  }
   if (!playing || coarse || zoom) return;
   if (document.pointerLockElement !== ui.canvas && !(dragLook && e.buttons & 1)) return;
   player.yaw -= e.movementX * LOOK;
@@ -443,8 +447,19 @@ ui.canvas.addEventListener('mousemove', (e) => {
 ui.canvas.addEventListener('mousedown', (e) => {
   if (!playing || coarse || panelOpen || e.button !== 0) return;
   if (zoom) return zoomOut();
+  if (target?.kind === 'screen') {
+    // Without pointer lock a press may start a drag to look: zoom on release, if it didn't move
+    if (!dragLook) return zoomIn(target.item);
+    press = { x: e.clientX, y: e.clientY, name: target.item };
+    return;
+  }
   const c = player.seat ?? (target?.kind === 'chair' ? target.item : null);
   if (c) spin(c);
+});
+let press = null;
+ui.canvas.addEventListener('mouseup', (e) => {
+  if (press && !zoom && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 5) zoomIn(press.name);
+  press = null;
 });
 
 // Touch: a stick bottom-left to walk, drag anywhere else to look
@@ -473,8 +488,11 @@ ui.canvas.addEventListener('pointermove', (e) => {
 const lookEnd = (e) => looks.delete(e.pointerId);
 ui.canvas.addEventListener('pointerup', lookEnd);
 ui.canvas.addEventListener('pointercancel', lookEnd);
-ui.useBtn.addEventListener('click', interact);
-ui.zoomBtn.addEventListener('click', () => (zoom ? zoomOut() : target?.kind === 'screen' && zoomIn(target.item)));
+ui.useBtn.addEventListener('click', () => {
+  if (zoom) zoomOut();
+  else if (target?.kind === 'screen') zoomIn(target.item);
+  else interact();
+});
 ui.canvas.addEventListener('wheel', (e) => {
   if (!playing || panelOpen) return;
   e.preventDefault();
