@@ -30,6 +30,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build as b  # noqa: E402  (imports bpy)
 import control_room as cr  # noqa: E402
+from mathutils import Matrix  # noqa: E402
 
 bpy = b.bpy
 OUT = os.path.join(b.ROOT, "web", "public", "control")
@@ -163,7 +164,7 @@ def main():
     movable = {}
     for o in scene.objects:
         if o.name.startswith("Chair") or o.name.endswith(("Mug", "TouchPanel", "LightPanel")):
-            movable[o.name] = o.matrix_world.translation.copy()
+            movable[o.name] = (o.matrix_world.translation.copy(), o.matrix_world.to_euler().z)
             o.vertex_groups.new(name=o.name).add(range(len(o.data.vertices)), 1.0, "REPLACE")
             if o.name.endswith("Mug"):  # the coffee drops as it's drunk, so it moves on its own
                 slot = [i for i, mt in enumerate(o.data.materials) if mt.name == "PropCoffee"][0]
@@ -231,11 +232,15 @@ def main():
         bpy.ops.object.mode_set(mode="OBJECT")
         part = [o for o in bpy.context.selected_objects if o is not room][0]
         part.name = part.data.name = name
-        scene.cursor.location = movable[name] if name in movable else boards[name][0].inverted().translation
+        scene.cursor.location = movable[name][0] if name in movable else boards[name][0].inverted().translation
         bpy.ops.object.select_all(action="DESELECT")
         part.select_set(True)
         bpy.context.view_layer.objects.active = part
         bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
+        if name in movable:  # and its turn, so its own frame faces the way it was placed
+            yaw = movable[name][1]
+            part.data.transform(Matrix.Rotation(-yaw, 4, "Z"))
+            part.rotation_euler.z = yaw
     for o in [room] + [scene.objects[n] for n in [*movable, *boards]]:
         o.vertex_groups.clear()
 
