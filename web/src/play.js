@@ -29,7 +29,7 @@ const $ = (id) => document.getElementById(id);
 const ui = {
   game: $('game'), canvas: $('view'), overlay: $('overlay'), go: $('go'), intro: $('intro'),
   prompt: $('prompt'), toast: $('toast'), crosshair: $('crosshair'),
-  stick: $('stick'), useBtn: $('useBtn'), spinBtn: $('spinBtn'),
+  stick: $('stick'), spinBtn: $('spinBtn'),
   tp: $('tp'), tpClose: $('tpClose'), perf: $('tpPerf'),
   screenPick: $('tpScreen'), screenShows: $('tpShows'), screenReset: $('tpReset'),
 };
@@ -96,6 +96,7 @@ async function load() {
       obj.add(panelScreen());
     } else if (name.endsWith('LightPanel')) {
       usable({ kind: 'switch', item: obj }, obj);
+      switchKeys.push(...lightKeys(obj));
     }
   }
   pickables.push(root.getObjectByName('Room')); // so walls and desks block the view of things behind them
@@ -148,6 +149,23 @@ function panelScreen() {
   mesh.position.set(0, 0.06 + out * Math.sin(-lean), -(0.02 - out * Math.cos(lean)));
   mesh.rotation.x = lean;
   return mesh;
+}
+
+// The light switch's three keys (full, night, off from the top; see
+// props.make_lightpanel), drawn over the baked ones so the one for the
+// current scene can glow. The panel comes out of the bake unrotated, its
+// face toward -X.
+const KEY_ON = new THREE.Color(1.0, 0.8, 0.45), KEY_OFF = new THREE.Color(0.045, 0.045, 0.05);
+const switchKeys = [];
+function lightKeys(panel) {
+  return ['full', 'night', 'off'].map((name, i) => {
+    const key = new THREE.Mesh(new THREE.PlaneGeometry(0.054, 0.024), new THREE.MeshBasicMaterial({ color: KEY_OFF }));
+    key.position.set(-0.0172, 0.04 - i * 0.04, 0); // just proud of the key's face
+    key.rotation.y = -Math.PI / 2;
+    key.userData.scene = name;
+    panel.add(key);
+    return key;
+  });
 }
 
 // Point the player at a spot on the floor plan (Blender x, y)
@@ -461,15 +479,13 @@ function showPrompt() {
   if (zoomable) text = `${player.seat ? text + '&nbsp;&nbsp;' : ''}<kbd>Click</kbd><kbd>Scroll</kbd>Zoom in`;
   if (zoom) text = '<kbd>Click</kbd><kbd>Scroll</kbd>Back';
   if (player.busy || panelOpen) text = '';
-  // On phones a tap (or the use button) zooms on a screen, before anything else
+  // On phones a tap zooms on a screen, before anything else
   const btn = zoom ? 'Back' : zoomable ? 'Zoom in' : use;
   if (coarse) text = btn && !player.busy && !panelOpen ? `<kbd>Tap</kbd>${btn}` : '';
   if (ui.prompt.innerHTML !== text) ui.prompt.innerHTML = text;
   ui.crosshair.classList.toggle('on', Boolean(use) && !zoom);
   ui.crosshair.hidden = Boolean(zoom);
   ui.prompt.classList.toggle('low', Boolean(zoom)); // out of the way of the screen
-  ui.useBtn.hidden = !btn || Boolean(player.busy);
-  ui.useBtn.textContent = btn;
   ui.spinBtn.hidden = !spinOk || Boolean(zoom);
 }
 
@@ -578,16 +594,11 @@ function tap(x, y) {
   const r = ui.canvas.getBoundingClientRect();
   tapPoint.set(((x - r.left) / r.width) * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
   const tapped = usableAt(tapPoint) ?? target ?? screenAt(tapPoint);
-  if (!tapped) return; // a stray tap shouldn't stand you up
-  if (tapped.kind === 'screen') return zoomIn(tapped.item); // seated too
+  if (!tapped && !player.seat) return; // seated, a tap on nothing stands you up
+  if (tapped?.kind === 'screen') return zoomIn(tapped.item); // seated too
   target = tapped;
   interact();
 }
-ui.useBtn.addEventListener('click', () => {
-  if (zoom) zoomOut();
-  else if (target?.kind === 'screen') zoomIn(target.item);
-  else interact();
-});
 ui.canvas.addEventListener('wheel', (e) => {
   if (!playing || panelOpen) return;
   e.preventDefault();
@@ -621,6 +632,7 @@ renderer.setAnimationLoop((now) => {
   if (!room) return;
   update(dt);
   controls.step(dt);
+  for (const key of switchKeys) key.material.color.copy(key.userData.scene === controls.scene ? KEY_ON : KEY_OFF);
   room.setLights(controls.ceiling, controls.screens ? 1 : 0);
   if (controls.screens) room.updateScreens(now / 1000);
   renderer.render(scene, camera);
