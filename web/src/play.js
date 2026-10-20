@@ -22,10 +22,11 @@ const ui = {
   game: $('game'), canvas: $('view'), overlay: $('overlay'), go: $('go'), intro: $('intro'),
   prompt: $('prompt'), toast: $('toast'), crosshair: $('crosshair'),
   stick: $('stick'), useBtn: $('useBtn'), spinBtn: $('spinBtn'),
-  tp: $('tp'), tpClose: $('tpClose'),
+  tp: $('tp'), tpClose: $('tpClose'), perf: $('tpPerf'),
 };
 const controls = new RoomControls({
   scenes: [...document.querySelectorAll('[data-scene]')], light: $('tpLight'), lightOut: $('tpLightOut'),
+  screens: [...document.querySelectorAll('[data-screens]')],
   volume: $('tpVolume'), volumeOut: $('tpVolumeOut'), setpoint: $('tpSetpoint'), temp: $('tpTemp'),
   warmer: $('tpWarmer'), cooler: $('tpCooler'),
 });
@@ -430,16 +431,28 @@ new ResizeObserver(() => {
   camera.updateProjectionMatrix();
 }).observe(ui.game);
 
+// Average frame time, shown on the touch panel so the screens' cost can be
+// compared with them on and off
+const perf = { sum: 0, n: 0 };
+function showFrameTime(frame) {
+  perf.sum += frame; perf.n++;
+  if (perf.sum < 0.5) return;
+  const ms = (perf.sum / perf.n) * 1000;
+  ui.perf.textContent = `Frame time ${ms.toFixed(1)} ms · ${Math.round(1000 / ms)} fps`;
+  perf.sum = perf.n = 0;
+}
+
 let last = performance.now();
 renderer.setAnimationLoop((now) => {
-  const dt = Math.min((now - last) / 1000, 0.05);
+  const frame = (now - last) / 1000, dt = Math.min(frame, 0.05);
   last = now;
   if (!room) return;
   update(dt);
   controls.step(dt);
-  room.setLights(controls.ceiling, 1);
-  room.updateScreens(now / 1000);
+  room.setLights(controls.ceiling, controls.screens ? 1 : 0);
+  if (controls.screens) room.updateScreens(now / 1000);
   renderer.render(scene, camera);
+  if (panelOpen) showFrameTime(frame);
 });
 
 // For automated screenshots: put the player somewhere and act without a mouse
