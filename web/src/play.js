@@ -136,6 +136,8 @@ function blocked(x, z) {
     }
   }
   if (Math.abs(a) <= layout.wallHalf + spread && r > layout.wallR - 0.1 - BODY && r < layout.wallR + 0.15 + BODY) return true;
+  // The TV hanging past the end of the band is below head height
+  if (layout.tv && Math.abs(a - layout.tv[0]) <= layout.tv[1] + spread && r > layout.wallR - 0.1 - BODY && r < layout.wallR + 0.15 + BODY) return true;
   const [tx, ty, trx, try_] = layout.table;
   if (((bx - tx) / (trx + BODY)) ** 2 + ((by - ty) / (try_ + BODY)) ** 2 < 1) return true;
   for (const c of chairs) {

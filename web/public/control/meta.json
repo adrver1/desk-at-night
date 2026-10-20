@@ -1,6 +1,6 @@
 {
-  "scaleCeiling": 0.5298641324043274,
-  "scaleScreens": 0.28068169951438904,
+  "scaleCeiling": 0.33338284492492676,
+  "scaleScreens": 0.27308541536331177,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
   "samples": 64,
@@ -69,6 +69,10 @@
       "group": "ceiling"
     }
   },
+  "boards": {
+    "WhiteboardPnidFace": "board_pnid.png",
+    "WhiteboardShiftFace": "board_shift.png"
+  },
   "layout": {
     "desks": [
       -0.72431,
@@ -80,6 +84,11 @@
     "rBack": 2.95,
     "wallR": 4.029999999999999,
     "wallHalf": 1.28536,
+    "tv": [
+      -1.4727,
+      0.15385,
+      1.68
+    ],
     "room": [
       -5.4,
       -3.6,

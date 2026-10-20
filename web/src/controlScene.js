@@ -34,6 +34,10 @@ const roomFragment = /* glsl */ `
   uniform float uScreens;
   uniform int uMode;     // 0 final, 1 albedo, 2 ceiling light, 3 screens light
   varying vec2 vUv;
+  #ifdef BOARD
+  uniform sampler2D uBoard;
+  varying vec2 vUv1;
+  #endif
 
   vec3 decode(sampler2D map, float scale) {
     vec3 c = texture2D(map, vUv).rgb;
@@ -41,7 +45,11 @@ const roomFragment = /* glsl */ `
   }
 
   void main() {
+    #ifdef BOARD
+    vec3 albedo = texture2D(uBoard, vUv1).rgb;  // whiteboards: their own sharp image, lit by the atlas
+    #else
     vec3 albedo = texture2D(uAlbedo, vUv).rgb;
+    #endif
     vec3 eCeiling = uCeiling * decode(uLightCeiling, uScaleCeiling);
     vec3 eScreens = uScreens * decode(uLightScreens, uScaleScreens);
     vec3 color = albedo * (eCeiling + eScreens);
@@ -53,6 +61,11 @@ const roomFragment = /* glsl */ `
     if (uMode == 1) gl_FragColor = linearToOutputTexel(vec4(albedo, 1.0));
   }
 `;
+
+// Whiteboard surfaces: the room's vertex shader plus their second UV set
+const boardVertex = roomVertex
+  .replace('varying vec2 vUv;', 'varying vec2 vUv;\n  varying vec2 vUv1;')
+  .replace('vUv = uv;', 'vUv = uv;\n    vUv1 = uv1;');
 
 async function bytes(name) {
   const res = await fetch(SCENE + name, FRESH);
@@ -94,6 +107,19 @@ export async function loadControlRoom(renderer) {
     const mesh = gltf.scene.getObjectByName(name);
     if (mesh) mesh.material = material;
   }
+  // Whiteboards share its light too, with their own image as albedo. Drawn
+  // once at bake time, so they cost one texture each and nothing per frame.
+  const boards = Object.entries(meta.boards ?? {});
+  const boardBufs = await Promise.all(boards.map(([, png]) => bytes(png)));
+  for (const [i, [name]] of boards.entries()) {
+    const mesh = gltf.scene.getObjectByName(name);
+    if (!mesh) continue;
+    const board = material.clone();
+    board.vertexShader = boardVertex;
+    board.defines = { BOARD: '', USE_UV1: '' };
+    board.uniforms = { ...material.uniforms, uBoard: { value: await texture(renderer, boardBufs[i], true) } };
+    mesh.material = board;
+  }
   let screens = null;
   if (meta.screens) {
     const canvas = document.createElement('canvas');
@@ -120,7 +146,7 @@ export async function loadControlRoom(renderer) {
     meta,
     root: gltf.scene,
     cameras: gltf.cameras,
-    sizes: { glb: glb.byteLength, maps: albedoBuf.byteLength + ceilBuf.byteLength + scrBuf.byteLength },
+    sizes: { glb: glb.byteLength, maps: [albedoBuf, ceilBuf, scrBuf, ...boardBufs].reduce((n, b) => n + b.byteLength, 0) },
     // Set the light mix: weights for the two groups, and the debug view
     setLights(ceiling, screens, mode = 0) {
       const u = material.uniforms;
