@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { loadControlRoom, SKY } from './controlScene.js';
 import { RoomControls } from './roomControls.js';
+import { CONTENT, DEFAULT_LAYOUT, contentOf, screenLabel } from './screens.js';
 import { Highlight } from './highlight.js';
 
 const EYE = 1.65;          // standing eye height, m
@@ -30,6 +31,7 @@ const ui = {
   prompt: $('prompt'), toast: $('toast'), crosshair: $('crosshair'),
   stick: $('stick'), useBtn: $('useBtn'), spinBtn: $('spinBtn'),
   tp: $('tp'), tpClose: $('tpClose'), perf: $('tpPerf'),
+  screenPick: $('tpScreen'), screenShows: $('tpShows'), screenReset: $('tpReset'),
 };
 const controls = new RoomControls({
   scenes: [...document.querySelectorAll('[data-scene]')], light: $('tpLight'), lightOut: $('tpLightOut'),
@@ -97,6 +99,7 @@ async function load() {
     }
   }
   pickables.push(root.getObjectByName('Room')); // so walls and desks block the view of things behind them
+  setUpScreenPicker();
   lookAt(-0.6, 2.2);
   ui.go.disabled = false;
   ui.go.textContent = coarse ? 'Tap to start' : 'Click to start';
@@ -108,6 +111,31 @@ function usable(item, ...meshes) {
   item.meshes = meshes.filter(Boolean);
   for (const mesh of item.meshes) { mesh.userData.item = item; pickables.push(mesh); }
   items.push(item);
+}
+
+// The panel's screen picker: choose a screen, then what it shows. Choices
+// are remembered in this browser only.
+const LAYOUT_KEY = 'controlRoom.screens';
+function setUpScreenPicker() {
+  const names = Object.keys(room.meta.screens?.slots ?? {});
+  ui.screenPick.replaceChildren(...names.map((n) => new Option(screenLabel(n), n)));
+  ui.screenShows.replaceChildren(...Object.entries(CONTENT).map(([id, [label]]) => new Option(label, id)));
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(LAYOUT_KEY)) ?? {}; } catch { /* private mode: start fresh */ }
+  for (const [n, id] of Object.entries(saved)) if (names.includes(n) && CONTENT[id] && id !== contentOf(n)) room.setContent(n, id);
+  const sync = () => { ui.screenShows.value = contentOf(ui.screenPick.value); };
+  const save = () => {
+    const changed = Object.fromEntries(names.filter((n) => contentOf(n) !== DEFAULT_LAYOUT[n]).map((n) => [n, contentOf(n)]));
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(changed)); } catch { /* not remembered */ }
+  };
+  ui.screenPick.addEventListener('change', sync);
+  ui.screenShows.addEventListener('change', () => { room.setContent(ui.screenPick.value, ui.screenShows.value); save(); });
+  ui.screenReset.addEventListener('click', () => {
+    for (const n of names) if (contentOf(n) !== DEFAULT_LAYOUT[n]) room.setContent(n, DEFAULT_LAYOUT[n]);
+    save();
+    sync();
+  });
+  sync();
 }
 
 // The glowing face of a desk touch panel: a plane over its glass, in the

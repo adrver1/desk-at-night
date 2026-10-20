@@ -5,6 +5,19 @@
 //
 // Style: a dark "high-performance HMI" (after ISA-101). Grey for normal,
 // colour only for what needs attention, so a calm screen reads as calm.
+//
+// Where the content comes from. Nothing is truly random: every value is a
+// fixed function of t, so a given moment always looks the same.
+//   calculated  a small made-up process model (`sim` below), e.g. the
+//               separator level cycling under a sticky valve, or the
+//               compressor bearing temperature creeping up over the shift
+//   noise       wobble(): a few summed sine waves that look like process
+//               noise around a fixed value
+//   scripted    fixed lists played back in order over time (the alarm pool,
+//               the assistant's steps, the alarm-rate bars)
+//   static      text and numbers written into the layout (tags, labels,
+//               targets, the shift log, procedure titles, ESD status)
+// Each screen function below says which of these it uses.
 
 const C = {
   bg: '#24282c', panel: '#2e3338', line: '#454b52', dim: '#7d858d', text: '#c9ced3', bright: '#eef1f3',
@@ -170,6 +183,9 @@ function pipe(ctx, pts, s, color = C.dim) {
 
 // ---------------------------------------------------------------- desk monitors (16:10)
 
+// Sources: level and valve position calculated (stiction model); pressure,
+// temperature noise; oil flow calculated from `sim.oil`; tags and labels
+// static.
 function separatorOverview(ctx, w, h, t) {
   const s = S(w), top = header(ctx, w, 'Separation · Train 1', t);
   const lvl = sim.sepLevel(t);
@@ -193,6 +209,7 @@ function separatorOverview(ctx, w, h, t) {
   text(ctx, 'Level controller in AUTO · SP 50 %', 20 * s, h - 16 * s, { px: 11 * s, color: C.dim });
 }
 
+// Sources: level and valve output calculated (stiction model); limits static.
 function separatorTrend(ctx, w, h, t) {
   const s = S(w), top = header(ctx, w, 'Trend · 20-LIC-1012 level loop', t);
   const pad = 14 * s, gw = w - pad * 2, gh = (h - top - pad * 3) / 2;
@@ -200,6 +217,8 @@ function separatorTrend(ctx, w, h, t) {
   trend(ctx, pad, top + pad * 2 + gh, gw, gh, t, sim.valvePos, { lo: 30, hi: 55, label: 'Valve output', unit: '%', decimals: 0, color: '#d7b8ff', span: 300, step: true });
 }
 
+// Sources: bearing temperature calculated (slow creep); discharge pressure,
+// speed, vibration noise; tags static.
 function compressor(ctx, w, h, t) {
   const s = S(w), top = header(ctx, w, 'Gas compression · 23-KA-001', t);
   // Compressor symbol: trapezoid
@@ -218,6 +237,8 @@ function compressor(ctx, w, h, t) {
   trend(ctx, 20 * s, top + 215 * s, w - 40 * s, h - top - 230 * s, t, sim.bearingTemp, { lo: 74, hi: 90, label: 'DE bearing temp, last hour', unit: '°C', span: 3600, color: C.p3, limits: [[85, C.p2]] });
 }
 
+// Sources: scripted, a new alarm from ALARM_POOL every 17 s; times from the
+// shift clock; older than the last three shown as acknowledged.
 function alarmList(ctx, w, h, t) {
   const s = S(w), top = header(ctx, w, 'Alarm list · all areas', t);
   const rowH = 30 * s, list = alarms(t, Math.floor((h - top - 50 * s) / rowH));
@@ -245,6 +266,8 @@ function alarmList(ctx, w, h, t) {
   text(ctx, `${list.filter((a) => !a.acked).length} unacknowledged`, 12 * s, h - 10 * s, { px: 11 * s, color: C.p2 });
 }
 
+// Sources: scripted, the steps appear one every 4 s on a 60 s loop, then wait
+// at the approval gate; all text static.
 function assistant(ctx, w, h, t) {
   const s = S(w), top = header(ctx, w, 'Operations assistant', t, 'AI · suggestions only');
   // Steps appear one by one, then wait at the approval gate
@@ -274,6 +297,8 @@ function assistant(ctx, w, h, t) {
   }
 }
 
+// Sources: GT-A/B load noise; GT-C standby static; MW and spinning reserve
+// calculated from the loads.
 function utilities(ctx, w, h, t) {
   const s = S(w), top = header(ctx, w, 'Power generation', t);
   ['GT-A', 'GT-B', 'GT-C'].forEach((name, i) => {
@@ -288,6 +313,8 @@ function utilities(ctx, w, h, t) {
   text(ctx, `Total ${total.toFixed(1)} MW · spinning reserve ${(23.5 * 2 - total).toFixed(1)} MW`, 20 * s, h - 20 * s, { px: 12 * s, color: C.text });
 }
 
+// Sources: the log lines are static; the clock and cursor follow the shift
+// time.
 function logbook(ctx, w, h, t) {
   const s = S(w), top = header(ctx, w, 'Shift log · night', t);
   const lines = [
@@ -307,6 +334,8 @@ function logbook(ctx, w, h, t) {
   text(ctx, cursor, 80 * s, top + 34 * s + 5 * 34 * s, { px: 13 * s, color: C.text });
 }
 
+// Sources: per-well choke, pressure and temperature are static numbers
+// derived from the well's index, plus noise; A-09 shut in static.
 function wellOverview(ctx, w, h, t) {
   const s = S(w), top = header(ctx, w, 'Wells · production manifold', t);
   const wells = ['A-01', 'A-03', 'A-04', 'A-07', 'A-09', 'A-12', 'A-15', 'A-18'];
@@ -326,6 +355,7 @@ function wellOverview(ctx, w, h, t) {
   });
 }
 
+// Sources: all static (the search, the hits, the assistant's cited answer).
 function procedures(ctx, w, h, t) {
   const s = S(w), top = header(ctx, w, 'Procedures · search', t);
   rect(ctx, 14 * s, top + 14 * s, w - 28 * s, 34 * s, C.bg, C.line);
@@ -345,6 +375,7 @@ function procedures(ctx, w, h, t) {
   text(ctx, 'Assistant: step 4.2 needs a gas test before purge. Cited: OP-80-014 §4.2', 14 * s, h - 18 * s, { px: 12 * s, color: C.ai });
 }
 
+// Sources: all static, every zone healthy.
 function esdOverview(ctx, w, h, t) {
   const s = S(w), top = header(ctx, w, 'ESD / F&G status', t, 'Safety system · read only');
   const zones = ['Wellbay', 'Separation', 'Compression', 'Utilities', 'Turbine hall', 'Living quarters'];
@@ -361,6 +392,8 @@ function esdOverview(ctx, w, h, t) {
 
 // ---------------------------------------------------------------- video wall (16:9)
 
+// Sources: a drawn night scene; sea glints and flare flicker move with t,
+// sensor noise is a fixed hash per frame; caption static.
 function deckCamera(ctx, w, h, t, { name = 'CAM 04 · Weather deck', flare = false } = {}) {
   const s = w / 1024;
   const sky = ctx.createLinearGradient(0, 0, 0, h);
@@ -403,6 +436,8 @@ function deckCamera(ctx, w, h, t, { name = 'CAM 04 · Weather deck', flare = fal
   text(ctx, `${sim.clock(t)}  ● REC`, w - 20 * s, 36 * s, { px: 20 * s, color: '#e6e6e6', mono: true, align: 'right' });
 }
 
+// Sources: wind speed, direction and wave height noise; visibility, cloud,
+// temperatures, helideck and vessel window static.
 function weather(ctx, w, h, t) {
   const s = w / 1024;
   rect(ctx, 0, 0, w, h, C.bg);
@@ -430,6 +465,8 @@ function weather(ctx, w, h, t) {
   text(ctx, 'Supply vessel window: 06:00–11:00 (Hs < 3.0 m)', 400 * s, h - 30 * s, { px: 17 * s, color: C.text });
 }
 
+// Sources: values from `sim` (calculated and noise); a block turns yellow
+// when its value crosses a static threshold.
 function platformOverview(ctx, w, h, t) {
   const s = w / 1024;
   rect(ctx, 0, 0, w, h, C.bg);
@@ -451,6 +488,7 @@ function platformOverview(ctx, w, h, t) {
   P([[315, 230], [315, 375], [630, 375]]); P([[315, 260], [430, 360]]); P([[800, 135], [830, 135]]);
 }
 
+// Sources: oil, gas and water noise around their rates; targets static.
 function production(ctx, w, h, t) {
   const s = w / 1024;
   rect(ctx, 0, 0, w, h, C.bg);
@@ -466,6 +504,8 @@ function production(ctx, w, h, t) {
   });
 }
 
+// Sources: bars scripted from a fixed 12-value pattern stepping once a
+// minute; benchmark line static; standing counts from the alarm list.
 function alarmRateWall(ctx, w, h, t) {
   const s = w / 1024;
   rect(ctx, 0, 0, w, h, C.bg);
@@ -486,6 +526,8 @@ function alarmRateWall(ctx, w, h, t) {
   text(ctx, `Standing: P1 ${counts[0]}  P2 ${counts[1]}  P3 ${counts[2]}`, w - 30 * s, top + 40 * s, { px: 17 * s, color: C.text, align: 'right', mono: true });
 }
 
+// Sources: flare rate noise; CO₂ today grows slowly with t; survey and pilot
+// status static.
 function emissions(ctx, w, h, t) {
   const s = w / 1024;
   rect(ctx, 0, 0, w, h, C.bg);
@@ -500,6 +542,7 @@ function emissions(ctx, w, h, t) {
   });
 }
 
+// Sources: static people and labels; the speaker highlight moves every 6 s.
 function videoCall(ctx, w, h, t) {
   const s = w / 1024;
   rect(ctx, 0, 0, w, h, '#16191d');
@@ -522,14 +565,51 @@ function videoCall(ctx, w, h, t) {
 
 // ---------------------------------------------------------------- what goes where
 
-// Two desks of six monitors (left to right as seen from the chairs), a band of
-// seven wall displays, and the meeting table's video-link screen.
-export const DESK_SCREENS = [
-  [wellOverview, separatorOverview, separatorTrend, compressor, alarmList, assistant],
-  [utilities, esdOverview, alarmList, procedures, logbook, assistant],
-];
-export const WALL_SCREENS = [deckCamera, weather, platformOverview, production, alarmRateWall, emissions, (ctx, w, h, t) => deckCamera(ctx, w, h, t, { name: 'CAM 11 · Flare boom', flare: true })];
-export const LINK_SCREEN = videoCall;
+// Everything a screen can show, by id: [name for the panel, draw function]
+export const CONTENT = {
+  wells: ['Wells', wellOverview],
+  separator: ['Separation', separatorOverview],
+  levelTrend: ['Level loop trend', separatorTrend],
+  compressor: ['Gas compression', compressor],
+  alarms: ['Alarm list', alarmList],
+  assistant: ['Operations assistant', assistant],
+  power: ['Power generation', utilities],
+  esd: ['ESD / F&G status', esdOverview],
+  procedures: ['Procedures', procedures],
+  log: ['Shift log', logbook],
+  deckCam: ['Deck camera', deckCamera],
+  flareCam: ['Flare camera', (ctx, w, h, t) => deckCamera(ctx, w, h, t, { name: 'CAM 11 · Flare boom', flare: true })],
+  weather: ['Weather & helideck', weather],
+  overview: ['Platform overview', platformOverview],
+  production: ['Production', production],
+  alarmLoad: ['Alarm load', alarmRateWall],
+  emissions: ['Flare & emissions', emissions],
+  call: ['Video call', videoCall],
+  blank: ['Blank', () => {}],
+};
+
+// What each screen shows unless the player changes it on the room panel.
+// Desks left to right as seen from the chairs, then the wall band, then the
+// meeting table's video link.
+export const DEFAULT_LAYOUT = {
+  ...Object.fromEntries(['wells', 'separator', 'levelTrend', 'compressor', 'alarms', 'assistant'].map((id, i) => [`Desk0Mon${i}Screen`, id])),
+  ...Object.fromEntries(['power', 'esd', 'alarms', 'procedures', 'log', 'assistant'].map((id, i) => [`Desk1Mon${i}Screen`, id])),
+  ...Object.fromEntries(['deckCam', 'weather', 'overview', 'production', 'alarmLoad', 'emissions', 'flareCam'].map((id, i) => [`Wall${i}Screen`, id])),
+  LinkScreen: 'call',
+};
+const layout = { ...DEFAULT_LAYOUT };
+
+// Panel names for the screens themselves
+export function screenLabel(name) {
+  let m = name.match(/^Desk(\d)Mon(\d)Screen$/);
+  if (m) return `${m[1] === '0' ? 'Left' : 'Right'} desk ${Number(m[2]) + 1}`;
+  m = name.match(/^Wall(\d)Screen$/);
+  if (m) return `Wall ${Number(m[1]) + 1}`;
+  return name === 'LinkScreen' ? 'Meeting room' : name;
+}
+
+export const contentOf = (name) => layout[name];
+export function assign(name, id) { if (CONTENT[id]) layout[name] = id; }
 
 // Draw one screen into a w × h region of ctx (origin already translated)
 export function drawScreen(ctx, fn, w, h, t) {
@@ -542,11 +622,7 @@ export function drawScreen(ctx, fn, w, h, t) {
 
 // The function that draws a screen, by its mesh name in the bake
 export function screenFor(name) {
-  let m = name.match(/^Desk(\d)Mon(\d)Screen$/);
-  if (m) return DESK_SCREENS[m[1]]?.[m[2]];
-  m = name.match(/^Wall(\d)Screen$/);
-  if (m) return WALL_SCREENS[m[1]];
-  return name === 'LinkScreen' ? LINK_SCREEN : undefined;
+  return CONTENT[layout[name]]?.[1];
 }
 
 // Draw every screen into its slot of the shared canvas (meta.screens from the

@@ -7,7 +7,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { roomVertex } from './shaders.js';
-import { drawSlots } from './screens.js';
+import { drawSlots, assign, contentOf } from './screens.js';
 
 const SCENE = 'control/';
 // GitHub Pages lets browsers reuse files for ten minutes without asking. After
@@ -21,8 +21,9 @@ const DISPLAY = { screens: 0.32, ceiling: 1 };
 // The screens show content from screens.js. Redrawing and re-uploading all of
 // them a few times a second was too slow, so they are drawn once, as they
 // look STATIC_T seconds into the shift (phones get a half-size atlas), and
-// only the LIVE screens keep moving, each on its own small texture.
-const LIVE = ['Desk0Mon5Screen']; // the operations assistant
+// only screens showing LIVE content keep moving, each on its own small texture.
+const LIVE = ['assistant']; // content that keeps moving wherever it is shown
+const isLive = (name) => LIVE.includes(contentOf(name));
 const STATIC_T = 600, SCREEN_HZ = 4, SCREEN_GAIN = 1.4;
 const FOCUS_SCALE = 2, FOCUS_HZ = 8; // the screen the player zooms in on
 const SCREEN_SCALE = matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
@@ -217,7 +218,7 @@ export async function loadControlRoom(renderer) {
     o.tex.needsUpdate = true;
   }
   const slots = meta.screens?.slots ?? {};
-  if (screens) for (const name of LIVE) { const o = overlay(name, 1); if (o) o.mesh.visible = true; }
+  if (screens) for (const name of Object.keys(slots)) if (isLive(name)) { const o = overlay(name, 1); if (o) o.mesh.visible = true; }
   gltf.scene.updateMatrixWorld(true);
 
   return {
@@ -245,10 +246,7 @@ export async function loadControlRoom(renderer) {
       if (f && t - screens.focusDrawn >= 1 / FOCUS_HZ) { screens.focusDrawn = t; draw(f, t); }
       if (t - screens.drawn < 1 / SCREEN_HZ) return;
       screens.drawn = t;
-      for (const name of LIVE) {
-        const o = screens.overlays.get(name);
-        if (o && o !== f) draw(o, t);
-      }
+      for (const [name, o] of screens.overlays) if (o !== f && isLive(name)) draw(o, t);
     },
     // The meshes the screens are drawn on, for raycasting
     screenMeshes: screens?.meshes ?? [],
@@ -265,12 +263,22 @@ export async function loadControlRoom(renderer) {
       if (!o) return null;
       return faceFrame(o.mesh, from);
     },
+    // Change what a screen shows (an id from screens.js CONTENT). Redraws its
+    // slot of the atlas once, which costs one upload of the atlas.
+    setContent(name, id) {
+      if (!screens || !slots[name]) return;
+      assign(name, id);
+      drawSlots(screens.atlas.image.getContext('2d'), { [name]: slots[name] }, STATIC_T, SCREEN_SCALE);
+      screens.atlas.needsUpdate = true;
+      const o = isLive(name) ? overlay(name, 1) : screens.overlays.get(name);
+      if (o) { if (o.tex) draw(o, 0); o.mesh.visible = isLive(name) || o === screens.focus; }
+    },
     // Show one screen sharp and fully live (null for none)
     setFocus(name) {
       if (!screens) return;
       const prev = screens.focus;
       screens.focus = name ? overlay(name, FOCUS_SCALE) : null;
-      if (prev && prev !== screens.focus && !LIVE.includes(prev.name)) prev.mesh.visible = false;
+      if (prev && prev !== screens.focus && !isLive(prev.name)) prev.mesh.visible = false;
       if (screens.focus) { screens.focus.mesh.visible = true; screens.focusDrawn = -Infinity; }
     },
   };
