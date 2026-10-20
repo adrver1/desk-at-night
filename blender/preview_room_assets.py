@@ -21,6 +21,7 @@ p.add_argument("--res", type=int, default=1280)
 p.add_argument("--out", default=os.path.join(b.BUILD, "room_assets"))
 p.add_argument("--device", default="auto")
 p.add_argument("--only", default="", help="comma-separated shot names")
+p.add_argument("--exposure", type=float, default=0.0, help="stops brighter, for judging shapes")
 args = p.parse_args()
 os.makedirs(args.out, exist_ok=True)
 
@@ -31,6 +32,7 @@ scene.cycles.device = b.pick_device(args.device)
 scene.cycles.samples = args.samples
 scene.cycles.use_denoising = True
 scene.view_settings.view_transform = "AgX"
+scene.view_settings.exposure = args.exposure
 
 m = cr.materials()
 cr.build_desk(m)
@@ -88,6 +90,7 @@ shots = {  # name: (location, aim, lens, width, height)
     "esd-panel": (Vector((-2.4, -1.4, 1.45)), Vector((-3.1, cr.ROOM_Y0, 1.15)), 24, 3, 2),
     "nook-doorway": (Vector((4.0, -1.2, 1.6)), Vector((4.0, -4.8, 0.9)), 22, 16, 9),
     "nook-inside": (Vector((5.0, -3.8, 1.55)), Vector((1.0, -5.3, 0.6)), 18, 16, 9),
+    "desk-apron": (cr.polar(0.8, a0 + 0.85, 0.80), cr.polar(cr.r_front(a0 + 0.45), a0 + 0.45, 0.62), 26, 16, 9),
     "band-right": (Vector((-1.2, -0.6, 1.5)), Vector((3.2, 3.6, 2.0)), 20, 16, 9),
 }
 only = set(filter(None, args.only.split(",")))

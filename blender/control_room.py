@@ -186,9 +186,6 @@ def build_desk(m):
         arc_slab(f"Desk{k}Top", r_front, const(R_BACK), DESK_Z - DESK_T, DESK_Z, a0, a1, m["birch"])
         arc_slab(f"Desk{k}Shelf", const(SHELF_R0), const(R_BACK - 0.02), DESK_Z, DESK_Z + SHELF_H,
                  a0 + 0.01, a1 - 0.01, m["shelf"])
-        # Black apron under the operator edge, with a shallow drawer
-        arc_slab(f"Desk{k}Apron", lambda a: r_front(a) + 0.06, lambda a: r_front(a) + 0.09, 0.60, DESK_Z - DESK_T,
-                 a0 + 0.04, a1 - 0.04, m["desk_body"])
         # Cable spine under the back edge, carried by two T-legs
         arc_slab(f"Desk{k}Spine", const(R_BACK - 0.30), const(R_BACK - 0.10), 0.50, DESK_Z - DESK_T,
                  a0 + 0.05, a1 - 0.05, m["desk_body"])
@@ -295,6 +292,11 @@ def build_desk_props(m):
                         -a + math.radians(flip * yaw))
         p = edge + right * (flip * -0.80) + ahead * 0.30
         props.place(props.make_deskphone(pm, f"S{k}Phone"), p.x, p.y, DESK_Z, -a + 0.3 * flip)
+        # Shallow grey drawer hung under the top, to the operator's left
+        p = edge + right * (flip * -0.62) + ahead * 0.22
+        box(f"Desk{k}Drawer", (0.46, 0.38, 0.07), (p.x, p.y, DESK_Z - DESK_T - 0.035), m["post"], rot_z=-a)
+        p = edge + right * (flip * -0.62) + ahead * 0.028
+        box(f"Desk{k}DrawerPull", (0.14, 0.012, 0.018), (p.x, p.y, DESK_Z - DESK_T - 0.04), m["desk_body"], rot_z=-a)
         p = edge + right * (flip * 0.95) + ahead * 0.24
         props.place(props.make_touchpanel(pm, f"S{k}TouchPanel"), p.x, p.y, DESK_Z, -a - 0.2 * flip)
 
