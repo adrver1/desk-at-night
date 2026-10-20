@@ -58,7 +58,9 @@
   .tp-note { margin: 0; font-size: 13px; color: var(--dim); }
   .touch { display: none; }
   .coarse .touch { display: block; }
-  .coarse .keys, .coarse .crosshair { display: none; }
+  .coarse .keys { display: none; }
+  .keys.touch-keys { display: none; }
+  .coarse .keys.touch-keys { display: grid; }
   .stick { position: absolute; left: max(20px, env(safe-area-inset-left)); bottom: max(24px, env(safe-area-inset-bottom));
     width: 120px; height: 120px; border-radius: 50%; border: 1px solid var(--line); background: #ffffff0d; }
   .stick i { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: #ffffff33; }
@@ -135,6 +137,11 @@
         <dt>Click</dt><dd>spin a chair</dd>
         <dt>A / D</dt><dd>spin while seated</dd>
         <dt>Esc</dt><dd>pause</dd>
+      </dl>
+      <dl class="keys touch-keys">
+        <dt>Stick</dt><dd>walk, or spin while seated</dd>
+        <dt>Drag</dt><dd>look around</dd>
+        <dt>Tap</dt><dd>use what lights up in the middle, or zoom in on a screen</dd>
       </dl>
       <button class="go" id="go" type="button" disabled>Loading…</button>
     </div>
