@@ -91,6 +91,8 @@ shots = {  # name: (location, aim, lens, width, height)
     "nook-doorway": (Vector((4.0, -1.2, 1.6)), Vector((4.0, -4.8, 0.9)), 22, 16, 9),
     "nook-inside": (Vector((5.0, -3.8, 1.55)), Vector((1.0, -5.3, 0.6)), 18, 16, 9),
     "desk-apron": (cr.polar(0.8, a0 + 0.85, 0.80), cr.polar(cr.r_front(a0 + 0.45), a0 + 0.45, 0.62), 26, 16, 9),
+    "binders": (Vector((-1.05, -2.05, 1.25)), Vector((-1.05, cr.ROOM_Y0, 0.85)), 30, 16, 9),
+    "binders-close": (Vector((-0.75, -2.95, 1.05)), Vector((-1.25, cr.ROOM_Y0, 0.75)), 32, 16, 9),
     "band-right": (Vector((-1.2, -0.6, 1.5)), Vector((3.2, 3.6, 2.0)), 20, 16, 9),
 }
 only = set(filter(None, args.only.split(",")))
