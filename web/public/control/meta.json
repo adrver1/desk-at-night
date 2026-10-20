@@ -1,6 +1,6 @@
 {
-  "scaleCeiling": 0.9268416166305542,
-  "scaleScreens": 0.28061234951019287,
+  "scaleCeiling": 0.5498073101043701,
+  "scaleScreens": 0.27972322702407837,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
   "samples": 64,
@@ -41,6 +41,15 @@
       "strength": 1.5,
       "group": "ceiling"
     },
+    "EmitExitSign": {
+      "color": [
+        0.1,
+        1.0,
+        0.3
+      ],
+      "strength": 4.0,
+      "group": "screens"
+    },
     "EmitPlatformLight": {
       "color": [
         1.0,
@@ -59,5 +68,38 @@
       "strength": 80.0,
       "group": "ceiling"
     }
-  }
+  },
+  "layout": {
+    "desks": [
+      -0.72431,
+      0.72431
+    ],
+    "deskHalf": 0.69813,
+    "rFront": 1.95,
+    "bayDepth": 0.2,
+    "rBack": 2.95,
+    "wallR": 4.029999999999999,
+    "wallHalf": 1.28536,
+    "room": [
+      -5.4,
+      -3.6,
+      5.4,
+      4.6
+    ],
+    "table": [
+      2.6,
+      -2.8,
+      1.0,
+      0.55
+    ],
+    "deskZ": 0.74
+  },
+  "movable": [
+    "Chair0",
+    "Chair1",
+    "S0Coffee",
+    "S0Mug",
+    "S1Coffee",
+    "S1Mug"
+  ]
 }

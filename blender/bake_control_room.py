@@ -32,7 +32,7 @@ OUT = os.path.join(b.ROOT, "web", "public", "control")
 
 # Emissive materials, grouped by which light map they feed
 GROUPS = {
-    "Screen": "screens", "ScreenCam": "screens",
+    "Screen": "screens", "ScreenCam": "screens", "ExitSign": "screens",  # the exit sign never goes off
     "LedPanel": "ceiling", "Clock": "ceiling", "PlatformLight": "ceiling", "Flare": "ceiling",
 }
 
@@ -105,6 +105,21 @@ def main():
     for o in [o for o in scene.objects if o.type == "EMPTY"]:
         bpy.data.objects.remove(o)
 
+    # Things the player can move (chairs spin, mugs get picked up) are baked
+    # with the room so they carry its light, then split back out afterwards.
+    # A vertex group per object survives the join and finds them again.
+    movable = {}
+    for o in scene.objects:
+        if o.name.startswith("Chair") or o.name.endswith("Mug"):
+            movable[o.name] = o.matrix_world.translation.copy()
+            o.vertex_groups.new(name=o.name).add(range(len(o.data.vertices)), 1.0, "REPLACE")
+            if o.name.endswith("Mug"):  # the coffee drops as it's drunk, so it moves on its own
+                slot = [i for i, mt in enumerate(o.data.materials) if mt.name == "PropCoffee"][0]
+                vs = {v for f in o.data.polygons if f.material_index == slot for v in f.vertices}
+                coffee = o.name[:-3] + "Coffee"
+                o.vertex_groups.new(name=coffee).add(list(vs), 1.0, "REPLACE")
+                movable[coffee] = movable[o.name]
+
     glowing = [o for o in scene.objects if emissive(o)]
     b.texel_weight = texel_weight  # unwrap_weighted() looks it up by name
     room = b.join_static(glowing)
@@ -140,6 +155,41 @@ def main():
         "samples": args.samples,
         "emitters": {},
     }
+
+    # Split the movable objects back out, each with its origin where it stands
+    coffees = sorted(n for n in movable if n.endswith("Coffee"))
+    for name in coffees + sorted(n for n in movable if n not in coffees):
+        bpy.ops.object.select_all(action="DESELECT")
+        bpy.context.view_layer.objects.active = room
+        room.select_set(True)
+        room.vertex_groups.active_index = room.vertex_groups[name].index
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="DESELECT")
+        bpy.ops.object.vertex_group_select()
+        bpy.ops.mesh.separate(type="SELECTED")
+        bpy.ops.object.mode_set(mode="OBJECT")
+        part = [o for o in bpy.context.selected_objects if o is not room][0]
+        part.name = part.data.name = name
+        scene.cursor.location = movable[name]
+        bpy.ops.object.select_all(action="DESELECT")
+        part.select_set(True)
+        bpy.context.view_layer.objects.active = part
+        bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
+    for o in [room] + [scene.objects[n] for n in movable]:
+        o.vertex_groups.clear()
+
+    # Floor plan for the first-person walk: what the player can't walk through
+    # (Blender X/Y in metres; the viewer converts to its own axes)
+    step = (cr.WALL_W + 0.03) / cr.WALL_R
+    meta["layout"] = {
+        "desks": [round(d, 5) for d in cr.DESKS], "deskHalf": round(cr.DESK_HALF, 5),
+        "rFront": cr.R_FRONT, "bayDepth": cr.BAY_DEPTH, "rBack": cr.R_BACK,
+        "wallR": cr.WALL_R, "wallHalf": round(cr.WALL_N / 2 * step, 5),
+        "room": [-cr.ROOM_X, cr.ROOM_Y0, cr.ROOM_X, cr.ROOM_Y1],
+        "table": [2.6, -2.8, 1.0, 0.55],  # centre and radii of the meeting table
+        "deskZ": cr.DESK_Z,
+    }
+    meta["movable"] = sorted(movable)
 
     # Join the glowing meshes per material and name them for the viewer
     for name, mat in mats.items():

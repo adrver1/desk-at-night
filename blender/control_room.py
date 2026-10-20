@@ -89,6 +89,8 @@ def materials():
     m["clock"] = emissive("Clock", (1.0, 0.05, 0.02), 6.0)
     m["platform_light"] = emissive("PlatformLight", (1.0, 0.75, 0.40), 40.0)
     m["flare"] = emissive("Flare", (1.0, 0.45, 0.10), 80.0)
+    m["exit_sign"] = emissive("ExitSign", (0.10, 1.0, 0.30), 4.0)
+    m["door"] = mat_flat("Door", (0.50, 0.52, 0.53), 0.5)
     return m
 
 
@@ -188,9 +190,14 @@ def monitor(name, pos, a, m, screen_mat):
         p.parent = parent
     parent.location = pos
     parent.rotation_euler = (-MON_TILT, 0, -a)
-    stand = box(name + "Stand", (0.06, 0.03, MON_Z0 - (DESK_Z + SHELF_H)),
-                pos - Vector((0, 0, (MON_Z0 - DESK_Z - SHELF_H) / 2 + h / 2 - 0.02)) + polar(0.03, a), m["bezel_white"])
-    stand.rotation_euler.z = -a
+    # Stand: a foot on the shelf, a neck up the back, and a mounting block
+    # bolted to the back of the (tilted) monitor
+    top = DESK_Z + SHELF_H
+    neck_h = pos.z - top
+    flat_pos = Vector((pos.x, pos.y, 0))
+    box(name + "Foot", (0.22, 0.16, 0.012), flat_pos + polar(0.02, a, top + 0.006), m["bezel_white"], rot_z=-a)
+    box(name + "Neck", (0.06, 0.035, neck_h), flat_pos + polar(0.055, a, top + neck_h / 2), m["bezel_white"], rot_z=-a)
+    box(name + "Mount", (0.10, 0.03, 0.10), flat_pos + polar(0.035, a, pos.z), m["bezel_white"], rot_z=-a)
     return parent
 
 
@@ -218,6 +225,10 @@ def build_video_wall(m):
             pa = a + s * (WALL_W / 2 - 0.25) / WALL_R
             p = polar(WALL_R + 0.06, pa, (WALL_Z0 + WALL_H + 0.05) / 2)
             box(f"Wall{i}Post{s:+d}", (0.10, 0.08, WALL_Z0 + WALL_H + 0.05), p, m["post"], rot_z=-pa)
+    # Teleconference camera bar on top of the leftmost display
+    a = -(WALL_N - 1) / 2 * step
+    p = polar(WALL_R, a, WALL_Z0 + WALL_H)
+    props.place(props.make_videobar(props.materials(), "VideoBarWall"), p.x, p.y, p.z, -a)
     # Red digital clock above the middle of the band
     box("Clock", (0.42, 0.05, 0.12), polar(WALL_R, 0, WALL_Z0 + WALL_H + 0.22), m["clock"])
 
@@ -260,27 +271,11 @@ def build_desk_props(m):
 
 # ------------------------------------------------------------------- chairs
 
-def chair(name, pos, facing, m):
-    """24/7 control-room chair: star base, column, seat, high back, headrest."""
-    mat = m["chair"]
-    yaw = -facing
-    def part(n, size, local):
-        off = b.Matrix.Rotation(yaw, 4, "Z") @ Vector(local)
-        return box(name + n, size, pos + off, mat, rot_z=yaw)
-    for i in range(5):
-        ang = 2 * math.pi * i / 5
-        box(f"{name}Leg{i}", (0.33, 0.05, 0.04), pos + Vector((0.16 * math.cos(ang), 0.16 * math.sin(ang), 0.06)), mat, rot_z=ang)
-    cylinder(name + "Column", 0.03, 0.40, pos + Vector((0, 0, 0.26)), mat, verts=16)
-    part("Seat", (0.52, 0.50, 0.09), (0, 0, 0.50))
-    part("Back", (0.48, 0.09, 0.66), (0, -0.27, 0.90))
-    part("Head", (0.30, 0.08, 0.16), (0, -0.27, 1.34))
-    part("ArmL", (0.06, 0.32, 0.04), (-0.27, -0.02, 0.70))
-    part("ArmR", (0.06, 0.32, 0.04), (0.27, -0.02, 0.70))
-
-
 def build_chairs(m):
+    pm = props.materials()
     for k, a in enumerate(DESKS):
-        chair(f"Chair{k}", polar(r_front(a) - 0.35, a), a, m)
+        p = polar(r_front(a) - 0.35, a)
+        props.place(props.make_chair(pm, f"Chair{k}"), p.x, p.y, 0.0, -a + math.radians(6 if k else -6))
 
 
 # --------------------------------------------------------------------- room
@@ -309,6 +304,14 @@ def build_shell(m):
         box(f"Led{i}", (0.58, 0.58, 0.01), (gx * 0.6, gy * 0.6, Z - 0.004), m["led_panel"])
     for i, (gx, gy) in enumerate([(-3, 3), (6, -6)]):
         box(f"AirCassette{i}", (0.62, 0.62, 0.04), (gx * 0.6, gy * 0.6, Z - 0.02), m["post"])
+    # Door at the rear of the right-hand wall, with a green exit sign above it
+    dy, dw, dh = Y0 + 1.1, 0.95, 2.10
+    box("DoorFrame", (0.04, dw + 0.10, dh + 0.05), (X - 0.02, dy, (dh + 0.05) / 2), m["frame"])
+    box("DoorLeaf", (0.03, dw, dh), (X - 0.045, dy, dh / 2), m["door"])
+    box("DoorHandle", (0.06, 0.14, 0.025), (X - 0.08, dy + dw / 2 - 0.10, 1.05), m["post"])
+    box("DoorKickPlate", (0.004, dw - 0.04, 0.25), (X - 0.062, dy, 0.14), m["post"])
+    box("ExitSignBox", (0.05, 0.38, 0.16), (X - 0.025, dy, dh + 0.25), m["ceiling"])
+    box("ExitSign", (0.004, 0.34, 0.12), (X - 0.052, dy, dh + 0.25), m["exit_sign"])
 
 
 def build_meeting_corner(m):
@@ -319,6 +322,7 @@ def build_meeting_corner(m):
     box("LinkScreenBezel", (1.9, 0.08, 1.08), (2.6, ROOM_Y0 + 0.15, 1.55), m["bezel_black"])
     box("LinkScreen", (1.85, 0.002, 1.03), (2.6, ROOM_Y0 + 0.19, 1.55), m["screen_cam"])
     box("LinkScreenStand", (0.12, 0.10, 1.0), (2.6, ROOM_Y0 + 0.13, 0.5), m["post"])
+    props.place(props.make_videobar(props.materials(), "VideoBarLink"), 2.6, ROOM_Y0 + 0.15, 1.55 + 0.54, math.pi)
 
 
 def build_outside(m):
@@ -424,7 +428,7 @@ def main():
 
     # Clay: everything grey under full ceiling light, to judge shapes and proportions
     clay = mat_flat("Clay", (0.6, 0.6, 0.6), 0.8)
-    keep = {"LedPanel", "Screen", "ScreenCam"}
+    keep = {"LedPanel", "Screen", "ScreenCam", "ExitSign"}
     for o in scene.objects:
         if o.type == "MESH":
             for i, mt in enumerate(o.data.materials):

@@ -9,7 +9,7 @@ export default defineConfig({
     target: 'es2022',
     assetsInlineLimit: 0,
     rollupOptions: {
-      input: { main: page('index.html'), control: page('control.html') },
+      input: { main: page('index.html'), control: page('control.html'), play: page('play.html') },
     },
   },
 });

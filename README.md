@@ -50,10 +50,19 @@ GPU, a full 1024² bake takes seconds instead of minutes, so you can afford
 ```
 
 A second, separate scene: a control room with two curved operator desks on
-a shared semicircle, six monitors on each, and a band of large displays on
-posts a step behind them. It renders
-Cycles preview stills only (clay, night, operator view, window, plan) and
-does not bake light maps yet; that is a job for a GPU.
+a shared semicircle, six monitors on each, a band of large displays on
+posts a step behind them, a door with an exit sign and two teleconference
+camera bars. `control_room.py` renders Cycles preview stills.
+
+```bash
+.venv/bin/python blender/bake_control_room.py          # 2048² atlas, 64 samples, ~4 min on CPU
+```
+
+bakes it for the browser: one light map for the ceiling panels and one for
+the screens. The chairs and mugs are baked with the room and then split back
+out, so they can move. Two pages use the result: `control.html`, a lighting
+viewer, and `play.html`, a first-person walk-around (WASD and mouse; sit in a
+chair and spin it, drink the coffee).
 
 ## Run the viewer
 

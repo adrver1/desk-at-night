@@ -41,6 +41,10 @@ def materials():
         flat("paint", "PropPencilPaint", (0.85, 0.60, 0.05), 0.4),
         flat("wood", "PropPencilWood", (0.78, 0.60, 0.40), 0.7),
         flat("eraser", "PropEraser", (0.85, 0.42, 0.45), 0.8),
+        flat("fabric", "PropFabric", (0.035, 0.037, 0.042), 0.95),
+        flat("alu", "PropAlu", (0.45, 0.46, 0.48), 0.35),
+        flat("grille", "PropGrille", (0.06, 0.06, 0.065), 0.9),
+        flat("lens", "PropLens", (0.004, 0.005, 0.008), 0.05),
     ])
     m["ruled"] = bpy.data.materials.get("PropRuled") or _ruled_paper()
     return m
@@ -103,6 +107,24 @@ class Builder:
         def make():
             g = bmesh.ops.create_cube(self.bm, size=1.0)
             self._xform(g["verts"], Matrix.Translation(center) @ orient @ Matrix.Diagonal((*size, 1)))
+        self._new(mat, make)
+
+    def rbox(self, size, center, mat, radius, segs=3, orient=Matrix(), bend=None):
+        """A box with rounded edges. `bend`, if given, maps each local vertex
+        (a Vector, before orient and center) to a new one, to curve or taper
+        the box."""
+        def make():
+            g = bmesh.ops.create_cube(self.bm, size=1.0)
+            self._xform(g["verts"], Matrix.Diagonal((*size, 1)))
+            edges = list({e for v in g["verts"] for e in v.link_edges})
+            before = set(self.bm.verts)
+            bmesh.ops.bevel(self.bm, geom=g["verts"] + edges, offset=radius, offset_type="OFFSET",
+                            segments=segs, profile=0.5, affect="EDGES", clamp_overlap=True)
+            live = [v for v in (set(self.bm.verts) - before) | set(g["verts"]) if v.is_valid]
+            if bend:
+                for v in live:
+                    v.co = bend(v.co.copy())
+            self._xform(live, Matrix.Translation(center) @ orient)
         self._new(mat, make)
 
     def cyl(self, r1, r2, h, center, mat, segs=24, orient=Matrix()):
@@ -373,4 +395,57 @@ def make_pencil(m, name="Pencil"):
     return p.done()
 
 
-ALL = [make_keyboard, make_mouse, make_mousepad, make_mug, make_mic, make_notepad, make_pencil]
+def make_chair(m, name="Chair"):
+    """24/7 control-room chair: five-star base on casters, gas lift, padded
+    seat, a tall curved back that leans back a little, headrest and T-arms.
+    The sitter faces +Y, so the back is toward -Y."""
+    c = Builder(name)
+    for i in range(5):  # star base
+        a = 2 * math.pi * i / 5 + math.pi / 2
+        d = Vector((math.cos(a), math.sin(a), 0))
+        c.box((0.30, 0.045, 0.028), d * 0.18 + Vector((0, 0, 0.085)), m["alu"], orient=_rot(z=a))
+        c.box((0.03, 0.03, 0.04), d * 0.32 + Vector((0, 0, 0.065)), m["black"], orient=_rot(z=a))
+        c.cyl(0.028, 0.028, 0.024, d * 0.32 + Vector((0, 0, 0.028)), m["black"], segs=16,
+              orient=_rot(z=a) @ _rot(y=math.pi / 2) @ _rot(x=math.pi / 2))
+    c.cyl(0.05, 0.045, 0.06, Vector((0, 0, 0.10)), m["alu"], segs=24)
+    c.cyl(0.032, 0.028, 0.20, Vector((0, 0, 0.22)), m["black"], segs=20)   # gas-lift sheath
+    c.cyl(0.021, 0.021, 0.08, Vector((0, 0, 0.36)), m["steel"], segs=20)
+    c.box((0.26, 0.30, 0.05), Vector((0, 0.0, 0.41)), m["black"])           # tilt mechanism
+    seat = lambda v: v + Vector((0, 0, 0.12 * (v.x / 0.25) ** 2 * 0.15))   # sides a touch higher
+    c.rbox((0.50, 0.48, 0.08), Vector((0, 0.03, 0.47)), m["fabric"], 0.03, orient=Matrix(), bend=seat)
+    # Back: wider at the shoulders than the lumbar, curved to wrap the sitter
+    def back(v):
+        v.x *= 0.92 + 0.08 * (v.z / 0.31)
+        v.y += 0.08 * (v.x / 0.23) ** 2
+        return v
+    tilt = _rot(x=math.radians(10))
+    c.rbox((0.47, 0.07, 0.62), Vector((0, -0.26, 0.87)), m["fabric"], 0.03, orient=tilt, bend=back)
+    c.box((0.07, 0.17, 0.03), Vector((0, -0.21, 0.41)), m["black"])  # spine: back from the mechanism,
+    c.box((0.07, 0.03, 0.30), Vector((0, -0.28, 0.555)), m["black"])  # then up behind the backrest
+    head = lambda v: v + Vector((0, 0.05 * (v.x / 0.15) ** 2, 0))
+    c.rbox((0.30, 0.07, 0.15), Vector((0, -0.335, 1.29)), m["fabric"], 0.03, orient=tilt, bend=head)
+    for x in (-0.08, 0.08):
+        c.cyl(0.008, 0.008, 0.10, Vector((x, -0.33, 1.19)), m["steel"], segs=10, orient=tilt)
+    for s in (-1, 1):  # T-arms
+        c.box((0.17, 0.05, 0.025), Vector((s * 0.19, -0.02, 0.42)), m["black"])
+        c.box((0.04, 0.06, 0.21), Vector((s * 0.265, -0.02, 0.53)), m["black"])
+        c.rbox((0.085, 0.26, 0.035), Vector((s * 0.265, 0.02, 0.645)), m["black"], 0.012)
+    return c.done(smooth=True)
+
+
+def make_videobar(m, name="VideoBar"):
+    """Teleconference camera bar that sits on top of a display: a slim
+    rounded body, fabric speaker grille, and the lens in the middle. Its
+    front faces -Y."""
+    v = Builder(name)
+    v.rbox((0.62, 0.065, 0.075), Vector((0, 0, 0.0375)), m["black"], 0.015)
+    v.box((0.56, 0.002, 0.05), Vector((0, -0.033, 0.0375)), m["grille"])
+    face = _rot(x=math.pi / 2)  # local Z -> -Y
+    v.cyl(0.024, 0.024, 0.004, Vector((0, -0.034, 0.0375)), m["black"], segs=24, orient=face)
+    v.cyl(0.017, 0.015, 0.004, Vector((0, -0.037, 0.0375)), m["lens"], segs=24, orient=face)
+    v.box((0.10, 0.07, 0.012), Vector((0, 0.03, -0.006)), m["black"])  # clamp over the bezel
+    return v.done()
+
+
+ALL = [make_keyboard, make_mouse, make_mousepad, make_mug, make_mic, make_notepad, make_pencil,
+       make_chair, make_videobar]
