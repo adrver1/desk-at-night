@@ -1,6 +1,8 @@
 // First-person walk around the control room: walk with WASD and the mouse,
 // sit in an operator chair and spin it, drink the coffee on the desks, and
 // run the room from the desk touch panels and the light switch by the door.
+// Scroll or click (or E, or tap Zoom in on phones) while looking at a screen
+// to glide in until it fills the view; it runs live and sharp while zoomed.
 //
 // Collision is 2D, on the floor plan the bake exports (meta.layout, in
 // Blender's X/Y). glTF swaps axes, so Blender (x, y) is three's (x, -z).
@@ -16,6 +18,8 @@ const REACH = 1.9;         // how far away things can be used, m
 const SIPS = 5, SIP_DROP = 0.011; // coffee level per sip, m
 const CHAIR_R = 0.34;
 const LOOK = 0.0022;       // radians per pixel of mouse movement
+const SCREEN_REACH = 9;    // how far away a screen can be zoomed in on, m
+const ZOOM_TIME = 0.45;    // s to glide in or out
 
 const $ = (id) => document.getElementById(id);
 const ui = {
@@ -54,7 +58,11 @@ let room, layout, playing = false, panelOpen = false;
 const chairs = [], mugs = [], pickables = [];
 const raycaster = new THREE.Raycaster();
 raycaster.far = REACH;
-let target = null; // { kind: 'chair' | 'mug' | 'panel' | 'switch', item }
+let target = null; // { kind: 'chair' | 'mug' | 'panel' | 'switch' | 'screen', item }
+const screenRay = new THREE.Raycaster();
+screenRay.far = SCREEN_REACH;
+const pointer = new THREE.Vector2(); // the mouse, when looking by dragging rather than pointer lock
+let zoom = null; // { name, k: 0..1, dir: ±1, pos, quat }, while gliding to or looking at a screen
 
 // ---------------------------------------------------------------- loading
 
@@ -163,9 +171,29 @@ function findTarget() {
   raycaster.setFromCamera(center, camera);
   const hit = raycaster.intersectObjects(pickables, false)[0];
   const item = hit?.object.userData.item;
-  if (!item) return null;
-  return item;
+  if (item) return item;
+  // Further out, screens can be zoomed in on (the room still hides them)
+  screenRay.setFromCamera(dragLook && !coarse ? pointer : center, camera);
+  const far = screenRay.intersectObjects([room.root.getObjectByName('Room'), ...room.screenMeshes], false)[0];
+  const name = far && room.screenMeshes.includes(far.object) ? room.screenAt(far) : null;
+  return name ? { kind: 'screen', item: name } : null;
 }
+
+// Glide the camera to face a screen, near enough that it fills the view
+function zoomIn(name) {
+  const f = room.screenFrame(name, camera.position);
+  if (!f) return;
+  const t = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / 1.06;
+  const d = Math.max(f.height / 2 / t, f.width / 2 / (t * camera.aspect));
+  const pos = f.center.clone().addScaledVector(f.normal, d);
+  const m = new THREE.Matrix4().lookAt(pos, f.center, f.up);
+  zoom = { name, k: 0, dir: 1, pos, quat: new THREE.Quaternion().setFromRotationMatrix(m) };
+  keys.clear();
+  player.vel.set(0, 0, 0);
+  room.setFocus(name);
+}
+function zoomOut() { if (zoom) zoom.dir = -1; }
+function zoomEnd() { zoom = null; room.setFocus(null); }
 
 function chairForward(c) {
   return new THREE.Vector3(0, 0, -1).applyQuaternion(c.obj.quaternion); // the sitter faces the chair's -Z
@@ -228,6 +256,7 @@ function closePanel(relock) {
 }
 
 function pause() {
+  if (zoom) zoomEnd();
   playing = false;
   keys.clear();
   ui.overlay.hidden = false;
@@ -236,6 +265,8 @@ function pause() {
 
 function interact() {
   if (player.busy || panelOpen) return;
+  if (zoom) return zoomOut();
+  if (target?.kind === 'screen' && !player.seat) return zoomIn(target.item);
   if (target?.kind === 'mug') return drink(target.item);
   if (target?.kind === 'panel') return openPanel();
   if (target?.kind === 'switch') return controls.nextScene(); // the room itself shows the change
@@ -267,7 +298,9 @@ function update(dt) {
     c.omega *= Math.exp(-1.6 * dt);
   }
 
-  if (player.seat) {
+  if (zoom) {
+    player.vel.set(0, 0, 0);
+  } else if (player.seat) {
     const c = player.seat;
     const push = (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) - (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) + touch.move.x * -1;
     c.omega += push * 9 * dt;
@@ -293,11 +326,18 @@ function update(dt) {
 
   camera.position.copy(player.pos);
   camera.rotation.set(player.pitch, player.yaw, 0);
+  if (zoom) {
+    zoom.k = Math.max(0, Math.min(1, zoom.k + zoom.dir * dt / ZOOM_TIME));
+    const k = smooth(zoom.k);
+    camera.position.lerp(zoom.pos, k);
+    camera.quaternion.slerp(zoom.quat, k);
+    if (zoom.dir < 0 && zoom.k === 0) zoomEnd();
+  }
   camera.updateMatrixWorld();
 
   if (player.busy) drinking(dt);
 
-  target = playing ? findTarget() : null;
+  target = playing && !zoom ? findTarget() : null;
   showPrompt();
 }
 
@@ -339,16 +379,24 @@ function showPrompt() {
   if (target?.kind === 'mug') use = target.item.sips ? `Drink (${target.item.sips} sip${target.item.sips > 1 ? 's' : ''} left)` : 'Empty mug';
   else if (target?.kind === 'panel') use = 'Room controls';
   else if (target?.kind === 'switch') use = `Lights: ${controls.nextSceneName()}`;
+  else if (target?.kind === 'screen' && !player.seat) use = 'Zoom in';
   else if (player.seat) { use = 'Stand up'; spinOk = true; }
   else if (target?.kind === 'chair') { use = 'Sit'; spinOk = true; }
   if (use) text = `<kbd>E</kbd>${use}`;
   if (spinOk) text += player.seat ? '&nbsp;&nbsp;<kbd>A</kbd><kbd>D</kbd>Spin' : '&nbsp;&nbsp;<kbd>Click</kbd>Spin';
+  const zoomable = target?.kind === 'screen';
+  if (zoomable) text = `${player.seat ? text + '&nbsp;&nbsp;' : ''}<kbd>Click</kbd><kbd>Scroll</kbd>Zoom in`;
+  if (zoom) text = '<kbd>Click</kbd><kbd>Scroll</kbd>Back';
   if (player.busy || panelOpen) text = '';
   if (ui.prompt.innerHTML !== text) ui.prompt.innerHTML = coarse ? '' : text;
-  ui.crosshair.classList.toggle('on', Boolean(use));
-  ui.useBtn.hidden = !use || Boolean(player.busy);
-  ui.useBtn.textContent = use;
-  ui.spinBtn.hidden = !spinOk;
+  ui.crosshair.classList.toggle('on', Boolean(use) && !zoom);
+  ui.crosshair.hidden = Boolean(zoom);
+  ui.prompt.classList.toggle('low', Boolean(zoom)); // out of the way of the screen
+  // On phones the use button zooms on a screen, before anything else
+  const btn = zoom ? 'Back' : zoomable ? 'Zoom in' : use;
+  ui.useBtn.hidden = !btn || Boolean(player.busy);
+  ui.useBtn.textContent = btn;
+  ui.spinBtn.hidden = !spinOk || Boolean(zoom);
 }
 
 // ------------------------------------------------------------------ input
@@ -379,6 +427,7 @@ addEventListener('keydown', (e) => {
     if (e.code === 'Escape' || e.code === 'KeyE') closePanel(false);
     return;
   }
+  if (zoom && e.code === 'Escape') return zoomOut();
   keys.add(e.code);
   if (e.code === 'KeyE' && !e.repeat) interact();
 });
@@ -386,15 +435,31 @@ addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
 
 ui.canvas.addEventListener('mousemove', (e) => {
-  if (!playing || coarse) return;
+  if (dragLook) {
+    const r = ui.canvas.getBoundingClientRect();
+    pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, 1 - ((e.clientY - r.top) / r.height) * 2);
+  }
+  if (!playing || coarse || zoom) return;
   if (document.pointerLockElement !== ui.canvas && !(dragLook && e.buttons & 1)) return;
   player.yaw -= e.movementX * LOOK;
   player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - e.movementY * LOOK));
 });
 ui.canvas.addEventListener('mousedown', (e) => {
   if (!playing || coarse || panelOpen || e.button !== 0) return;
+  if (zoom) return zoomOut();
+  if (target?.kind === 'screen') {
+    // Without pointer lock a press may start a drag to look: zoom on release, if it didn't move
+    if (!dragLook) return zoomIn(target.item);
+    press = { x: e.clientX, y: e.clientY, name: target.item };
+    return;
+  }
   const c = player.seat ?? (target?.kind === 'chair' ? target.item : null);
   if (c) spin(c);
+});
+let press = null;
+ui.canvas.addEventListener('mouseup', (e) => {
+  if (press && !zoom && Math.hypot(e.clientX - press.x, e.clientY - press.y) < 5) zoomIn(press.name);
+  press = null;
 });
 
 // Touch: a stick bottom-left to walk, drag anywhere else to look
@@ -415,7 +480,7 @@ function stickMove(e) {
 ui.canvas.addEventListener('pointerdown', (e) => { if (coarse) looks.set(e.pointerId, { x: e.clientX, y: e.clientY }); });
 ui.canvas.addEventListener('pointermove', (e) => {
   const last = looks.get(e.pointerId);
-  if (!last || !playing) return;
+  if (!last || !playing || zoom) return;
   player.yaw -= (e.clientX - last.x) * 0.005;
   player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - (e.clientY - last.y) * 0.005));
   looks.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -423,7 +488,17 @@ ui.canvas.addEventListener('pointermove', (e) => {
 const lookEnd = (e) => looks.delete(e.pointerId);
 ui.canvas.addEventListener('pointerup', lookEnd);
 ui.canvas.addEventListener('pointercancel', lookEnd);
-ui.useBtn.addEventListener('click', interact);
+ui.useBtn.addEventListener('click', () => {
+  if (zoom) zoomOut();
+  else if (target?.kind === 'screen') zoomIn(target.item);
+  else interact();
+});
+ui.canvas.addEventListener('wheel', (e) => {
+  if (!playing || panelOpen) return;
+  e.preventDefault();
+  if (e.deltaY < 0 && !zoom && target?.kind === 'screen') zoomIn(target.item);
+  else if (e.deltaY > 0 && zoom) zoomOut();
+}, { passive: false });
 ui.spinBtn.addEventListener('click', () => { const c = player.seat ?? target?.item; if (c?.omega !== undefined) spin(c); });
 
 new ResizeObserver(() => {
@@ -467,7 +542,9 @@ window.__game = {
     player.yaw = Math.atan2(-p.x, -p.z);
     player.pitch = Math.atan2(p.y, Math.hypot(p.x, p.z));
   },
-  interact, controls, closePanel,
+  interact, controls, closePanel, zoomIn, zoomOut,
+  get zoom() { return zoom && { name: zoom.name, k: zoom.k }; },
+  get target() { return target; },
   get panelOpen() { return panelOpen; },
   spin() { const c = player.seat ?? target?.item; if (c?.omega !== undefined) spin(c, 1); },
   get state() { return { pos: player.pos.toArray(), seated: Boolean(player.seat), target: target?.kind ?? null, busy: Boolean(player.busy) }; },

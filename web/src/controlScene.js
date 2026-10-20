@@ -18,11 +18,54 @@ export const SKY = new THREE.Color(0.012, 0.02, 0.045); // Blender world colour 
 // The screens carry a pattern in Cycles but are drawn here in their average
 // colour; at full strength that reads as a white slab, so draw them dimmer.
 const DISPLAY = { screens: 0.32, ceiling: 1 };
-// Screens with live content (screens.js) are drawn from a canvas instead,
-// redrawn a few times a second; phones get a half-size canvas. Each redraw is
-// spread over SCREEN_BATCHES frames so no single frame pays for all of it.
-const SCREEN_HZ = 4, SCREEN_GAIN = 1.4, SCREEN_BATCHES = 4;
+// The screens show content from screens.js. Redrawing and re-uploading all of
+// them a few times a second was too slow, so they are drawn once, as they
+// look STATIC_T seconds into the shift (phones get a half-size atlas), and
+// only the LIVE screens keep moving, each on its own small texture.
+const LIVE = ['Desk0Mon5Screen']; // the operations assistant
+const STATIC_T = 600, SCREEN_HZ = 4, SCREEN_GAIN = 1.4;
+const FOCUS_SCALE = 2, FOCUS_HZ = 8; // the screen the player zooms in on
 const SCREEN_SCALE = matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
+
+function canvasTexture(renderer, w, h) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.flipY = false;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+
+// The faces of a joined screen mesh whose UVs fall in one atlas slot, with
+// their UVs stretched to cover a texture of their own
+function sliceSlot(geometry, [x, y, w, h], size) {
+  const pos = geometry.attributes.position, uv = geometry.attributes.uv, index = geometry.index;
+  if (!uv) return null;
+  const inside = (i) => {
+    const u = uv.getX(i) * size, v = uv.getY(i) * size;
+    return u >= x - 0.5 && u <= x + w + 0.5 && v >= y - 0.5 && v <= y + h + 0.5;
+  };
+  const verts = [], uvs = [];
+  const n = index ? index.count : pos.count;
+  for (let f = 0; f < n; f += 3) {
+    const ids = [0, 1, 2].map((k) => (index ? index.getX(f + k) : f + k));
+    if (!ids.every(inside)) continue;
+    // Not the thin sides of a box screen, nor a neighbour's edge on the slot border
+    const cu = ids.reduce((a, i) => a + uv.getX(i), 0) / 3 * size, cv = ids.reduce((a, i) => a + uv.getY(i), 0) / 3 * size;
+    if (cu < x + 1 || cu > x + w - 1 || cv < y + 1 || cv > y + h - 1) continue;
+    for (const i of ids) {
+      verts.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+      uvs.push((uv.getX(i) * size - x) / w, (uv.getY(i) * size - y) / h);
+    }
+  }
+  if (!verts.length) return null;
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  out.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  return out;
+}
 
 const roomFragment = /* glsl */ `
   uniform sampler2D uAlbedo;
@@ -120,26 +163,61 @@ export async function loadControlRoom(renderer) {
     board.uniforms = { ...material.uniforms, uBoard: { value: await texture(renderer, boardBufs[i], true) } };
     mesh.material = board;
   }
+  // Every screen is drawn once into a static atlas. A screen that moves (the
+  // LIVE ones, and the one the player zooms in on) gets its own texture on a
+  // copy of its faces, laid just over the atlas.
   let screens = null;
   if (meta.screens) {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = meta.screens.canvas * SCREEN_SCALE;
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.flipY = false;
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    const names = Object.keys(meta.screens.slots);
-    const batches = [...Array(SCREEN_BATCHES)].map((_, k) => names.filter((_, i) => i % SCREEN_BATCHES === k));
-    screens = { ctx: canvas.getContext('2d'), tex, batches, next: 0, drawn: -Infinity };
+    const { canvas: size, slots } = meta.screens;
+    const atlas = canvasTexture(renderer, size * SCREEN_SCALE, size * SCREEN_SCALE);
+    drawSlots(atlas.image.getContext('2d'), slots, STATIC_T, SCREEN_SCALE);
+    screens = { atlas, meshes: [], overlays: new Map(), focus: null, drawn: -Infinity, focusDrawn: -Infinity };
   }
   const emitters = [];
   for (const [name, e] of Object.entries(meta.emitters)) {
     const mesh = gltf.scene.getObjectByName(name);
     if (!mesh) continue;
-    const live = screens && name.startsWith('EmitScreen');
-    mesh.material = new THREE.MeshBasicMaterial(live ? { map: screens.tex } : {});
-    emitters.push({ material: mesh.material, color: new THREE.Color(...e.color), strength: e.strength, group: e.group, live });
+    const textured = screens && name.startsWith('EmitScreen');
+    mesh.material = new THREE.MeshBasicMaterial(textured ? { map: screens.atlas } : {});
+    emitters.push({ material: mesh.material, color: new THREE.Color(...e.color), strength: e.strength, group: e.group, textured });
+    if (textured) screens.meshes.push(mesh);
   }
+  // The overlay for one screen, made the first time it is needed; `scale`
+  // times the atlas slot's resolution
+  function overlay(name, scale) {
+    let o = screens.overlays.get(name);
+    if (o && o.scale >= scale) return o;
+    const slot = slots[name];
+    if (!slot) return null;
+    if (!o) {
+      for (const mesh of screens.meshes) {
+        const geometry = sliceSlot(mesh.geometry, slot, meta.screens.canvas);
+        if (!geometry) continue;
+        const mat = new THREE.MeshBasicMaterial({ polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
+        o = { name, slot, mesh: new THREE.Mesh(geometry, mat), scale: 0, tex: null };
+        o.mesh.visible = false; // until it has a texture and is wanted
+        mesh.add(o.mesh);
+        emitters.push({ material: mat, group: 'screens', textured: true });
+        screens.overlays.set(name, o);
+        break;
+      }
+      if (!o) return null;
+    }
+    if (scale <= o.scale) return o;
+    o.tex?.dispose();
+    o.tex = canvasTexture(renderer, slot[2] * scale, slot[3] * scale);
+    o.scale = scale;
+    o.mesh.material.map = o.tex;
+    o.mesh.material.needsUpdate = true;
+    draw(o, 0);
+    return o;
+  }
+  function draw(o, t) {
+    drawSlots(o.tex.image.getContext('2d'), { [o.name]: [0, 0, o.slot[2], o.slot[3]] }, STATIC_T + t, o.scale);
+    o.tex.needsUpdate = true;
+  }
+  const slots = meta.screens?.slots ?? {};
+  if (screens) for (const name of LIVE) { const o = overlay(name, 1); if (o) o.mesh.visible = true; }
   gltf.scene.updateMatrixWorld(true);
 
   return {
@@ -155,21 +233,79 @@ export async function loadControlRoom(renderer) {
       u.uMode.value = mode;
       for (const e of emitters) {
         const w = e.group === 'screens' ? screens : ceiling;
-        if (e.live) e.material.color.setScalar(SCREEN_GAIN * (mode === 0 ? w : 0.02));
+        if (e.textured) e.material.color.setScalar(SCREEN_GAIN * (mode === 0 ? w : 0.02));
         else e.material.color.copy(e.color).multiplyScalar(e.strength * DISPLAY[e.group] * (mode === 0 ? w : 0.02));
       }
     },
-    // Redraw the screens' content for time t (seconds), at most SCREEN_HZ times a second
+    // Redraw the live screens for time t (seconds), at most SCREEN_HZ times a
+    // second; the focused one at FOCUS_HZ
     updateScreens(t) {
       if (!screens) return;
-      if (screens.next === 0) {
-        if (t - screens.drawn < 1 / SCREEN_HZ) return;
-        screens.drawn = t;
+      const f = screens.focus;
+      if (f && t - screens.focusDrawn >= 1 / FOCUS_HZ) { screens.focusDrawn = t; draw(f, t); }
+      if (t - screens.drawn < 1 / SCREEN_HZ) return;
+      screens.drawn = t;
+      for (const name of LIVE) {
+        const o = screens.overlays.get(name);
+        if (o && o !== f) draw(o, t);
       }
-      // Every batch draws the same moment, and the texture uploads once all are in
-      drawSlots(screens.ctx, meta.screens.slots, screens.drawn, SCREEN_SCALE, screens.batches[screens.next]);
-      screens.next = (screens.next + 1) % SCREEN_BATCHES;
-      if (screens.next === 0) screens.tex.needsUpdate = true;
+    },
+    // The meshes the screens are drawn on, for raycasting
+    screenMeshes: screens?.meshes ?? [],
+    // Which screen a raycast hit on one of screenMeshes landed on
+    screenAt(hit) {
+      if (!hit?.uv) return null;
+      const u = hit.uv.x * meta.screens.canvas, v = hit.uv.y * meta.screens.canvas;
+      return Object.keys(slots).find((n) => { const [x, y, w, h] = slots[n]; return u >= x && u <= x + w && v >= y && v <= y + h; }) ?? null;
+    },
+    // A screen's face in world space: its centre, its outward normal (toward
+    // `from`), the unit vector pointing up the picture, and its size in metres
+    screenFrame(name, from) {
+      const o = overlay(name, 0);
+      if (!o) return null;
+      return faceFrame(o.mesh, from);
+    },
+    // Show one screen sharp and fully live (null for none)
+    setFocus(name) {
+      if (!screens) return;
+      const prev = screens.focus;
+      screens.focus = name ? overlay(name, FOCUS_SCALE) : null;
+      if (prev && prev !== screens.focus && !LIVE.includes(prev.name)) prev.mesh.visible = false;
+      if (screens.focus) { screens.focus.mesh.visible = true; screens.focusDrawn = -Infinity; }
     },
   };
+}
+
+// Fit P(u, v) = O + u·U + v·V to the biggest front-facing triangle of a
+// screen overlay (its UVs run 0..1 across the picture, v downwards)
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _c = new THREE.Vector3(), _n = new THREE.Vector3();
+function faceFrame(mesh, from) {
+  mesh.updateWorldMatrix(true, false);
+  const pos = mesh.geometry.attributes.position, uv = mesh.geometry.attributes.uv;
+  let best = null;
+  for (let i = 0; i < pos.count; i += 3) {
+    _a.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld);
+    _b.fromBufferAttribute(pos, i + 1).applyMatrix4(mesh.matrixWorld);
+    _c.fromBufferAttribute(pos, i + 2).applyMatrix4(mesh.matrixWorld);
+    _n.subVectors(_b, _a).cross(_c.clone().sub(_a));
+    const area = _n.length();
+    // UV area tells a screen face from the thin sides of a box screen
+    const du1 = uv.getX(i + 1) - uv.getX(i), dv1 = uv.getY(i + 1) - uv.getY(i);
+    const du2 = uv.getX(i + 2) - uv.getX(i), dv2 = uv.getY(i + 2) - uv.getY(i);
+    const det = du1 * dv2 - du2 * dv1;
+    if (Math.abs(det) < 0.1 || (best && area <= best.area)) continue;
+    if (from && _n.dot(from.clone().sub(_a)) < 0) continue;
+    // Solve (B - A) = du1·U + dv1·V and (C - A) = du2·U + dv2·V
+    const e1 = _b.clone().sub(_a), e2 = _c.clone().sub(_a);
+    const U = e1.clone().multiplyScalar(dv2).addScaledVector(e2, -dv1).divideScalar(det);
+    const V = e2.clone().multiplyScalar(du1).addScaledVector(e1, -du2).divideScalar(det);
+    const O = _a.clone().addScaledVector(U, -uv.getX(i)).addScaledVector(V, -uv.getY(i));
+    best = { area, O, U, V };
+  }
+  if (!best) return null;
+  const { O, U, V } = best;
+  const center = O.clone().addScaledVector(U, 0.5).addScaledVector(V, 0.5);
+  const normal = new THREE.Vector3().crossVectors(U, V).normalize();
+  if (from && normal.dot(from.clone().sub(center)) < 0) normal.negate();
+  return { center, normal, up: V.clone().normalize().negate(), width: U.length(), height: V.length() };
 }
