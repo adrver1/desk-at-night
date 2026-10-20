@@ -1,5 +1,9 @@
 // Flat preview of every screen in the control room (see screens.js)
-import { DESK_SCREENS, WALL_SCREENS, LINK_SCREEN, drawScreen } from './screens.js';
+import { screenFor, drawScreen } from './screens.js';
+
+const WALL_SCREENS = [...Array(7)].map((_, i) => screenFor(`Wall${i}Screen`));
+const DESK_SCREENS = [0, 1].map((k) => [...Array(6)].map((_, i) => screenFor(`Desk${k}Mon${i}Screen`)));
+const LINK_SCREEN = screenFor('LinkScreen');
 
 const canvas = document.getElementById('wall');
 const ctx = canvas.getContext('2d');
