@@ -66,6 +66,7 @@ BULKHEAD = (GLASS_X0, 0.6, 0.38)       # white soffit over the glass: from x, de
 TABLE = (2.15, -2.35, 1.0, 0.55)       # meeting table: centre x, y and the two radii of its oval top
 LINK = (2.15, ROOM_Y0 + 0.42)          # video-link screen on its floor stand, facing the table
 PILLAR = (0.15, -2.55, 0.40)           # concrete column: x, y, side
+SHELVING = (1.6, 0.40, 1.80)           # binder shelving on the rear wall: width, depth, height
 
 
 def polar(r, a, z=0.0):
@@ -430,6 +431,12 @@ def build_meeting_corner(m):
     props.place(props.make_ptz_camera(pm, "PtzCameraLink", 0.45), lx, ly + 0.20, ROOM_Z, math.pi)
 
 
+def binders_board():
+    """The painted binder spines for the shelving, rows lined up with its shelves."""
+    w, h, z0 = props.shelving_face(SHELVING)
+    return boards.binder_spines((w, h), [z - z0 for z in props.shelf_heights(SHELVING[2])])
+
+
 # Boards: name -> where it hangs or stands. "wall" boards hang on a wall,
 # "stand" boards are mobile ones on castors, "esd" is the hardwired ESD
 # panel's printed front. Each gets its own sharp texture in the bake.
@@ -439,16 +446,21 @@ BOARDS = {
     "Shift": (boards.shift_board, (1.2, 0.9), (*polar(3.55, TV_A - 0.13).to_2d(), 1.25), -(TV_A - 0.13), "stand"),
     "Notes": (boards.notes_board, (1.2, 0.9), (*polar(3.80, 1.47).to_2d(), 1.25), -1.47, "stand"),
     "Esd": (boards.esd_panel, (1.6, 2.0), (-3.0, ROOM_Y0, 0.0), 0.0, "esd"),
+    "Binders": (binders_board, props.shelving_face(SHELVING)[:2], (-1.05, ROOM_Y0, 0.0), 0.0, "shelf"),
 }
 
 
 def build_boards(m):
     """The P&ID whiteboard on the right-hand wall, a shift board on castors
     by the hanging TV, a mobile whiteboard at the right end of the band,
-    and the hardwired ESD panel on the rear wall with its fire & gas unit."""
+    the hardwired ESD panel on the rear wall with its fire & gas unit, and
+    the binder shelving beside it."""
     pm = props.materials()
     for name, (draw, size, (x, y, z), yaw, kind) in BOARDS.items():
         face = props.board_material("Board" + name, draw(), size)
+        if kind == "shelf":
+            props.place(props.make_shelving(pm, "Whiteboard" + name, SHELVING, face), x, y, z, yaw + math.pi)
+            continue
         if kind == "esd":
             o = props.make_esd_panel(pm, "Whiteboard" + name, face, size)
             props.place(o, x, y, z, yaw + math.pi)
@@ -459,10 +471,9 @@ def build_boards(m):
 
 
 def build_rear(m):
-    """Along the rear wall, left of the meeting table: open shelving full of
-    binders and the free-standing concrete pillar."""
+    """Along the rear wall, left of the meeting table, the free-standing
+    concrete pillar and a plant (the binder shelving is with the boards)."""
     pm = props.materials()
-    props.place(props.make_shelving(pm, "Shelving"), -1.05, ROOM_Y0, 0.0, math.pi)
     px, py, side = PILLAR
     props.place(props.make_pillar(pm, "Pillar", (side, side), ROOM_Z), px, py, 0.0)
     props.place(props.make_plant(pm, "PlantRear"), -4.85, ROOM_Y0 + 0.35, 0.0)

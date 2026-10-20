@@ -690,33 +690,40 @@ def make_fg_panel(m, name="FgPanel"):
     return p.done()
 
 
-def make_shelving(m, name="Shelving", size=(1.6, 0.40, 1.80)):
-    """Open grey shelving unit with rows of ring binders. Origin at the back,
-    middle, on the floor; the open side faces -Y."""
+def make_shelving(m, name="Shelving", size=(1.6, 0.40, 1.80), face=None):
+    """Open grey shelving unit full of ring binders. Origin at the back,
+    middle, on the floor; the open side faces -Y. The binders are one flat
+    face (the child <name>Face) carrying a painted image of their spines
+    (see boards.binder_spines and SHELVES below), which the bake gives its
+    own texture like a whiteboard: a few hundred triangles instead of
+    thousands of little boxes."""
     rm = _room_mats(m)
     w, d, h = size
     s = Builder(name)
     for x in (-w / 2, w / 2):
         s.box((0.025, d, h), Vector((x, -d / 2, h / 2)), rm["shelf"])
     s.box((w, 0.01, h), Vector((0, -0.005, h / 2)), rm["shelf"])
-    shelves = 5
-    for k in range(shelves):
-        z = 0.05 + k * (h - 0.05) / (shelves - 1)
+    for z in shelf_heights(h):
         s.box((w, d, 0.025), Vector((0, -d / 2, z)), rm["shelf"])
-    rng = __import__("random").Random(len(name))
-    for k in range(shelves - 1):  # binders on all but the top
-        z = 0.0625 + k * (h - 0.05) / (shelves - 1)
-        x = -w / 2 + 0.04
-        while x < w / 2 - 0.10:
-            if rng.random() < 0.12:
-                x += 0.12  # a gap
-                continue
-            bw = rng.choice([0.05, 0.075, 0.075, 0.08])
-            bh = rng.choice([0.32, 0.32, 0.30])
-            s.box((bw - 0.004, 0.30, bh), Vector((x + bw / 2, -0.17, z + bh / 2)), rng.choice(rm["binders"]))
-            s.box((0.025, 0.003, 0.06), Vector((x + bw / 2, -0.322, z + bh * 0.75)), m["paper"])  # spine label
-            x += bw
-    return s.done()
+    fw, fh, z0 = shelving_face(size)
+    surface = Builder(name + "Face")  # centred on its own origin, which board_material maps from
+    surface.box((fw, 0.004, fh), Vector((0, -0.32, 0)), face or rm["shelf"])
+    surface = surface.done()
+    surface.location = (0, 0, z0 + fh / 2)
+    frame = s.done()
+    surface.parent = frame
+    return frame
+
+
+def shelf_heights(h, shelves=5):
+    return [0.05 + k * (h - 0.05) / (shelves - 1) for k in range(shelves)]
+
+
+def shelving_face(size):
+    """Width, height and bottom of the binder face for a unit of this size."""
+    w, _, h = size
+    z0 = 0.05 + 0.0125
+    return w - 0.025, h - z0, z0
 
 
 def make_link_stand(m, name="LinkStand", size=(1.9, 1.08), centre=1.55):

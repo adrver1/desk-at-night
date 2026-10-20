@@ -344,6 +344,45 @@ def esd_panel(w=2048, h=2560, seed=5):
     return _save(img, "esd_panel.png")
 
 
+BINDER_COLOURS = [(80, 111, 173), (170, 170, 173), (194, 80, 70), (70, 70, 75), (218, 206, 124)]
+
+
+def binder_spines(size, shelves, seed=4, ppm=1100):
+    """Front of a shelving unit's binder rows, as one image: `size` is the
+    face (w, h) in metres, `shelves` the heights of the shelf boards above
+    its bottom edge. Each row is a run of coloured spines with a white
+    label and a finger hole, the odd gap, and dark shelf interior above."""
+    rng = random.Random(seed)
+    w, h = size
+    W, H = int(w * ppm), int(h * ppm)
+    img = Image.new("RGB", (W, H), (38, 39, 41))
+    d = ImageDraw.Draw(img)
+    y = lambda z: H - int(z * ppm)  # noqa: E731  metres up from the bottom -> pixel row
+    for z0 in shelves[:-1]:
+        x = 0.03
+        while x < w - 0.08:
+            if rng.random() < 0.12:
+                x += 0.12
+                continue
+            bw, bh = rng.choice([0.05, 0.075, 0.075, 0.08]), rng.choice([0.32, 0.32, 0.30])
+            c = rng.choice(BINDER_COLOURS)
+            x0, x1 = int(x * ppm), int((x + bw - 0.004) * ppm)
+            d.rectangle([x0, y(z0 + bh), x1, y(z0)], fill=c)
+            d.line([x1 - 2, y(z0 + bh), x1 - 2, y(z0)], fill=tuple(int(v * 0.7) for v in c), width=3)  # spine edge
+            cx = (x0 + x1) // 2
+            lw = int(0.0125 * ppm)
+            d.rectangle([cx - lw, y(z0 + bh * 0.75 + 0.03), cx + lw, y(z0 + bh * 0.75 - 0.03)], fill=(232, 230, 222))
+            for k in range(3):  # a few scribbled lines on the label
+                yy = y(z0 + bh * 0.75 + 0.02 - k * 0.015)
+                d.line([cx - lw + 4, yy, cx + lw - rng.randint(4, 10), yy], fill=(70, 70, 80), width=2)
+            r = int(0.011 * ppm)
+            d.ellipse([cx - r, y(z0 + 0.06) - r, cx + r, y(z0 + 0.06) + r], fill=(30, 30, 32))  # finger hole
+            x += bw
+    for z0 in shelves:  # the shelf boards, which sit in front of this face anyway
+        d.rectangle([0, y(z0 + 0.0125), W, y(z0 - 0.0125)], fill=(150, 152, 154))
+    return _save(img, "binders.png")
+
+
 def _save(img, name):
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, name)
