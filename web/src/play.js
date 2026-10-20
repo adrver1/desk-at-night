@@ -1,10 +1,12 @@
 // First-person walk around the control room: walk with WASD and the mouse,
-// sit in an operator chair and spin it, drink the coffee on the desks.
+// sit in an operator chair and spin it, drink the coffee on the desks, and
+// run the room from the desk touch panels and the light switch by the door.
 //
 // Collision is 2D, on the floor plan the bake exports (meta.layout, in
 // Blender's X/Y). glTF swaps axes, so Blender (x, y) is three's (x, -z).
 import * as THREE from 'three';
 import { loadControlRoom, SKY } from './controlScene.js';
+import { RoomControls } from './roomControls.js';
 
 const EYE = 1.65;          // standing eye height, m
 const SEATED_EYE = 1.18;
@@ -18,9 +20,15 @@ const LOOK = 0.0022;       // radians per pixel of mouse movement
 const $ = (id) => document.getElementById(id);
 const ui = {
   game: $('game'), canvas: $('view'), overlay: $('overlay'), go: $('go'), intro: $('intro'),
-  prompt: $('prompt'), toast: $('toast'), crosshair: $('crosshair'), lightsHint: $('lightsHint'),
-  stick: $('stick'), useBtn: $('useBtn'), spinBtn: $('spinBtn'), lightsBtn: $('lightsBtn'),
+  prompt: $('prompt'), toast: $('toast'), crosshair: $('crosshair'), summary: $('summary'),
+  stick: $('stick'), useBtn: $('useBtn'), spinBtn: $('spinBtn'),
+  tp: $('tp'), tpClose: $('tpClose'),
 };
+const controls = new RoomControls({
+  scenes: [...document.querySelectorAll('[data-scene]')], light: $('tpLight'), lightOut: $('tpLightOut'),
+  volume: $('tpVolume'), volumeOut: $('tpVolumeOut'), setpoint: $('tpSetpoint'), temp: $('tpTemp'),
+  warmer: $('tpWarmer'), cooler: $('tpCooler'),
+});
 const coarse = matchMedia('(pointer: coarse)').matches;
 if (coarse) ui.game.classList.add('coarse');
 
@@ -41,11 +49,11 @@ const player = {
 };
 const keys = new Set();
 const touch = { move: new THREE.Vector2() };
-let room, layout, ceiling = 0.25, playing = false;
+let room, layout, playing = false, panelOpen = false;
 const chairs = [], mugs = [], pickables = [];
 const raycaster = new THREE.Raycaster();
 raycaster.far = REACH;
-let target = null; // { kind: 'chair' | 'mug', item }
+let target = null; // { kind: 'chair' | 'mug' | 'panel' | 'switch', item }
 
 // ---------------------------------------------------------------- loading
 
@@ -70,10 +78,33 @@ async function load() {
     pickables.push(m.obj);
     if (m.coffee) { m.coffee.userData.item = m.obj.userData.item; pickables.push(m.coffee); }
   }
+  for (const name of room.meta.movable ?? []) {
+    const obj = root.getObjectByName(name);
+    if (name.endsWith('TouchPanel')) {
+      obj.userData.item = { kind: 'panel', item: obj };
+      obj.add(panelScreen());
+      pickables.push(obj);
+    } else if (name.endsWith('LightPanel')) {
+      obj.userData.item = { kind: 'switch', item: obj };
+      pickables.push(obj);
+    }
+  }
   pickables.push(root.getObjectByName('Room')); // so walls and desks block the view of things behind them
   lookAt(-0.6, 2.2);
   ui.go.disabled = false;
   ui.go.textContent = coarse ? 'Tap to start' : 'Click to start';
+}
+
+// The glowing face of a desk touch panel: a plane over its glass, in the
+// panel's own frame (see props.make_touchpanel: glass leaning back 50°)
+function panelScreen() {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.185, 0.115),
+    new THREE.MeshBasicMaterial({ map: controls.texture, color: new THREE.Color(0.55, 0.55, 0.55) }));
+  const lean = THREE.MathUtils.degToRad(-50);
+  const out = 0.0095; // just proud of the glass
+  mesh.position.set(0, 0.06 + out * Math.sin(-lean), -(0.02 - out * Math.cos(lean)));
+  mesh.rotation.x = lean;
+  return mesh;
 }
 
 // Point the player at a spot on the floor plan (Blender x, y)
@@ -175,9 +206,36 @@ function drink(m) {
   player.busy = { mug: m, t: 0 };
 }
 
+function openPanel() {
+  panelOpen = true;
+  keys.clear();
+  player.vel.set(0, 0, 0);
+  ui.tp.hidden = false;
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+
+// `relock` only from a click: browsers refuse pointer lock without one
+function closePanel(relock) {
+  if (!panelOpen) return;
+  panelOpen = false;
+  ui.tp.hidden = true;
+  if (coarse || dragLook) return;
+  if (relock) Promise.resolve(ui.canvas.requestPointerLock?.()).catch(() => pause());
+  else pause();
+}
+
+function pause() {
+  playing = false;
+  keys.clear();
+  ui.overlay.hidden = false;
+  ui.go.textContent = 'Click to continue';
+}
+
 function interact() {
-  if (player.busy) return;
+  if (player.busy || panelOpen) return;
   if (target?.kind === 'mug') return drink(target.item);
+  if (target?.kind === 'panel') return openPanel();
+  if (target?.kind === 'switch') return toast(`Ceiling lights: ${controls.nextScene()}`);
   if (player.seat) return standUp();
   if (target?.kind === 'chair') return sit(target.item);
 }
@@ -190,10 +248,6 @@ function toast(text) {
   toastTimer = setTimeout(() => ui.toast.classList.remove('on'), 3200);
 }
 
-function setCeiling(v) {
-  ceiling = v;
-  ui.lightsHint.textContent = `L · ceiling lights ${v > 0.5 ? 'on' : 'dimmed'}`;
-}
 
 // ------------------------------------------------------------- the frame
 
@@ -280,11 +334,13 @@ const smooth = (t) => t * t * (3 - 2 * t);
 function showPrompt() {
   let text = '', spinOk = false, use = '';
   if (target?.kind === 'mug') use = target.item.sips ? `Drink (${target.item.sips} sip${target.item.sips > 1 ? 's' : ''} left)` : 'Empty mug';
+  else if (target?.kind === 'panel') use = 'Room controls';
+  else if (target?.kind === 'switch') use = `Lights: ${controls.nextSceneName()}`;
   else if (player.seat) { use = 'Stand up'; spinOk = true; }
   else if (target?.kind === 'chair') { use = 'Sit'; spinOk = true; }
   if (use) text = `<kbd>E</kbd>${use}`;
   if (spinOk) text += player.seat ? '&nbsp;&nbsp;<kbd>A</kbd><kbd>D</kbd>Spin' : '&nbsp;&nbsp;<kbd>Click</kbd>Spin';
-  if (player.busy) text = '';
+  if (player.busy || panelOpen) text = '';
   if (ui.prompt.innerHTML !== text) ui.prompt.innerHTML = coarse ? '' : text;
   ui.crosshair.classList.toggle('on', Boolean(use));
   ui.useBtn.hidden = !use || Boolean(player.busy);
@@ -298,6 +354,7 @@ function start() {
   if (ui.go.disabled) return;
   playing = true;
   ui.overlay.hidden = true;
+  controls.startAudio();
   if (coarse || dragLook) return;
   // Some browsers and embedded views refuse pointer lock: look by dragging instead
   Promise.resolve(ui.canvas.requestPointerLock?.()).catch(() => { dragLook = true; });
@@ -306,19 +363,21 @@ let dragLook = false;
 document.addEventListener('pointerlockerror', () => { dragLook = true; });
 ui.overlay.addEventListener('click', start);
 document.addEventListener('pointerlockchange', () => {
-  if (coarse || dragLook) return;
+  if (coarse || dragLook || panelOpen) return;
   if (document.pointerLockElement === ui.canvas) return;
-  playing = false;
-  keys.clear();
-  ui.overlay.hidden = false;
-  ui.go.textContent = 'Click to continue';
+  pause();
 });
+ui.tpClose.addEventListener('click', () => closePanel(true));
+ui.tp.addEventListener('click', (e) => { if (e.target === ui.tp) closePanel(true); });
 
 addEventListener('keydown', (e) => {
   if (!playing) return;
+  if (panelOpen) {
+    if (e.code === 'Escape' || e.code === 'KeyE') closePanel(false);
+    return;
+  }
   keys.add(e.code);
   if (e.code === 'KeyE' && !e.repeat) interact();
-  if (e.code === 'KeyL' && !e.repeat) setCeiling(ceiling > 0.5 ? 0.25 : 1.0);
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
@@ -330,7 +389,7 @@ ui.canvas.addEventListener('mousemove', (e) => {
   player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - e.movementY * LOOK));
 });
 ui.canvas.addEventListener('mousedown', (e) => {
-  if (!playing || coarse || e.button !== 0) return;
+  if (!playing || coarse || panelOpen || e.button !== 0) return;
   const c = player.seat ?? (target?.kind === 'chair' ? target.item : null);
   if (c) spin(c);
 });
@@ -363,7 +422,6 @@ ui.canvas.addEventListener('pointerup', lookEnd);
 ui.canvas.addEventListener('pointercancel', lookEnd);
 ui.useBtn.addEventListener('click', interact);
 ui.spinBtn.addEventListener('click', () => { const c = player.seat ?? target?.item; if (c?.omega !== undefined) spin(c); });
-ui.lightsBtn.addEventListener('click', () => setCeiling(ceiling > 0.5 ? 0.25 : 1.0));
 
 new ResizeObserver(() => {
   const w = ui.game.clientWidth, h = ui.game.clientHeight;
@@ -378,7 +436,10 @@ renderer.setAnimationLoop((now) => {
   last = now;
   if (!room) return;
   update(dt);
-  room.setLights(ceiling, 1);
+  controls.step(dt);
+  room.setLights(controls.ceiling, 1);
+  const summary = controls.summary();
+  if (ui.summary.textContent !== summary) ui.summary.textContent = summary;
   renderer.render(scene, camera);
 });
 
@@ -392,11 +453,11 @@ window.__game = {
     player.yaw = Math.atan2(-p.x, -p.z);
     player.pitch = Math.atan2(p.y, Math.hypot(p.x, p.z));
   },
-  interact, setCeiling,
+  interact, controls, closePanel,
+  get panelOpen() { return panelOpen; },
   spin() { const c = player.seat ?? target?.item; if (c?.omega !== undefined) spin(c, 1); },
   get state() { return { pos: player.pos.toArray(), seated: Boolean(player.seat), target: target?.kind ?? null, busy: Boolean(player.busy) }; },
   blocked: (bx, by) => blocked(bx, -by),
 };
 
-setCeiling(0.25);
 load().catch((err) => { ui.intro.textContent = err.message; ui.go.textContent = 'Could not load'; console.error(err); });

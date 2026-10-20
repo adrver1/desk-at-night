@@ -266,7 +266,8 @@ def build_desk_props(m):
             p = edge + right * (flip * x) + ahead * y
             return box(f"S{k}{name}", size, (p.x, p.y, z), mat, rot_z=-a + rz)
         at(-0.80, 0.30, DESK_Z + 0.04, (0.22, 0.20, 0.08), m["plastic"], "Phone", rz=0.3 * flip)
-        at(0.95, 0.34, DESK_Z + 0.05, (0.20, 0.14, 0.10), m["plastic"], "TouchPanel", rz=-0.2 * flip)
+        p = edge + right * (flip * 0.95) + ahead * 0.24
+        props.place(props.make_touchpanel(pm, f"S{k}TouchPanel"), p.x, p.y, DESK_Z, -a - 0.2 * flip)
 
 
 # ------------------------------------------------------------------- chairs
@@ -312,6 +313,8 @@ def build_shell(m):
     box("DoorKickPlate", (0.004, dw - 0.04, 0.25), (X - 0.062, dy, 0.14), m["post"])
     box("ExitSignBox", (0.05, 0.38, 0.16), (X - 0.025, dy, dh + 0.25), m["ceiling"])
     box("ExitSign", (0.004, 0.34, 0.12), (X - 0.052, dy, dh + 0.25), m["exit_sign"])
+    # Light switch panel beside the door, on the handle side
+    props.place(props.make_lightpanel(props.materials(), "WallLightPanel"), X, dy + dw / 2 + 0.25, 1.20, -math.pi / 2)
 
 
 def build_meeting_corner(m):

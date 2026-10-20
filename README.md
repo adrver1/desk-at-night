@@ -62,7 +62,8 @@ bakes it for the browser: one light map for the ceiling panels and one for
 the screens. The chairs and mugs are baked with the room and then split back
 out, so they can move. Two pages use the result: `control.html`, a lighting
 viewer, and `play.html`, a first-person walk-around (WASD and mouse; sit in a
-chair and spin it, drink the coffee).
+chair and spin it, drink the coffee, set lights, sound and temperature on the
+desk touch panels, or switch the lights by the door).
 
 ## Run the viewer
 
