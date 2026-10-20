@@ -18,11 +18,50 @@ export const SKY = new THREE.Color(0.012, 0.02, 0.045); // Blender world colour 
 // The screens carry a pattern in Cycles but are drawn here in their average
 // colour; at full strength that reads as a white slab, so draw them dimmer.
 const DISPLAY = { screens: 0.32, ceiling: 1 };
-// Screens with live content (screens.js) are drawn from a canvas instead,
-// redrawn a few times a second; phones get a half-size canvas. Each redraw is
-// spread over SCREEN_BATCHES frames so no single frame pays for all of it.
-const SCREEN_HZ = 4, SCREEN_GAIN = 1.4, SCREEN_BATCHES = 4;
+// The screens show content from screens.js. Redrawing and re-uploading all of
+// them a few times a second was too slow, so they are drawn once, as they
+// look STATIC_T seconds into the shift (phones get a half-size atlas), and
+// only the LIVE screens keep moving, each on its own small texture.
+const LIVE = ['Desk0Mon5Screen']; // the operations assistant
+const STATIC_T = 600, SCREEN_HZ = 4, SCREEN_GAIN = 1.4;
 const SCREEN_SCALE = matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
+
+function canvasTexture(renderer, w, h) {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.flipY = false;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return tex;
+}
+
+// The faces of a joined screen mesh whose UVs fall in one atlas slot, with
+// their UVs stretched to cover a texture of their own
+function sliceSlot(geometry, [x, y, w, h], size) {
+  const pos = geometry.attributes.position, uv = geometry.attributes.uv, index = geometry.index;
+  if (!uv) return null;
+  const inside = (i) => {
+    const u = uv.getX(i) * size, v = uv.getY(i) * size;
+    return u >= x - 0.5 && u <= x + w + 0.5 && v >= y - 0.5 && v <= y + h + 0.5;
+  };
+  const verts = [], uvs = [];
+  const n = index ? index.count : pos.count;
+  for (let f = 0; f < n; f += 3) {
+    const ids = [0, 1, 2].map((k) => (index ? index.getX(f + k) : f + k));
+    if (!ids.every(inside)) continue;
+    for (const i of ids) {
+      verts.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+      uvs.push((uv.getX(i) * size - x) / w, (uv.getY(i) * size - y) / h);
+    }
+  }
+  if (!verts.length) return null;
+  const out = new THREE.BufferGeometry();
+  out.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  out.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  return out;
+}
 
 const roomFragment = /* glsl */ `
   uniform sampler2D uAlbedo;
@@ -120,25 +159,33 @@ export async function loadControlRoom(renderer) {
     board.uniforms = { ...material.uniforms, uBoard: { value: await texture(renderer, boardBufs[i], true) } };
     mesh.material = board;
   }
+  // Every screen is drawn once into a static atlas; the LIVE ones get their
+  // own small texture on a copy of their faces, laid just over the atlas.
   let screens = null;
   if (meta.screens) {
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = meta.screens.canvas * SCREEN_SCALE;
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.flipY = false;
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    const names = Object.keys(meta.screens.slots);
-    const batches = [...Array(SCREEN_BATCHES)].map((_, k) => names.filter((_, i) => i % SCREEN_BATCHES === k));
-    screens = { ctx: canvas.getContext('2d'), tex, batches, next: 0, drawn: -Infinity };
+    const { canvas: size, slots } = meta.screens;
+    const atlas = canvasTexture(renderer, size * SCREEN_SCALE, size * SCREEN_SCALE);
+    drawSlots(atlas.image.getContext('2d'), slots, STATIC_T, SCREEN_SCALE);
+    screens = { atlas, live: [], drawn: -Infinity };
   }
   const emitters = [];
   for (const [name, e] of Object.entries(meta.emitters)) {
     const mesh = gltf.scene.getObjectByName(name);
     if (!mesh) continue;
-    const live = screens && name.startsWith('EmitScreen');
-    mesh.material = new THREE.MeshBasicMaterial(live ? { map: screens.tex } : {});
-    emitters.push({ material: mesh.material, color: new THREE.Color(...e.color), strength: e.strength, group: e.group, live });
+    const textured = screens && name.startsWith('EmitScreen');
+    mesh.material = new THREE.MeshBasicMaterial(textured ? { map: screens.atlas } : {});
+    emitters.push({ material: mesh.material, color: new THREE.Color(...e.color), strength: e.strength, group: e.group, textured });
+    if (!textured) continue;
+    for (const screen of LIVE) {
+      const slot = meta.screens.slots[screen];
+      const geometry = slot && sliceSlot(mesh.geometry, slot, meta.screens.canvas);
+      if (!geometry) continue;
+      const tex = canvasTexture(renderer, slot[2], slot[3]);
+      const material = new THREE.MeshBasicMaterial({ map: tex, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
+      mesh.add(new THREE.Mesh(geometry, material));
+      screens.live.push({ name: screen, tex, slot });
+      emitters.push({ material, group: e.group, textured });
+    }
   }
   gltf.scene.updateMatrixWorld(true);
 
@@ -155,21 +202,18 @@ export async function loadControlRoom(renderer) {
       u.uMode.value = mode;
       for (const e of emitters) {
         const w = e.group === 'screens' ? screens : ceiling;
-        if (e.live) e.material.color.setScalar(SCREEN_GAIN * (mode === 0 ? w : 0.02));
+        if (e.textured) e.material.color.setScalar(SCREEN_GAIN * (mode === 0 ? w : 0.02));
         else e.material.color.copy(e.color).multiplyScalar(e.strength * DISPLAY[e.group] * (mode === 0 ? w : 0.02));
       }
     },
-    // Redraw the screens' content for time t (seconds), at most SCREEN_HZ times a second
+    // Redraw the live screens for time t (seconds), at most SCREEN_HZ times a second
     updateScreens(t) {
-      if (!screens) return;
-      if (screens.next === 0) {
-        if (t - screens.drawn < 1 / SCREEN_HZ) return;
-        screens.drawn = t;
+      if (!screens || t - screens.drawn < 1 / SCREEN_HZ) return;
+      screens.drawn = t;
+      for (const { name, tex, slot } of screens.live) {
+        drawSlots(tex.image.getContext('2d'), { [name]: [0, 0, slot[2], slot[3]] }, STATIC_T + t);
+        tex.needsUpdate = true;
       }
-      // Every batch draws the same moment, and the texture uploads once all are in
-      drawSlots(screens.ctx, meta.screens.slots, screens.drawn, SCREEN_SCALE, screens.batches[screens.next]);
-      screens.next = (screens.next + 1) % SCREEN_BATCHES;
-      if (screens.next === 0) screens.tex.needsUpdate = true;
     },
   };
 }
