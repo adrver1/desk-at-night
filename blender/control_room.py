@@ -21,6 +21,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build as b  # noqa: E402  (imports bpy)
+import props  # noqa: E402
 
 bpy, bmesh, Vector = b.bpy, b.bmesh, b.Vector
 box, cylinder, mat_flat = b.box, b.cylinder, b.mat_flat
@@ -221,19 +222,40 @@ def build_video_wall(m):
     box("Clock", (0.42, 0.05, 0.12), polar(WALL_R, 0, WALL_Z0 + WALL_H + 0.22), m["clock"])
 
 
+# Per station, in the operator's frame: x to their right, y away from them
+# (toward the monitors), measured from the desk edge at the chair. The second
+# station mirrors the first so the two desks don't look copy-pasted.
+STATION_PROPS = [  # (maker, x, y, yaw in degrees, z above the desk)
+    (props.make_keyboard, 0.00, 0.17, 0, 0.0),
+    (props.make_mousepad, 0.42, 0.17, 0, 0.0),
+    (props.make_mouse, 0.43, 0.16, -8, 0.0),
+    (props.make_mic, -0.30, 0.36, 12, 0.0),
+    (props.make_notepad, -0.58, 0.16, 14, 0.0),
+    (props.make_pencil, -0.57, 0.15, 40, 0.0089),  # lies on the pad
+    (props.make_mug, 0.68, 0.30, 30, 0.0),
+]
+
+
 def build_desk_props(m):
-    """Per station: operator keyboard, mouse, phone, gooseneck PA mic, touch panel."""
+    """Keyboard, mouse, PA mic, notepad, pencil and mug at each station, plus
+    blockout boxes for the phone and touch panel."""
+    pm = props.materials()
     for k, a in enumerate(DESKS):
-        def at(dr, da, z, size, mat, name, rz=0.0):
-            p = polar(r_front(a) + dr, a + da, z)
-            return box(f"S{k}{name}", size, p, mat, rot_z=-(a + da) + rz)
-        at(0.30, 0.0, DESK_Z + 0.015, (0.46, 0.17, 0.03), m["plastic"], "Keyboard")
-        at(0.30, math.radians(5), DESK_Z + 0.015, (0.07, 0.11, 0.03), m["plastic"], "Mouse")
-        at(0.38, -math.radians(10), DESK_Z + 0.04, (0.22, 0.20, 0.08), m["plastic"], "Phone", rz=0.3)
-        at(0.48, math.radians(9), DESK_Z + 0.05, (0.20, 0.14, 0.10), m["plastic"], "TouchPanel", rz=-0.2)
-        base = polar(r_front(a) + 0.45, a - math.radians(5), DESK_Z)
-        cylinder(f"S{k}MicBase", 0.05, 0.03, base + Vector((0, 0, 0.015)), m["plastic"], verts=24)
-        cylinder(f"S{k}MicNeck", 0.006, 0.38, base + Vector((0, 0, 0.21)), m["plastic"], verts=8)
+        flip = -1 if k else 1
+        edge = polar(r_front(a), a, DESK_Z)
+        right, ahead = Vector((math.cos(a), -math.sin(a), 0)), Vector((math.sin(a), math.cos(a), 0))
+        for make, x, y, yaw, dz in STATION_PROPS:
+            if make is not props.make_keyboard and make is not props.make_mousepad and make is not props.make_mouse:
+                x = flip * x  # mirror the left/right extras, keep the mouse on the right
+            pos = edge + right * x + ahead * y
+            props.place(make(pm, f"S{k}{make.__name__[5:].title()}"), pos.x, pos.y, DESK_Z + dz,
+                        -a + math.radians(flip * yaw))
+
+        def at(x, y, z, size, mat, name, rz=0.0):
+            p = edge + right * (flip * x) + ahead * y
+            return box(f"S{k}{name}", size, (p.x, p.y, z), mat, rot_z=-a + rz)
+        at(-0.80, 0.30, DESK_Z + 0.04, (0.22, 0.20, 0.08), m["plastic"], "Phone", rz=0.3 * flip)
+        at(0.95, 0.34, DESK_Z + 0.05, (0.20, 0.14, 0.10), m["plastic"], "TouchPanel", rz=-0.2 * flip)
 
 
 # ------------------------------------------------------------------- chairs
@@ -335,6 +357,11 @@ def cameras():
     main = cam("Camera", (3.0, -2.6, 1.65), (-0.6, 2.2, 0.95), 20)
     a = DESKS[1]
     seat = cam("Operator", polar(r_front(a) - 0.30, a, 1.22), polar(WALL_R, a, 1.25), 16)
+    st = DESKS[0]
+    edge = polar(r_front(st), st, 0)
+    right, ahead = Vector((math.cos(st), -math.sin(st), 0)), Vector((math.sin(st), math.cos(st), 0))
+    station = cam("Station", edge - right * 0.85 - ahead * 0.45 + Vector((0, 0, 1.40)),  # over the left shoulder
+                  edge + right * 0.10 + ahead * 0.25 + Vector((0, 0, DESK_Z)), 22)
     window = cam("Window", (-1.6, 0.2, 1.45), (-5.4, 1.0, 1.45), 24)
     plan_d = bpy.data.cameras.new("Plan")
     plan_d.type = "ORTHO"
@@ -342,7 +369,7 @@ def cameras():
     plan = bpy.data.objects.new("Plan", plan_d)
     plan.location = (0, 0.4, 20)
     bpy.context.collection.objects.link(plan)
-    return main, seat, window, plan
+    return main, seat, station, window, plan
 
 
 def main():
@@ -378,7 +405,7 @@ def main():
     bg = world.node_tree.nodes["Background"]
     bg.inputs["Color"].default_value = (0.012, 0.02, 0.045, 1)
     scene.world = world
-    main_cam, seat_cam, win_cam, plan_cam = cameras()
+    main_cam, seat_cam, station_cam, win_cam, plan_cam = cameras()
 
     def shot(cam, name, w, h):
         scene.camera = cam
@@ -392,17 +419,21 @@ def main():
     m["led_panel"].node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = 0.3
     shot(main_cam, "night", w, w * 9 // 16)
     shot(seat_cam, "night-operator", w, w * 9 // 16)
+    shot(station_cam, "night-station", w, w * 9 // 16)
     shot(win_cam, "night-window", w, w * 9 // 16)
 
     # Clay: everything grey under full ceiling light, to judge shapes and proportions
     clay = mat_flat("Clay", (0.6, 0.6, 0.6), 0.8)
     keep = {"LedPanel", "Screen", "ScreenCam"}
     for o in scene.objects:
-        if o.type == "MESH" and o.data.materials and o.data.materials[0].name not in keep:
-            o.data.materials[0] = clay
+        if o.type == "MESH":
+            for i, mt in enumerate(o.data.materials):
+                if mt.name not in keep:
+                    o.data.materials[i] = clay
     m["led_panel"].node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = 6.0
     bg.inputs["Color"].default_value = (0.5, 0.55, 0.6, 1)
     shot(main_cam, "clay", w, w * 9 // 16)
+    shot(station_cam, "clay-station", w, w * 9 // 16)
     for o in scene.objects:  # look down through the roof
         if o.name == "Ceiling" or o.name.startswith("Led"):
             o.hide_render = True
