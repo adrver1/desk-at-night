@@ -649,6 +649,39 @@ def build_platform(m, collection=None, jackup=False, z_cut=-4.0):
     return g.objects("Platform", collection), g.tris, tip
 
 
+def cull_to_view(objs, eyes, samples=3):
+    """Delete every face no eye can see: the far side, module interiors,
+    hidden equipment. A face stays if a ray from any eye to its centre or to
+    a point near one of its corners hits that face first. Give several eyes
+    spread over the window so parallax as the player moves is covered.
+    Returns the triangles left."""
+    import bmesh
+    dg = bpy.context.evaluated_depsgraph_get()
+    scene = bpy.context.scene
+    eyes = [Vector(e) for e in eyes]
+    left = 0
+    for o in objs:
+        me = o.data
+        keep = set()
+        for p in me.polygons:
+            ctr = o.matrix_world @ p.center
+            pts = [ctr] + [ctr.lerp(o.matrix_world @ me.vertices[v].co, 0.8) for v in p.vertices[:samples]]
+            for eye, pt in ((e, q) for e in eyes for q in pts):
+                d = pt - eye
+                hit, loc, _, idx, hob, _ = scene.ray_cast(dg, eye, d.normalized(), distance=d.length + 0.05)
+                if hit and hob.name == o.name and idx == p.index:
+                    keep.add(p.index)
+                    break
+        bm = bmesh.new()
+        bm.from_mesh(me)
+        bm.faces.ensure_lookup_table()
+        bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index not in keep], context="FACES")
+        bm.to_mesh(me)
+        bm.free()
+        left += sum(len(p.vertices) - 2 for p in me.polygons)
+    return left
+
+
 # ---------------------------------------------------------------- preview
 
 def main():
