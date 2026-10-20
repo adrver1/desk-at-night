@@ -20,6 +20,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import boards  # noqa: E402
 import build as b  # noqa: E402  (imports bpy)
 import props  # noqa: E402
 
@@ -44,6 +45,7 @@ MON_TILT = math.radians(8)
 WALL_R, WALL_N = MON_R + 1.25, 7  # one continuous band across both desks
 WALL_W, WALL_H, WALL_Z0 = 1.45, 0.83, 1.32
 TV_W, TV_H, TV_TOP = 1.24, 0.72, 2.40  # black 55" TV hung beyond the left end of the band
+TV_A = -(WALL_N - 1) / 2 * (WALL_W + 0.03) / WALL_R - (WALL_W / 2 + 0.15 + TV_W / 2) / WALL_R  # its centre angle
 
 # Room shell
 ROOM_X, ROOM_Y0, ROOM_Y1, ROOM_Z = 5.4, -3.6, 4.6, 2.9
@@ -229,7 +231,7 @@ def build_video_wall(m):
     # Beyond the leftmost display, a black TV hangs from the ceiling with a
     # PTZ conference camera on its own pole just in front of it
     pm = props.materials()
-    a = -(WALL_N - 1) / 2 * step - (WALL_W / 2 + 0.15 + TV_W / 2) / WALL_R
+    a = TV_A
     p = polar(WALL_R, a, ROOM_Z)
     props.place(props.make_ceiling_tv(pm, "RearTv", (TV_W, TV_H), ROOM_Z - TV_TOP), p.x, p.y, p.z, -a)
     p = polar(WALL_R - 0.12, a, ROOM_Z)
@@ -337,16 +339,20 @@ def build_meeting_corner(m):
     props.place(props.make_ptz_camera(props.materials(), "PtzCameraLink", 0.45), 2.6, ROOM_Y0 + 0.30, ROOM_Z, math.pi)
 
 
+# Whiteboards on the right-hand wall: name -> (texture, centre y, centre z, size)
+BOARDS = {
+    "Pnid": (boards.pnid_board, 1.45, 1.45, (2.4, 1.2)),
+    "Shift": (boards.shift_board, -0.45, 1.50, (1.2, 0.9)),
+}
+
+
 def build_boards(m):
     """Whiteboards on the right-hand wall, between the door and the video
     wall: P&ID sheets held up with magnets, and the shift-status board."""
-    import boards
     pm = props.materials()
-    X = ROOM_X
-    pnid = props.board_material("BoardPnid", boards.pnid_board(), (2.4, 1.2))
-    shift = props.board_material("BoardShift", boards.shift_board(), (1.2, 0.9))
-    props.place(props.make_whiteboard(pm, "WhiteboardPnid", (2.4, 1.2), pnid), X, 1.45, 1.45, -math.pi / 2)
-    props.place(props.make_whiteboard(pm, "WhiteboardShift", (1.2, 0.9), shift), X, -0.45, 1.50, -math.pi / 2)
+    for name, (draw, y, z, size) in BOARDS.items():
+        face = props.board_material("Board" + name, draw(), size)
+        props.place(props.make_whiteboard(pm, "Whiteboard" + name, size, face), ROOM_X, y, z, -math.pi / 2)
 
 
 def build_outside(m):

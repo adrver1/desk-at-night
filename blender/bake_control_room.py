@@ -9,6 +9,9 @@ Same scheme as build.py, with two light groups instead of moon and lamp:
     light_ceiling.png  irradiance from the ceiling panels, clock, sky and the
                        platform outside the window
     light_screens.png  irradiance from the desk monitors and the video wall
+    board_*.png        what is pinned and written on the whiteboards, drawn
+                       by boards.py; too fine for the atlas, so each board
+                       surface has a second UV set onto its own image
 
 so the browser can dim the room for the night shift and let the screens
 carry it. Everything that glows (screens, panels, clock, platform lights,
@@ -20,6 +23,7 @@ Outputs go to web/public/control/.
 import argparse
 import json
 import os
+import shutil
 import sys
 import time
 
@@ -47,6 +51,8 @@ def texel_weight(name):
         return 0.08
     if name.startswith(("Wall", "Floor", "Mullion", "Transom", "Link", "Meeting")):
         return 0.2
+    if name.startswith("Whiteboard"):
+        return 1.0   # flat and bright: light-map noise shows on them
     if name.startswith("S") and name[1:2].isdigit():
         return 3.0   # desk props
     if name.startswith("Desk") and "Mon" not in name:
@@ -131,6 +137,7 @@ def main():
     cr.build_chairs(m)
     cr.build_shell(m)
     cr.build_meeting_corner(m)
+    cr.build_boards(m)
     cr.build_outside(m)
     world = bpy.data.worlds.new("Night")
     world.use_nodes = True
@@ -164,6 +171,15 @@ def main():
                 coffee = o.name[:-3] + "Coffee"
                 o.vertex_groups.new(name=coffee).add(list(vs), 1.0, "REPLACE")
                 movable[coffee] = movable[o.name]
+
+    # Whiteboard surfaces are baked with the room too, but the atlas is far
+    # too coarse for their writing: they are split out afterwards and get a
+    # second UV set for a texture of their own. Remember each one's frame.
+    boards = {}
+    for name, (draw, _, _, size) in cr.BOARDS.items():
+        o = scene.objects[f"Whiteboard{name}Face"]
+        boards[o.name] = (o.matrix_world.inverted(), size, draw)
+        o.vertex_groups.new(name=o.name).add(range(len(o.data.vertices)), 1.0, "REPLACE")
 
     glowing = [o for o in scene.objects if emissive(o)]
     b.texel_weight = texel_weight  # unwrap_weighted() looks it up by name
@@ -203,7 +219,7 @@ def main():
 
     # Split the movable objects back out, each with its origin where it stands
     coffees = sorted(n for n in movable if n.endswith("Coffee"))
-    for name in coffees + sorted(n for n in movable if n not in coffees):
+    for name in coffees + sorted(n for n in movable if n not in coffees) + sorted(boards):
         bpy.ops.object.select_all(action="DESELECT")
         bpy.context.view_layer.objects.active = room
         room.select_set(True)
@@ -215,13 +231,26 @@ def main():
         bpy.ops.object.mode_set(mode="OBJECT")
         part = [o for o in bpy.context.selected_objects if o is not room][0]
         part.name = part.data.name = name
-        scene.cursor.location = movable[name]
+        scene.cursor.location = movable[name] if name in movable else boards[name][0].inverted().translation
         bpy.ops.object.select_all(action="DESELECT")
         part.select_set(True)
         bpy.context.view_layer.objects.active = part
         bpy.ops.object.origin_set(type="ORIGIN_CURSOR")
-    for o in [room] + [scene.objects[n] for n in movable]:
+    for o in [room] + [scene.objects[n] for n in [*movable, *boards]]:
         o.vertex_groups.clear()
+
+    # Board UVs: the face's own x across and z up, 0-1 over the writing
+    # surface (the glTF exporter flips V, so the PNG's top row lands on top)
+    meta["boards"] = {}
+    for name, (to_local, (w, h), draw) in boards.items():
+        o = scene.objects[name]
+        uv = o.data.uv_layers.new(name="BoardUV")
+        for loop in o.data.loops:
+            p = to_local @ (o.matrix_world @ o.data.vertices[loop.vertex_index].co)
+            uv.data[loop.index].uv = (p.x / w + 0.5, 0.5 + p.z / h)
+        png = "board_" + name[len("Whiteboard"):-len("Face")].lower() + ".png"
+        shutil.copy(draw(), os.path.join(OUT, png))
+        meta["boards"][name] = png
 
     # Floor plan for the first-person walk: what the player can't walk through
     # (Blender X/Y in metres; the viewer converts to its own axes)
@@ -230,6 +259,7 @@ def main():
         "desks": [round(d, 5) for d in cr.DESKS], "deskHalf": round(cr.DESK_HALF, 5),
         "rFront": cr.R_FRONT, "bayDepth": cr.BAY_DEPTH, "rBack": cr.R_BACK,
         "wallR": cr.WALL_R, "wallHalf": round(cr.WALL_N / 2 * step, 5),
+        "tv": [round(cr.TV_A, 5), round(cr.TV_W / 2 / cr.WALL_R, 5), cr.TV_TOP - cr.TV_H],  # angle, half-width, bottom
         "room": [-cr.ROOM_X, cr.ROOM_Y0, cr.ROOM_X, cr.ROOM_Y1],
         "table": [2.6, -2.8, 1.0, 0.55],  # centre and radii of the meeting table
         "deskZ": cr.DESK_Z,

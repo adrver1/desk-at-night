@@ -490,9 +490,9 @@ def make_deskphone(m, name="DeskPhone"):
         p.box((0.014, 0.008, 0.004), face(-0.03, 0.068 - i * 0.015, 0.003), m["key_grey"], orient=tilt)
     for r in range(4):  # keypad, lower right
         for c in range(3):
-            p.rbox((0.017, 0.011, 0.005), face(0.012 + c * 0.023, -0.012 - r * 0.016, 0.003), m["key"], 0.002, orient=tilt)
-    p.rbox((0.03, 0.012, 0.005), face(0.085, -0.03, 0.003), m["key_red"], 0.002, orient=tilt)  # hang-up
-    p.rbox((0.03, 0.012, 0.005), face(0.085, -0.05, 0.003), m["key_green"], 0.002, orient=tilt)
+            p.rbox((0.017, 0.011, 0.005), face(0.012 + c * 0.023, -0.012 - r * 0.016, 0.003), m["key"], 0.002, segs=1, orient=tilt)
+    p.rbox((0.03, 0.012, 0.005), face(0.085, -0.03, 0.003), m["key_red"], 0.002, segs=1, orient=tilt)  # hang-up
+    p.rbox((0.03, 0.012, 0.005), face(0.085, -0.05, 0.003), m["key_green"], 0.002, segs=1, orient=tilt)
     # Handset in a cradle along the left edge: a long bar with ear and mouth cups
     hx = -0.085
     p.rbox((0.05, 0.18, 0.025), Vector((hx, 0.0, 0.065)), m["black"], 0.012, orient=tilt)
@@ -549,11 +549,14 @@ def make_ceiling_tv(m, name="CeilingTv", size=(1.24, 0.72), drop=0.5):
 
 def make_whiteboard(m, name="Whiteboard", size=(2.4, 1.2), face=None):
     """Wall whiteboard with an aluminium frame and a pen tray. `face` is the
-    material for the writing surface (see board_material). The origin is at the middle of the back, the
-    face points -Y."""
+    material for the writing surface (see board_material); the surface is a
+    child object named <name>Face, so the bake can give it its own texture.
+    The origin is at the middle of the back, the face points -Y."""
     w, h = size
+    surface = Builder(name + "Face")
+    surface.box((w, 0.012, h), Vector((0, -0.006, 0)), face or m["paper"])
+    surface = surface.done()
     wb = Builder(name)
-    wb.box((w, 0.012, h), Vector((0, -0.006, 0)), face or m["paper"])
     f = 0.02
     for s in (-1, 1):
         wb.box((w + 2 * f, 0.02, f), Vector((0, -0.01, s * (h + f) / 2)), m["alu"])
@@ -563,7 +566,9 @@ def make_whiteboard(m, name="Whiteboard", size=(2.4, 1.2), face=None):
     for i, mat in enumerate((m["key_red"], m["key_green"], m["black"])):  # markers
         wb.cyl(0.008, 0.008, 0.13, Vector((-0.2 + i * 0.05, -0.04, -h / 2 - f + 0.008)), mat, segs=10,
                orient=_rot(y=math.pi / 2))
-    return wb.done()
+    frame = wb.done()
+    surface.parent = frame
+    return frame
 
 
 def board_material(name, path, size):

@@ -65,8 +65,7 @@ a0 = cr.DESKS[0]
 edge = cr.polar(cr.r_front(a0), a0, 0)
 right, ahead = Vector((math.cos(a0), -math.sin(a0), 0)), Vector((math.sin(a0), math.cos(a0), 0))
 phone = edge - right * 0.80 + ahead * 0.30 + Vector((0, 0, cr.DESK_Z + 0.05))
-step = (cr.WALL_W + 0.03) / cr.WALL_R
-a_tv = -(cr.WALL_N - 1) / 2 * step - (cr.WALL_W / 2 + 0.15 + cr.TV_W / 2) / cr.WALL_R
+a_tv = cr.TV_A
 tv = cr.polar(cr.WALL_R, a_tv, cr.TV_TOP - cr.TV_H / 2)
 
 shots = {  # name: (location, aim, lens, width, height)
