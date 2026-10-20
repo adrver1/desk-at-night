@@ -46,7 +46,7 @@ async function load() {
   const glbKb = Math.round(room.sizes.glb / 1e3);
   const mapsKb = Math.round(room.sizes.maps / 1e3);
   const meta = room.meta;
-  ui.facts.textContent = `Atlas ${meta.resolution} × ${meta.resolution} at ${meta.samples} samples · geometry ${glbKb} kB · light maps ${mapsKb} kB. The screens and ceiling panels themselves are drawn flat; everything they light is baked.`;
+  ui.facts.textContent = `Atlas ${meta.resolution} × ${meta.resolution} at ${meta.samples} samples · geometry ${glbKb} kB · light maps ${mapsKb} kB. The ceiling panels are drawn flat and the screens show live, made-up content; everything they light is baked.`;
 }
 
 function goHome() {
@@ -82,9 +82,10 @@ new ResizeObserver(() => {
   camera.updateProjectionMatrix();
 }).observe(ui.stage);
 
-renderer.setAnimationLoop(() => {
+renderer.setAnimationLoop((now) => {
   if (!room) return;
   room.setLights(state.ceiling, state.screens, state.mode);
+  room.updateScreens(now / 1000);
   controls.update();
   renderer.render(scene, camera);
   ui.eq.innerHTML = `pixel = albedo × ( <b class="l">${state.ceiling.toFixed(2)}</b> · E<sub>ceiling</sub> + <b class="m">${state.screens.toFixed(2)}</b> · E<sub>screens</sub> )`;

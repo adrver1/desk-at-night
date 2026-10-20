@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { roomVertex } from './shaders.js';
+import { drawSlots } from './screens.js';
 
 const SCENE = 'control/';
 // GitHub Pages lets browsers reuse files for ten minutes without asking. After
@@ -17,6 +18,10 @@ export const SKY = new THREE.Color(0.012, 0.02, 0.045); // Blender world colour 
 // The screens carry a pattern in Cycles but are drawn here in their average
 // colour; at full strength that reads as a white slab, so draw them dimmer.
 const DISPLAY = { screens: 0.32, ceiling: 1 };
+// Screens with live content (screens.js) are drawn from a canvas instead,
+// redrawn a few times a second; phones get a half-size canvas.
+const SCREEN_HZ = 4, SCREEN_GAIN = 1.4;
+const SCREEN_SCALE = matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
 
 const roomFragment = /* glsl */ `
   uniform sampler2D uAlbedo;
@@ -88,12 +93,23 @@ export async function loadControlRoom(renderer) {
     const mesh = gltf.scene.getObjectByName(name);
     if (mesh) mesh.material = material;
   }
+  let screens = null;
+  if (meta.screens) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = meta.screens.canvas * SCREEN_SCALE;
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.flipY = false;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    screens = { ctx: canvas.getContext('2d'), tex, drawn: -Infinity };
+  }
   const emitters = [];
   for (const [name, e] of Object.entries(meta.emitters)) {
     const mesh = gltf.scene.getObjectByName(name);
     if (!mesh) continue;
-    mesh.material = new THREE.MeshBasicMaterial();
-    emitters.push({ material: mesh.material, color: new THREE.Color(...e.color), strength: e.strength, group: e.group });
+    const live = screens && name.startsWith('EmitScreen');
+    mesh.material = new THREE.MeshBasicMaterial(live ? { map: screens.tex } : {});
+    emitters.push({ material: mesh.material, color: new THREE.Color(...e.color), strength: e.strength, group: e.group, live });
   }
   gltf.scene.updateMatrixWorld(true);
 
@@ -110,8 +126,16 @@ export async function loadControlRoom(renderer) {
       u.uMode.value = mode;
       for (const e of emitters) {
         const w = e.group === 'screens' ? screens : ceiling;
-        e.material.color.copy(e.color).multiplyScalar(e.strength * DISPLAY[e.group] * (mode === 0 ? w : 0.02));
+        if (e.live) e.material.color.setScalar(SCREEN_GAIN * (mode === 0 ? w : 0.02));
+        else e.material.color.copy(e.color).multiplyScalar(e.strength * DISPLAY[e.group] * (mode === 0 ? w : 0.02));
       }
+    },
+    // Redraw the screens' content for time t (seconds), at most SCREEN_HZ times a second
+    updateScreens(t) {
+      if (!screens || t - screens.drawn < 1 / SCREEN_HZ) return;
+      screens.drawn = t;
+      drawSlots(screens.ctx, meta.screens.slots, t, SCREEN_SCALE);
+      screens.tex.needsUpdate = true;
     },
   };
 }

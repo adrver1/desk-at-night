@@ -537,3 +537,24 @@ export function drawScreen(ctx, fn, w, h, t) {
   fn(ctx, w, h, t);
   ctx.restore();
 }
+
+// The function that draws a screen, by its mesh name in the bake
+export function screenFor(name) {
+  let m = name.match(/^Desk(\d)Mon(\d)Screen$/);
+  if (m) return DESK_SCREENS[m[1]]?.[m[2]];
+  m = name.match(/^Wall(\d)Screen$/);
+  if (m) return WALL_SCREENS[m[1]];
+  return name === 'LinkScreen' ? LINK_SCREEN : undefined;
+}
+
+// Draw every screen into its slot of the shared canvas (meta.screens from the
+// bake), at `scale` times the slot's pixel size
+export function drawSlots(ctx, slots, t, scale = 1) {
+  for (const [name, [x, y, w, h]] of Object.entries(slots)) {
+    const fn = screenFor(name);
+    if (!fn) continue;
+    ctx.setTransform(scale, 0, 0, scale, x * scale, y * scale);
+    drawScreen(ctx, fn, w, h, t);
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
