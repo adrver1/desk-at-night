@@ -19,8 +19,9 @@ export const SKY = new THREE.Color(0.012, 0.02, 0.045); // Blender world colour 
 // colour; at full strength that reads as a white slab, so draw them dimmer.
 const DISPLAY = { screens: 0.32, ceiling: 1 };
 // Screens with live content (screens.js) are drawn from a canvas instead,
-// redrawn a few times a second; phones get a half-size canvas.
-const SCREEN_HZ = 4, SCREEN_GAIN = 1.4;
+// redrawn a few times a second; phones get a half-size canvas. Each redraw is
+// spread over SCREEN_BATCHES frames so no single frame pays for all of it.
+const SCREEN_HZ = 4, SCREEN_GAIN = 1.4, SCREEN_BATCHES = 4;
 const SCREEN_SCALE = matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
 
 const roomFragment = /* glsl */ `
@@ -101,7 +102,9 @@ export async function loadControlRoom(renderer) {
     tex.flipY = false;
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    screens = { ctx: canvas.getContext('2d'), tex, drawn: -Infinity };
+    const names = Object.keys(meta.screens.slots);
+    const batches = [...Array(SCREEN_BATCHES)].map((_, k) => names.filter((_, i) => i % SCREEN_BATCHES === k));
+    screens = { ctx: canvas.getContext('2d'), tex, batches, next: 0, drawn: -Infinity };
   }
   const emitters = [];
   for (const [name, e] of Object.entries(meta.emitters)) {
@@ -132,10 +135,15 @@ export async function loadControlRoom(renderer) {
     },
     // Redraw the screens' content for time t (seconds), at most SCREEN_HZ times a second
     updateScreens(t) {
-      if (!screens || t - screens.drawn < 1 / SCREEN_HZ) return;
-      screens.drawn = t;
-      drawSlots(screens.ctx, meta.screens.slots, t, SCREEN_SCALE);
-      screens.tex.needsUpdate = true;
+      if (!screens) return;
+      if (screens.next === 0) {
+        if (t - screens.drawn < 1 / SCREEN_HZ) return;
+        screens.drawn = t;
+      }
+      // Every batch draws the same moment, and the texture uploads once all are in
+      drawSlots(screens.ctx, meta.screens.slots, screens.drawn, SCREEN_SCALE, screens.batches[screens.next]);
+      screens.next = (screens.next + 1) % SCREEN_BATCHES;
+      if (screens.next === 0) screens.tex.needsUpdate = true;
     },
   };
 }
