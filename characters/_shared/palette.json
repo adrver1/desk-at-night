@@ -1,0 +1,312 @@
+{
+ "skin_1": {
+  "row": 0,
+  "col": 0,
+  "hex": "#f6d7c3"
+ },
+ "skin_2": {
+  "row": 0,
+  "col": 1,
+  "hex": "#eac0a2"
+ },
+ "skin_3": {
+  "row": 0,
+  "col": 2,
+  "hex": "#d9a37f"
+ },
+ "skin_4": {
+  "row": 0,
+  "col": 3,
+  "hex": "#c08560"
+ },
+ "skin_5": {
+  "row": 0,
+  "col": 4,
+  "hex": "#9c6644"
+ },
+ "skin_6": {
+  "row": 0,
+  "col": 5,
+  "hex": "#7a4b30"
+ },
+ "skin_7": {
+  "row": 0,
+  "col": 6,
+  "hex": "#5b3522"
+ },
+ "skin_8": {
+  "row": 0,
+  "col": 7,
+  "hex": "#3f2518"
+ },
+ "hair_black": {
+  "row": 1,
+  "col": 0,
+  "hex": "#1e1a19"
+ },
+ "hair_dark_brown": {
+  "row": 1,
+  "col": 1,
+  "hex": "#3b2a20"
+ },
+ "hair_brown": {
+  "row": 1,
+  "col": 2,
+  "hex": "#5e4030"
+ },
+ "hair_light_brown": {
+  "row": 1,
+  "col": 3,
+  "hex": "#8a6446"
+ },
+ "hair_blond": {
+  "row": 1,
+  "col": 4,
+  "hex": "#d2b071"
+ },
+ "hair_ginger": {
+  "row": 1,
+  "col": 5,
+  "hex": "#b45a2c"
+ },
+ "hair_grey": {
+  "row": 1,
+  "col": 6,
+  "hex": "#8d8a86"
+ },
+ "hair_white": {
+  "row": 1,
+  "col": 7,
+  "hex": "#dcdad4"
+ },
+ "hair_auburn": {
+  "row": 1,
+  "col": 8,
+  "hex": "#9a4b24"
+ },
+ "hair_strawberry": {
+  "row": 1,
+  "col": 9,
+  "hex": "#c4804e"
+ },
+ "eye": {
+  "row": 2,
+  "col": 0,
+  "hex": "#1b1d22"
+ },
+ "eye_white": {
+  "row": 2,
+  "col": 1,
+  "hex": "#f2f0ea"
+ },
+ "lip": {
+  "row": 2,
+  "col": 2,
+  "hex": "#a8584e"
+ },
+ "lip_dark": {
+  "row": 2,
+  "col": 3,
+  "hex": "#6e3a33"
+ },
+ "teeth": {
+  "row": 2,
+  "col": 4,
+  "hex": "#f4f1e8"
+ },
+ "blush": {
+  "row": 2,
+  "col": 5,
+  "hex": "#d98a7a"
+ },
+ "coverall_orange": {
+  "row": 3,
+  "col": 0,
+  "hex": "#e2632a"
+ },
+ "coverall_red": {
+  "row": 3,
+  "col": 1,
+  "hex": "#b8322a"
+ },
+ "coverall_navy": {
+  "row": 3,
+  "col": 2,
+  "hex": "#1f2e4a"
+ },
+ "hivis_yellow": {
+  "row": 3,
+  "col": 3,
+  "hex": "#d8e23a"
+ },
+ "hivis_orange": {
+  "row": 3,
+  "col": 4,
+  "hex": "#f08a24"
+ },
+ "reflective": {
+  "row": 3,
+  "col": 5,
+  "hex": "#c9cdd0"
+ },
+ "helmet_white": {
+  "row": 3,
+  "col": 6,
+  "hex": "#eceeee"
+ },
+ "helmet_orange": {
+  "row": 3,
+  "col": 7,
+  "hex": "#e8742c"
+ },
+ "helmet_blue": {
+  "row": 3,
+  "col": 8,
+  "hex": "#2c5ea8"
+ },
+ "navy": {
+  "row": 4,
+  "col": 0,
+  "hex": "#02293c"
+ },
+ "blue": {
+  "row": 4,
+  "col": 1,
+  "hex": "#3a6ea5"
+ },
+ "light_blue": {
+  "row": 4,
+  "col": 2,
+  "hex": "#9cc0e0"
+ },
+ "denim": {
+  "row": 4,
+  "col": 3,
+  "hex": "#45607f"
+ },
+ "red": {
+  "row": 4,
+  "col": 4,
+  "hex": "#b03a30"
+ },
+ "green": {
+  "row": 4,
+  "col": 5,
+  "hex": "#4f7a46"
+ },
+ "olive": {
+  "row": 4,
+  "col": 6,
+  "hex": "#6b6a3c"
+ },
+ "khaki": {
+  "row": 4,
+  "col": 7,
+  "hex": "#b9a77c"
+ },
+ "sand": {
+  "row": 4,
+  "col": 8,
+  "hex": "#d2ccb3"
+ },
+ "burgundy": {
+  "row": 4,
+  "col": 9,
+  "hex": "#6e2433"
+ },
+ "teal": {
+  "row": 4,
+  "col": 10,
+  "hex": "#2e7a78"
+ },
+ "purple": {
+  "row": 4,
+  "col": 11,
+  "hex": "#5b4a86"
+ },
+ "white": {
+  "row": 5,
+  "col": 0,
+  "hex": "#f1f1ee"
+ },
+ "light_grey": {
+  "row": 5,
+  "col": 1,
+  "hex": "#c4c6c6"
+ },
+ "grey": {
+  "row": 5,
+  "col": 2,
+  "hex": "#8b8f92"
+ },
+ "slate": {
+  "row": 5,
+  "col": 3,
+  "hex": "#73838d"
+ },
+ "charcoal": {
+  "row": 5,
+  "col": 4,
+  "hex": "#3c4145"
+ },
+ "black": {
+  "row": 5,
+  "col": 5,
+  "hex": "#16181a"
+ },
+ "undersuit": {
+  "row": 5,
+  "col": 6,
+  "hex": "#9aa0a4"
+ },
+ "leather_brown": {
+  "row": 6,
+  "col": 0,
+  "hex": "#5a3a26"
+ },
+ "leather_tan": {
+  "row": 6,
+  "col": 1,
+  "hex": "#a0714a"
+ },
+ "rubber": {
+  "row": 6,
+  "col": 2,
+  "hex": "#26282a"
+ },
+ "steel": {
+  "row": 6,
+  "col": 3,
+  "hex": "#9ea7ad"
+ },
+ "gold": {
+  "row": 6,
+  "col": 4,
+  "hex": "#c9a24a"
+ },
+ "glass": {
+  "row": 6,
+  "col": 5,
+  "hex": "#9fc4d2"
+ },
+ "lens": {
+  "row": 6,
+  "col": 6,
+  "hex": "#202a33"
+ },
+ "signal_red": {
+  "row": 6,
+  "col": 7,
+  "hex": "#d8261c"
+ },
+ "screen_green": {
+  "row": 6,
+  "col": 8,
+  "hex": "#4cd17a"
+ },
+ "plastic_black": {
+  "row": 6,
+  "col": 9,
+  "hex": "#2a2c2f"
+ }
+}
