@@ -1,0 +1,115 @@
+<!doctype html>
+<!-- PROTOTYPE (throwaway): the flare and helideck CCTV drawn live from the
+     platform model (public/cctv-prototype/platform.glb, from
+     blender/preview_cctv.py) under outdoor.js's sky, sea and weather.
+     ?cam=heli|flare&time=..&weather=.. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CCTV prototype</title>
+<style>
+  html, body { margin: 0; background: #000; }
+  #wrap { position: relative; width: 1024px; height: 576px; }
+  canvas { position: absolute; inset: 0; width: 1024px; height: 576px; }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="gl" width="1024" height="576"></canvas><canvas id="hud" width="1024" height="576"></canvas></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Outdoor, WEATHER, clock } from './src/outdoor.js';
+
+const q = new URLSearchParams(location.search);
+const OFF = [23.4, 6.0, 69.2]; // the platform point at the room's origin (control_room.py PLATFORM_OFFSET)
+const to3 = ([x, y, z]) => new THREE.Vector3(x - OFF[0], z - OFF[2], -(y - OFF[1]));
+const CAMS = {
+  heli: { pos: [44, -16, 86], aim: [68, 2, 73], lens: 20, name: 'CAM 07 · Helideck' },
+  flare: { pos: [-50, 15, 63], aim: [-106, 0, 74], lens: 26, name: 'CAM 11 · Flare boom' },
+};
+const c = CAMS[q.get('cam')] ?? CAMS.heli;
+
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gl'), antialias: true });
+renderer.toneMapping = THREE.AgXToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.autoClear = false;
+const camera = new THREE.PerspectiveCamera(2 * THREE.MathUtils.radToDeg(Math.atan(10.125 / c.lens)), 16 / 9, 0.5, 4000);
+camera.position.copy(to3(c.pos));
+camera.lookAt(to3(c.aim));
+camera.updateMatrixWorld();
+
+const scene = new THREE.Scene();
+const hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
+const sun = new THREE.DirectionalLight(0xffffff, 1);
+scene.add(hemi, sun, sun.target);
+scene.fog = new THREE.FogExp2(0x000000, 0);
+const gltf = await new GLTFLoader().loadAsync('/cctv-prototype/platform.glb');
+const glowing = [];
+gltf.scene.traverse((o) => {
+  if (!o.isMesh) return;
+  const m = o.material;
+  if (m.emissive && m.emissive.getHex() !== 0) glowing.push([m, m.emissiveIntensity]);
+});
+scene.add(gltf.scene);
+
+const outdoor = new Outdoor(-69.2);
+const preset = WEATHER[q.get('weather')];
+outdoor.set({ ...(preset ?? {}), time: Number(q.get('time') ?? 22.5), speed: 0 });
+
+const hud = document.getElementById('hud').getContext('2d');
+let last = performance.now();
+function frame(now) {
+  outdoor.update((now - last) / 1000);
+  last = now;
+  const L = outdoor.light;
+  // Light the model like the sky outside: sky from above, a little from the sea, and the sun or moon
+  hemi.color.copy(L.sky).multiplyScalar(Math.PI);
+  hemi.groundColor.copy(L.sky).multiplyScalar(0.3);
+  hemi.intensity = 1;
+  sun.color.copy(L.sun);
+  sun.intensity = Math.PI;
+  sun.position.copy(camera.position).addScaledVector(L.sunDir, 200);
+  sun.target.position.copy(camera.position);
+  scene.fog.color.copy(L.fog);
+  scene.fog.density = 1 / (L.fogDistance / Math.LN2);
+  const lsky = L.sky.r * 0.2126 + L.sky.g * 0.7152 + L.sky.b * 0.0722;
+  const night = 1 - THREE.MathUtils.smoothstep(lsky, 0.01, 0.15);
+  for (const [m, k] of glowing) m.emissiveIntensity = k * (0.05 + 0.95 * night);
+  renderer.toneMappingExposure = L.exposure;
+  outdoor.render(renderer, camera);
+  renderer.render(scene, camera);
+  drawHud(now / 1000);
+  requestAnimationFrame(frame);
+}
+// The same overlay the drawn cameras have: rain, lens drops, sensor noise, caption
+function drawHud(t) {
+  const o = outdoor.cctv, w = 1024, h = 576, ctx = hud;
+  ctx.clearRect(0, 0, w, h);
+  if (o.rain > 0.02) {
+    ctx.strokeStyle = `rgba(220,228,236,${0.12 + 0.18 * o.day})`; ctx.lineWidth = 1.2;
+    const seed = Math.floor(t * 12), slant = 8 + o.wind * 30;
+    ctx.beginPath();
+    for (let i = 0; i < o.rain * 260; i++) {
+      const x = (i * 7919 + seed * 3301) % 1100, y = (i * 104729 + seed * 7177) % 600;
+      ctx.moveTo(x, y); ctx.lineTo(x - slant, y + 34);
+    }
+    ctx.stroke();
+    ctx.fillStyle = `rgba(255,255,255,${0.05 + 0.06 * o.day})`;
+    for (let i = 0; i < o.rain * 24; i++) { ctx.beginPath(); ctx.arc((i * 389) % 1024, (i * 251) % 576, 5 + (i % 4) * 4, 0, Math.PI * 2); ctx.fill(); }
+  }
+  ctx.fillStyle = `rgba(255,255,255,${0.035 * (1 - 0.7 * o.day)})`;
+  const seed = Math.floor(t * 12);
+  for (let i = 0; i < 400; i++) ctx.fillRect((i * 7919 + seed * 104729) % 1024, (i * 104729 + seed * 7919) % 576, 2, 2);
+  const caption = o.day > 0.5 ? '#111' : '#e6e6e6';
+  ctx.fillStyle = o.day > 0.5 ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0)';
+  ctx.fillRect(10, 10, w - 20, 36);
+  ctx.font = '20px ui-monospace, Menlo, monospace';
+  ctx.fillStyle = caption;
+  ctx.textAlign = 'left'; ctx.fillText(c.name, 20, 36);
+  ctx.textAlign = 'right'; ctx.fillText(`${clock(outdoor.state.time)}  ● REC`, w - 20, 36);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
