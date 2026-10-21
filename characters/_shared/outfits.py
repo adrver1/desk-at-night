@@ -150,9 +150,9 @@ def ear_defender(m, s):
     """Helmet-mounted ear defender on side s: a black clip plugged into the
     slot on the helmet's side, an arm down from it, a wire yoke round the
     cup to two pivots, and the blue cup on a black cushion over the ear."""
-    cy, cz = -0.012, 1.588          # cup centre (over the ear)
+    cy, cz = -0.012, 1.598          # cup centre (over the ear)
     # Cushion against the head and the blue shell outside it, both oval
-    for x0, x1, ru, rv, sw in ((0.118, 0.136, 0.034, 0.046, RUBBER), (0.136, 0.160, 0.032, 0.044, CUP)):
+    for x0, x1, ru, rv, sw in ((0.128, 0.145, 0.054, 0.042, RUBBER), (0.145, 0.168, 0.052, 0.040, CUP)):
         shrink = 0.82 if sw == CUP else 1.0
         pts = []
         for x, k in ((x0, 1.0), (x1, shrink)):
@@ -164,12 +164,12 @@ def ear_defender(m, s):
     m.hull([Vector((s * x, cy + dy, z)) for x in (0.146, 0.166) for dy in (-0.016, 0.016)
             for z in (1.664, 1.692)], CLIP, "ear_cup")
     # Arm from the clip down past the rim to the top of the yoke
-    top = (s * 0.170, cy, 1.646)
-    _box(m, (s * 0.170, cy, 1.668), top, 0.006, CLIP, "ear_cup")
+    top = (s * 0.174, cy, 1.656)
+    _box(m, (s * 0.170, cy, 1.672), top, 0.006, CLIP, "ear_cup")
     # Yoke: two wires from the arm out to pivots at the cup's front and back
-    for dy in (0.05, -0.05):
-        _box(m, top, (s * 0.165, cy + dy, 1.588), 0.0035, CLIP, "ear_cup")
-        m.hull([Vector((s * x, cy + dy * 0.98 + ddy, 1.588 + dz)) for x in (0.150, 0.168)
+    for dy in (0.046, -0.046):
+        _box(m, top, (s * 0.172, cy + dy, cz), 0.0035, CLIP, "ear_cup")
+        m.hull([Vector((s * x, cy + dy * 0.98 + ddy, cz + dz)) for x in (0.156, 0.176)
                 for ddy in (-0.008, 0.008) for dz in (-0.008, 0.008)], CLIP, "ear_cup")
 
 
