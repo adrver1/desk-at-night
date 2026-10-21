@@ -3,8 +3,11 @@ Shared accessories any character can wear: everyday glasses and a headset.
 Each returns a Mesh in its own region; a character passes
 {region: "head"} in `rigid` so it follows the head bone.
 
-    glasses(style)   "rect_thick" (dark, chunky), "rect_thin", "thin_metal", "round_brown"
+    glasses(style)   "rect_thick" (dark, chunky), "rect_thin", "thin_metal", "round_brown",
+                     "round_thick" (heavy black, rounded)
     headset()        over-ear headset with a band over the hair and a cable
+    beanie(color)    knitted hat with a turned-up cuff
+    goggles()        ski goggles with a wide lens and a strap round the hat
 """
 import math
 
@@ -19,6 +22,7 @@ GLASSES = {
     "thin_metal": ("steel", 0.026, 0.018, 0.0025, 0.003),
     "rect_thin": ("charcoal", 0.027, 0.016, 0.0035, 0.004),
     "round_brown": ("leather_brown", 0.025, 0.019, 0.0045, 0.005),
+    "round_thick": ("plastic_black", 0.026, 0.020, 0.0065, 0.007),
 }
 
 
@@ -62,7 +66,7 @@ def glasses(style="thin_metal"):
     cx = 0.045
     y = max(_front_y(cx + hw, EYE_Z), _front_y(cx, EYE_Z)) + 0.010
     for s in (1, -1):
-        _rim(m, s * cx, EYE_Z, y, hw, hh, t, d, swatch, region, round_=style == "round_brown")
+        _rim(m, s * cx, EYE_Z, y, hw, hh, t, d, swatch, region, round_=style.startswith("round"))
         # arm: from the outer edge of the frame back to the top of the ear
         m.bar((s * (cx + hw + t), y - d, EYE_Z + hh * 0.6), (s * 0.121, -0.02, 1.628),
               max(t * 0.6, 0.0025), swatch, region)
@@ -105,4 +109,33 @@ def headset(swatch="plastic_black", clear=0.015):
                 for px, pz in (out(x, z, k),) for dy in (-0.011, 0.011)], swatch, region)
     # cable from under the left cup to the collar
     m.bar((-0.142, cy + 0.01, cz - 0.034), (-0.09, 0.07, 1.47), 0.0022, swatch, region)
+    return m
+
+
+def beanie(color, cuff=None, region="beanie"):
+    """Knitted beanie pulled down to the brows, with a turned-up cuff."""
+    cuff = cuff or color
+    rings = []
+    for z, zh, off, reg in ((1.655, 1.655, 0.022, "cuff"), (1.70, 1.70, 0.026, "cuff"), (1.702, 1.70, 0.018, "hat"),
+                            (1.75, 1.72, 0.018, "hat"), (1.79, 1.74, 0.0, "hat"), (1.805, 1.75, -0.02, "hat")):
+        ru, rv, dv = base.ring_at(base.HEAD, zh)
+        rings.append((z, ru + off, rv + off, dv, reg))
+    return base.Mesh().tube(rings, colors={"cuff": cuff, "hat": color}, cap_start=False)
+
+
+def goggles(lens="hivis_orange", frame="plastic_black", strap="plastic_black", region="goggles"):
+    """Ski goggles over the eyes: one wide lens in a thick frame, and a
+    strap round the head."""
+    m = base.Mesh()
+    y = _front_y(0.06, EYE_Z) + 0.018
+    m.hull([Vector((x, yy, z)) for x in (-0.095, 0.095) for yy in (y - 0.03, y) for z in (EYE_Z - 0.03, EYE_Z + 0.03)],
+           frame, region)
+    m.hull([Vector((x, y + 0.004, z)) for x in (-0.085, 0.085) for z in (EYE_Z - 0.022, EYE_Z + 0.022)]
+           + [Vector((x, y - 0.002, z)) for x in (-0.085, 0.085) for z in (EYE_Z - 0.022, EYE_Z + 0.022)], lens, region)
+    strap_rings = [(EYE_Z - 0.014, 0.0), (EYE_Z + 0.014, 0.0)]
+    rings = []
+    for z, _ in strap_rings:
+        ru, rv, dv = base.ring_at(base.HEAD, z)
+        rings.append((z, ru, rv, dv, region))
+    m.tube(rings, swatch=strap, offset=0.026, cap_start=False, cap_end=False)
     return m

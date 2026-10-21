@@ -14,6 +14,10 @@ office(body) function returning their parts as an outfit dict
 
 Characters with their own glasses keep them on deck (prescription safety
 glasses) instead of the clear safety specs.
+
+`extra` adds a character's own outfits ({name: function returning an
+outfit dict}). Such a dict may also say "covered": True (a hat: keep only
+the hair below its rim) and "glasses": False (goggles instead).
 """
 import argparse
 import sys
@@ -22,16 +26,17 @@ import accessories
 import base_body as base
 import outfits
 
-HEAD_PARTS = ("hair", "stubble", "beard", "smile", "glasses", "headset")
+HEAD_PARTS = ("hair", "stubble", "beard", "smile", "glasses", "headset", "beanie", "goggles")
 
 
 class Look:
     def __init__(self, name, skin, brow, trousers, shoes, hair, top, office, face=None, glasses=None,
-                 headset=False, notes=()):
+                 headset=False, notes=(), extra=None):
         self.name, self.skin, self.brow, self.top = name, skin, brow, top
         self.trousers, self.shoes = trousers, shoes
         self.hair, self.office, self.face = hair, office, face or (lambda body: {})
         self.glasses, self.headset, self.notes = glasses, headset, list(notes)
+        self.extra = extra or {}
 
 
 def build(look, outfit, out, reference=None, private_dir=None):
@@ -41,11 +46,11 @@ def build(look, outfit, out, reference=None, private_dir=None):
         body = base.body(skin=look.skin, brow=look.brow, colors={**legs, **look.top})
         o = look.office(body)        # details that sit on the body (plackets, buttons) need it
     else:
-        o = outfits.OUTFITS[outfit]()
+        o = (look.extra.get(outfit) or outfits.OUTFITS[outfit])()
         body = base.body(skin=look.skin, brow=look.brow, colors={**legs, **o["colors"]})
-    helmet = "helmet" in o["parts"]
+    helmet = "helmet" in o["parts"] or o.get("covered", False)
     parts = {"body": body, "hair": look.hair(helmet=helmet), **look.face(body)}
-    if look.glasses:
+    if look.glasses and o.get("glasses", True):
         parts["glasses"] = accessories.glasses(look.glasses)
         o["parts"].pop("glasses", None)
     if look.headset and not helmet:
@@ -55,7 +60,9 @@ def build(look, outfit, out, reference=None, private_dir=None):
     if not look.glasses and "glasses" in parts:
         rigid["glasses"] = "head"
     notes = list(look.notes)
-    if outfit != "office":
+    if outfit in look.extra:
+        notes.append(look.extra[outfit].__doc__.strip().splitlines()[0])
+    elif outfit != "office":
         notes.append("Offshore PPE: hi-vis jacket, navy trousers, reflective bands, safety boots."
                      + (" Helmet with ear defenders, safety glasses and gloves." if helmet else ""))
     notes.append("Hair, facial hair and glasses follow the head bone only.")
@@ -68,8 +75,9 @@ def main(look, here):
     ap = argparse.ArgumentParser()
     ap.add_argument("--reference", help="reference image for the private contact sheet")
     ap.add_argument("--private", help="folder for the private contact sheet")
-    ap.add_argument("--outfit", default="all", choices=["office", *outfits.OUTFITS, "all"])
+    names = ["office", *outfits.OUTFITS, *look.extra]
+    ap.add_argument("--outfit", default="all", choices=[*names, "all"])
     ap.add_argument("--out", default=here, help="output folder")
     args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
-    for outfit in (["office", *outfits.OUTFITS] if args.outfit == "all" else [args.outfit]):
+    for outfit in (names if args.outfit == "all" else [args.outfit]):
         build(look, outfit, args.out, args.reference, args.private)

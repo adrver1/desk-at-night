@@ -1,5 +1,5 @@
 """
-glasses_engineer: short brown hair swept up and over, a trimmed stubble
+glasses_engineer: short dark-blond hair swept up and over, a trimmed stubble
 beard, thin dark rectangular glasses and a navy zip-neck sweater over a
 white shirt collar. An original character, not a likeness.
 
@@ -16,7 +16,7 @@ import crew  # noqa: E402
 import faces  # noqa: E402
 import hair  # noqa: E402
 
-HAIR, SWEATER, RIB, SHIRT, ZIP = "hair_brown", "navy", "coverall_navy", "white", "steel"
+HAIR, SWEATER, RIB, SHIRT, ZIP = "hair_dark_blond", "navy", "coverall_navy", "white", "steel"
 
 
 def office(body):
@@ -33,7 +33,7 @@ LOOK = crew.Look(
     hair=lambda helmet: hair.swept_up(HAIR, helmet=helmet),
     top={"upper_arm": SWEATER, "forearm": SWEATER},
     office=office,
-    face=lambda body: {"stubble": faces.stubble("stubble_dark"), "smile": faces.smile(body)},
+    face=lambda body: {"stubble": faces.stubble("stubble"), "smile": faces.smile(body)},
     glasses="rect_thin",
     notes=["Lower body is not in the reference: grey chinos and brown shoes."])
 

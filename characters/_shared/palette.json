@@ -189,6 +189,16 @@
   "col": 8,
   "hex": "#2c5ea8"
  },
+ "jacket_amber": {
+  "row": 3,
+  "col": 9,
+  "hex": "#f0a428"
+ },
+ "jacket_amber_dark": {
+  "row": 3,
+  "col": 10,
+  "hex": "#c98318"
+ },
  "navy": {
   "row": 4,
   "col": 0,

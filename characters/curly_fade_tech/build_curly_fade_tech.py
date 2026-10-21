@@ -1,5 +1,5 @@
 """
-curly_fade_tech: dark curls on top of a skin fade, a stubble beard, a big
+curly_fade_tech: short dark curls on top of a skin fade, a stubble beard, a big
 smile and a black button shirt with white buttons. An original character,
 not a likeness.
 
@@ -20,22 +20,22 @@ HAIR, FADE, SHIRT, PLACKET, BUTTONS = "hair_dark_brown", "hair_fade", "black", "
 
 
 def office(body):
-    """Black shirt with white buttons tucked into dark jeans, black trainers."""
+    """Black shirt with white buttons tucked into dark trousers, white trainers."""
     return {"colors": {}, "hide": set(),
             "parts": {"collar": clothes.shirt_collar(SHIRT),
                       "placket": clothes.placket(body, PLACKET, 1.02, 1.36, BUTTONS, n=5),
-                      "belt": clothes.belt("black")},
+                      "belt": clothes.belt("leather_brown")},
             "rigid": {"collar": "neck"}}
 
 
 LOOK = crew.Look(
-    "curly_fade_tech", skin="skin_2", brow=HAIR, trousers="denim", shoes="black",
-    hair=lambda helmet: hair.curly_top(HAIR, FADE, helmet=helmet),
+    "curly_fade_tech", skin="skin_2", brow=HAIR, trousers="black", shoes="white",
+    hair=lambda helmet: hair.curly_top(HAIR, FADE, helmet=helmet, height=0.55),
     top={"belly": SHIRT, "chest": SHIRT, "upper_arm": SHIRT, "forearm": SHIRT},
     office=office,
     face=lambda body: {"stubble": faces.stubble("stubble"), "smile": faces.smile(body)},
     notes=["Reference is black and white: dark-brown hair is a guess.",
-           "Lower body is not in the reference: dark jeans and black trainers."])
+           "Lower body from the cartoon: dark trousers, brown belt, white trainers."])
 
 if __name__ == "__main__":
     crew.main(LOOK, HERE)

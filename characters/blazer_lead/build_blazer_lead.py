@@ -1,5 +1,5 @@
 """
-blazer_lead: short dark-brown hair swept to one side, light stubble, a navy
+blazer_lead: short dark-brown hair in a tall quiff, light stubble, a navy
 blazer open over a white shirt with an open collar. An original
 character, not a likeness.
 
@@ -22,13 +22,14 @@ HAIR, BLAZER, LAPEL, SHIRT = "hair_dark_brown", "navy", "coverall_navy", "white"
 def office(body):
     """Navy blazer open over a white shirt, charcoal trousers, brown shoes."""
     return {"colors": {}, "hide": {"belly", "chest", "upper_arm", "forearm"},
-            "parts": {"blazer": clothes.blazer(BLAZER, LAPEL, SHIRT), "collar": clothes.shirt_collar(SHIRT)},
+            "parts": {"blazer": clothes.blazer(BLAZER, LAPEL, SHIRT), "collar": clothes.shirt_collar(SHIRT),
+                      "cuffs": clothes.shirt_cuffs(SHIRT)},
             "rigid": {"collar": "neck"}}
 
 
 LOOK = crew.Look(
     "blazer_lead", skin="skin_2", brow=HAIR, trousers="charcoal", shoes="leather_brown",
-    hair=lambda helmet: hair.side_sweep(HAIR, helmet=helmet),
+    hair=lambda helmet: hair.quiff(HAIR, helmet=helmet),
     top={"belly": SHIRT, "chest": SHIRT, "upper_arm": BLAZER, "forearm": BLAZER},
     office=office,
     face=lambda body: {"stubble": faces.stubble("stubble")},

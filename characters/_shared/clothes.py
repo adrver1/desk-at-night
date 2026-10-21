@@ -128,10 +128,11 @@ def placket(surface, color, z0, z1, buttons=None, n=0, width=0.016, region="plac
     return m
 
 
-def zip_line(surface, color, z0, z1, region="zip"):
-    m = base.Mesh()
-    m.decal(surface.bvh(), 0, (z0 + z1) / 2, 0.006, z1 - z0, color, region, lift=0.003)
-    return m
+def zip_line(surface, color, z0, z1, region="zip", width=0.006):
+    """A thin zip down the front, in steps so it follows the curve."""
+    n = max(2, int((z1 - z0) / 0.04))
+    zs = [z0 + (z1 - z0) * k / n for k in range(n + 1)]
+    return base.Mesh().decal_band(surface.bvh(), zs, lambda z: -width / 2, lambda z: width / 2, color, region)
 
 
 def belt(color="charcoal", buckle="steel", region="belt"):
@@ -171,14 +172,48 @@ def blazer(color, lapel, shirt, buttons="charcoal"):
     return m.extend(sleeves(color, offset=0.018, region="blazer_sleeve"))
 
 
-def sweater(color, rib=None, neck="crew", sleeve_cuff=None):
+V_NECK = [(1.25, 0.0), (1.42, 0.07)]
+
+
+def sweater(color, rib=None, neck="crew", sleeve_cuff=None, shirt="white"):
     """Knit sweater over a shirt: a shell to the hips with a ribbed hem,
-    full sleeves with ribbed cuffs, and a crew or zip neck."""
+    full sleeves with ribbed cuffs, and a crew, zip or V neck (with the
+    shirt showing in the V)."""
     rib = rib or color
     m = torso_shell(color, hem=0.90, offset=0.016, flare=0.004, bands=((0.90, 0.94, rib),) if rib != color else (),
                     region="sweater")
+    if neck == "v":
+        bvh = m.bvh()
+        zs = [1.25 + k * 0.034 for k in range(6)]
+        m.decal_band(bvh, zs, lambda z: -_lerp_table(V_NECK, z), lambda z: _lerp_table(V_NECK, z), shirt, "shirt_v")
+        for s in (1, -1):
+            m.decal_band(bvh, zs, lambda z, s=s: s * _lerp_table(V_NECK, z),
+                         lambda z, s=s: s * (_lerp_table(V_NECK, z) + 0.014), rib, "neckband", lift=0.004)
     m.extend(sleeves(color, offset=0.012, cuff=sleeve_cuff or rib, region="sweater_sleeve"))
-    m.extend(neck_band(rib) if neck == "crew" else stand_collar(rib))
+    if neck == "crew":
+        m.extend(neck_band(rib))
+    elif neck == "zip":
+        m.extend(stand_collar(rib))
+    return m
+
+
+def shirt_cuffs(color, region="shirt_cuff"):
+    """Shirt cuffs showing past a jacket sleeve."""
+    right = base.Mesh().tube([(0.455, 0.044, 0.047, 0, region), (0.49, 0.042, 0.045, 0, region)],
+                             origin=base.SHOULDER, axes=base.frame(base.arm_dir(1)), angles=base.HEX6,
+                             angle_offset=30, swatch=color, cap_start=False, cap_end=False, offset=0.012)
+    return _both_arms(right)
+
+
+def zip_jacket(color, hem_color, zip_color="charcoal"):
+    """Casual zip jacket to the hips: a banded hem and cuffs, a stand
+    collar and a zip down the front."""
+    m = torso_shell(color, hem=0.86, offset=0.026, flare=0.006, bands=((0.86, 0.91, hem_color),), region="jacket")
+    m.extend(sleeves(color, offset=0.02, cuff=hem_color, region="jacket_sleeve"))
+    collar = base.Mesh().tube([(1.40, 0.094, 0.090, -0.008, "neckband"), (1.475, 0.082, 0.078, -0.006, "neckband")],
+                              swatch=color, angles=base.HEX6, angle_offset=30, cap_start=False, cap_end=False)
+    m.extend(collar)
+    m.extend(zip_line(m, zip_color, 0.88, 1.47))
     return m
 
 

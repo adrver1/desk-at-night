@@ -5,7 +5,7 @@ top. Hairlines are a height per head ring angle (base.BOXY8), so receding
 temples or a bald crown are just different numbers.
 
     cap(color, hairline)             the cropped shell on its own (also: under a helmet)
-    side_sweep, swept_up, curly_top, swept_back, curly_mullet
+    side_sweep, swept_up, quiff, curly_top, swept_back, curly_mullet, crop_top, buzz
                                       styles; each takes helmet=True to keep
                                       only what shows under a hard hat
 """
@@ -95,22 +95,38 @@ def swept_up(color, hairline=FULL, helmet=False, lean=1):
     return m.hull(pts, color, "hair")
 
 
-def curly_top(color, fade, hairline=FULL, helmet=False):
+def quiff(color, hairline=FULL, helmet=False):
+    """Short sides and a tall quiff: a block pushed up from the forehead and
+    back over the crown."""
+    m = cap(color, hairline)
+    if helmet:
+        return m
+    h = hairline
+    pts = [on_cap(h, a, 0.1, 0.010) for a in (55, 125)] + [on_cap(h, a, 0.55) for a in (20, 160, 200, 340)]
+    pts += [Vector(p) for p in ((0.05, 0.118, 1.79), (-0.05, 0.116, 1.785), (0.04, 0.10, 1.835),
+                                (-0.04, 0.095, 1.83), (0.055, 0.02, 1.83), (-0.055, 0.02, 1.826),
+                                (0.05, -0.06, 1.795), (-0.05, -0.06, 1.795), (0.0, -0.095, 1.765))]
+    return m.hull(pts, color, "hair")
+
+
+def curly_top(color, fade, hairline=FULL, helmet=False, height=1.0):
     """Skin fade: the sides are a tight cap in the fade colour, the top is a
-    tall block of curls, highest at the front."""
+    block of curls, highest at the front. height < 1 crops the top shorter."""
     m = cap(fade, hairline, offsets=(0.004, 0.007, 0.012), lifts=(0.0, 0.004, 0.01))
     if helmet:
         return m
     h = hairline
     mass = [on_cap(h, a, 0.4, 0.010, 0.004) for a in base.BOXY8]
-    mass += [Vector(p) for p in ((0.06, 0.10, 1.80), (-0.06, 0.10, 1.80), (0.0, 0.115, 1.81),
-                                 (0.07, 0.0, 1.81), (-0.07, 0.0, 1.81), (0.05, -0.07, 1.79),
-                                 (-0.05, -0.07, 1.79), (0.02, 0.06, 1.835), (-0.03, 0.0, 1.835))]
+    def up(z):
+        return CROWN + (z - CROWN) * height
+    mass += [Vector((x, y, up(z))) for x, y, z in ((0.06, 0.10, 1.80), (-0.06, 0.10, 1.80), (0.0, 0.115, 1.81),
+                                                   (0.07, 0.0, 1.81), (-0.07, 0.0, 1.81), (0.05, -0.07, 1.79),
+                                                   (-0.05, -0.07, 1.79), (0.02, 0.06, 1.835), (-0.03, 0.0, 1.835))]
     m.hull(mass, color, "hair")
     # lumps half sunk into the block break up its outline into curls
     for x, y, z in ((0.055, 0.09, 1.815), (-0.045, 0.095, 1.82), (0.005, 0.06, 1.84), (0.075, 0.02, 1.81),
                     (-0.07, 0.03, 1.815), (0.03, -0.035, 1.83), (-0.035, -0.06, 1.815)):
-        m.hull(lump(x, y, z, 0.024), color, "hair")
+        m.hull(lump(x, y, up(z) - 0.006 * (1 - height), 0.024 * (0.6 + 0.4 * height)), color, "hair")
     return m
 
 
@@ -151,14 +167,16 @@ def curly_mullet(color, hairline=RECEDING, helmet=False):
     # The full part: from above the ears round the back and down the nape
     back = [on_cap(h, a, f, 0.03, 0.0) for a in (200, 235, 305, 340) for f in (0.0, 0.45)]
     back += [on_cap(h, a, 0.1, 0.022, 0.0) for a in (20, 160)]
-    back += [Vector(p) for p in ((0.09, -0.095, 1.53), (-0.09, -0.095, 1.53), (0.045, -0.12, 1.48),
-                                 (-0.045, -0.12, 1.48), (0.0, -0.135, 1.56), (0.0, -0.14, 1.64))]
+    back += [Vector(p) for p in ((0.10, -0.09, 1.50), (-0.10, -0.09, 1.50), (0.05, -0.115, 1.44),
+                                 (-0.05, -0.115, 1.44), (0.0, -0.135, 1.53), (0.0, -0.14, 1.64),
+                                 (0.125, -0.04, 1.53), (-0.125, -0.04, 1.53))]
     if helmet:
         back = [p for p in back if p.z < HELMET_RIM + 0.01]
     m.hull(back, color, "hair")
-    curls = [Vector(p) for p in ((0.128, -0.035, 1.64), (-0.128, -0.035, 1.64), (0.11, -0.08, 1.585),
-                                 (-0.11, -0.08, 1.585), (0.065, -0.115, 1.54), (-0.065, -0.115, 1.54),
-                                 (0.0, -0.13, 1.50), (0.0, -0.14, 1.60))]
+    curls = [Vector(p) for p in ((0.128, -0.035, 1.64), (-0.128, -0.035, 1.64), (0.13, -0.05, 1.555),
+                                 (-0.13, -0.05, 1.555), (0.11, -0.08, 1.585), (-0.11, -0.08, 1.585),
+                                 (0.075, -0.11, 1.49), (-0.075, -0.11, 1.49), (0.0, -0.13, 1.46),
+                                 (0.0, -0.14, 1.58))]
     # thinner curls over the crown sit on the cap; a helmet hides them
     top = [on_cap(h, a, f, 0.006, 0.0) for a, f in ((55, 0.35), (125, 0.35), (90, 0.75), (20, 0.5), (160, 0.5),
                                                     (270, 0.7))]
@@ -167,6 +185,19 @@ def curly_mullet(color, hairline=RECEDING, helmet=False):
             continue
         m.hull(lump(c.x, c.y, c.z, 0.024), color, "hair")
     return m
+
+
+def crop_top(color, temples, hairline=FULL, helmet=False):
+    """Short textured crop: greyer close-cut sides (the cap colour) and a
+    low block on top, lifted a little at the front."""
+    m = cap(temples, hairline, offsets=(0.007, 0.010, 0.012), lifts=(0.0, 0.004, 0.01))
+    if helmet:
+        return m
+    h = hairline
+    pts = [on_cap(h, a, 0.05, 0.012) for a in (55, 125)] + [on_cap(h, a, 0.45, 0.014) for a in base.BOXY8]
+    pts += [Vector(p) for p in ((0.045, 0.112, 1.775), (-0.045, 0.11, 1.772), (0.0, 0.115, 1.782),
+                                (0.05, 0.03, 1.795), (-0.05, 0.03, 1.792), (0.0, -0.06, 1.785))]
+    return m.hull(pts, color, "hair")
 
 
 def buzz(color, hairline=RECEDING, helmet=False):

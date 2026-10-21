@@ -6,6 +6,7 @@ the mouth so the mouth decal shows.
     stubble(color)                shadow on the jaw, chin and upper lip
     beard(color)                  short full beard: thicker, a squarer chin
     goatee(color)                 chin and moustache only
+    moustache(color)              a full moustache with drooping ends
     smile(body, teeth=True)       a wider open mouth with a row of teeth
 """
 import math
@@ -101,6 +102,21 @@ def goatee(color, offset=0.006, region="beard"):
            lambda a, f: offset, color, region)
     _sheet(m, (60, 75, 90, 105, 120), lambda a: MOUTH[1], lambda a: MOUTH[0], lambda a, f: offset, color, region,
            rows=2)
+    return m
+
+
+def moustache(color, offset=0.010, region="beard"):
+    """A full moustache over the whole upper lip, its ends drooping past the
+    mouth corners: two halves on the face so it hugs the curve."""
+    m = base.Mesh()
+    for s in (1, -1):
+        a0, a1 = (90, 58) if s == 1 else (90, 122)
+        pts = []
+        for a, z0, z1 in ((a0, 1.528, 1.558), ((a0 + a1) / 2, 1.522, 1.554), (a1, 1.502, 1.536)):
+            for z in (z0, z1):
+                for d in (0.003, offset):
+                    pts.append(face_point(a, z, d))
+        m.hull(pts, color, region)
     return m
 
 
