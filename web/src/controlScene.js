@@ -54,6 +54,32 @@ function drawWallClock(c, text) {
   c.tex.needsUpdate = true;
 }
 
+// The emergency exit sign over the door: a white running figure heading
+// into a doorway, on green (the ISO 7010 escape-route style), filling the
+// canvas; the figure's right is the viewer's right
+function drawExitSign(canvas) {
+  const ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height, u = h / 100;
+  ctx.fillStyle = '#00a651';
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = ctx.fillStyle = '#fff';
+  ctx.lineCap = ctx.lineJoin = 'round';
+  // The doorway: a white frame, open, with the floor line running out of it
+  const dx = w / 2 + 18 * u;
+  ctx.lineWidth = 6 * u;
+  ctx.strokeRect(dx, 14 * u, 34 * u, 72 * u);
+  ctx.beginPath(); ctx.moveTo(w / 2 - 50 * u, 86 * u); ctx.lineTo(dx, 86 * u); ctx.stroke();
+  // The running figure, mid-stride toward the door
+  const x = w / 2 - 12 * u, limb = (pts) => { ctx.beginPath(); ctx.moveTo(...pts[0]); for (const p of pts.slice(1)) ctx.lineTo(...p); ctx.stroke(); };
+  ctx.beginPath(); ctx.arc(x + 10 * u, 18 * u, 8 * u, 0, 2 * Math.PI); ctx.fill();
+  ctx.lineWidth = 11 * u;
+  limb([[x + 6 * u, 32 * u], [x - 2 * u, 54 * u]]);                          // torso, leaning forward
+  ctx.lineWidth = 7 * u;
+  limb([[x + 5 * u, 34 * u], [x + 18 * u, 40 * u], [x + 26 * u, 32 * u]]);    // front arm
+  limb([[x + 4 * u, 34 * u], [x - 10 * u, 42 * u], [x - 18 * u, 36 * u]]);    // back arm
+  limb([[x - 2 * u, 54 * u], [x + 12 * u, 64 * u], [x + 8 * u, 80 * u]]);     // front leg
+  limb([[x - 2 * u, 54 * u], [x - 14 * u, 66 * u], [x - 28 * u, 70 * u]]);    // back leg
+}
+
 function canvasTexture(renderer, w, h) {
   const canvas = document.createElement('canvas');
   canvas.width = w;
@@ -328,6 +354,22 @@ export async function loadControlRoom(renderer) {
     emitters.push({ material: mat, color: new THREE.Color(...e.color), strength: e.strength, group: e.group });
     wallClock = { tex, shown: '' };
     drawWallClock(wallClock, '--:--');
+  }
+  // The exit sign: its pictogram on a face over the glowing box, toward the
+  // room (-X), lit with the box's strength
+  const exitMesh = gltf.scene.getObjectByName('EmitExitSign');
+  if (exitMesh && meta.emitters.EmitExitSign) {
+    const box = new THREE.Box3().setFromObject(exitMesh), size = box.getSize(new THREE.Vector3());
+    const tex = canvasTexture(renderer, 340 * 2, 120 * 2);
+    tex.flipY = true;
+    drawExitSign(tex.image);
+    const mat = new THREE.MeshBasicMaterial({ map: tex });
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(size.z, size.y), mat);
+    face.rotation.y = -Math.PI / 2; // its front toward -X; its +X along +Z, the viewer's right
+    face.position.set(box.min.x - 0.002, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2);
+    gltf.scene.add(face);
+    const e = meta.emitters.EmitExitSign;
+    emitters.push({ material: mat, color: new THREE.Color(1, 1, 1), strength: e.strength, group: e.group });
   }
   // The overlay for one screen, made the first time it is needed; `scale`
   // times the atlas slot's resolution
