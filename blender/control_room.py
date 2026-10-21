@@ -34,6 +34,8 @@ bpy, bmesh, Vector = b.bpy, b.bmesh, b.Vector
 from mathutils import Matrix  # noqa: E402
 box, cylinder, mat_flat = b.box, b.cylinder, b.mat_flat
 
+LIGHT_PLANTS = True  # True: the lighter plants, about half the triangles (props.make_plant)
+
 # Desks (metres): two arcs of 80 degrees with a small gap between them
 DESK_Z, DESK_T = 0.74, 0.04
 DESK_HALF, DESK_GAP = math.radians(40), math.radians(3)
@@ -259,6 +261,8 @@ def build_video_wall(m):
     a = TV_A
     p = polar(WALL_R, a, ROOM_Z)
     props.place(props.make_ceiling_tv(pm, "RearTv", (TV_W, TV_H), ROOM_Z - TV_TOP), p.x, p.y, p.z, -a)
+    # Its picture is a screen like the others, just in front of the dark glass
+    box("TvScreen", (TV_W - 0.03, 0.002, TV_H - 0.03), polar(WALL_R - 0.0185, a, TV_TOP - TV_H / 2), m["screen_cam"], rot_z=-a)
     p = polar(WALL_R - 0.12, a, ROOM_Z)
     props.place(props.make_ptz_camera(pm, "PtzCameraWall", ROOM_Z - TV_TOP - 0.20), p.x, p.y, p.z, -a)
     # Red digital clock on the white bulkhead over the right part of the band
@@ -480,7 +484,7 @@ def build_rear(m):
     pm = props.materials()
     px, py, side = PILLAR
     props.place(props.make_pillar(pm, "Pillar", (side, side), ROOM_Z), px, py, 0.0)
-    props.place(props.make_plant(pm, "PlantRear"), -4.85, ROOM_Y0 + 0.35, 0.0)
+    props.place(props.make_plant(pm, "PlantRear", light=LIGHT_PLANTS), -4.85, ROOM_Y0 + 0.35, 0.0)
 
 
 def build_lounge(m):
@@ -492,7 +496,7 @@ def build_lounge(m):
     props.place(props.make_sofa(pm, "Sofa", 2.0), NX + 1.35, NY, 0.0, math.pi)
     props.place(props.make_coffee_table(pm, "CoffeeTable"), NX + 1.35, NY + 1.30, 0.0)
     props.place(props.make_kitchenette(pm, "Kitchenette", 1.8), ROOM_X - 0.9, NY, 0.0, math.pi)
-    props.place(props.make_plant(pm, "PlantNook", 1.2), NX + 0.30, ROOM_Y0 - 0.30, 0.0)
+    props.place(props.make_plant(pm, "PlantNook", 1.2, light=LIGHT_PLANTS), NX + 0.30, ROOM_Y0 - 0.30, 0.0)
 
 
 # Floor-plan obstacles beyond the desks, band and table, for the walk:

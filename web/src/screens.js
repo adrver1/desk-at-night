@@ -590,12 +590,13 @@ export const CONTENT = {
 
 // What each screen shows unless the player changes it on the room panel.
 // Desks left to right as seen from the chairs, then the wall band, then the
-// meeting table's video link.
+// meeting table's video link and the TV beside the band, both on the call.
 export const DEFAULT_LAYOUT = {
   ...Object.fromEntries(['wells', 'separator', 'levelTrend', 'compressor', 'alarms', 'assistant'].map((id, i) => [`Desk0Mon${i}Screen`, id])),
   ...Object.fromEntries(['power', 'esd', 'alarms', 'procedures', 'log', 'assistant'].map((id, i) => [`Desk1Mon${i}Screen`, id])),
   ...Object.fromEntries(['deckCam', 'weather', 'overview', 'production', 'alarmLoad', 'emissions', 'flareCam'].map((id, i) => [`Wall${i}Screen`, id])),
   LinkScreen: 'call',
+  TvScreen: 'call',
 };
 const layout = { ...DEFAULT_LAYOUT };
 
@@ -605,7 +606,7 @@ export function screenLabel(name) {
   if (m) return `${m[1] === '0' ? 'Left' : 'Right'} desk ${Number(m[2]) + 1}`;
   m = name.match(/^Wall(\d)Screen$/);
   if (m) return `Wall ${Number(m[1]) + 1}`;
-  return name === 'LinkScreen' ? 'Meeting room' : name;
+  return { LinkScreen: 'Meeting room', TvScreen: 'Left wall TV' }[name] ?? name;
 }
 
 export const contentOf = (name) => layout[name];

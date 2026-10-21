@@ -1,8 +1,6 @@
 {
-  "scaleCeiling": 1.5557855367660522,
-  "scaleScreens": 0.24801908433437347,
-  "scaleSky": 0.9904075264930725,
-  "seaLevel": -69.2,
+  "scaleCeiling": 1.553163766860962,
+  "scaleScreens": 0.26419997215270996,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
   "samples": 128,
@@ -264,6 +262,12 @@
       ],
       "LinkScreen": [
         640,
+        720,
+        640,
+        360
+      ],
+      "TvScreen": [
+        1280,
         720,
         640,
         360
