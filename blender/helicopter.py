@@ -127,9 +127,9 @@ def materials():
         "disc": disc_material(),
         # The cabin, for the view from inside
         "clear": clear_glass(),
-        "cabin": b.mat_flat("HeliCabin", (0.42, 0.43, 0.44), 0.7),        # wall and roof lining
+        "cabin": b.mat_flat("HeliCabin", (0.62, 0.63, 0.63), 0.7),        # light grey wall and roof lining
         "floor": b.mat_flat("HeliFloor", (0.06, 0.065, 0.07), 0.8),
-        "seat": b.mat_flat("HeliSeat", (0.05, 0.09, 0.18), 0.85),        # blue seat fabric
+        "seat": b.mat_flat("HeliSeat", (0.085, 0.09, 0.095), 0.85),     # charcoal seat fabric
         "panel": b.mat_flat("HeliPanel", (0.03, 0.03, 0.035), 0.6),        # instrument panel, consoles
         "suit": b.mat_flat("HeliSuit", (0.05, 0.06, 0.08), 0.8),           # pilots' flight suits
         "screen": emit("HeliScreen", (0.15, 0.45, 1.0), 1.5),              # cockpit displays: sky
@@ -206,6 +206,8 @@ def cut_quad(g, mat, a, c, d, e, holes, flip=False):
         if s1 <= 0 or s0 >= 1:
             continue
         t0, t1 = sorted(((z0 - a.z) / (c.z - a.z), (z1 - a.z) / (c.z - a.z)))
+        if t1 <= 0 or t0 >= 1:
+            continue
         cuts.append((max(s0, 0), min(s1, 1), max(t0, 0), min(t1, 1)))
     cuts.sort()
     pieces, s = [], 0.0
@@ -243,7 +245,7 @@ def build_fuselage(g, m, liv, glazed=False):
             for k in range(n):
                 a, c = rings[i][k], rings[i][(k + 1) % n]
                 d, e = rings[i + 1][(k + 1) % n], rings[i + 1][k]
-                cut_quad(g, paint(i, k), a, c, d, e, WINDOWS if _band(k) in (4, 5) else ())
+                cut_quad(g, paint(i, k), a, c, d, e, _holes(_band(k)))
     g.add(m[liv["cabin"][4]], rings[0], [tuple(range(len(rings[0])))])               # nose cap
     g.add(m[liv["boom"][4]], rings[-1], [tuple(reversed(range(len(rings[-1]))))])    # boom end
     # Centre post and frame of the windscreen
@@ -262,26 +264,84 @@ def side_quad(g, mat, x0, x1, z0, z1, y):
 _ZW0, _ZW1 = 0.58 + 0.50 * 2.22 + 0.06, 0.58 + 0.88 * 2.22 - 0.07
 WINDOWS = ([(3.15, 4.10, _ZW0 - 0.15, _ZW1)] + [(x - 0.46, x + 0.46, _ZW0, _ZW1) for x in (2.05, 0.80, -0.45)]
            + [(-1.55, -1.05, _ZW0 + 0.05, _ZW1)])
+# The sliding cabin door on each side, (x0, x1, z0, z1): it carries the two
+# middle windows and slides aft to open (the HeliDoorL/R parts, interior only)
+DOOR = (-1.0, 1.30, 1.12, 0.58 + 0.88 * 2.22 - 0.005)
+DOOR_SLIDE = (0.42, 2.40)   # out, then aft (m), fully open
+_in_door = lambda w: DOOR[0] <= w[0] and w[1] <= DOOR[1]
 
 
-def build_cabin_details(g, m, liv):
+def _holes(band, door=True):
+    """Openings in a skin face of this paint band: the windows, and with
+    door the door opening in place of the windows it carries."""
+    wins = WINDOWS if band in (4, 5) else []
+    return [w for w in wins if not _in_door(w)] + [DOOR] if door else list(wins)
+
+
+def build_door(g, m, liv, side):
+    """The sliding door for side +1 (left, +Y) or -1: the skin over the
+    opening in its paint, the lining inside, its two windows."""
+    x0, x1, z0, z1 = DOOR
+    half = PROFILE[:-1] + [SHOULDER, PROFILE[-1]]
+    _, zb, zt, hw = SECTIONS[6]
+    for k in range(len(half) - 1):
+        (ua, va), (ub, vb) = half[k], half[k + 1]
+        za, zb_ = zb + va * (zt - zb), zb + vb * (zt - zb)
+        if zb_ <= z0 or za >= z1:
+            continue
+        def at(z):  # y on this segment at height z
+            return hw * (ua + (ub - ua) * (z - za) / (zb_ - za))
+        lo, hi = max(za, z0), min(zb_, z1)
+        band = _band(k)
+        paint = m[liv["cabin"][band]]
+        wins = [w for w in WINDOWS if _in_door(w)] if band in (4, 5) else []
+        for off, mat, flip in ((0.012, paint, True), (-0.07, m["cabin"], False)):
+            a, c = Vector((x0, side * (at(lo) + off), lo)), Vector((x0, side * (at(hi) + off), hi))
+            d, e = Vector((x1, side * (at(hi) + off), hi)), Vector((x1, side * (at(lo) + off), lo))
+            cut_quad(g, mat, a, c, d, e, wins, flip=(flip if side > 0 else not flip))
+    # Edges round the panel, and the glass and frames of its windows
+    t0, t1 = side * 1.192, side * 1.262
+    for xa, xb in ((x0, x0), (x1, x1)):
+        g.add(m["cabin"], [Vector((xa, t0, z0)), Vector((xa, t1, z0)), Vector((xb, t1, z1)), Vector((xb, t0, z1))],
+              [(0, 1, 2, 3), (3, 2, 1, 0)])
+    g.add(m["cabin"], [Vector((x0, t0, z0)), Vector((x1, t0, z0)), Vector((x1, t1, z0)), Vector((x0, t1, z0))],
+          [(0, 1, 2, 3), (3, 2, 1, 0)])
+    for wx0, wx1, wz0, wz1 in (w for w in WINDOWS if _in_door(w)):
+        _window(g, m, liv, wx0, wx1, wz0, wz1, side * 1.265, side)
+
+
+def _window(g, m, liv, x0, x1, z0, z1, y, side=None):
+    """Glass and, if the livery has one, a frame; on one side or both."""
+    quad = side_quad if side is None else (lambda g, mat, a, b, c, d, yy: one_quad(g, mat, a, b, c, d, yy, side))
+    quad(g, m["glass"], x0, x1, z0, z1, abs(y) + 0.01 if side is None else y + side * 0.01)
+    if liv.get("frame"):  # a ring, so the window stays clear from inside
+        f, mf = 0.07, m[liv["frame"]]
+        for fx0, fx1, fz0, fz1 in ((x0 - f, x1 + f, z0 - f, z0), (x0 - f, x1 + f, z1, z1 + f),
+                                   (x0 - f, x0, z0, z1), (x1, x1 + f, z0, z1)):
+            quad(g, mf, fx0, fx1, fz0, fz1, abs(y) + 0.005 if side is None else y + side * 0.005)
+
+
+def one_quad(g, mat, x0, x1, z0, z1, y, s):
+    vs = [Vector((x0, y, z0)), Vector((x1, y, z0)), Vector((x1, y, z1)), Vector((x0, y, z1))]
+    g.add(mat, vs, [(0, 1, 2, 3) if s > 0 else (3, 2, 1, 0)])
+
+
+def build_cabin_details(g, m, liv, door=False):
+    """door: the sliding doors are separate parts (build_door), so leave
+    their windows and seams off the body."""
     y = 1.255
     zw1 = _ZW1
-    for x0, x1, z0, z1 in WINDOWS:
-        side_quad(g, m["glass"], x0, x1, z0, z1, y + 0.01)
-        if liv.get("frame"):  # a ring, so the window stays clear from inside
-            f, mf = 0.07, m[liv["frame"]]
-            for fx0, fx1, fz0, fz1 in ((x0 - f, x1 + f, z0 - f, z0), (x0 - f, x1 + f, z1, z1 + f),
-                                       (x0 - f, x0, z0, z1), (x1, x1 + f, z0, z1)):
-                side_quad(g, mf, fx0, fx1, fz0, fz1, y + 0.005)
+    for w in WINDOWS:
+        if not (door and _in_door(w)):
+            _window(g, m, liv, *w, y)
     # Sliding door seam and crew door seam: thin dark lines
-    for x in (1.30, -1.0):
-        side_quad(g, m["metal"], x, x + 0.05, 0.95, zw1 + 0.10, y + 0.012)
+    for x in (() if door else (1.30, -1.0)):
+        side_quad(g, m["metal"], x, x + 0.05, DOOR[2], zw1 + 0.10, y + 0.012)
     side_quad(g, m["metal"], 2.98, 3.02, 0.80, zw1 + 0.10, y + 0.012)
-    # Sponsons with the main gear, and a step
+    # Sponsons with the main gear under the door sill, and a step
     sp = m[liv["sponson"]]
     for s in (1, -1):
-        g.box(sp, (-0.25, s * 1.40, 1.035), (2.9, 0.40, 0.77))
+        g.box(sp, (-0.25, s * 1.40, 0.785), (2.9, 0.40, 0.67))
         g.box(sp, (1.35, s * 1.30, 1.02), (0.5, 0.30, 0.45))
         g.box(m["metal"], (2.6, s * 1.30, 0.62), (0.5, 0.18, 0.05))
     # Engine cowling: a low hump over the cabin roof with two exhausts aft
@@ -366,27 +426,30 @@ def build_disc(g, mat, r, n=24, cone=0.0, axis="z"):
     g.uvs.setdefault(mat, []).extend(uvs)
 
 
-# Cabin: floor height, four rows of four forward-facing seats, the cockpit
+# Cabin: floor height, four rows of four seats facing each other in pairs as
+# in the real cabin (row 1 backs onto the cockpit, rows 2 and 3 sit back to
+# back, row 4 backs onto the rear wall), the cockpit
 FLOOR = 1.0
-SEAT_ROWS = (2.15, 0.90, -0.35, -1.30)   # each row by a window
+SEAT_ROWS = (2.10, 0.95, 0.20, -0.95)  # row 2 and 4 by a window
+SEAT_FACE = (-1, 1, -1, 1)               # +1 faces forward (+X), -1 aft
 SEAT_Y = (-0.86, -0.30, 0.30, 0.86)
 PILOT_X, PILOT_Y = 3.75, 0.55
-# Where a passenger's eyes are: the right-hand (starboard) window seat, second row
+# Where a passenger's eyes are: the right-hand (starboard) window seat, second row, facing forward
 EYE_SEAT = Vector((SEAT_ROWS[1] - 0.10, SEAT_Y[0] + 0.10, FLOOR + 1.17))
 # and the jump seat behind the pilots
 EYE_JUMP = Vector((2.85, 0.0, FLOOR + 1.32))
 
 
-def seat(g, m, x, y, w=0.48):
-    """Forward-facing (+X) crash seat: pan, back, headrest, legs."""
+def seat(g, m, x, y, w=0.48, face=1):
+    """Crash seat facing +X (face 1) or -X (face -1): pan, back, headrest, legs."""
     z = FLOOR + 0.45
     g.box(m["seat"], (x, y, z), (0.48, w, 0.10))
-    back0, back1 = Vector((x - 0.24, y, z + 0.03)), Vector((x - 0.31, y, z + 0.62))
+    back0, back1 = Vector((x - face * 0.24, y, z + 0.03)), Vector((x - face * 0.31, y, z + 0.62))
     g.beam(m["seat"], back0, back1, 0.08, w)
-    g.box(m["seat"], (x - 0.32, y, z + 0.74), (0.10, w * 0.6, 0.20))   # headrest
+    g.box(m["seat"], (x - face * 0.32, y, z + 0.74), (0.10, w * 0.6, 0.20))   # headrest
     for dy in (-w / 2 + 0.05, w / 2 - 0.05):
-        g.beam(m["metal"], (x + 0.15, y + dy, FLOOR), (x + 0.10, y + dy, z - 0.05), 0.04)
-        g.beam(m["metal"], (x - 0.20, y + dy, FLOOR), (x - 0.20, y + dy, z - 0.05), 0.04)
+        g.beam(m["metal"], (x + face * 0.15, y + dy, FLOOR), (x + face * 0.10, y + dy, z - 0.05), 0.04)
+        g.beam(m["metal"], (x - face * 0.20, y + dy, FLOOR), (x - face * 0.20, y + dy, z - 0.05), 0.04)
 
 
 def ball(g, mat, c, r, n=8, rings=5):
@@ -435,10 +498,10 @@ def build_cabin_interior(g, m, pilots=True):
                 continue    # under the floor, or windscreen (as build_fuselage paints it)
             a, c = rings[i][k], rings[i][(k + 1) % n]
             d, e = rings[i + 1][(k + 1) % n], rings[i + 1][k]
-            cut_quad(g, m["cabin"], a, c, d, e, WINDOWS if band in (4, 5) else (), flip=True)
+            cut_quad(g, m["cabin"], a, c, d, e, _holes(band), flip=True)
     g.add(m["cabin"], rings[-1], [tuple(range(n))])                       # rear bulkhead
     # Window reveals: close the gap between the skin and the lining round each opening
-    for x0, x1, z0, z1 in WINDOWS:
+    for x0, x1, z0, z1 in [w for w in WINDOWS if not _in_door(w)] + [DOOR]:
         for sy in (1, -1):
             yo, yi = sy * 1.26, sy * 1.19
             for a, c in (((x0, z0), (x1, z0)), ((x1, z0), (x1, z1)), ((x1, z1), (x0, z1)), ((x0, z1), (x0, z0))):
@@ -449,9 +512,9 @@ def build_cabin_interior(g, m, pilots=True):
     for y in (-0.45, 0.45):
         g.box(m["cabinlamp"], (0.6, y, ROOF - 0.08), (4.2, 0.10, 0.02))
         g.box(m["panel"], (0.6, y * 1.5, ROOF - 0.10), (4.2, 0.16, 0.04))
-    for x in SEAT_ROWS:
+    for x, face in zip(SEAT_ROWS, SEAT_FACE):
         for y in SEAT_Y:
-            seat(g, m, x, y)
+            seat(g, m, x, y, face=face)
     # Cockpit: instrument panel with four displays, glareshield, centre console, overhead panel
     g.box(m["panel"], (4.70, 0, FLOOR + 0.75), (0.30, 2.0, 0.70))
     g.box(m["panel"], (4.62, 0, FLOOR + 1.13), (0.50, 2.05, 0.07))
@@ -476,8 +539,8 @@ def build_cabin_interior(g, m, pilots=True):
 # Retracting swings each leg forward about Y, nose wheels into the nose,
 # main wheels into the sponsons.
 GEAR = [("NoseGear", Vector((4.55, 0, 1.15)), 0.30, ((0.17, 0.30, 0.22), (-0.17, 0.30, 0.22))),
-        ("MainGearL", Vector((-0.30, 1.43, 1.05)), 0.34, ((0.0, 0.34, 0.26),)),
-        ("MainGearR", Vector((-0.30, -1.43, 1.05)), 0.34, ((0.0, 0.34, 0.26),))]
+        ("MainGearL", Vector((-0.30, 1.43, 0.80)), 0.34, ((0.0, 0.34, 0.26),)),
+        ("MainGearR", Vector((-0.30, -1.43, 0.80)), 0.34, ((0.0, 0.34, 0.26),))]
 GEAR_SWING = math.radians(-90)  # gear up: legs point forward
 
 
@@ -537,7 +600,8 @@ def build_helicopter(m, collection=None, loc=(0, 0, 0), yaw=0.0, livery=None, dr
     MainRotor (turns about local Z), TailRotor (about local Y), MainDisc and
     TailDisc (blur discs, hidden), NoseGear, MainGearL, MainGearR (swing
     about local Y; see pose()). interior: open windows, clear glass, and the
-    cabin and cockpit inside, for the view from a seat."""
+    cabin and cockpit inside, for the view from a seat, plus the sliding
+    doors DoorL and DoorR (see pose())."""
     collection = collection or bpy.context.collection
     liv = LIVERIES[livery or LIVERY]
     root = bpy.data.objects.new("Helicopter", None)
@@ -554,13 +618,17 @@ def build_helicopter(m, collection=None, loc=(0, 0, 0), yaw=0.0, livery=None, dr
     build_fuselage(body, m, liv, glazed=interior)
     if interior:
         build_cabin_interior(body, m, pilots)
-    build_cabin_details(body, m, liv)
+    build_cabin_details(body, m, liv, door=interior)
+    if interior:
+        build_door(part("DoorL"), m, liv, 1)
+        build_door(part("DoorR"), m, liv, -1)
     build_tail(body, m, liv)
     build_mast(body, m)
     build_lights(body, m)
     build_rotor(part("MainRotor"), m, droop)
     build_tail_rotor(part("TailRotor"), m, liv)
-    pivots = {"Body": Vector(), "MainRotor": Vector((MAST_X, 0, HUB_Z)), "TailRotor": TAIL_HUB}
+    pivots = {"Body": Vector(), "MainRotor": Vector((MAST_X, 0, HUB_Z)), "TailRotor": TAIL_HUB,
+              "DoorL": Vector(), "DoorR": Vector()}
     for name, pivot, wz, wheels in GEAR:
         build_leg(part(name), m, pivot, wz, wheels)
         pivots[name] = pivot
@@ -576,8 +644,13 @@ def build_helicopter(m, collection=None, loc=(0, 0, 0), yaw=0.0, livery=None, dr
     return root, parts, tris
 
 
-def pose(parts, gear=1.0, rotor=0.0, tail=None):
-    """gear 1 = down, 0 = up; rotor and tail are blade angles in radians."""
+def pose(parts, gear=1.0, rotor=0.0, tail=None, door=0.0):
+    """gear 1 = down, 0 = up; rotor and tail are blade angles in radians;
+    door 0 = shut, 1 = slid open (out, then aft)."""
+    for name, side in (("DoorL", 1), ("DoorR", -1)):
+        if name in parts:
+            out, aft = min(1, door * 4), max(0, door * 4 / 3 - 1 / 3)
+            parts[name].location = (-DOOR_SLIDE[1] * aft, side * DOOR_SLIDE[0] * out, 0)
     for name, *_ in GEAR:
         parts[name].rotation_euler = (0, GEAR_SWING * (1 - gear), 0)
     parts["MainRotor"].rotation_euler = (0, 0, rotor)

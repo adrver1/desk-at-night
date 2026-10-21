@@ -1,0 +1,444 @@
+// The intro: flying out to the platform by helicopter in the morning. We sit
+// in the right-hand window seat and can turn our head, not move. The
+// helicopter comes in, circles the platform once with it in our window, and
+// lands; for the landing the view cuts to a camera on the helideck to watch
+// the gear come down and the rotors stop.
+//
+// Models from blender/intro_export.py (web/public/intro/), the passengers from
+// characters/, the sky and sea from outdoor.js.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Outdoor, WEATHER } from './outdoor.js';
+import { Helicopter } from './helicopter.js';
+
+const q = new URLSearchParams(location.search);
+const BASE = 'intro/';
+const CAST = ['blazer_lead', 'bearded_operator', 'crop_supervisor', 'curly_analyst', 'curly_fade_tech', 'glasses_engineer', 'grey_beard_lead'];
+// Who sits where: seat [row, place] (rows front to back, places right to
+// left). Row 1 faces aft, at us; rows 2 and 3 sit back to back.
+const SEATING = [[0, 1], [0, 2], [0, 3], [1, 2], [2, 1], [2, 2], [3, 1]];
+const PLAYER_SEAT = [1, 0];
+
+// The flight, in platform coordinates as Blender has them (x east, y north,
+// z up, metres): in from the south-east, round the platform clockwise so it
+// stays in our right-hand window, then a right turn onto the helideck from the east
+const ROUTE = [
+  [2600, -1500, 320], [1500, -850, 300], [700, -450, 270],
+  ...[-70, -115, -160, -205, -250, -295, -340].map((a) => {
+    const r = THREE.MathUtils.degToRad(a);
+    return [-15 + 330 * Math.cos(r), 330 * Math.sin(r), 250];
+  }),
+  [330, -20, 175], [280, -95, 140], [190, -85, 112], [120, -30, 90],
+];
+const HOVER = 6;            // m over the deck where the descent starts
+const CRUISE = [62, 46];    // m/s on the way out and round the platform
+const BRAKE = 1.4;          // m/s² slowing down for the deck
+const DESCENT = 7;          // s from the hover to the deck
+const CUT_AT = 380;         // m from the deck: cut to the helideck camera
+const GEAR_AT = 600;        // m from the deck: gear down
+
+const B = (x, y, z) => new THREE.Vector3(x, z, -y); // Blender to three.js axes
+
+// ---------------------------------------------------------------- setup
+
+const canvas = document.querySelector('canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const coarse = matchMedia('(pointer: coarse)').matches;
+renderer.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.5 : 2));
+renderer.toneMapping = THREE.AgXToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.autoClear = false;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x000000, 0);
+const outdoor = new Outdoor(0);
+outdoor.set({ clouds: 0.3, wind: 0.3, fog: 0.03, rain: 0, ...WEATHER[q.get('weather')], time: Number(q.get('time') ?? 9.0), speed: 0 });
+scene.add(outdoor.room);
+const hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
+const sun = new THREE.DirectionalLight(0xffffff, Math.PI);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 60 });
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.03;
+scene.add(hemi, sun, sun.target);
+
+const cabinCam = new THREE.PerspectiveCamera(62, 1, 0.05, 80000);
+const deckCam = new THREE.PerspectiveCamera(40, 1, 0.3, 80000);
+let camera = cabinCam;
+
+// Models: fetched, or base64 strings a bundled page carries in window.INTRO_MODELS
+const loader = new GLTFLoader();
+// Embedded images (the characters' palette) decoded straight to bitmaps:
+// the stock loader goes through blob: URLs, which a strict content
+// security policy blocks and headless Chromium sometimes drops
+loader.register((parser) => {
+  const stock = parser.loadImageSource.bind(parser);
+  parser.loadImageSource = (i, l) => {
+    const def = parser.json.images[i];
+    if (def.bufferView === undefined || typeof createImageBitmap !== 'function') return stock(i, l);
+    return parser.getDependency('bufferView', def.bufferView)
+      .then((buf) => createImageBitmap(new Blob([buf], { type: def.mimeType }), { imageOrientation: 'none', premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
+      .then((bitmap) => { const tex = new THREE.Texture(bitmap); tex.needsUpdate = true; return tex; });
+  };
+  return { name: 'bitmap_images' };
+});
+function load(name) {
+  const inline = window.INTRO_MODELS?.[name];
+  if (!inline) return loader.loadAsync(BASE + name);
+  const bin = atob(inline), buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return loader.parseAsync(buf.buffer, '');
+}
+const info = window.INTRO_INFO ?? await fetch(BASE + 'intro.json').then((r) => r.json());
+const [platform, heliModel, ...people] = await Promise.all([
+  load('platform.glb'), load('heli.glb'), ...CAST.map((c) => load(`chars/${c}.glb`).catch(() => null)),
+]);
+
+scene.add(platform.scene);
+const glowing = [];
+platform.scene.traverse((o) => {
+  if (!o.isMesh) return;
+  if (o.material.name === 'PlatGlass') { o.material.transparent = true; o.material.opacity = 0.5; }
+  if (o.material.emissive?.getHex()) glowing.push(o.material);
+});
+
+// The helicopter: root moves along the route; the camera rides in it
+const heliRoot = new THREE.Group();
+heliRoot.rotation.order = 'YZX'; // heading, then pitch, then bank
+scene.add(heliRoot);
+heliRoot.add(heliModel.scene);
+const heli = new Helicopter(heliModel.scene, { running: true, gearDown: false });
+// The sky lights the cabin through its windows only: dim what's inside so
+// the ambient light doesn't flood it; the sun does come in, with shadows
+const INSIDE = ['HeliCabin', 'HeliFloor', 'HeliSeat', 'HeliPanel', 'HeliSuit'];
+heliModel.scene.traverse((o) => {
+  if (!o.isMesh) return;
+  o.castShadow = o.receiveShadow = true;
+  if (INSIDE.includes(o.material.name)) o.material.color.multiplyScalar(0.6);
+  if (o.material.name === 'HeliClear') { o.castShadow = false; o.material.depthWrite = false; }
+});
+
+// Passengers, sat down: each character carries a seated_idle clip for a
+// 0.45 m seat pan with the root on the floor below it
+const seat = ([row, place]) => new THREE.Vector3().fromArray(info.seats[row * 4 + place]);
+const passengers = [];
+people.forEach((gltf, i) => {
+  if (!gltf) return;
+  const p = gltf.scene;
+  const s = seat(SEATING[i]), face = info.seats[SEATING[i][0] * 4 + SEATING[i][1]][3];
+  p.rotation.y = -face * Math.PI / 2;    // characters face -z, a seat faces +x (1) or -x (-1)
+  p.position.set(s.x, s.y - 0.45, s.z);
+  const mixer = new THREE.AnimationMixer(p);
+  const act = Object.fromEntries(['seated_idle', 'stand_up', 'walk'].map((n) => {
+    const clip = THREE.AnimationClip.findByName(gltf.animations, n);
+    return [n, clip && mixer.clipAction(clip)];
+  }));
+  act.seated_idle?.play();
+  if (act.stand_up) { act.stand_up.setLoop(THREE.LoopOnce); act.stand_up.clampWhenFinished = true; }
+  mixer.setTime(Math.random() * 4);
+  const mats = [];
+  p.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = o.receiveShadow = true;
+    o.frustumCulled = false;
+    o.material = o.material.clone();
+    mats.push([o.material, o.material.color.clone()]);
+  });
+  const shade = (k) => { for (const [m, c] of mats) m.color.copy(c).multiplyScalar(k); };
+  shade(0.7);  // in the cabin the sky only reaches them through the windows
+  Object.assign(p.userData, { mixer, act, shade, seat: s.clone(), face, state: 'seated' });
+  heliRoot.add(p);
+  passengers.push(p);
+});
+
+// Off the helicopter: in turn, nearest the door first, each passenger stands
+// up, walks to the open door on their side, steps down to the deck and walks
+// across the helideck to the stairs down into the quarters
+const WALK = 1.25;          // m/s, the walk clip's pace
+const EXIT_AT = 7;          // s after touchdown the first one stands up
+const EXIT_GAP = 1.6;       // s between passengers
+const doorX = (info.door.x[0] + info.door.x[1]) / 2 + 0.3;
+const stairs = B(47.5, -4, 72.5);  // top of the stairs from the helideck down into the quarters
+passengers.sort((a, b) => Math.abs(a.userData.seat.x - doorX) - Math.abs(b.userData.seat.x - doorX));
+passengers.forEach((p, i) => { p.userData.leaveAt = EXIT_AT + i * EXIT_GAP; });
+
+function route(p) {
+  const { seat: st } = p.userData, side = Math.sign(st.z) || 1;
+  const floor = info.floor;
+  const aisle = new THREE.Vector3(st.x, floor, side * 0.05);
+  // Out through the door on their side, down onto the deck, then to the stairs
+  const pts = [new THREE.Vector3(st.x, floor, st.z), aisle,
+    new THREE.Vector3(doorX, floor, side * 0.4), new THREE.Vector3(doorX, floor, side * 1.25),
+    new THREE.Vector3(doorX - 0.2, 0, side * 2.3), new THREE.Vector3(doorX - 2.5, 0, side * 4.5)];
+  heliRoot.updateMatrixWorld(true);
+  pts.push(heliRoot.worldToLocal(stairs.clone()));
+  return pts;
+}
+
+function disembark(p, since, dt) {
+  const u = p.userData;
+  if (u.state === 'seated' && since >= u.leaveAt) {
+    u.state = 'standing';
+    u.act.stand_up?.reset().play();
+    u.act.seated_idle?.crossFadeTo(u.act.stand_up, 0.3, false);
+    u.path = route(p);
+    u.leg = 0;
+    u.along = 0;
+  }
+  if (u.state === 'standing' && since >= u.leaveAt + 1.5) {
+    u.state = 'walking';
+    u.act.walk?.reset().play();
+    if (u.act.walk) u.act.stand_up?.crossFadeTo(u.act.walk, 0.35, false);
+  }
+  if (u.state !== 'walking') return;
+  const a = u.path[u.leg], b = u.path[u.leg + 1];
+  if (!b) { u.state = 'gone'; p.visible = false; return; }
+  const d = new THREE.Vector3().subVectors(b, a), len = d.length();
+  u.along += WALK * dt;
+  if (u.along >= len) { u.along -= len; u.leg++; return disembark(p, since, 0); }
+  p.position.copy(a).addScaledVector(d, u.along / len);
+  const want = Math.atan2(-d.x, -d.z);
+  p.rotation.y = lerpAngle(p.rotation.y, want, Math.min(1, dt * 8 + (u.leg === 0 ? 0 : 0)));
+  if (u.leg >= 4) u.shade(1);
+  // Fade out at the top of the stairs
+  const left = u.path.slice(u.leg + 1).reduce((acc, q, k, arr) => acc + (k ? q.distanceTo(arr[k - 1]) : q.distanceTo(p.position)), 0);
+  if (left < 1.5) p.visible = false;
+}
+
+
+// Our head: in the window seat, turning but not moving
+const head = new THREE.Group();
+head.rotation.order = 'YXZ';
+head.position.fromArray(info.eye);
+heliRoot.add(head);
+head.add(cabinCam);
+const look = { yaw: -0.35, pitch: -0.08, toYaw: -0.35, toPitch: -0.08 };
+const YAW = [-1.95, 1.25], PITCH = [-0.9, 0.7];
+const PLATFORM_EYE = B(-10, 0, 55);   // where the eyes go when left alone  // right is negative; we're against the right wall
+
+// ---------------------------------------------------------------- the route
+
+const curve = new THREE.CatmullRomCurve3([...ROUTE.map((p) => B(...p)),
+  B(info.park.position[0] + 25, -info.park.position[2], info.park.position[1] + HOVER + 3),
+  new THREE.Vector3().fromArray(info.park.position).add(new THREE.Vector3(0, HOVER, 0))], false, 'centripetal', 0.5);
+const LENGTH = curve.getLength();
+const circleStart = curve.getLengthAtFraction?.(0) ?? 0;
+// Speed along the path: cruise, then slow to a walk over the deck
+const N = 3000, times = new Float32Array(N + 1);
+const startCircle = (() => { // arc length where the route reaches the circle
+  const p = B(...ROUTE[3]);
+  let best = 0, d = Infinity;
+  for (let i = 0; i <= 400; i++) {
+    const e = curve.getPointAt(i / 400).distanceTo(p);
+    if (e < d) { d = e; best = i / 400; }
+  }
+  return best * LENGTH;
+})();
+const speedAt = (s) => {
+  const cruise = THREE.MathUtils.lerp(CRUISE[0], CRUISE[1], THREE.MathUtils.smoothstep(s, startCircle - 600, startCircle + 100));
+  return Math.min(cruise, Math.sqrt(4 + 2 * BRAKE * (LENGTH - s)));
+};
+for (let i = 1; i <= N; i++) {
+  const s0 = (i - 1) / N * LENGTH, s1 = i / N * LENGTH;
+  times[i] = times[i - 1] + (s1 - s0) / speedAt((s0 + s1) / 2);
+}
+const FLIGHT = times[N];
+const sAt = (t) => { // arc length at flight time t
+  let lo = 0, hi = N;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (times[mid] < t) lo = mid; else hi = mid; }
+  const f = (t - times[lo]) / Math.max(1e-6, times[hi] - times[lo]);
+  return (lo + THREE.MathUtils.clamp(f, 0, 1)) / N * LENGTH;
+};
+const T_LAND = FLIGHT + DESCENT;
+
+const park = new THREE.Vector3().fromArray(info.park.position);
+const deckEdge = B(56, 15.5, 75.2);   // camera on a lamp post at the helideck's north-west rim
+deckCam.position.copy(deckEdge);
+
+// Pose of the helicopter at time t
+const P = new THREE.Vector3(), D = new THREE.Vector3(), D2 = new THREE.Vector3();
+let bank = 0;
+function poseAt(t, dt) {
+  let s, yaw, pitch = 0, v;
+  if (t < FLIGHT) {
+    s = sAt(t);
+    v = speedAt(s);
+    curve.getPointAt(s / LENGTH, P);
+    curve.getTangentAt(s / LENGTH, D);
+    curve.getTangentAt(Math.min(1, (s + v) / LENGTH), D2); // a second ahead, for the bank
+    yaw = Math.atan2(-D.z, D.x);
+    let turn = Math.atan2(-D2.z, D2.x) - yaw;
+    turn = Math.atan2(Math.sin(turn), Math.cos(turn));      // rad/s
+    const want = THREE.MathUtils.clamp(-Math.atan(v * turn / 9.81), -0.5, 0.5);
+    bank += (want - bank) * Math.min(1, dt * 1.5);
+    // Nose a little down in cruise, up as it brakes
+    const braking = speedAt(s) < CRUISE[1] - 1 ? BRAKE : 0;
+    pitch = -0.05 * v / CRUISE[0] + 0.05 * braking;
+    // Over the last stretch, turn to the heading it parks with
+    const k = 1 - THREE.MathUtils.smoothstep(LENGTH - s, 0, 80);
+    yaw = lerpAngle(yaw, info.park.yaw, k);
+  } else {
+    const k = THREE.MathUtils.smoothstep(Math.min(t - FLIGHT, DESCENT), 0, DESCENT);
+    P.copy(park).add(new THREE.Vector3(0, HOVER * (1 - k), 0));
+    yaw = info.park.yaw;
+    pitch = 0.02 * (1 - k);
+    bank *= 0.95;
+    s = LENGTH;
+  }
+  heliRoot.position.copy(P);
+  heliRoot.rotation.set(0, yaw, 0);
+  heliRoot.rotateZ(pitch);
+  heliRoot.rotateX(bank);
+  return LENGTH - s;
+}
+const lerpAngle = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * k;
+
+// ---------------------------------------------------------------- input
+
+let drag = null, touched = -Infinity; // when we last turned our head ourselves
+canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); touched = t; });
+canvas.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  touched = t;
+  const k = 2.4 / Math.max(innerWidth, innerHeight);
+  look.toYaw = THREE.MathUtils.clamp(look.toYaw + (e.clientX - drag.x) * k, ...YAW);
+  look.toPitch = THREE.MathUtils.clamp(look.toPitch + (e.clientY - drag.y) * k, ...PITCH);
+  drag = { x: e.clientX, y: e.clientY };
+});
+canvas.addEventListener('pointerup', () => { drag = null; });
+addEventListener('keydown', (e) => {
+  const step = { ArrowLeft: [0.15, 0], ArrowRight: [-0.15, 0], ArrowUp: [0, 0.1], ArrowDown: [0, -0.1] }[e.key];
+  if (step) {
+    touched = t;
+    look.toYaw = THREE.MathUtils.clamp(look.toYaw + step[0], ...YAW);
+    look.toPitch = THREE.MathUtils.clamp(look.toPitch + step[1], ...PITCH);
+  }
+});
+
+const ui = {
+  caption: document.querySelector('.caption'),
+  skip: document.querySelector('.skip'),
+  clock: document.querySelector('.clock'),
+  end: document.querySelector('.end'),
+};
+let t = Number(q.get('t') ?? 0);
+const paused = q.has('pause');
+ui.skip?.addEventListener('click', () => { if (t < T_LAND - 12) t = FLIGHT - 9; });
+
+const CAPTIONS = [
+  [0, '09:00, crew change day. The platform is dead ahead.'],
+  [8, 'Drag to look around.'],
+  [16, ''],
+  [T_LAND + 3, 'On the deck. Rotors running down.'],
+  [T_LAND + 9, ''],
+  [T_LAND + 34, 'Next: into the quarters and down to the control room.'],
+];
+
+// ---------------------------------------------------------------- frame
+
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  for (const c of [cabinCam, deckCam]) { c.aspect = w / h; c.updateProjectionMatrix(); }
+  // Upright phone: keep about 80 degrees across, so the window still fits
+  const a = w / h;
+  cabinCam.fov = a < 1 ? Math.min(100, 2 * THREE.MathUtils.radToDeg(Math.atan(Math.tan(THREE.MathUtils.degToRad(40)) / a))) : 62;
+  cabinCam.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+resize();
+
+const aim = new THREE.Vector3(), aimTo = new THREE.Vector3();
+let last = performance.now(), landed = false, cut = q.get('view') === 'deck';
+function frame(now) {
+  const dt = Math.min(0.1, (now - last) / 1000);
+  last = now;
+  step(paused ? 0 : dt);
+  outdoor.render(renderer, camera);
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+// Advance everything by dt seconds (0 while paused)
+function step(dt) {
+  t += dt;
+  const left = poseAt(t, dt || 0.016);
+  if (left < GEAR_AT) heli.setGear(true);
+  if (!landed && t >= T_LAND) { landed = true; heli.stop(); }
+  heli.setDoors(t >= T_LAND + 3.5);
+  heli.update(dt);
+
+  // Left alone for a while, our eyes drift to the platform (when it's in reach)
+  if (!cut && t - touched > 5) {
+    heliRoot.updateMatrixWorld(true);
+    const v = heliRoot.worldToLocal(PLATFORM_EYE.clone()).sub(head.position);
+    const yaw = Math.atan2(-v.z, v.x), pitch = Math.atan2(v.y, Math.hypot(v.x, v.z));
+    const k = Math.min(1, dt * 0.6);
+    if (yaw > YAW[0] - 0.2 && yaw < YAW[1]) {
+      look.toYaw += (THREE.MathUtils.clamp(yaw, ...YAW) - look.toYaw) * k;
+      look.toPitch += (THREE.MathUtils.clamp(pitch * 0.8, ...PITCH) - look.toPitch) * k;
+    }
+  }
+  // Head: eases to where the finger left it, with a little cabin shake
+  look.yaw += (look.toYaw - look.yaw) * Math.min(1, dt * 8);
+  look.pitch += (look.toPitch - look.pitch) * Math.min(1, dt * 8);
+  const shake = landed ? 0 : 0.0016;
+  head.rotation.set(look.pitch + shake * Math.sin(t * 23.1), -Math.PI / 2 + look.yaw + shake * Math.sin(t * 17.3), 0);
+  for (const p of passengers) {
+    if (landed) disembark(p, t - T_LAND, dt);
+    p.userData.mixer.update(dt);
+  }
+
+  // On short final, the helideck camera picks it up and follows it down
+  if (left < CUT_AT || q.get('view') === 'deck') cut = true;
+  camera = cut ? deckCam : cabinCam;
+  if (q.has('off')) { // debug: a camera riding along outside, at ?off=x,y,z in the helicopter's frame
+    camera = deckCam;
+    deckCam.position.copy(heliRoot.localToWorld(new THREE.Vector3(...q.get('off').split(',').map(Number))));
+    deckCam.lookAt(heliRoot.localToWorld(new THREE.Vector3(0, 1.8, 0)));
+    deckCam.fov = 40;
+    deckCam.updateProjectionMatrix();
+  }
+  if (cut && !q.has('off')) {
+    aimTo.copy(heliRoot.position).add(new THREE.Vector3(0, 2.0, 0));
+    // Once they're off, pan with the passengers toward the quarters
+    aimTo.lerp(stairs, 0.35 * THREE.MathUtils.smoothstep(t - T_LAND, EXIT_AT + 3, EXIT_AT + 14));
+    aim.lengthSq() ? aim.lerp(aimTo, Math.min(1, dt * 4)) : aim.copy(aimTo);
+    deckCam.lookAt(aim);
+    deckCam.fov = THREE.MathUtils.clamp(2 * THREE.MathUtils.radToDeg(Math.atan(14 / deckCam.position.distanceTo(aim))), 28, 55);
+    deckCam.updateProjectionMatrix();
+  }
+
+  outdoor.update(dt);
+  const L = outdoor.light;
+  renderer.toneMappingExposure = L.exposure;
+  hemi.color.copy(L.sky).multiplyScalar(Math.PI);
+  hemi.groundColor.copy(L.sky).multiplyScalar(0.3);
+  sun.color.copy(L.sun);
+  scene.fog.color.copy(L.fog);
+  scene.fog.density = Math.LN2 / L.fogDistance;
+  sun.target.position.copy(heliRoot.position);
+  sun.position.copy(heliRoot.position).addScaledVector(L.sunDir, 30);
+  for (const m of glowing) if (m.name !== 'PlatFlare') m.emissiveIntensity = 0.05;
+
+  if (ui.clock) ui.clock.textContent = `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')} / ${Math.floor(T_LAND / 60)}:${String(Math.floor(T_LAND % 60)).padStart(2, '0')}`;
+  if (ui.caption) {
+    const c = CAPTIONS.filter(([at]) => t >= at).pop();
+    if (ui.caption.dataset.text !== c[1]) { ui.caption.dataset.text = c[1]; ui.caption.textContent = c[1]; }
+    ui.caption.classList.toggle('on', !!c[1]);
+  }
+  if (ui.skip) ui.skip.hidden = t > FLIGHT - 10;
+  ui.end?.classList.toggle('on', t > T_LAND + 36);
+
+}
+document.body.classList.add('ready');
+requestAnimationFrame(frame);
+window.intro = { advance(sec) { for (let k = 0; k < sec * 30; k++) step(1 / 30); }, // for screenshots
+   bearing(tt) { // debug: where the platform is from our seat at time tt, in degrees (right negative) and down
+    poseAt(tt, 0.016); heliRoot.updateMatrixWorld(true);
+    const v = heliRoot.worldToLocal(new THREE.Vector3(0, 40, 0)).sub(head.position);
+    return [Math.round(THREE.MathUtils.radToDeg(Math.atan2(-v.z, v.x))), Math.round(THREE.MathUtils.radToDeg(Math.atan2(v.y, Math.hypot(v.x, v.z)))), Math.round(THREE.MathUtils.radToDeg(heliRoot.rotation.y)), heliRoot.position.toArray().map(Math.round).join(",")];
+  }, get t() { return t; }, set t(v) { t = v; }, FLIGHT, T_LAND, LENGTH, look, curve, passengers };

@@ -8,6 +8,8 @@ import * as THREE from 'three';
 const MAIN_RPM = 290, TAIL_RATIO = 5.4;
 const SPOOL = 9;    // seconds from stopped to flight speed
 const GEAR_TIME = 4; // seconds for the gear to travel
+const DOOR_TIME = 3; // seconds for a sliding door to open (out, then aft)
+const DOOR_SLIDE = [0.42, 2.4]; // m out and aft, fully open (helicopter.py DOOR_SLIDE)
 const PARTS = ['MainRotor', 'TailRotor', 'MainDisc', 'TailDisc', 'NoseGear', 'MainGearL', 'MainGearR'];
 
 // Radial streak texture: rings of [inner, outer, colour, alpha] as fractions of the radius
@@ -51,6 +53,13 @@ export class Helicopter {
       for (const k of PARTS) if (o.name.startsWith('Heli' + k)) this.parts[k] ??= o;
     });
     this.ok = PARTS.every((k) => this.parts[k]);
+    // The cabin model (interior=True) also has sliding doors
+    this.doors = [['DoorL', 1], ['DoorR', -1]].map(([k, side]) => {
+      let o = null;
+      root.traverse((x) => { if (!o && x.name.startsWith('Heli' + k)) o = x; });
+      return o && { o, side, home: o.position.clone() };
+    }).filter(Boolean);
+    this.doorTarget = this.door = 0;
     if (!this.ok) return;
     // The rotors share materials with the body in the file; give them their own to fade
     for (const k of ['MainRotor', 'TailRotor']) {
@@ -71,6 +80,7 @@ export class Helicopter {
   start() { this.running = true; }
   stop() { this.running = false; }
   setGear(down) { this.gearTarget = down ? 1 : 0; }
+  setDoors(open) { this.doorTarget = open ? 1 : 0; }
 
   get rpm() { return smooth(this.speed) * MAIN_RPM; }
 
@@ -86,6 +96,10 @@ export class Helicopter {
     p.MainDisc.rotation.y = this.angle * 0.013;
     p.TailDisc.rotation.z = -this.angle * TAIL_RATIO * 0.013;
     for (const k of ['NoseGear', 'MainGearL', 'MainGearR']) p[k].rotation.z = (1 - smooth(this.gear)) * Math.PI / 2;
+    // Doors: a quarter of the way to pop out, the rest to slide aft
+    this.door += THREE.MathUtils.clamp(this.doorTarget - this.door, -dt / DOOR_TIME, dt / DOOR_TIME);
+    const out = smooth(Math.min(1, this.door * 4)), aft = smooth(Math.max(0, this.door * 4 / 3 - 1 / 3));
+    for (const d of this.doors) d.o.position.set(d.home.x - DOOR_SLIDE[1] * aft, d.home.y, d.home.z - d.side * DOOR_SLIDE[0] * out);
     const blur = THREE.MathUtils.smoothstep(this.speed, 0.25, 0.7);
     fade(p.MainRotor, 1 - blur * 0.92);
     fade(p.TailRotor, 1 - blur * 0.95);

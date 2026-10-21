@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flying In</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  html, body { height: 100%; margin: 0; overflow: hidden; background: #0d1418; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  .caption { position: fixed; left: 50%; bottom: max(30px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+    font: 15px/1.4 'Instrument Sans', system-ui, sans-serif; color: #f4f1ea; text-shadow: 0 1px 8px #000;
+    text-align: center; max-width: min(90vw, 60ch); opacity: 0; transition: opacity 0.6s; pointer-events: none; }
+  .caption.on { opacity: 1; }
+  .skip { position: fixed; right: max(14px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top));
+    font: 500 12px/1 'JetBrains Mono', monospace; letter-spacing: 0.06em; text-transform: uppercase; color: #f4f1ea;
+    background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 4px; padding: 8px 12px; cursor: pointer; }
+  .clock { position: fixed; left: max(14px, env(safe-area-inset-left)); top: max(12px, env(safe-area-inset-top));
+    font: 500 11px/1 'JetBrains Mono', monospace; color: rgba(244, 241, 234, 0.6); pointer-events: none; }
+  .end { position: fixed; inset: 0; display: grid; place-items: center; background: #05080a; opacity: 0;
+    pointer-events: none; transition: opacity 2.5s; }
+  .end.on { opacity: 1; pointer-events: auto; }
+  .end a { font: 600 16px/1 'Instrument Sans', system-ui, sans-serif; color: #05080a; background: #f4f1ea;
+    padding: 12px 18px; border-radius: 6px; text-decoration: none; }
+  .loading { position: fixed; inset: 0; display: grid; place-items: center; font: 500 13px 'JetBrains Mono', monospace; color: #9fb0b8; }
+  body.ready .loading { display: none; }
+</style>
+</head>
+<body>
+<canvas></canvas>
+<div class="loading">loading</div>
+<div class="caption"></div>
+<div class="clock"></div>
+<div class="end"><a href="play.html">Continue to the control room</a></div>
+<button class="skip" type="button">Skip to landing</button>
+<script type="module" src="/src/intro.js"></script>
+</body>
+</html>
