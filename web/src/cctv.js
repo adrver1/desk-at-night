@@ -6,6 +6,7 @@
 // caption over them.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Helicopter } from './helicopter.js';
 
 const COARSE = matchMedia('(pointer: coarse)').matches;
 const WIDTH = COARSE ? 384 : 512; // pixels across, 16:9
@@ -32,6 +33,9 @@ export class Cctv {
     this.sun = new THREE.DirectionalLight(0xffffff, Math.PI);
     this.scene.add(this.hemi, this.sun, this.sun.target);
     this.scene.fog = new THREE.FogExp2(0x000000, 0);
+    // The helicopter on the helideck: parked, rotors stopped (?heli=running to spin them)
+    const q = new URLSearchParams(location.search).get('heli');
+    this.heli = new Helicopter(model, { running: q === 'running' });
     // Lamps, lit windows, obstruction lights, flare pilot: exported at their
     // night strength, dimmed by day
     this.glowing = [];
@@ -59,6 +63,8 @@ export class Cctv {
   update(t, shown = null) {
     const cams = shown ? this.cams.filter((c) => shown.has(c.id)) : this.cams;
     if (!cams.length || t - this.at < 1 / (HZ * cams.length)) return;
+    this.heli.update(this.prevT === undefined ? 0 : t - this.prevT);
+    this.prevT = t;
     this.at = t;
     const L = this.outdoor.light;
     this.hemi.color.copy(L.sky).multiplyScalar(Math.PI);
