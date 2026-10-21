@@ -80,8 +80,21 @@ moon are added live with shadows (`web/src/sunShadow.js`): two small depth
 maps, one over the room for the patch of sun through the window, one over the
 platform, drawn again only when the sun moves (the room's a few times a
 second, for chairs that turn). Inside, a ray to the sun must also pass
-through the window opening. The CCTV pictures and the weather screen on the
-wall follow the same weather and clock.
+through the window opening. The weather screen on the wall follows the same
+weather and clock.
+
+The helideck and flare-boom cameras on the wall are live too
+(`web/src/cctv.js`): the platform as each camera sees it, drawn a few times a
+second into a small texture under the same sky, sea, sun, moon and fog, with
+rain, noise and the caption drawn over it. The model comes from
+
+```bash
+.venv/bin/python blender/cctv_platform.py   # web/public/control/cctv.glb + cctv.json, seconds, no bake
+```
+
+which cuts the platform down to what the two cameras see (~2.3k triangles)
+and holds their positions. Where the GPU can't render to a float texture the
+screens draw their old 2D camera instead.
 
 ## Offshore platform
 
