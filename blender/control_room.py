@@ -34,7 +34,7 @@ bpy, bmesh, Vector = b.bpy, b.bmesh, b.Vector
 from mathutils import Matrix  # noqa: E402
 box, cylinder, mat_flat = b.box, b.cylinder, b.mat_flat
 
-LIGHT_PLANTS = False  # True: the lighter plants, about half the triangles (props.make_plant)
+LIGHT_PLANTS = True  # True: the lighter plants, about half the triangles (props.make_plant)
 
 # Desks (metres): two arcs of 80 degrees with a small gap between them
 DESK_Z, DESK_T = 0.74, 0.04

@@ -1,6 +1,6 @@
 {
-  "scaleCeiling": 1.5552476644515991,
-  "scaleScreens": 0.25684455037117004,
+  "scaleCeiling": 1.553154468536377,
+  "scaleScreens": 0.2636308968067169,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
   "samples": 128,
