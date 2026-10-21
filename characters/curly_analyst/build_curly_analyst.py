@@ -1,7 +1,7 @@
 """
 curly_analyst: dark curly hair, receding on top and long at the back and
-sides (a curly mullet), dark rectangular glasses, stubble and a full
-moustache, a turquoise polo and a chunky orange watch. An original
+sides (a curly mullet), dark rectangular glasses, stubble and a dark
+goatee, a turquoise polo and a chunky orange watch. An original
 character, not a likeness.
 
     python characters/curly_analyst/build_curly_analyst.py [--outfit office|ppe|ppe_deck|all]
@@ -61,7 +61,7 @@ def winter():
 
 
 def face(body):
-    return {"stubble": faces.stubble("stubble"), "beard": faces.moustache(HAIR), "smile": faces.smile(body)}
+    return {"stubble": faces.stubble("stubble"), "beard": faces.goatee(HAIR), "smile": faces.smile(body)}
 
 
 LOOK = crew.Look(
@@ -71,7 +71,7 @@ LOOK = crew.Look(
     office=office, face=face, glasses="rect_thick", headset=HEADSET,
     extra={"jacket": jacket, "winter": winter} if EXTRA_LOOKS else None,
     notes=["Two references of the same man plus Adriaen's cartoon: polo and watch from the photos,",
-           "moustache, long curls and the amber jacket looks from the cartoon. Lower body invented."])
+           "goatee from the photos, long curls and the amber jacket looks from the cartoon. Lower body invented."])
 
 if __name__ == "__main__":
     crew.main(LOOK, HERE)
