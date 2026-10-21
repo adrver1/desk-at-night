@@ -261,6 +261,8 @@ def build_video_wall(m):
     a = TV_A
     p = polar(WALL_R, a, ROOM_Z)
     props.place(props.make_ceiling_tv(pm, "RearTv", (TV_W, TV_H), ROOM_Z - TV_TOP), p.x, p.y, p.z, -a)
+    # Its picture is a screen like the others, just in front of the dark glass
+    box("TvScreen", (TV_W - 0.03, 0.002, TV_H - 0.03), polar(WALL_R - 0.0185, a, TV_TOP - TV_H / 2), m["screen_cam"], rot_z=-a)
     p = polar(WALL_R - 0.12, a, ROOM_Z)
     props.place(props.make_ptz_camera(pm, "PtzCameraWall", ROOM_Z - TV_TOP - 0.20), p.x, p.y, p.z, -a)
     # Red digital clock on the white bulkhead over the right part of the band

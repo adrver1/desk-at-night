@@ -84,7 +84,7 @@ WALL_SLOT, DESK_SLOT = (640, 360), (512, 305)
 
 def screen_slots():
     slots = {}
-    big = [f"Wall{i}Screen" for i in range(cr.WALL_N)] + ["LinkScreen"]
+    big = [f"Wall{i}Screen" for i in range(cr.WALL_N)] + ["LinkScreen", "TvScreen"]
     for k, name in enumerate(big):
         slots[name] = ((k % 3) * WALL_SLOT[0], (k // 3) * WALL_SLOT[1]) + WALL_SLOT
     y0 = 3 * WALL_SLOT[1] + 3
