@@ -135,14 +135,19 @@ class Builder:
             self._xform(g["verts"], Matrix.Translation(center) @ orient)
         self._new(mat, make)
 
-    def lathe(self, profile, mat, segs=48):
-        """Spin a (radius, z) polyline a full turn around Z."""
+    def lathe(self, profile, mat, segs=48, center=None):
+        """Spin a (radius, z) polyline a full turn around Z (through `center`,
+        if given)."""
         def make():
+            before = set(self.bm.verts)
             vs = [self.bm.verts.new((r, 0, z)) for r, z in profile]
             es = [self.bm.edges.new((vs[i], vs[i + 1])) for i in range(len(vs) - 1)]
             bmesh.ops.spin(self.bm, geom=vs + es, cent=(0, 0, 0), axis=(0, 0, 1),
                            angle=2 * math.pi, steps=segs)
-            bmesh.ops.remove_doubles(self.bm, verts=self.bm.verts, dist=1e-6)
+            new = list(set(self.bm.verts) - before)
+            bmesh.ops.remove_doubles(self.bm, verts=new, dist=1e-6)
+            if center is not None:
+                self._xform([v for v in new if v.is_valid], Matrix.Translation(center))
         self._new(mat, make)
 
     def tube(self, points, radius, mat, segs=12, caps=True, normal=Vector((1, 0, 0))):
@@ -636,6 +641,11 @@ def _room_mats(m):
         "sofa": flat("PropSofa", (0.42, 0.13, 0.28), 0.95),       # the lounge's magenta upholstery
         "white": flat("PropWhiteTop", (0.84, 0.84, 0.82), 0.4),
         "leaf": flat("PropLeaf", (0.08, 0.22, 0.07), 0.7),
+        "leaf_light": flat("PropLeafLight", (0.16, 0.34, 0.10), 0.7),
+        "cane": flat("PropCane", (0.28, 0.21, 0.13), 0.8),
+        "soil": flat("PropSoil", (0.05, 0.035, 0.025), 1.0),
+        "glass": flat("PropGlass", (0.50, 0.54, 0.56), 0.1),   # an empty jug: reads as glass catching the light
+        "tank": flat("PropTank", (0.62, 0.66, 0.68), 0.2),     # frosted water tank
         "pot": flat("PropPot", (0.12, 0.12, 0.13), 0.6),
         "binders": [flat(f"PropBinder{i}", c, 0.6) for i, c in
                     enumerate([(0.08, 0.16, 0.42), (0.40, 0.40, 0.42), (0.55, 0.08, 0.06), (0.06, 0.06, 0.07),
@@ -804,13 +814,8 @@ def make_kitchenette(m, name="Kitchenette", w=1.8):
     k.box((0.012, 0.02, 0.30), Vector((fx - 0.24, -d + 0.01, h - 0.30)), m["steel"])
     k.box((0.50, 0.003, 0.003), Vector((fx, -d + 0.02, h - 0.10)), m["key_grey"])
     # Filter coffee machine with a glass jug, on the counter
-    cx, top = -0.35, h
-    k.rbox((0.22, 0.26, 0.36), Vector((cx, -0.15, top + 0.18)), m["black"], 0.02, segs=2)
-    k.rbox((0.22, 0.12, 0.05), Vector((cx, -0.33, top + 0.33)), m["black"], 0.015, segs=2)  # filter head
-    k.box((0.22, 0.12, 0.02), Vector((cx, -0.33, top + 0.01)), m["black"])                   # hot plate
-    k.cyl(0.07, 0.06, 0.13, Vector((cx, -0.33, top + 0.085)), m["lens"], segs=20)          # jug
-    k.cyl(0.062, 0.062, 0.05, Vector((cx, -0.33, top + 0.045)), m["coffee"], segs=20)
-    k.box((0.02, 0.003, 0.012), Vector((cx + 0.08, -0.281, top + 0.25)), rm["lamp_red"])
+    _coffee_machine(k, m, rm, -0.35, -0.02, h)
+    top = h
     # Pump thermos and mugs
     k.cyl(0.075, 0.075, 0.32, Vector((0.10, -0.25, top + 0.16)), m["steel"], segs=20)
     k.box((0.10, 0.14, 0.06), Vector((0.10, -0.29, top + 0.35)), m["black"])
@@ -819,19 +824,92 @@ def make_kitchenette(m, name="Kitchenette", w=1.8):
     return k.done()
 
 
+def _coffee_machine(k, m, rm, x, y, z):
+    """A filter coffee machine (the classic Dutch kind every platform has)
+    on builder k, its back at (x, y), standing at height z, facing -Y:
+    a base with the hot plate and switch, a steel column carrying the
+    frosted water tank, an outlet arm over the cone-shaped brew basket,
+    and a glass jug with handle and lid, a third full of coffee."""
+    V = lambda dx, dy, dz: Vector((x + dx, y + dy, z + dz))  # noqa: E731
+    jy = -0.215  # jug and basket centre, in front of the column
+    k.rbox((0.19, 0.30, 0.045), V(0, -0.15, 0.0225), m["black"], 0.012, segs=2)          # base
+    k.cyl(0.068, 0.068, 0.006, V(0, jy, 0.048), m["steel"], segs=28)                     # hot plate
+    k.box((0.035, 0.012, 0.018), V(0.055, -0.302, 0.024), m["black"])                    # rocker switch
+    k.box((0.012, 0.004, 0.008), V(0.055, -0.309, 0.026), rm["lamp_red"])
+    k.rbox((0.095, 0.085, 0.27), V(0, -0.065, 0.045 + 0.135), m["alu"], 0.012, segs=2)   # column
+    k.rbox((0.20, 0.12, 0.20), V(0, -0.075, 0.315 + 0.10), rm["tank"], 0.015, segs=2)    # water tank
+    k.rbox((0.205, 0.125, 0.018), V(0, -0.075, 0.524), m["black"], 0.008, segs=2)        # its lid
+    for i in range(6):  # cup marks on the tank front
+        k.box((0.03 if i % 2 else 0.05, 0.002, 0.003), V(-0.06, -0.1355, 0.34 + i * 0.03), m["black"])
+    k.rbox((0.05, 0.16, 0.026), V(0, -0.17, 0.475), m["alu"], 0.008, segs=2)             # outlet arm
+    # Brew basket: an open cone hanging under the arm, with a lid and a tab
+    k.lathe([(0.0, 0.34), (0.030, 0.34), (0.034, 0.35), (0.072, 0.455), (0.076, 0.462), (0.0, 0.462)],
+            m["black"], segs=32, center=V(0, jy, 0))
+    k.box((0.03, 0.035, 0.012), V(0, jy - 0.09, 0.44), m["black"])
+    # Jug: glass above the coffee, a black lid and handle
+    coffee = [(0.0, 0.051), (0.058, 0.051), (0.067, 0.07), (0.069, 0.105)]
+    glass = [(0.069, 0.105), (0.064, 0.15), (0.056, 0.19), (0.058, 0.205)]
+    k.lathe(coffee, m["coffee"], segs=32, center=V(0, jy, 0))
+    k.lathe(glass, rm["glass"], segs=32, center=V(0, jy, 0))
+    k.cyl(0.062, 0.05, 0.018, V(0, jy, 0.213), m["black"], segs=28)                     # lid
+    k.tube([V(0.062, jy, 0.18), V(0.105, jy, 0.175), V(0.11, jy, 0.10), V(0.068, jy, 0.075)], 0.008,
+           m["black"], segs=10, normal=Vector((0, 1, 0)))
+
+
+def _blade(bld, base, heading, rise, length, width, droop, mat, segs=5, fold=0.25, thick=0.0015):
+    """One strap leaf on builder bld: a thin solid ribbon from `base`
+    leaving at angle `rise` above the horizontal toward `heading` (radians),
+    arching down by `droop`, widest a third of the way along, with a fold
+    along the midrib. Its root sits on the stem, so nothing floats."""
+    def make():
+        d = Vector((math.cos(heading), math.sin(heading), 0))
+        side = Vector((0, 0, 1)).cross(d).normalized()
+        top, bot = [], []
+        for i in range(segs + 1):
+            t = i / segs
+            c = base + d * (length * t * math.cos(rise)) + Vector((0, 0, length * t * math.sin(rise) - droop * length * t * t))
+            ahead = d * math.cos(rise) + Vector((0, 0, math.sin(rise) - 2 * droop * t))
+            n = side.cross(ahead).normalized()
+            if n.z < 0:
+                n = -n
+            w = width * max(0.08, math.sin(math.pi * min(t * 1.4, 1)) ** 0.7) * (0.35 + 0.65 * min(t * 3, 1)) / 2
+            row = [c - side * w - n * w * fold, c, c + side * w - n * w * fold]
+            top.append([bld.bm.verts.new(p) for p in row])
+            bot.append([bld.bm.verts.new(p - n * thick) for p in row])
+        for i in range(segs):
+            for j in range(2):
+                bld.bm.faces.new((top[i][j], top[i][j + 1], top[i + 1][j + 1], top[i + 1][j]))
+                bld.bm.faces.new((bot[i][j + 1], bot[i][j], bot[i + 1][j], bot[i + 1][j + 1]))
+            for j in (0, 2):
+                bld.bm.faces.new((top[i][j], top[i + 1][j], bot[i + 1][j], bot[i][j]))
+        bld.bm.faces.new((top[0][0], bot[0][0], bot[0][1], bot[0][2], top[0][2], top[0][1]))
+        bld.bm.faces.new((top[-1][0], top[-1][1], top[-1][2], bot[-1][2], bot[-1][1], bot[-1][0]))
+    bld._new(mat, make)
+
+
 def make_plant(m, name="Plant", height=1.4):
-    """Tall potted plant: a dark pot and a loose crown of long leaves."""
+    """Tall office dracaena: three bare canes of different heights in a
+    dark pot, each topped by a rosette of arching strap leaves that grow
+    out of the cane (upright in the middle, drooping further out)."""
     rm = _room_mats(m)
     p = Builder(name)
-    p.cyl(0.20, 0.16, 0.42, Vector((0, 0, 0.21)), rm["pot"], segs=20)
-    p.cyl(0.015, 0.015, height - 0.4, Vector((0, 0, 0.4 + (height - 0.4) / 2)), m["card"], segs=8)
+    p.cyl(0.16, 0.20, 0.42, Vector((0, 0, 0.21)), rm["pot"], segs=24)
+    p.cyl(0.185, 0.185, 0.01, Vector((0, 0, 0.395)), rm["soil"], segs=24)
     rng = __import__("random").Random(len(name) * 7)
-    for i in range(18):
-        a = i * 2.4
-        z = 0.65 + (height - 0.65) * (i / 18) ** 0.8
-        tilt = rng.uniform(0.5, 1.1)
-        p.box((0.06, 0.40, 0.006), Vector((0.18 * math.cos(a), 0.18 * math.sin(a), z)), rm["leaf"],
-              orient=_rot(x=tilt, z=a + math.pi / 2))
+    for c, (frac, ox, oy) in enumerate([(1.0, 0.03, -0.02), (0.78, -0.06, 0.03), (0.6, 0.05, 0.06)]):
+        top = 0.40 + (height - 0.65) * frac
+        lean = Vector((ox, oy, 0)) * 1.5
+        foot, tip = Vector((ox, oy, 0.39)), Vector((ox, oy, top)) + lean
+        p.tube([foot, (foot + tip) / 2 + lean * 0.1, tip], 0.014 - 0.002 * c, rm["cane"], segs=8,
+               normal=Vector((-oy, ox, 0)).normalized() if (ox or oy) else Vector((1, 0, 0)))
+        n = 18 - 3 * c
+        for i in range(n):
+            u = i / (n - 1)                         # 0: innermost, upright; 1: outermost, drooping
+            z = tip.z - 0.16 * u                    # the older leaves sit lower down the cane
+            at = foot.lerp(tip, (z - foot.z) / (tip.z - foot.z))
+            _blade(p, at, i * 2.4 + c + rng.uniform(-0.2, 0.2), math.radians(75 - 55 * u + rng.uniform(-6, 6)),
+                   0.30 + 0.18 * u + rng.uniform(-0.03, 0.03), 0.06, 0.25 + 0.55 * u,
+                   rm["leaf"] if (i + c) % 3 else rm["leaf_light"])
     return p.done()
 
 
