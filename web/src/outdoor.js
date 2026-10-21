@@ -32,6 +32,8 @@ const KEYS = [
   [90, [0.5, 0.9, 1.9], [1.6, 1.75, 2.0], [6.5, 6.2, 5.8]],
 ];
 const MOONLIGHT = [0.012, 0.016, 0.026];
+export const REAL_TIME = 1 / 3600;
+const CCTV_GAIN = 8; // the cameras' most exposure gain: at night they see little
 
 // Presets for the weather buttons: cloud cover, wind, fog, rain (all 0..1)
 export const WEATHER = {
@@ -269,7 +271,8 @@ export class Outdoor {
   constructor(seaLevel) {
     this.seaLevel = seaLevel;
     // time in hours (local solar time), day of year, weather 0..1
-    this.state = { time: 22.5, day: 294, clouds: 0.3, wind: 0.35, fog: 0.1, rain: 0, speed: 0 };
+    // speed: hours per second; the clock runs in real time unless sped up
+    this.state = { time: 22.5, day: 294, clouds: 0.3, wind: 0.35, fog: 0.1, rain: 0, speed: REAL_TIME };
     this.uniforms = {
       uZenith: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() },
       uSunColor: { value: new THREE.Color() }, uMoonColor: { value: new THREE.Color() },
@@ -384,6 +387,22 @@ export class Outdoor {
     // Eyes adapt to the room as much as to the window: only part of the way
     L.exposure = 0.8 / (0.3 * adapt + 0.8);
     ru.uColor.value.copy(L.sky).multiplyScalar(1.4).addScalar(0.004);
+
+    // For the CCTV pictures on the wall screens (screens.js): the same sky
+    // and sea as CSS colours, as an auto-exposing camera would see them
+    const k = Math.min(CCTV_GAIN, 0.8 / (lsky + 0.01));
+    const css = (col, gain = 1) => [col.r, col.g, col.b].map((x) => Math.round(255 * ((x * k * gain) / (1 + x * k * gain)) ** (1 / 2.2)));
+    const cloud = u.uZenith.value.clone().lerp(u.uHorizon.value, 0.5);
+    const cl = cloud.r * 0.2126 + cloud.g * 0.7152 + cloud.b * 0.0722;
+    cloud.lerp(new THREE.Color(cl, cl, cl), 0.7).multiplyScalar(1 - 0.5 * c).add(sunColor.clone().multiplyScalar(0.08));
+    this.cctv = {
+      time: s.time, wind: s.wind, clouds: c, fog: u.uFog.value, rain: s.rain,
+      day: THREE.MathUtils.smoothstep(e, -6, 6),
+      skyTop: css(u.uZenith.value), skyLow: css(u.uHorizon.value.clone().lerp(u.uFogColor.value, 0.5)),
+      cloud: css(cloud), fogColor: css(u.uFogColor.value),
+      seaFar: css(u.uHorizon.value.clone().lerp(u.uZenith.value, 0.5), 0.45), seaNear: css(u.uZenith.value, 0.25),
+      glint: css(sunColor.clone().multiplyScalar(through).add(u.uMoonColor.value.clone().multiplyScalar(20)), 0.3),
+    };
   }
 
   // Draw the sky and sea for `camera`, then leave the depth buffer clear for

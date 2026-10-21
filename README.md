@@ -75,9 +75,13 @@ sliders for time of day, clouds, wind, fog and rain, plus weather presets
 sets them too: `control.html?cam=4&time=17.2&weather=storm`.
 
 The same numbers light the room. The sky's average colour tints the baked
-sky light map, so daylight on the desks follows the window, and the platform
-outside also gets the sun from its normals (without shadows). The sun does
-not yet shine into the room itself.
+sky light map, so daylight on the desks follows the window. The sun and the
+moon are added live with shadows (`web/src/sunShadow.js`): two small depth
+maps, one over the room for the patch of sun through the window, one over the
+platform, drawn again only when the sun moves (the room's a few times a
+second, for chairs that turn). Inside, a ray to the sun must also pass
+through the window opening. The CCTV pictures and the weather screen on the
+wall follow the same weather and clock.
 
 ## Offshore platform
 
