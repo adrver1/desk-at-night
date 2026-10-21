@@ -186,6 +186,15 @@ class Mesh:
         bm.free()
         return self
 
+    def bar(self, a, b, w, swatch, region):
+        """A thin square bar from a to b, w thick each way: wires, arms, frames."""
+        a, b = Vector(a), Vector(b)
+        d = (b - a).normalized()
+        u = d.cross(Z if abs(d.z) < 0.9 else X).normalized()
+        v = d.cross(u)
+        return self.hull([p + u * su * w + v * sv * w for p in (a, b) for su in (-1, 1) for sv in (-1, 1)],
+                         swatch, region)
+
     def mirrored(self):
         """Copy mirrored across X (the character's right to left)."""
         m = Mesh()

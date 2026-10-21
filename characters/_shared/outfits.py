@@ -137,15 +137,6 @@ def helmet():
     return m
 
 
-def _box(m, a, b, w, swatch, region):
-    """A thin square bar from a to b, w thick each way."""
-    a, b = Vector(a), Vector(b)
-    d = (b - a).normalized()
-    u = d.cross(Vector((0, 0, 1)) if abs(d.z) < 0.9 else Vector((1, 0, 0))).normalized()
-    v = d.cross(u)
-    m.hull([p + u * su * w + v * sv * w for p in (a, b) for su in (-1, 1) for sv in (-1, 1)], swatch, region)
-
-
 def ear_defender(m, s):
     """Helmet-mounted ear defender on side s: a black clip plugged into the
     slot on the helmet's side, an arm down from it, a wire yoke round the
@@ -165,10 +156,10 @@ def ear_defender(m, s):
             for z in (1.664, 1.692)], CLIP, "ear_cup")
     # Arm from the clip down past the rim to the top of the yoke
     top = (s * 0.174, cy, 1.656)
-    _box(m, (s * 0.170, cy, 1.672), top, 0.006, CLIP, "ear_cup")
+    m.bar((s * 0.170, cy, 1.672), top, 0.006, CLIP, "ear_cup")
     # Yoke: two wires from the arm out to pivots at the cup's front and back
     for dy in (0.046, -0.046):
-        _box(m, top, (s * 0.172, cy + dy, cz), 0.0035, CLIP, "ear_cup")
+        m.bar(top, (s * 0.172, cy + dy, cz), 0.0035, CLIP, "ear_cup")
         m.hull([Vector((s * x, cy + dy * 0.98 + ddy, cz + dz)) for x in (0.156, 0.176)
                 for ddy in (-0.008, 0.008) for dz in (-0.008, 0.008)], CLIP, "ear_cup")
 
@@ -207,7 +198,7 @@ def glasses():
                 for d in (-0.003, 0.002)], SHIELD, "glasses")
         # Arm back to the ear
         a = base.head_point(ang(36), 1.638, off)
-        _box(m, (a.x, a.y, a.z), (s * 0.122, -0.022, 1.630), 0.003, FRAME, "glasses")
+        m.bar((a.x, a.y, a.z), (s * 0.122, -0.022, 1.630), 0.003, FRAME, "glasses")
     return m
 
 
