@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { loadControlRoom } from './controlScene.js';
 import { Outdoor } from './outdoor.js';
+import { Cctv } from './cctv.js';
 import { outdoorControls } from './outdoorControls.js';
 
 const $ = (id) => document.getElementById(id);
@@ -33,13 +34,15 @@ controls.minDistance = 0.3;
 controls.maxDistance = 9;
 const home = { position: new THREE.Vector3(), target: new THREE.Vector3() };
 
-let room, outdoor, last = 0, userEv = 0;
+let room, outdoor, cctv, last = 0, userEv = 0;
 
 async function load() {
   room = await loadControlRoom(renderer);
   scene.add(room.root);
   outdoor = new Outdoor(room.seaLevel);
   outdoor.setWindow(room.window.lo, room.window.hi);
+  // The deck cameras' live pictures; without them the screens draw their own
+  Cctv.load(renderer, outdoor).then((c) => { cctv = c; if (c) room.setFeeds(c.feeds, c.gain); }).catch((e) => console.warn('cctv', e));
   scene.add(outdoor.room);
   outdoorControls(document.getElementById('outdoor'), outdoor);
   const pick = Number(new URLSearchParams(location.search).get('cam')) || 0; // ?cam=2 for the operator's view
@@ -99,6 +102,7 @@ renderer.setAnimationLoop((now) => {
   room.setDaylight(outdoor.light, now / 1000);
   room.setClock(outdoor.state.time);
   room.updateScreens(now / 1000, outdoor.cctv);
+  if (cctv) cctv.update(now / 1000, room.feedsShown());
   controls.update();
   outdoor.render(renderer, camera);
   renderer.render(scene, camera);
