@@ -17,12 +17,15 @@ the company's ribbon logo big on the back and small on the chest pocket,
 navy trousers and black safety boots. Out on deck add a white helmet with
 the logo sticker, blue ear defenders, safety glasses and gloves.
 """
+import math
+
 import base_body as base
 
 Vector = base.Vector
 
 HIVIS, NAVY, TAPE = "hivis_yellow", "coverall_navy", "reflective"
-HELMET, RUBBER, CUP, GLOVE, LENS = "helmet_white", "rubber", "helmet_blue", "grey", "glass"
+HELMET, RUBBER, CUP, GLOVE = "helmet_white", "rubber", "helmet_blue", "grey"
+FRAME, SHIELD, CLIP = "glass", "glass_clear", "plastic_black"
 
 # The Aker BP logo, simplified to three flat ribbons (magenta, orange,
 # green) stacked in an S, as (swatch, outline) in a unit box seen from the
@@ -115,7 +118,7 @@ def leg_bands():
 
 def helmet():
     """White safety helmet: a faceted dome, a short peak at the front and
-    ear defenders clipped under the rim at the sides, the logo sticker on
+    ear defenders on arms from the side slots, the logo sticker on
     the front."""
     rings = []
     # (height, head ring height it follows, offset): the top two rings round
@@ -130,28 +133,81 @@ def helmet():
            HELMET, "helmet")
     logo(m, m.bvh(), 0.0, 1.705, 0.042, 0.05)
     for s in (1, -1):
-        # cup over the ear, its top tucked under the helmet rim
-        m.hull([Vector((s * (0.122 + dx), -0.012 + dy, 1.605 + dz))
-                for dx in (0.0, 0.035) for dy in (-0.04, 0.035) for dz in (-0.045, 0.05)], CUP, "ear_cup")
+        ear_defender(m, s)
     return m
 
 
-def glasses():
-    """Clear safety glasses, drawn as their frame only so the eyes show:
-    a top bar over both eyes, lower rims, a bridge and arms to the ears."""
-    m = base.Mesh()
-    y = base.head_point(90, 1.62).y + 0.012
+def _box(m, a, b, w, swatch, region):
+    """A thin square bar from a to b, w thick each way."""
+    a, b = Vector(a), Vector(b)
+    d = (b - a).normalized()
+    u = d.cross(Vector((0, 0, 1)) if abs(d.z) < 0.9 else Vector((1, 0, 0))).normalized()
+    v = d.cross(u)
+    m.hull([p + u * su * w + v * sv * w for p in (a, b) for su in (-1, 1) for sv in (-1, 1)], swatch, region)
 
-    def bar(x0, x1, z0, z1, y0, y1):
-        m.hull([Vector((x, yy, z)) for x in (x0, x1) for z in (z0, z1) for yy in (y0, y1)], LENS, "glasses")
-    bar(-0.078, 0.078, 1.632, 1.641, y - 0.004, y + 0.002)
+
+def ear_defender(m, s):
+    """Helmet-mounted ear defender on side s: a black clip plugged into the
+    slot on the helmet's side, an arm down from it, a wire yoke round the
+    cup to two pivots, and the blue cup on a black cushion over the ear."""
+    cy, cz = -0.012, 1.588          # cup centre (over the ear)
+    # Cushion against the head and the blue shell outside it, both oval
+    for x0, x1, ru, rv, sw in ((0.118, 0.136, 0.034, 0.046, RUBBER), (0.136, 0.160, 0.032, 0.044, CUP)):
+        shrink = 0.82 if sw == CUP else 1.0
+        pts = []
+        for x, k in ((x0, 1.0), (x1, shrink)):
+            for i in range(6):
+                a = math.radians(60 * i)
+                pts.append(Vector((s * x, cy + k * rv * math.cos(a), cz + k * ru * math.sin(a))))
+        m.hull(pts, sw, "ear_cup")
+    # Clip in the helmet's side slot, just above the rim
+    m.hull([Vector((s * x, cy + dy, z)) for x in (0.146, 0.166) for dy in (-0.016, 0.016)
+            for z in (1.664, 1.692)], CLIP, "ear_cup")
+    # Arm from the clip down past the rim to the top of the yoke
+    top = (s * 0.170, cy, 1.646)
+    _box(m, (s * 0.170, cy, 1.668), top, 0.006, CLIP, "ear_cup")
+    # Yoke: two wires from the arm out to pivots at the cup's front and back
+    for dy in (0.05, -0.05):
+        _box(m, top, (s * 0.165, cy + dy, 1.588), 0.0035, CLIP, "ear_cup")
+        m.hull([Vector((s * x, cy + dy * 0.98 + ddy, 1.588 + dz)) for x in (0.150, 0.168)
+                for ddy in (-0.008, 0.008) for dz in (-0.008, 0.008)], CLIP, "ear_cup")
+
+
+def glasses():
+    """Wraparound safety glasses, drawn as their frame only so the eyes show:
+    a brow bar curving round the face, a thin lower rim under each lens, a
+    nose bridge, clear side shields at the temples and arms to the ears."""
+    m = base.Mesh()
+    off = 0.014
+    top0, top1 = 1.634, 1.645       # brow bar
+    # The brow bar follows the face from temple to temple
+    angles = (36, 63, 90, 117, 144)
+    for a0, a1 in zip(angles, angles[1:]):
+        pts = []
+        for a in (a0, a1):
+            for z in (top0, top1):
+                pts += [base.head_point(a, z, off - 0.003), base.head_point(a, z, off + 0.003)]
+        m.hull(pts, FRAME, "glasses")
     for s in (1, -1):
-        lo, hi = sorted((s * 0.018, s * 0.07))
-        bar(lo, hi, 1.594, 1.6, y - 0.004, y + 0.001)
-        # the outer edge of the lens and the arm back to the ear
-        bar(s * 0.07 - 0.004, s * 0.07 + 0.004, 1.594, 1.641, y - 0.006, y)
-        m.hull([Vector((s * 0.078, y - 0.01, 1.632)), Vector((s * 0.078, y - 0.01, 1.64)),
-                Vector((s * 0.128, -0.02, 1.625)), Vector((s * 0.128, -0.02, 1.632))], LENS, "glasses")
+        def ang(a):
+            return a if s == 1 else 180 - a
+        # Lower rim: from the bridge it dips under the eye and climbs to the shield
+        rim = ((84, 1.606), (66, 1.593), (44, 1.604))
+        for (a0, z0), (a1, z1) in zip(rim, rim[1:]):
+            pts = []
+            for a, z in ((ang(a0), z0), (ang(a1), z1)):
+                for dz in (0.0, 0.005):
+                    pts += [base.head_point(a, z + dz, off - 0.003), base.head_point(a, z + dz, off + 0.002)]
+            m.hull(pts, FRAME, "glasses")
+        # Nose pad: from the brow bar down to the rim beside the nose
+        m.hull([base.head_point(ang(a), z, off + d) for a in (84, 89) for z in (1.606, top0)
+                for d in (-0.003, 0.002)], FRAME, "glasses")
+        # Side shield: a clear wedge from the brow bar to the rim at the temple
+        m.hull([base.head_point(ang(a), z, off + d) for a, z in ((36, top1), (44, top0), (44, 1.604), (34, 1.612))
+                for d in (-0.003, 0.002)], SHIELD, "glasses")
+        # Arm back to the ear
+        a = base.head_point(ang(36), 1.638, off)
+        _box(m, (a.x, a.y, a.z), (s * 0.122, -0.022, 1.630), 0.003, FRAME, "glasses")
     return m
 
 

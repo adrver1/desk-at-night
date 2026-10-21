@@ -37,7 +37,9 @@ to also write a contact sheet next to the reference into a private folder.
   rings, so they fit every character: `ppe` (Aker BP hi-vis jacket with
   the ribbon logo on the back and chest pocket, navy lower sleeves and
   trousers, reflective bands, safety boots) and `ppe_deck` (adds a white
-  helmet with logo sticker, blue ear defenders, safety glasses, gloves).
+  helmet with logo sticker, blue ear defenders on black clip arms from the
+  helmet's side slots, wraparound safety glasses drawn as frame and clear
+  side shields, gloves).
   Logos are flat polygons projected onto the shell (`Mesh.decal_poly`). A character script builds every outfit by default
   (`--outfit office|ppe|ppe_deck|all`); each one writes its own
   `<name>_<outfit>.glb` on the same rig, plus suffixed renders.
@@ -51,4 +53,4 @@ to also write a contact sheet next to the reference into a private folder.
 | Character | Triangles | Palette | Check |
 |---|---|---|---|
 | `_shared/base_body` | 654 | undersuit, skin_3, charcoal | Past about 120° the calf passes into the thigh |
-| `bearded_operator` | 878 | skin_2, hair_strawberry, hair_ginger, white, light_grey, navy, leather_brown, charcoal, steel | Outfits: office 878, `ppe` 1,000, `ppe_deck` 1,163 triangles. Hair variants `side_part` (live), `quiff`, `crop`: `--hair` or `HAIR_STYLE`. Lower body invented (reference is a head-and-shoulders shot): shirt tucked in, belt, navy trousers, brown shoes. Beard is a single convex hull, so it reads as a spade from the front but a wedge from the side |
+| `bearded_operator` | 878 | skin_2, hair_strawberry, hair_ginger, white, light_grey, navy, leather_brown, charcoal, steel | Outfits: office 878, `ppe` 1,000, `ppe_deck` 1,457 triangles. Hair variants `side_part` (live), `quiff`, `crop`: `--hair` or `HAIR_STYLE`. Lower body invented (reference is a head-and-shoulders shot): shirt tucked in, belt, navy trousers, brown shoes. Beard is a single convex hull, so it reads as a spade from the front but a wedge from the side |

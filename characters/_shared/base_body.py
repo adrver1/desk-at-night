@@ -246,23 +246,31 @@ class Mesh:
     def to_object(self, name, collection=None):
         me = bpy.data.meshes.new(name)
         me.from_pydata([tuple(p) for p in self.verts], [], [ids for ids, _, _ in self.faces])
+        # Swatch and region ride along as face attributes, so they stay with
+        # their faces when validating or welding drops a degenerate one
+        regions = sorted({r for _, _, r in self.faces})
+        swatches = sorted({s for _, s, _ in self.faces})
+        attr = me.attributes.new("region", "INT", "FACE")
+        sw_attr = me.attributes.new("swatch", "INT", "FACE")
+        for i, (_, sw, reg) in enumerate(self.faces):
+            attr.data[i].value = regions.index(reg)
+            sw_attr.data[i].value = swatches.index(sw)
         me.validate()
         # Parts are built face by face; weld shared corners so the mesh is
-        # connected (bone heat weighting needs that). Faces keep their order.
+        # connected (bone heat weighting needs that).
         bm = bmesh.new()
         bm.from_mesh(me)
         bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
         bm.to_mesh(me)
         bm.free()
         uvl = me.uv_layers.new(name="UVMap")
-        regions = sorted({r for _, _, r in self.faces})
-        attr = me.attributes.new("region", "INT", "FACE")
-        for poly, (_, sw, reg) in zip(me.polygons, self.faces):
-            u, v = palette.uv(sw)
+        sw_attr = me.attributes["swatch"]
+        for poly in me.polygons:
+            u, v = palette.uv(swatches[sw_attr.data[poly.index].value])
             for li in poly.loop_indices:
                 uvl.data[li].uv = (u, v)
-            attr.data[poly.index].value = regions.index(reg)
             poly.use_smooth = False
+        me.attributes.remove(sw_attr)
         me["regions"] = regions
         me.materials.append(material())
         ob = bpy.data.objects.new(name, me)
@@ -708,8 +716,13 @@ def strip(paths, out, title=None):
 
 
 def _save(img, path, quantize=True):
-    """Flat colours survive a 256-colour palette, at a fraction of the size."""
-    (img.quantize(256) if quantize else img).save(path, optimize=True)
+    """Flat colours survive a 256-colour palette, at a fraction of the size.
+    Octree without dithering keeps small accents (logos, clips) true: median
+    cut merged them into their big neighbours and dithered the rest."""
+    from PIL import Image
+    if quantize:
+        img = img.convert("RGB").quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
+    img.save(path, optimize=True)
 
 
 def _font(size):

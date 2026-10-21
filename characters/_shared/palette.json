@@ -309,6 +309,11 @@
   "col": 9,
   "hex": "#2a2c2f"
  },
+ "glass_clear": {
+  "row": 6,
+  "col": 10,
+  "hex": "#cfe2e8"
+ },
  "logo_magenta": {
   "row": 7,
   "col": 0,
