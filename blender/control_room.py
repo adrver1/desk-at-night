@@ -62,6 +62,7 @@ TV_A = -(WALL_N - 1) / 2 * (WALL_W + 0.03) / WALL_R - (WALL_W / 2 + 0.15 + TV_W 
 ROOM_X, ROOM_Y0, ROOM_Y1, ROOM_Z = 5.4, -3.6, 4.6, 2.9
 WIN_Y0, WIN_Y1, WIN_Z0, WIN_Z1 = -2.4, 2.6, 0.85, 2.45  # window in the left (-X) wall
 NOOK_X0, NOOK_Y0 = 0.4, -5.6           # rest corner: x from here to ROOM_X, y from here to ROOM_Y0
+FLOOR_LAMP = (NOOK_X0 + 2.62, NOOK_Y0 + 0.30)  # at the sofa's right end, Blender x, y
 NOOK_DOOR = (3.55, 4.55)               # opening in the rear wall into it (x range)
 DOOR_Y, DOOR_W, DOOR_H = ROOM_Y0 + 1.1, 0.95, 2.10  # door in the right wall, near the rear
 GLASS_X0 = 2.0                         # behind the display band: dark wall left of this, glass to the right
@@ -120,6 +121,9 @@ def materials():
     m["platform_window"] = emissive("PlatformWindow", (1.0, 0.85, 0.6), 2.5)  # lit cabins in the quarters
     m["platform_red"] = emissive("PlatformRed", (1.0, 0.05, 0.02), 60.0)      # obstruction lights
     m["exit_sign"] = emissive("ExitSign", (0.10, 1.0, 0.30), 4.0)
+    # The rest corner's floor lamp, a light the player can switch
+    m["floor_lamp_shade"] = emissive("FloorLampShade", (1.0, 0.78, 0.52), 1.2)
+    m["floor_lamp_glow"] = emissive("FloorLampGlow", (1.0, 0.74, 0.46), 4.0)
     m["door"] = mat_flat("Door", (0.50, 0.52, 0.53), 0.5)
     return m
 
@@ -504,6 +508,10 @@ def build_lounge(m):
     for o in props.make_wall_clock(pm, "WallClock", CLOCK_STYLE, live=True):  # the hands follow the game's clock
         props.place(o, kx + 0.1, NY, 1.95, math.pi)
     props.place(props.make_plant(pm, "PlantNook", 1.2, light=LIGHT_PLANTS), NX + 0.30, ROOM_Y0 - 0.30, 0.0)
+    # A floor lamp at the sofa's right end, which the player switches
+    fx, fy = FLOOR_LAMP
+    for o in props.make_floor_lamp(pm, m["floor_lamp_glow"], m["floor_lamp_shade"], "FloorLamp", split=True):
+        props.place(o, fx, fy, 0.0)
 
 
 # Floor-plan obstacles beyond the desks, band and table, for the walk:
@@ -522,6 +530,7 @@ def obstacles():
         (ROOM_X - 0.9, NOOK_Y0 + 0.30, 0.9, 0.30, 0.0),    # counter
         (-4.85, ROOM_Y0 + 0.35, 0.22, 0.22, 0.0),          # plants
         (NOOK_X0 + 0.30, ROOM_Y0 - 0.30, 0.22, 0.22, 0.0),
+        (*FLOOR_LAMP, 0.16, 0.16, 0.0),                    # floor lamp
     ]
     for name in ("Shift", "Notes"):
         (x, y, _), yaw = BOARDS[name][2], BOARDS[name][3]

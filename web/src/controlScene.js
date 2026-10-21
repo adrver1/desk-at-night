@@ -20,7 +20,11 @@ const SCENE = 'control/';
 const FRESH = { cache: 'no-cache' };
 // The screens carry a pattern in Cycles but are drawn here in their average
 // colour; at full strength that reads as a white slab, so draw them dimmer.
-const DISPLAY = { screens: 0.32, ceiling: 1 };
+const DISPLAY = { screens: 0.32, ceiling: 1, floorlamp: 0.6 };
+// A lamp that is off: its shade lit like the room around it (by the ceiling
+// lights; the emitters are not in the bake), not black
+const LAMP_OFF = new THREE.Color(0.8, 0.76, 0.7).multiplyScalar(0.025);
+const lampOff = new THREE.Color();
 // The screens show content from screens.js. Redrawing and re-uploading all of
 // them a few times a second was too slow, so they are drawn once, as they
 // look STATIC_T seconds into the shift (phones get a half-size atlas), and
@@ -48,6 +52,32 @@ function drawWallClock(c, text) {
   ctx.fillStyle = '#fff';
   ctx.fillText(text, canvas.width / 2, canvas.height * 0.54);
   c.tex.needsUpdate = true;
+}
+
+// The emergency exit sign over the door: a white running figure heading
+// into a doorway, on green (the ISO 7010 escape-route style), filling the
+// canvas; the figure's right is the viewer's right
+function drawExitSign(canvas) {
+  const ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height, u = h / 100;
+  ctx.fillStyle = '#00a651';
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = ctx.fillStyle = '#fff';
+  ctx.lineCap = ctx.lineJoin = 'round';
+  // The doorway: a white frame, open, with the floor line running out of it
+  const dx = w / 2 + 18 * u;
+  ctx.lineWidth = 6 * u;
+  ctx.strokeRect(dx, 14 * u, 34 * u, 72 * u);
+  ctx.beginPath(); ctx.moveTo(w / 2 - 50 * u, 86 * u); ctx.lineTo(dx, 86 * u); ctx.stroke();
+  // The running figure, mid-stride toward the door
+  const x = w / 2 - 12 * u, limb = (pts) => { ctx.beginPath(); ctx.moveTo(...pts[0]); for (const p of pts.slice(1)) ctx.lineTo(...p); ctx.stroke(); };
+  ctx.beginPath(); ctx.arc(x + 10 * u, 18 * u, 8 * u, 0, 2 * Math.PI); ctx.fill();
+  ctx.lineWidth = 11 * u;
+  limb([[x + 6 * u, 32 * u], [x - 2 * u, 54 * u]]);                          // torso, leaning forward
+  ctx.lineWidth = 7 * u;
+  limb([[x + 5 * u, 34 * u], [x + 18 * u, 40 * u], [x + 26 * u, 32 * u]]);    // front arm
+  limb([[x + 4 * u, 34 * u], [x - 10 * u, 42 * u], [x - 18 * u, 36 * u]]);    // back arm
+  limb([[x - 2 * u, 54 * u], [x + 12 * u, 64 * u], [x + 8 * u, 80 * u]]);     // front leg
+  limb([[x - 2 * u, 54 * u], [x - 14 * u, 66 * u], [x - 28 * u, 70 * u]]);    // back leg
 }
 
 function canvasTexture(renderer, w, h) {
@@ -102,6 +132,10 @@ const roomFragment = /* glsl */ `
   uniform float uScaleSky;
   uniform vec3 uSky;     // the live sky's average radiance (the bake used 1)
   uniform int uMode;     // 0 final, 1 albedo, 2 ceiling light, 3 screens light, 4 sky light
+  // The rest corner's lamps (meta.lamps, up to two), switched one by one
+  uniform sampler2D uLightLamp0, uLightLamp1;
+  uniform float uScaleLamp0, uScaleLamp1;
+  uniform float uLamp0, uLamp1;
   varying vec2 vUv;
   // The sun (or moon) as direct light, live, with a shadow map (sunShadow.js)
   uniform vec3 uSun;
@@ -162,10 +196,11 @@ const roomFragment = /* glsl */ `
     vec3 eCeiling = uCeiling * decode(uLightCeiling, uScaleCeiling);
     vec3 eScreens = uScreens * decode(uLightScreens, uScaleScreens);
     vec3 eSky = uSky * decode(uLightSky, uScaleSky);
+    vec3 eLamps = uLamp0 * decode(uLightLamp0, uScaleLamp0) + uLamp1 * decode(uLightLamp1, uScaleLamp1);
     vec3 n = normalize(vNormal);
     float facing = dot(n, uSunDir);
     if (facing > 0.0 && dot(uSun, uSun) > 1e-8) eSky += uSun * facing * sunlit(n);
-    vec3 color = albedo * (eCeiling + eScreens + eSky);
+    vec3 color = albedo * (eCeiling + eScreens + eSky + eLamps);
     if (uMode == 2) color = eCeiling;
     if (uMode == 3) color = eScreens;
     if (uMode == 4) color = eSky;
@@ -214,13 +249,15 @@ async function texture(renderer, buffer, srgb) {
 
 export async function loadControlRoom(renderer) {
   const meta = await fetch(SCENE + 'meta.json', FRESH).then((r) => { if (!r.ok) throw new Error('Could not load meta.json. Run blender/bake_control_room.py first.'); return r.json(); });
-  const [glb, albedoBuf, ceilBuf, scrBuf, skyBuf] = await Promise.all([
+  const lamps = Object.entries(meta.lamps ?? {}).slice(0, 2); // [name, { map, scale }]
+  const [glb, albedoBuf, ceilBuf, scrBuf, skyBuf, ...lampBufs] = await Promise.all([
     bytes('scene.glb'), bytes('albedo.png'), bytes('light_ceiling.png'), bytes('light_screens.png'),
-    meta.scaleSky ? bytes('light_sky.png') : null,
+    meta.scaleSky ? bytes('light_sky.png') : null, ...lamps.map(([, l]) => bytes(l.map)),
   ]);
-  const [albedo, lightCeiling, lightScreens, lightSky] = await Promise.all([
+  const [albedo, lightCeiling, lightScreens, lightSky, ...lampMaps] = await Promise.all([
     texture(renderer, albedoBuf, true), texture(renderer, ceilBuf, false), texture(renderer, scrBuf, false),
     skyBuf ? texture(renderer, skyBuf, false) : blackMap(),
+    ...lampBufs.map((buf) => texture(renderer, buf, false)),
   ]);
   const gltf = await new GLTFLoader().parseAsync(glb, '');
 
@@ -238,6 +275,9 @@ export async function loadControlRoom(renderer) {
       uLightSky: { value: lightSky }, uScaleSky: { value: meta.scaleSky ?? 0 }, uSky: { value: new THREE.Color(0, 0, 0) },
       uSun: { value: new THREE.Color(0, 0, 0) }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
       ...shadows.room.uniforms,
+      uLightLamp0: { value: lampMaps[0] ?? blackMap() }, uLightLamp1: { value: lampMaps[1] ?? blackMap() },
+      uScaleLamp0: { value: lamps[0]?.[1].scale ?? 0 }, uScaleLamp1: { value: lamps[1]?.[1].scale ?? 0 },
+      uLamp0: { value: 1 }, uLamp1: { value: 1 },
       uWindowLo: { value: new THREE.Vector3(...windowLo) }, uWindowHi: { value: new THREE.Vector3(...windowHi) },
     },
   });
@@ -294,7 +334,8 @@ export async function loadControlRoom(renderer) {
     if (!mesh) continue;
     const textured = screens && name.startsWith('EmitScreen');
     mesh.material = new THREE.MeshBasicMaterial(textured ? { map: screens.atlas } : {});
-    emitters.push({ material: mesh.material, color: new THREE.Color(...e.color), strength: e.strength, group: e.group, textured });
+    emitters.push({ material: mesh.material, color: new THREE.Color(...e.color), strength: e.strength, group: e.group, textured,
+      lamp: lamps.findIndex(([n]) => n === e.group), mesh });
     if (textured) screens.meshes.push(mesh);
   }
   // The red wall clock: its digits on a face in front of the glowing box,
@@ -313,6 +354,22 @@ export async function loadControlRoom(renderer) {
     emitters.push({ material: mat, color: new THREE.Color(...e.color), strength: e.strength, group: e.group });
     wallClock = { tex, shown: '' };
     drawWallClock(wallClock, '--:--');
+  }
+  // The exit sign: its pictogram on a face over the glowing box, toward the
+  // room (-X), lit with the box's strength
+  const exitMesh = gltf.scene.getObjectByName('EmitExitSign');
+  if (exitMesh && meta.emitters.EmitExitSign) {
+    const box = new THREE.Box3().setFromObject(exitMesh), size = box.getSize(new THREE.Vector3());
+    const tex = canvasTexture(renderer, 340 * 2, 120 * 2);
+    tex.flipY = true;
+    drawExitSign(tex.image);
+    const mat = new THREE.MeshBasicMaterial({ map: tex });
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(size.z, size.y), mat);
+    face.rotation.y = -Math.PI / 2; // its front toward -X; its +X along +Z, the viewer's right
+    face.position.set(box.min.x - 0.002, (box.min.y + box.max.y) / 2, (box.min.z + box.max.z) / 2);
+    gltf.scene.add(face);
+    const e = meta.emitters.EmitExitSign;
+    emitters.push({ material: mat, color: new THREE.Color(1, 1, 1), strength: e.strength, group: e.group });
   }
   // The overlay for one screen, made the first time it is needed; `scale`
   // times the atlas slot's resolution
@@ -396,10 +453,29 @@ export async function loadControlRoom(renderer) {
       u.uCeiling.value = ceiling;
       u.uScreens.value = screens;
       u.uMode.value = mode;
+      lampOff.copy(LAMP_OFF).multiplyScalar(ceiling);
       for (const e of emitters) {
+        if (e.lamp >= 0) continue; // see setLamp
         const w = e.group === 'screens' ? screens : ceiling;
         if (e.textured) e.material.color.setScalar(SCREEN_GAIN * (mode === 0 ? w : 0.02));
         else e.material.color.copy(e.color).multiplyScalar(e.strength * DISPLAY[e.group] * (mode === 0 ? w : 0.02));
+      }
+    },
+    // The rest corner's lamps: their names (meta.lamps), and how bright one
+    // is, 0 (off) to 1
+    lamps: lamps.map(([name]) => name),
+    // A lamp's glowing parts, for aiming at it
+    lampMeshes(name) {
+      const i = lamps.findIndex(([n]) => n === name);
+      return emitters.filter((e) => i >= 0 && e.lamp === i).map((e) => e.mesh);
+    },
+    setLamp(name, w) {
+      const i = lamps.findIndex(([n]) => n === name);
+      if (i < 0) return;
+      material.uniforms[`uLamp${i}`].value = w;
+      for (const e of emitters) {
+        if (e.lamp !== i) continue;
+        e.material.color.copy(e.color).multiplyScalar(e.strength * DISPLAY[e.group] * w).lerp(lampOff, Math.max(0, 1 - 4 * w));
       }
     },
     // Redraw the live screens for time t (seconds), at most SCREEN_HZ times a

@@ -291,56 +291,190 @@ def notes_board(w=2048, h=1536, seed=11):
     return _save(img, "notes_board.png")
 
 
-ESD_ZONES = ["WELLHEAD", "PROCESS", "UTILITY", "LIVING QTR", "ELEC"]
+# The CAP panel (fire & gas / ESD) front, in metres across and down from the
+# face's top-left corner. Shared with props.make_esd_panel, which raises
+# the buttons and key switches out of the print at these spots.
+# kind: "red" lit push button, "grey" square push button, "key" key switch,
+# "lamp" white square lamp, "black"/"blue" push buttons
+ESD_PARTS = (
+    [(0.158, y, "red") for y in (0.563, 0.630, 0.697, 0.760)] + [(0.205, 0.760, "grey"),
+    (0.167, 0.927, "key"), (0.243, 0.922, "lamp"), (0.306, 0.922, "key"), (0.373, 0.918, "lamp"),
+    (0.506, 0.918, "red"), (0.626, 0.520, "red"), (1.161, 0.542, "red"), (1.197, 0.542, "red"),
+    (0.999, 0.743, "red"), (1.031, 0.743, "red"), (1.161, 0.740, "red"), (1.197, 0.740, "red")] +
+    [(x, y, "red") for y in (0.747, 0.810) for x in (0.801, 0.866, 0.932)] +
+    [(0.180, 1.116, "grey"), (0.252, 1.116, "grey"), (0.180, 1.180, "black"),
+     (0.186, 1.240, "black"), (0.252, 1.240, "blue"), (0.186, 1.302, "grey"), (0.252, 1.302, "grey"),
+     (0.380, 1.116, "red"), (0.380, 1.244, "red"), (0.616, 1.300, "red")] +
+    [(0.482, y, "red") for y in (1.111, 1.181, 1.244, 1.309)] +
+    [(x, y, "red") for x in (0.713, 0.810, 0.907) for y in (1.102, 1.166, 1.233, 1.296)] +
+    [(x, y, "grey") for x in (1.069, 1.166) for y in (1.102, 1.165, 1.233)]
+)
+ESD_SCREENS = [(1.118, y) for y in (1.102, 1.165, 1.233)]  # fire water pump buttons with a green display
+ESD_DISPLAYS = [(1.346, 1.093), (1.346, 1.156)]           # red seven-segment flow readouts
 
 
 def esd_panel(w=2048, h=2560, seed=5):
-    """1.6 x 2.0 m front of a hardwired ESD matrix panel: printed on a grid
-    of square tiles, with a mimic of the platform's fire areas, black label
-    strips, and the outlines that the lamps and key switches sit in (those
-    are geometry, see props.make_esd_panel). Generic labels only."""
+    """1.6 x 2.0 m front of a fire & gas / ESD CAP cabinet: a grey steel
+    header with red label plates, then the printed panel on a grid of
+    square tiles, with black section strips, a mimic of the platform's
+    fire areas, little BRANN/GASS lamps and the labels under each button
+    (the buttons themselves are geometry, see ESD_PARTS), and the lower
+    door below. Norwegian section names as on such panels, generic
+    otherwise: no brand or tag numbers."""
     rng = random.Random(seed)
-    img = Image.new("RGB", (w, h), (226, 228, 228))
+    img = Image.new("RGB", (w, h), (214, 216, 214))
     d = ImageDraw.Draw(img)
     px = w / 1.6
-    tile = int(0.08 * px)
-    for x in range(0, w, tile):
-        d.line([x, 0, x, h], fill=(205, 208, 208), width=2)
-    for y in range(0, h, tile):
-        d.line([0, y, w, y], fill=(205, 208, 208), width=2)
-    lab = _font(FONT_BOLD, int(0.03 * px))
-    small = _font(FONT, int(0.017 * px))
-    strip = (45, 48, 52)
+    P = lambda x, y: (int(x * px), int(y * px))  # noqa: E731
+    ink, strip, mimic = (40, 44, 48), (34, 37, 43), (138, 142, 146)
+    head = _font(FONT_BOLD, int(0.020 * px))
+    tiny = _font(FONT, int(0.0085 * px))
+    small = _font(FONT, int(0.011 * px))
 
-    def band(y, text, x0=0.04, x1=1.56):
-        d.rectangle([int(x0 * px), int(y * px), int(x1 * px), int((y + 0.05) * px)], fill=strip)
-        d.text((int((x0 + 0.03) * px), int((y + 0.025) * px)), text, fill=(235, 235, 235), font=lab, anchor="lm")
+    def rect(x0, y0, x1, y1, **kw):
+        d.rectangle([*P(x0, y0), *P(x1, y1)], **kw)
 
-    band(0.08, "ESD SYSTEM")
-    band(0.08, "FIRE AREAS", x0=0.62)
-    # Vertical divider between the left column and the mimic
-    d.line([int(0.58 * px), int(0.13 * px), int(0.58 * px), int(1.05 * px)], fill=strip, width=6)
-    # Mimic: a stepped silhouette of the topsides, split into fire areas
-    gx0, gy1 = 0.72, 0.92
-    cols = [(0.16, 0.42), (0.14, 0.30), (0.14, 0.26), (0.14, 0.30), (0.16, 0.50)]
-    x = gx0
-    for i, (cw, ch) in enumerate(cols):
-        x0, x1 = int(x * px), int((x + cw) * px)
-        d.rectangle([x0, int((gy1 - ch) * px), x1, int(gy1 * px)], fill=(150, 172, 178), outline=(90, 110, 116), width=4)
-        d.text(((x0 + x1) // 2, int((gy1 + 0.035) * px)), ESD_ZONES[i], fill=(40, 44, 48), font=small, anchor="mm")
-        x += cw
-    d.line([int((gx0 + 0.70) * px), int(0.22 * px), int((gx0 + 0.70) * px), int(0.42 * px)], fill=(90, 110, 116), width=6)
-    # Labels over the lamp/key positions of the left column (see props)
-    for k, t in enumerate(["ESD 1", "ESD 2", "PSD", "BLOWDOWN", "F&G OVERRIDE"]):
-        d.text((int(0.10 * px), int((0.20 + 0.14 * k) * px)), t, fill=(40, 44, 48), font=small, anchor="lm")
-    band(1.08, "ALARMS")
-    band(1.08, "MANUAL ISOLATION", x0=0.62)
-    band(1.62, "ONSHORE OPS", x0=0.04, x1=0.78)
-    band(1.62, "MAINTENANCE BYPASS", x0=0.82)
-    for k in range(rng.randint(14, 18)):
-        cx, cy = rng.uniform(0.12, 1.50), rng.choice([1.24, 1.38, 1.50, 1.78, 1.90])
-        d.text((int(cx * px), int((cy - 0.045) * px)), f"{rng.choice('ABCDEFGH')}{rng.randint(10, 99)}",
-               fill=(70, 74, 78), font=small, anchor="mm")
+    # Header: an emblem plate top left and red label plates top right
+    rect(0.04, 0.05, 0.19, 0.09, fill=(88, 120, 140))
+    d.text(P(0.115, 0.07), "F&G / ESD", fill=(235, 238, 240), font=small, anchor="mm")
+    rect(1.37, 0.03, 1.57, 0.11, fill=(200, 30, 30))
+    d.text(P(1.47, 0.058), "F&G / ESD", fill=(250, 240, 240), font=small, anchor="mm")
+    d.text(P(1.47, 0.085), "CAP", fill=(250, 240, 240), font=small, anchor="mm")
+    rect(1.33, 0.13, 1.57, 0.21, fill=(200, 30, 30))
+    for k, t in enumerate(["ISOLATE IN UPS A", "ISOLATE IN UPS B"]):
+        d.text(P(1.45, 0.155 + 0.03 * k), t, fill=(250, 240, 240), font=tiny, anchor="mm")
+    for y in (0.0, 0.235):  # header seams
+        rect(0.0, y, 1.6, y + 0.004, fill=(170, 172, 170))
+
+    # The printed panel, on square tiles
+    X0, Y0, X1, Y1 = 0.05, 0.24, 1.52, 1.41
+    rect(X0, Y0, X1, Y1, fill=(240, 240, 237))
+    t = 0.036
+    x = X0
+    while x < X1:
+        d.line([*P(x, Y0), *P(x, Y1)], fill=(218, 220, 218), width=2)
+        x += t
+    y = Y0
+    while y < Y1:
+        d.line([*P(X0, y), *P(X1, y)], fill=(218, 220, 218), width=2)
+        y += t
+    rect(X0, Y0, X1, Y1, outline=(190, 192, 190), width=3)
+
+    def band(y0, y1, sections):
+        rect(X0, y0, X1, y1, fill=strip)
+        for x0, x1, text in sections:
+            f, size = head, int(0.020 * px)
+            while d.textlength(text, font=f) > (x1 - x0 - 0.012) * px:  # shrink to fit the section
+                size -= 2
+                f = _font(FONT_BOLD, size)
+            d.text(P((x0 + x1) / 2, (y0 + y1) / 2), text, fill=(236, 236, 236), font=f, anchor="mm")
+            if x0 > X0:
+                d.line([*P(x0, y0), *P(x0, y1)], fill=(240, 240, 237), width=3)
+
+    def vline(x, y0, y1, width=4):
+        d.line([*P(x, y0), *P(x, y1)], fill=strip, width=width)
+
+    band(0.24, 0.268, [(X0, 0.407, "NAS SYSTEM"), (0.407, X1, "OVERSIKT BRANNOMRÅDER")])
+    vline(0.407, 0.268, 0.986)
+    band(0.986, 1.012, [(X0, 0.33, "ALARMER"), (0.33, 0.43, "TENNKILDE"),
+                        (0.43, 0.99, "MANUELL ELEKTRISK ISOLERING"), (0.99, X1, "BRANNVANNSPUMPER")])
+    for xx in (0.33, 0.43, 0.99):
+        vline(xx, 1.012, Y1)
+    vline(0.567, 1.04, Y1, 2)
+    rect(0.43, 1.012, 0.99, 1.04, outline=strip, width=2)
+    d.text(P(0.498, 1.026), "BOLIGKVARTER", fill=ink, font=tiny, anchor="mm")
+    d.text(P(0.778, 1.026), "HJELPESYSTEMER", fill=ink, font=tiny, anchor="mm")
+
+    # Mimic of the topsides: quarters, utilities, wellbay and process area
+    # in grey, a derrick and a crane boom in outline, the helideck and the
+    # lifeboat station by the quarters, and a separate drill floor box
+    blocks = [(0.684, 0.468, 0.783, 0.830, "BOLIGKVARTER"), (0.783, 0.536, 0.948, 0.830, "HJELPESYSTEMER"),
+              (0.948, 0.594, 1.113, 0.830, "BRØNNOMRÅDE"), (1.113, 0.500, 1.242, 0.830, None),
+              (0.783, 0.830, 1.242, 0.858, None)]
+    for x0, y0, x1, y1, name in blocks:
+        rect(x0, y0, x1, y1, fill=mimic, outline=(70, 74, 78), width=3)
+    rect(1.113, 0.457, 1.212, 0.500, fill=mimic, outline=(70, 74, 78), width=3)
+    for x0, y0, x1, y1, name in blocks:
+        if name:
+            d.text(P(x0 + 0.006, y0 - 0.010), name, fill=ink, font=tiny, anchor="lm")
+    d.text(P(1.118, 0.447), "PROSESSOMRÅDE", fill=ink, font=tiny, anchor="lm")
+    for x0, y0, x1 in [(0.684, 0.468, 0.783), (0.783, 0.536, 0.948), (0.948, 0.594, 1.113), (1.113, 0.520, 1.242)]:
+        for k, word in enumerate(["BRANN", "GASS"]):  # fire and gas indicators per area
+            cx, cy = x0 + 0.030, y0 + 0.040 + k * 0.032
+            if x0 == 0.783:
+                cy += 0.030
+            d.ellipse([*P(cx - 0.005, cy - 0.005), *P(cx + 0.005, cy + 0.005)], fill=(210, 212, 210), outline=(80, 80, 80), width=2)
+            d.text(P(cx + 0.012, cy), word, fill=(30, 32, 34), font=tiny, anchor="lm")
+    rect(0.912, 0.378, 0.948, 0.594, outline=(60, 64, 68), width=3)  # derrick
+    for k, word in enumerate(["BRANN", "GASS"]):
+        cy = 0.445 + k * 0.032
+        d.ellipse([*P(0.925, cy - 0.005), *P(0.935, cy + 0.005)], fill=(210, 212, 210), outline=(80, 80, 80), width=2)
+        d.text(P(0.952, cy), word, fill=ink, font=tiny, anchor="lm")
+    bx0, bx1, by0, by1 = 0.948, 1.32, 0.382, 0.402  # crane boom, a lattice
+    rect(bx0, by0, bx1, by1, outline=(70, 74, 78), width=2)
+    xx = bx0
+    while xx < bx1 - 0.01:
+        d.line([*P(xx, by1), *P(xx + 0.01, by0), *P(xx + 0.02, by1)], fill=(70, 74, 78), width=2)
+        xx += 0.02
+    d.line([*P(1.32, 0.392), *P(1.33, 0.415)], fill=(70, 74, 78), width=3)
+    d.line([*P(1.242, 0.560), *P(1.33, 0.470)], fill=(60, 64, 68), width=3)  # flare boom
+    d.line([*P(1.242, 0.660), *P(1.33, 0.585)], fill=(60, 64, 68), width=3)
+    rect(1.346, 0.586, 1.444, 0.682, outline=(60, 64, 68), width=3)
+    d.text(P(1.395, 0.600), "BOREDEKK", fill=ink, font=tiny, anchor="mm")
+    for k, word in enumerate(["BRANN", "GASS"]):
+        cy = 0.630 + k * 0.030
+        d.ellipse([*P(1.365, cy - 0.005), *P(1.375, cy + 0.005)], fill=(210, 212, 210), outline=(80, 80, 80), width=2)
+        d.text(P(1.383, cy), word, fill=ink, font=tiny, anchor="lm")
+    rect(0.604, 0.498, 0.684, 0.514, outline=(60, 64, 68), width=3)  # helideck
+    d.line([*P(0.660, 0.514), *P(0.684, 0.540)], fill=(60, 64, 68), width=3)
+    d.text(P(0.606, 0.488), "HELIDEKK", fill=ink, font=tiny, anchor="lm")
+    d.text(P(0.660, 0.488), "BRANN", fill=ink, font=tiny, anchor="lm")
+    for k in range(4):  # lifeboat station: boats on a ramp
+        x0 = 0.592 + k * 0.018
+        d.polygon([P(x0, 0.800), P(x0 + 0.03, 0.770), P(x0 + 0.036, 0.776), P(x0 + 0.006, 0.806)], outline=(60, 64, 68))
+    d.line([*P(0.590, 0.808), *P(0.684, 0.744)], fill=(60, 64, 68), width=3)
+    d.text(P(0.580, 0.750), "LIVBÅT", fill=ink, font=tiny, anchor="lm")
+    d.text(P(0.580, 0.764), "STASJON", fill=ink, font=tiny, anchor="lm")
+
+    # NAS column labels
+    d.text(P(0.240, 0.760), "TRYKKAVLASTING\nPÅGÅR", fill=ink, font=tiny, anchor="lm")
+    d.text(P(0.120, 0.880), "BEGRENSET BLOKKERING", fill=ink, font=tiny, anchor="lm")
+    d.text(P(0.290, 0.880), "AKTIVER ONSHORE KAP", fill=ink, font=tiny, anchor="lm")
+    d.text(P(0.506, 0.890), "SENTRAL NØDSTOPP", fill=ink, font=tiny, anchor="mm")
+
+    # Bezels and labels for the parts
+    for x, y, kind in ESD_PARTS:
+        s = 0.020 if kind != "key" else 0.022
+        if kind == "key":
+            d.ellipse([*P(x - s, y - s), *P(x + s, y + s)], fill=(200, 202, 200), outline=(110, 112, 110), width=2)
+        else:
+            rect(x - s, y - s, x + s, y + s, fill=(250, 250, 248), outline=(150, 152, 150), width=2)
+        if y > 1.0 or kind == "red" and x > 0.6:
+            for k in range(2):
+                ww = rng.uniform(0.02, 0.035)
+                d.line([*P(x - ww, y - s - 0.016 + k * 0.007), *P(x + ww, y - s - 0.016 + k * 0.007)], fill=(120, 124, 128), width=3)
+    # The buzzer grille in the alarm section
+    for k in range(9):
+        cx, cy = 0.252 + 0.007 * (k % 3 - 1), 1.180 + 0.007 * (k // 3 - 1)
+        d.ellipse([*P(cx - 0.002, cy - 0.002), *P(cx + 0.002, cy + 0.002)], fill=(60, 60, 60))
+    # Fire water pumps: buttons with a green display, flow readouts
+    for x, y in ESD_SCREENS:
+        rect(x - 0.034, y - 0.022, x + 0.034, y + 0.022, fill=(20, 22, 24))
+        rect(x - 0.026, y - 0.015, x + 0.026, y + 0.015, fill=(40, 120, 90))
+        d.text(P(x, y), "START PUMPE", fill=(200, 240, 220), font=tiny, anchor="mm")
+        d.text(P(x + 0.07, y - 0.012), "STOPP", fill=ink, font=tiny, anchor="lm")
+    d.text(P(1.346, 1.060), "TRYKK BRANNVANNSRINGLEDNING", fill=ink, font=tiny, anchor="mm")
+    seg = _font(FONT_BOLD, int(0.026 * px))
+    for x, y in ESD_DISPLAYS:
+        rect(x - 0.065, y - 0.018, x + 0.065, y + 0.018, fill=(16, 8, 8))
+        d.text(P(x, y), "12.84", fill=(255, 40, 40), font=seg, anchor="mm")
+        d.text(P(x + 0.075, y + 0.010), "bar", fill=ink, font=tiny, anchor="lm")
+
+    # The lower door, with a seam, a drawer front and its lock
+    rect(0.0, 1.44, 1.6, 1.446, fill=(170, 172, 170))
+    rect(0.03, 1.49, 1.57, 1.99, outline=(170, 172, 170), width=4)
+    for x, y in ((0.13, 1.60), (1.42, 1.60)):
+        d.ellipse([*P(x - 0.012, y - 0.012), *P(x + 0.012, y + 0.012)], fill=(150, 152, 154), outline=(90, 90, 90), width=2)
     return _save(img, "esd_panel.png")
 
 
