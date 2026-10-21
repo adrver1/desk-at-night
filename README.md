@@ -80,7 +80,9 @@ and a long flare boom. It has about 9,400 triangles above water, one mesh
 per material and no textures, and emissive deck lights and windows for
 night. `build_platform()` builds it into any scene: cut at the waterline
 for a view from the control room, or down to the seabed for a scale model
-on a table. It is not in the room yet.
+on a table. The control room uses it as the view out of its window: the room
+sits on the top floor of the quarters, and `cull_to_view()` keeps only the
+faces that window can see (about 1,100 triangles).
 
 ## Run the viewer
 
