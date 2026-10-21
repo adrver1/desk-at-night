@@ -124,9 +124,20 @@ def materials():
         "metal": b.mat_flat("HeliMetal", (0.25, 0.25, 0.26), 0.45),
         "tyre": b.mat_flat("HeliTyre", (0.02, 0.02, 0.02), 0.8),
         "yellow": b.mat_flat("HeliYellow", (0.80, 0.55, 0.02), 0.5),   # blade tips
+        "disc": disc_material(),
         "red": emit("HeliRed", (1.0, 0.04, 0.02), 0.0),                  # beacons, port light
         "green": emit("HeliGreen", (0.05, 1.0, 0.15), 0.0),              # starboard light
     }
+
+
+def disc_material():
+    """Blur disc for Cycles previews: faint grey, see-through. The web draws
+    its own streak texture on it."""
+    mat, nt, bsdf = b._new_mat("HeliDisc")
+    bsdf.inputs["Base Color"].default_value = (0.08, 0.08, 0.09, 1)
+    bsdf.inputs["Alpha"].default_value = 0.22
+    bsdf.inputs["Roughness"].default_value = 0.6
+    return mat
 
 
 def set_night(m, on):
@@ -201,7 +212,7 @@ def build_cabin_details(g, m, liv):
     # Sponsons with the main gear, and a step
     sp = m[liv["sponson"]]
     for s in (1, -1):
-        g.box(sp, (-0.25, s * 1.33, 0.98), (2.9, 0.40, 0.62))
+        g.box(sp, (-0.25, s * 1.365, 1.035), (2.9, 0.47, 0.77))
         g.box(sp, (1.35, s * 1.30, 1.02), (0.5, 0.30, 0.45))
         g.box(m["metal"], (2.6, s * 1.30, 0.62), (0.5, 0.18, 0.05))
     # Engine cowling: a low hump over the cabin roof with two exhausts aft
@@ -227,8 +238,13 @@ def build_tail(g, m, liv):
     g.box(fin, (-7.2, 0, 2.55), (0.85, 3.4, 0.08))
     for s in (1, -1):
         g.box(fin, (-7.25, s * 1.70, 2.65), (0.75, 0.05, 0.55))
-    # Tail rotor: four blades on the left of the fin
-    hub = TAIL_HUB
+    # Tail skid and beacon on the fin
+    g.beam(m["metal"], (-8.2, 0, 2.20), (-8.7, 0, 1.70), 0.08)
+    g.prism(m["red"], (-9.85, 0), 0.07, 5.00, 5.10, 6)
+
+
+def build_tail_rotor(g, m, liv, hub=Vector((0, 0, 0))):
+    """Four blades on the left of the fin, around hub; turns about Y."""
     g.tube(m["metal"], hub + Vector((0, -0.30, 0)), hub, 0.12, 8)
     for i in range(4):
         a = math.radians(20 + 90 * i)
@@ -240,59 +256,166 @@ def build_tail(g, m, liv):
         else:
             g.beam(m["blade"], hub + d * 0.15, hub + d * (TAIL_R - 0.2), 0.20, 0.04)
             g.beam(m["yellow"], hub + d * (TAIL_R - 0.2), hub + d * TAIL_R, 0.20, 0.04)
-    # Tail skid and beacon on the fin
-    g.beam(m["metal"], (-8.2, 0, 2.20), (-8.7, 0, 1.70), 0.08)
-    g.prism(m["red"], (-9.85, 0), 0.07, 5.00, 5.10, 6)
+
+
+def build_mast(g, m):
+    g.tube(m["metal"], (MAST_X, 0, ROOF + 0.75), (MAST_X, 0, HUB_Z), 0.16, 8)
 
 
 def build_rotor(g, m, droop=0.30, phase=math.radians(18)):
-    hub = Vector((MAST_X, 0, HUB_Z))
-    g.tube(m["metal"], (MAST_X, 0, ROOF + 0.75), hub, 0.16, 8)
-    g.prism(m["metal"], (MAST_X, 0), 0.55, HUB_Z - 0.12, HUB_Z + 0.10, 5, phase)
-    g.prism(m["metal"], (MAST_X, 0), 0.22, HUB_Z + 0.10, HUB_Z + 0.32, 6)
+    """Hub and five blades around the origin (the hub); turns about Z."""
+    g.prism(m["metal"], (0, 0), 0.55, -0.12, 0.10, 5, phase)
+    g.prism(m["metal"], (0, 0), 0.22, 0.10, 0.32, 6)
     for i in range(5):
         a = phase + 2 * math.pi * i / 5
         d = Vector((math.cos(a), math.sin(a), 0))
-        root = hub + d * 0.55
-        tip = hub + d * ROTOR_R + Vector((0, 0, -droop))
+        root = d * 0.55
+        tip = d * ROTOR_R + Vector((0, 0, -droop))
         knee = root.lerp(tip, 0.94)
         # Blades at rest droop toward the tip; flat boards with a yellow tip
         g.beam(m["blade"], root, knee, 0.58, 0.07)
         g.beam(m["yellow"], knee, tip, 0.58, 0.07)
 
 
-def build_gear(g, m):
-    """Twin nose wheels and a main wheel out of each sponson, gear down."""
-    for x, y, r, w in ((4.55, 0.17, 0.30, 0.22), (4.55, -0.17, 0.30, 0.22),
-                       (-0.30, 1.43, 0.34, 0.26), (-0.30, -1.43, 0.34, 0.26)):
-        g.tube(m["tyre"], (x, y - w / 2, r), (x, y + w / 2, r), r, 10)
-    for x, y in ((4.55, 0.0), (-0.30, 1.33), (-0.30, -1.33)):
-        g.beam(m["metal"], (x, y, 0.75), (x, y, 0.30), 0.12)
+def build_disc(g, mat, r, n=24, cone=0.0, axis="z"):
+    """Flat ring the blades sweep when they spin fast: a stand-in for motion
+    blur, drawn with a radial streak texture (planar UVs from -r..r to 0..1).
+    Hidden while the rotor turns slowly."""
+    r0 = 0.5
+    vs, uvs = [], []
+    for rr, dz in ((r0, 0.0), (r, cone)):
+        for i in range(n):
+            t = 2 * math.pi * i / n
+            u, v = rr * math.cos(t), rr * math.sin(t)
+            vs.append(Vector((u, v, dz)) if axis == "z" else Vector((u, dz, v)))
+            uvs.append((0.5 + u / (2 * r), 0.5 + v / (2 * r)))
+    fs = [(i, (i + 1) % n, n + (i + 1) % n, n + i) for i in range(n)]
+    if axis != "z":
+        fs = [tuple(reversed(f)) for f in fs]
+    g.add(mat, vs, fs)
+    g.uvs = getattr(g, "uvs", {})
+    g.uvs.setdefault(mat, []).extend(uvs)
+
+
+# Landing gear legs: (part, pivot, wheel centre below it, wheels as (dy, radius, width)).
+# Retracting swings each leg forward about Y, nose wheels into the nose,
+# main wheels into the sponsons.
+GEAR = [("NoseGear", Vector((4.55, 0, 1.15)), 0.30, ((0.17, 0.30, 0.22), (-0.17, 0.30, 0.22))),
+        ("MainGearL", Vector((-0.30, 1.43, 1.05)), 0.34, ((0.0, 0.34, 0.26),)),
+        ("MainGearR", Vector((-0.30, -1.43, 1.05)), 0.34, ((0.0, 0.34, 0.26),))]
+GEAR_SWING = math.radians(-90)  # gear up: legs point forward
+
+
+def build_leg(g, m, pivot, wheel_z, wheels):
+    """One gear leg around its pivot (the origin), pointing down."""
+    drop = wheel_z - pivot.z
+    side = 0.0 if pivot.y == 0 else -math.copysign(0.17, pivot.y)  # strut inboard of a main wheel
+    g.beam(m["metal"], (0, side, 0.05), (0, side, drop), 0.12)
+    for dy, r, w in wheels:
+        g.tube(m["tyre"], (0, dy - w / 2, drop), (0, dy + w / 2, drop), r, 10)
 
 
 def build_lights(g, m):
     g.prism(m["red"], (-1.8, 0), 0.08, ROOF + 0.55, ROOF + 0.67, 6)       # beacon on the cowling
     g.prism(m["red"], (0.6, 0), 0.08, 0.50, 0.58, 6)                      # belly beacon
-    g.box(m["red"], (-0.2, 1.54, 1.05), (0.12, 0.04, 0.08))              # port (left): red
-    g.box(m["green"], (-0.2, -1.54, 1.05), (0.12, 0.04, 0.08))           # starboard: green
+    g.box(m["red"], (-0.2, 1.61, 1.05), (0.12, 0.04, 0.08))              # port (left): red
+    g.box(m["green"], (-0.2, -1.61, 1.05), (0.12, 0.04, 0.08))           # starboard: green
 
 
-def build_helicopter(m, collection=None, loc=(0, 0, 0), yaw=0.0, livery=None, droop=0.30):
-    """Build one parked helicopter into collection; returns (objects, triangles).
-    loc is the ground point under the mast, yaw turns the nose from +X."""
+def _part_object(name, g, pivot, parent, collection):
+    """One object per moving part, all its materials as slots. The geometry
+    is built around the origin and the object sits at its pivot."""
+    me = bpy.data.meshes.new(name)
+    vs, fs, mats = [], [], []
+    for mat, (pv, pf) in g.parts.items():
+        o = len(vs)
+        vs += [Vector(v) for v in pv]
+        fs += [tuple(i + o for i in f) for f in pf]
+        mats += [len(me.materials)] * len(pf)
+        me.materials.append(mat)
+    me.from_pydata([tuple(v) for v in vs], [], fs)
+    for poly, mi in zip(me.polygons, mats):
+        poly.material_index = mi
+    if getattr(g, "uvs", None):
+        layer = me.uv_layers.new(name="UVMap")
+        flat = [(0.5, 0.5)] * len(vs)
+        o = 0
+        for mat, (pv, pf) in g.parts.items():
+            for i, t in enumerate(g.uvs.get(mat, [])):
+                flat[o + i] = t
+            o += len(pv)
+        for loop in me.loops:
+            layer.data[loop.index].uv = flat[loop.vertex_index]
+    me.validate()
+    ob = bpy.data.objects.new(name, me)
+    ob.location = pivot
+    ob.parent = parent
+    collection.objects.link(ob)
+    return ob
+
+
+def build_helicopter(m, collection=None, loc=(0, 0, 0), yaw=0.0, livery=None, droop=0.30, discs=True):
+    """Build one helicopter into collection as a root empty with its moving
+    parts as children; returns (root, parts, triangles). loc is the ground
+    point under the mast, yaw turns the nose from +X. Parts: Body,
+    MainRotor (turns about local Z), TailRotor (about local Y), MainDisc and
+    TailDisc (blur discs, hidden), NoseGear, MainGearL, MainGearR (swing
+    about local Y; see pose())."""
     collection = collection or bpy.context.collection
     liv = LIVERIES[livery or LIVERY]
-    g = op.Mesh()
-    build_fuselage(g, m, liv)
-    build_cabin_details(g, m, liv)
-    build_tail(g, m, liv)
-    build_rotor(g, m, droop)
-    build_gear(g, m)
-    build_lights(g, m)
-    M = Matrix.Translation(Vector(loc)) @ Matrix.Rotation(yaw, 4, "Z")
-    for vs, _ in g.parts.values():
-        vs[:] = [M @ Vector(v) for v in vs]
-    return g.objects("Helicopter", collection), g.tris
+    root = bpy.data.objects.new("Helicopter", None)
+    root.location, root.rotation_euler = loc, (0, 0, yaw)
+    collection.objects.link(root)
+    meshes = {}
+
+    def part(name):
+        return meshes.setdefault(name, op.Mesh())
+
+    body = part("Body")
+    build_fuselage(body, m, liv)
+    build_cabin_details(body, m, liv)
+    build_tail(body, m, liv)
+    build_mast(body, m)
+    build_lights(body, m)
+    build_rotor(part("MainRotor"), m, droop)
+    build_tail_rotor(part("TailRotor"), m, liv)
+    pivots = {"Body": Vector(), "MainRotor": Vector((MAST_X, 0, HUB_Z)), "TailRotor": TAIL_HUB}
+    for name, pivot, wz, wheels in GEAR:
+        build_leg(part(name), m, pivot, wz, wheels)
+        pivots[name] = pivot
+    if discs:
+        build_disc(part("MainDisc"), m["disc"], ROTOR_R)
+        build_disc(part("TailDisc"), m["disc"], TAIL_R, 12, axis="y")
+        pivots["MainDisc"], pivots["TailDisc"] = pivots["MainRotor"], TAIL_HUB + Vector((0, 0.02, 0))
+    parts = {name: _part_object("Heli" + name, g, pivots[name], root, collection) for name, g in meshes.items()}
+    for name in ("MainDisc", "TailDisc"):
+        if name in parts:
+            parts[name].hide_render = True
+    tris = sum(g.tris for name, g in meshes.items() if "Disc" not in name)
+    return root, parts, tris
+
+
+def pose(parts, gear=1.0, rotor=0.0, tail=None):
+    """gear 1 = down, 0 = up; rotor and tail are blade angles in radians."""
+    for name, *_ in GEAR:
+        parts[name].rotation_euler = (0, GEAR_SWING * (1 - gear), 0)
+    parts["MainRotor"].rotation_euler = (0, 0, rotor)
+    parts["TailRotor"].rotation_euler = (0, rotor * 5.0 if tail is None else tail, 0)
+
+
+def export_glb(m, path, livery=None):
+    """The default livery on its own, parts named for the browser to animate."""
+    coll = bpy.data.collections.new("Export")
+    bpy.context.scene.collection.children.link(coll)
+    root, parts, _ = build_helicopter(m, coll, livery=livery)
+    for o in parts.values():
+        o.hide_render = False
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in coll.objects:
+        o.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=path, use_selection=True, export_apply=False, export_yup=True)
+    print("wrote", path, flush=True)
+    bpy.data.collections.remove(coll)
 
 
 # Where it parks: on the H of the platform's helideck, nose toward the quarters
@@ -307,6 +430,7 @@ def main():
     p.add_argument("--out", default=os.path.join(b.BUILD, "helicopter"))
     p.add_argument("--device", default="auto")
     p.add_argument("--only", default="", help="comma list of shots to render")
+    p.add_argument("--glb", action="store_true", help="also export the default livery to helicopter.glb")
     args = p.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
@@ -354,6 +478,8 @@ def main():
         print("wrote", scene.render.filepath, flush=True)
 
     m = materials()
+    if args.glb:  # first, so the part names carry no .001 suffixes
+        export_glb(m, os.path.join(args.out, "helicopter.glb"))
     # Studio: all liveries in a row, and each one alone
     floor_m = b.mat_flat("Floor", (0.35, 0.36, 0.37), 0.8)
     studio = colls["studio"] = bpy.data.collections.new("Studio")
@@ -362,10 +488,12 @@ def main():
     g.span(floor_m, -60, 60, -60, 60, -0.1, 0)
     g.objects("Floor", studio)
     names = list(LIVERIES)
+    studio_parts = {}
     for i, name in enumerate(names):
         c = colls[name] = bpy.data.collections.new("Studio_" + name)
         scene.collection.children.link(c)
-        _, tris = build_helicopter(m, c, (0, 0, 0), 0.0, name)
+        _, parts, tris = build_helicopter(m, c, (0, 0, 0), 0.0, name)
+        studio_parts[name] = parts
         g = op.Mesh()
         g.span(floor_m, -60, 60, -60, 60, -0.1, 0)
         g.objects("Floor_" + name, c)
@@ -392,6 +520,26 @@ def main():
     shot(cam("Side", (-1.5, -40, 2.6), (-1.5, 0, 2.6), 50), "side", w, w * 9 // 16)
     shot(cam("Rear", (-18, 12, 7), (-2, 0, 2.5), 35), "rear", w, w * 9 // 16)
     shot(cam("Top", (0, 0, 40), (0, 0.01, 0), 35), "top", w, w * 9 // 16)
+    # Gear up, and the rotors spinning at flight speed with real motion blur
+    # (the reference look for the web's blur discs)
+    hp = studio_parts[LIVERY]
+    pose(hp, gear=0.0)
+    shot(cam("GearUp", (11, -13, 1.2), (0, 0, 1.6), 35), "gear-up", w, w * 9 // 16)
+    pose(hp, gear=1.0)
+    scene.render.use_motion_blur = True
+    scene.render.motion_blur_shutter = 0.5           # 1/50 s at 25 fps
+    scene.render.fps = 25
+    rev = 2 * math.pi * 4.8 / 25                     # main rotor ~290 rpm, per frame
+    bpy.context.preferences.edit.keyframe_new_interpolation_type = "LINEAR"
+    for f in (0, 1, 2):
+        pose(hp, rotor=(f - 1) * rev, tail=(f - 1) * rev * 5.4)
+        for n in ("MainRotor", "TailRotor"):
+            hp[n].keyframe_insert("rotation_euler", frame=f)
+    for n in ("MainRotor", "TailRotor"):
+        hp[n].cycles.motion_steps = 6                # follow the arc, not a straight smear
+    scene.frame_set(1)
+    shot(cam("Spin", (13, -15, 5.5), (0, 0, 2.2), 35), "spin-blur", w, w * 9 // 16)
+    scene.render.use_motion_blur = False
 
     # On the helideck, seen from the platform's helideck CCTV camera, per livery
     pm = op.materials()
