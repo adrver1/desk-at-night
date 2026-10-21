@@ -14,6 +14,9 @@ import { Highlight } from './highlight.js';
 
 const EYE = 1.65;          // standing eye height, m
 const SEATED_EYE = 1.18;
+// Ceiling light at 100%, as a multiple of the bake (LED panels at 1.5): the
+// bake's level read far too dim for a working control room
+let FULL_LIGHT = 3;
 const BODY = 0.28;         // player radius for collisions
 const WALK = 1.5, RUN = 3.0; // m/s
 const REACH = 1.9;         // how far away things can be used, m
@@ -659,7 +662,7 @@ renderer.setAnimationLoop((now) => {
   update(dt);
   controls.step(dt);
   for (const key of switchKeys) key.material.color.copy(key.userData.scene === controls.scene ? KEY_ON : KEY_OFF);
-  room.setLights(controls.ceiling, controls.screens ? 1 : 0);
+  room.setLights(controls.ceiling * FULL_LIGHT, controls.screens ? 1 : 0);
   if (controls.screens) room.updateScreens(now / 1000);
   renderer.render(scene, camera);
   if (panelOpen) showFrameTime(frame);
@@ -683,6 +686,7 @@ window.__game = {
   spin() { const c = player.seat ?? target?.item; if (c?.omega !== undefined) spin(c, 1); },
   get state() { return { pos: player.pos.toArray(), seated: Boolean(player.seat), target: target?.kind ?? null, busy: Boolean(player.busy) }; },
   blocked: (bx, by) => blocked(bx, -by),
+  set fullLight(k) { FULL_LIGHT = k; },
 };
 
 load().catch((err) => { ui.intro.textContent = err.message; ui.go.textContent = 'Could not load'; console.error(err); });
