@@ -58,6 +58,10 @@ to also write a contact sheet next to the reference into a private folder.
   deck instead of the clear safety specs. Each character ships one
   everyday look plus `ppe` and `ppe_deck`; kept extra outfits are behind
   `EXTRA_LOOKS = True` in their script.
+- `anims.py` keys six clips on the shared rig and every .glb carries them
+  as named glTF animations: `idle`, `walk` (in place; move the root),
+  `seated_idle` (0.45 m seat), `stand_up`, `typing` (0.74 m desk) and
+  `point`. One clip set plays on every character and outfit.
 - Renders use a neutral white studio light (`STUDIO_LIGHT`) so colours
   stay true to the palette; Blender's built-in ones are tinted.
 - `pose_check.png` shows reach, seated and crouch poses, grounded with the

@@ -874,8 +874,11 @@ def finish(name, meshes, out_dir, title=None, notes=(), rigid=None, reference=No
     bpy.ops.object.select_all(action="DESELECT")
     ch.select_set(True)
     arm.select_set(True)
+    import anims  # imports this module
+    anims.add_clips(arm)
     bpy.ops.export_scene.gltf(filepath=os.path.join(out_dir, f"{name}{sfx}.glb"), export_format="GLB",
-                              use_selection=True, export_apply=False, export_animations=False)
+                              use_selection=True, export_apply=False, export_animations=True,
+                              export_animation_mode="NLA_TRACKS", export_frame_range=False)
     print(f"{name}{sfx}: {tris} triangles -> {out_dir}")
     return tris, turn
 
