@@ -252,6 +252,24 @@ class Mesh:
         self.face(out if nw.dot(normal) > 0 else out[::-1], swatch, region)
         return self
 
+    def decal_band(self, bvh, zs, left, right, swatch, region, lift=0.003):
+        """A strip stuck on the front of the mesh between two edges, left(z)
+        and right(z), as one row of quads per step in zs. Unlike one big
+        flat polygon it follows a curved surface (a V of shirt, lapels)."""
+        rows = []
+        for z in zs:
+            row = []
+            for x in (left(z), right(z)):
+                hit, n, _, _ = bvh.ray_cast(Vector((x, 1.0, z)), -Y)
+                assert hit is not None, (region, x, z)
+                row.append(hit + n * lift)
+            rows.append(row)
+        for (a0, b0), (a1, b1) in zip(rows, rows[1:]):
+            pts = [a0, b0, b1, a1]
+            n = (b0 - a0).cross(a1 - a0)
+            self.face(pts if n.y > 0 else pts[::-1], swatch, region)
+        return self
+
     def to_object(self, name, collection=None):
         me = bpy.data.meshes.new(name)
         me.from_pydata([tuple(p) for p in self.verts], [], [ids for ids, _, _ in self.faces])

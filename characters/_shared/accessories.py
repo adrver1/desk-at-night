@@ -3,7 +3,7 @@ Shared accessories any character can wear: everyday glasses and a headset.
 Each returns a Mesh in its own region; a character passes
 {region: "head"} in `rigid` so it follows the head bone.
 
-    glasses(style)   "rect_thick" (dark, chunky), "thin_metal", "round_brown"
+    glasses(style)   "rect_thick" (dark, chunky), "rect_thin", "thin_metal", "round_brown"
     headset()        over-ear headset with a band over the hair and a cable
 """
 import math
@@ -17,6 +17,7 @@ GLASSES = {
     # style: (frame swatch, lens half width, half height, frame thickness, frame depth)
     "rect_thick": ("plastic_black", 0.027, 0.017, 0.0055, 0.006),
     "thin_metal": ("steel", 0.026, 0.018, 0.0025, 0.003),
+    "rect_thin": ("charcoal", 0.027, 0.016, 0.0035, 0.004),
     "round_brown": ("leather_brown", 0.025, 0.019, 0.0045, 0.005),
 }
 
