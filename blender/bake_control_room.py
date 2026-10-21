@@ -39,6 +39,7 @@ OUT = os.path.join(b.ROOT, "web", "public", "control")
 GROUPS = {
     "Screen": "screens", "ScreenCam": "screens", "ExitSign": "screens",  # the exit sign never goes off
     "LedPanel": "ceiling", "Clock": "ceiling", "PlatformLight": "ceiling", "Flare": "ceiling",
+    "PlatformWindow": "ceiling", "PlatformRed": "ceiling",
 }
 
 
@@ -47,7 +48,7 @@ def texel_weight(name):
     if name == "Sea":
         return 1e-6  # 800 m across: by area alone it would take the whole atlas
     if name.startswith(("Plat", "Flare")):
-        return 0.002
+        return 0.02  # only the culled shell outside the window is left, and it is close
     if name in ("Ceiling", "WallRear", "CeilingNook") or name.startswith(("AirCassette", "WallNook", "Bulkhead")):
         return 0.08
     if name.startswith(("Sofa", "CoffeeTable", "Kitchenette", "PlantNook", "FloorNook")):

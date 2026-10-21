@@ -1,6 +1,6 @@
 {
-  "scaleCeiling": 1.4334666728973389,
-  "scaleScreens": 0.2812078893184662,
+  "scaleCeiling": 0.6252617835998535,
+  "scaleScreens": 0.19873902201652527,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
   "samples": 64,
@@ -49,6 +49,15 @@
       ],
       "strength": 4.0,
       "group": "screens"
+    },
+    "EmitPlatformRed": {
+      "color": [
+        1.0,
+        0.05,
+        0.02
+      ],
+      "strength": 60.0,
+      "group": "ceiling"
     },
     "EmitPlatformLight": {
       "color": [

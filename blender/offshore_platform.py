@@ -582,6 +582,12 @@ def build_lights(g, m):
             g.box(m["lamp"], (-TOP_X - 0.8, y, z + 2.4), (0.3, 0.5, 0.3))
     for x, y, z in ((-40, 6, PROC_TOP + 1), (-14, 0, NOTCH_TOP + 5), (8, -10, UTIL_TOP + 1)):
         g.box(m["lamp"], (x, y, z), (1.0, 1.0, 0.5))  # floodlights
+    # Floodlights over the roofs and the laydown deck: on the corner shaft,
+    # the crane's collar, the process roof edge and the quarters' end wall
+    for x, y, z in ((-TOP_X + 2.5, -TOP_Y + 3.5, PROC_TOP + 4.0), (STAIR_X0 + 2, -9.5, NOTCH_TOP + 16.5),
+                    (PROC_X1 - 0.6, -8, PROC_TOP + 1.2), (PROC_X1 - 0.6, 8, PROC_TOP + 1.2),
+                    (LQ_X0 - 0.4, -10, 66.0), (LQ_X0 - 0.4, 2, 66.0)):
+        g.box(m["lamp"], (x, y, z), (1.2, 1.2, 0.6))
 
 
 # ---------------------------------------------------------------- jack-up
@@ -649,13 +655,38 @@ def build_platform(m, collection=None, jackup=False, z_cut=-4.0):
     return g.objects("Platform", collection), g.tris, tip
 
 
-def cull_to_view(objs, eyes, samples=3):
+def _delete_faces(o, drop):
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    bm.faces.ensure_lookup_table()
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if drop(f)], context="FACES")
+    bm.to_mesh(o.data)
+    bm.free()
+
+
+def carve(objs, lo, hi):
+    """Delete every face whose bounding box reaches into the box lo..hi
+    (world space): makes room for a space inside the platform, such as a
+    control room in the quarters, and opens its window."""
+    lo, hi = Vector(lo), Vector(hi)
+    for o in objs:
+        mw = o.matrix_world
+
+        def inside(f):
+            ps = [mw @ v.co for v in f.verts]
+            return all(min(p[i] for p in ps) <= hi[i] and max(p[i] for p in ps) >= lo[i] for i in range(3))
+        _delete_faces(o, inside)
+
+
+def cull_to_view(objs, eyes, samples=3, portal=None):
     """Delete every face no eye can see: the far side, module interiors,
     hidden equipment. A face stays if a ray from any eye to its centre or to
     a point near one of its corners hits that face first. Give several eyes
     spread over the window so parallax as the player moves is covered.
-    Returns the triangles left."""
-    import bmesh
+    portal = (x, y0, y1, z0, z1) is a window in a plane of constant x: only
+    rays that pass through it count. Returns the triangles left."""
+    bpy.context.view_layer.update()
     dg = bpy.context.evaluated_depsgraph_get()
     scene = bpy.context.scene
     eyes = [Vector(e) for e in eyes]
@@ -668,16 +699,19 @@ def cull_to_view(objs, eyes, samples=3):
             pts = [ctr] + [ctr.lerp(o.matrix_world @ me.vertices[v].co, 0.8) for v in p.vertices[:samples]]
             for eye, pt in ((e, q) for e in eyes for q in pts):
                 d = pt - eye
+                if portal:
+                    px, y0, y1, z0, z1 = portal
+                    if (eye.x - px) * (pt.x - px) >= 0:
+                        continue  # the point is on the eye's side of the window
+                    s = (px - eye.x) / d.x
+                    cross = eye + d * s
+                    if not (y0 <= cross.y <= y1 and z0 <= cross.z <= z1):
+                        continue
                 hit, loc, _, idx, hob, _ = scene.ray_cast(dg, eye, d.normalized(), distance=d.length + 0.05)
                 if hit and hob.name == o.name and idx == p.index:
                     keep.add(p.index)
                     break
-        bm = bmesh.new()
-        bm.from_mesh(me)
-        bm.faces.ensure_lookup_table()
-        bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.index not in keep], context="FACES")
-        bm.to_mesh(me)
-        bm.free()
+        _delete_faces(o, lambda f: f.index not in keep)
         left += sum(len(p.vertices) - 2 for p in me.polygons)
     return left
 

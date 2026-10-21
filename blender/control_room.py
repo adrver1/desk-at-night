@@ -27,9 +27,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import boards  # noqa: E402
 import build as b  # noqa: E402  (imports bpy)
+import offshore_platform as op  # noqa: E402
 import props  # noqa: E402
 
 bpy, bmesh, Vector = b.bpy, b.bmesh, b.Vector
+from mathutils import Matrix  # noqa: E402
 box, cylinder, mat_flat = b.box, b.cylinder, b.mat_flat
 
 # Desks (metres): two arcs of 80 degrees with a small gap between them
@@ -112,6 +114,8 @@ def materials():
     m["clock"] = emissive("Clock", (1.0, 0.05, 0.02), 6.0)
     m["platform_light"] = emissive("PlatformLight", (1.0, 0.75, 0.40), 40.0)
     m["flare"] = emissive("Flare", (1.0, 0.45, 0.10), 80.0)
+    m["platform_window"] = emissive("PlatformWindow", (1.0, 0.85, 0.6), 2.5)  # lit cabins in the quarters
+    m["platform_red"] = emissive("PlatformRed", (1.0, 0.05, 0.02), 60.0)      # obstruction lights
     m["exit_sign"] = emissive("ExitSign", (0.10, 1.0, 0.30), 4.0)
     m["door"] = mat_flat("Door", (0.50, 0.52, 0.53), 0.5)
     return m
@@ -514,25 +518,37 @@ def obstacles():
     return out
 
 
+# Where the room sits in the platform (offshore_platform.py coordinates): on
+# the top floor of the quarters, its window in the quarters' end wall facing
+# the flare, high enough to look out over the stepped plant blocks below.
+PLATFORM_OFFSET = Vector((op.LQ_X0 + ROOM_X, 6.0, 69.2))  # platform point at the room origin
+
+
 def build_outside(m):
-    """Placeholder platform seen through the window: a deck, a few modules,
-    a derrick, deck lights and a flare tip. To be replaced with a low-detail
-    model of the real platform."""
-    ox, oy = -60.0, 8.0
-    box("PlatDeck", (40, 26, 2), (ox, oy, -6), m["deck"])
-    lights = 0
-    for i, (dx, dy, sx, sy, sz) in enumerate([(-8, -6, 10, 9, 8), (4, -5, 9, 10, 11), (-6, 6, 12, 8, 6), (8, 7, 8, 7, 14)]):
-        box(f"PlatModule{i}", (sx, sy, sz), (ox + dx, oy + dy, -5 + sz / 2), m["deck"])
-        # Deck lights along the face that looks toward the control room
-        for j in range(int(sy // 3)):
-            for k in range(int(sz // 4)):
-                y, z = oy + dy - sy / 2 + 1.5 + 3 * j, -3 + 4 * k
-                cylinder(f"PlatLight{lights}", 0.15, 0.15, (ox + dx + sx / 2 + 0.2, y, z), m["platform_light"], verts=8)
-                lights += 1
-    box("PlatDerrick", (3, 3, 26), (ox + 12, oy - 8, 8), m["deck"])
-    box("FlareBoom", (1, 1, 14), (ox + 6, oy + 14, 1), m["deck"])
-    cylinder("FlareTip", 1.0, 2.5, (ox + 6, oy + 14, 9), m["flare"], verts=16)
-    b.quad("Sea", [(-400, -400, -30), (400, -400, -30), (400, 400, -30), (-400, 400, -30)], m["sea"], (0, 0, 0))
+    """The platform around the room, seen through the window: the process
+    end, the crane and the flare boom with its pilot burning. Built from
+    offshore_platform.py, carved where the room sits, then cut down to the
+    faces some point in front of the window can see (~9k -> a few thousand
+    triangles). Its lamps, cabin windows, obstruction lights and the flare
+    use the room's emissive groups so the viewer can drive them."""
+    pm = op.materials()
+    pm.update(lamp=m["platform_light"], flare=m["flare"], window=m["platform_window"], red=m["platform_red"])
+    objs, tris, _ = op.build_platform(pm, z_cut=-1.0)
+    off = PLATFORM_OFFSET
+    op.carve(objs, off + Vector((-ROOM_X - 0.15, ROOM_Y0 - 0.15, -0.15)), off + Vector((ROOM_X + 0.15, ROOM_Y1 + 0.15, ROOM_Z + 0.15)))
+    # Eyes where a player can stand or sit in front of the window
+    eyes = [off + Vector((x, y, z)) for x in (-4.8, -3.0, 0.0) for y in (WIN_Y0 + 0.4, (WIN_Y0 + WIN_Y1) / 2, WIN_Y1 - 0.4)
+            for z in (1.2, 1.7)]
+    portal = (off.x - ROOM_X, off.y + WIN_Y0, off.y + WIN_Y1, off.z + WIN_Z0, off.z + WIN_Z1)
+    left = op.cull_to_view(objs, eyes, portal=portal)
+    for o in objs:
+        if not o.data.polygons:  # a material with nothing left in view (the bake can't unwrap an empty mesh)
+            bpy.data.objects.remove(o)
+            continue
+        o.data.transform(Matrix.Translation(-off))
+    print(f"platform outside the window: {tris} -> {left} triangles", flush=True)
+    sea = 2000.0
+    b.quad("Sea", [(-sea, -sea, -off.z), (sea, -sea, -off.z), (sea, sea, -off.z), (-sea, sea, -off.z)], m["sea"], (0, 0, 0))
 
 
 # ------------------------------------------------------------------- render
@@ -541,7 +557,7 @@ def cameras():
     def cam(name, loc, aim, lens):
         d = bpy.data.cameras.new(name)
         d.lens = lens
-        d.clip_end = 300
+        d.clip_end = 3000
         o = bpy.data.objects.new(name, d)
         o.location = loc
         o.rotation_euler = (Vector(aim) - Vector(loc)).to_track_quat("-Z", "Y").to_euler()
@@ -555,7 +571,7 @@ def cameras():
     right, ahead = Vector((math.cos(st), -math.sin(st), 0)), Vector((math.sin(st), math.cos(st), 0))
     station = cam("Station", edge - right * 0.85 - ahead * 0.45 + Vector((0, 0, 1.40)),  # over the left shoulder
                   edge + right * 0.10 + ahead * 0.25 + Vector((0, 0, DESK_Z)), 22)
-    window = cam("Window", (-1.6, 0.2, 1.45), (-5.4, 1.0, 1.45), 24)
+    window = cam("Window", (-3.6, 0.1, 1.5), (-20.0, 0.5, -0.5), 20)  # out over the process end to the flare
     plan_d = bpy.data.cameras.new("Plan")
     plan_d.type = "ORTHO"
     plan_d.ortho_scale = 11.6
