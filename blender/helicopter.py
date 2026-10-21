@@ -40,32 +40,41 @@ def srgb(h):
 
 
 NAVY, SLATE, SAND, WHITE = srgb("#02293c"), srgb("#73838d"), srgb("#d2ccb3"), srgb("#eceeee")
+SIGNAL, DEEP_BLUE = srgb("#d8261c"), srgb("#1b2a6b")
 
 # Paint bands of the cross section, bottom to top (see PROFILE): belly,
-# lower side, stripe, upper side, window band, shoulder, roof. A livery
-# names a colour key for each band, separately for the cabin and the tail
-# boom, plus the fin, the engine cowling and the sponsons.
-BANDS = ("belly", "lower", "stripe", "upper", "windows", "shoulder", "roof")
+# lower side, stripe, pinstripe, upper side, window band, shoulder, roof. A
+# livery names a colour key for each band, separately for the cabin and the
+# tail boom, plus the fin, the engine cowling, the sponsons, the window
+# frames (None for none) and the tail rotor blade and tip colours.
+BANDS = ("belly", "lower", "stripe", "pin", "upper", "windows", "shoulder", "roof")
 LIVERIES = {
     # Navy below, white above, a sand cheat line between, navy tail
-    "navy": {"cabin": ("navy", "navy", "sand", "white", "white", "white", "white"),
-             "boom": ("navy", "navy", "sand", "navy", "navy", "navy", "navy"),
+    "navy": {"cabin": ("navy", "navy", "sand", "white", "white", "white", "white", "white"),
+             "boom": ("navy", "navy", "sand", "navy", "navy", "navy", "navy", "navy"),
              "fin": "navy", "cowl": "white", "sponson": "navy"},
     # Navy all over with a white roof and cowling, slate tail, sand stripe
-    "dark": {"cabin": ("navy", "navy", "sand", "navy", "navy", "white", "white"),
-             "boom": ("slate", "slate", "sand", "slate", "slate", "slate", "slate"),
+    "dark": {"cabin": ("navy", "navy", "sand", "navy", "navy", "navy", "white", "white"),
+             "boom": ("slate", "slate", "sand", "slate", "slate", "slate", "slate", "slate"),
              "fin": "slate", "cowl": "white", "sponson": "navy"},
     # White with a slate belly, a navy band that widens along the boom, navy fin
-    "white": {"cabin": ("slate", "white", "navy", "white", "white", "white", "white"),
-              "boom": ("slate", "navy", "navy", "navy", "navy", "white", "white"),
+    "white": {"cabin": ("slate", "white", "navy", "white", "white", "white", "white", "white"),
+              "boom": ("slate", "navy", "navy", "navy", "navy", "navy", "white", "white"),
               "fin": "navy", "cowl": "white", "sponson": "slate"},
+    # Offshore operator style: red top and nose, white below, a blue cheat
+    # line with a white pinstripe that sweeps up into a blue boom and fin,
+    # white window frames, red and white striped tail rotor
+    "redtop": {"cabin": ("white", "white", "blue", "white", "signal", "signal", "signal", "signal"),
+               "boom": ("white", "white", "blue", "white", "blue", "blue", "blue", "blue"),
+               "fin": "blue", "cowl": "signal", "sponson": "white", "frame": "white",
+               "tail_rotor": ("white", "signal")},
 }
-LIVERY = "navy"
+LIVERY = "redtop"
 
 # Half cross section as (width, height) fractions, from the keel to the roof
-# line; mirrored to a closed ring of 14 points. Row k to k+1 is BANDS[k].
+# line; mirrored to a closed ring of 18 points (see _band for the paint).
 PROFILE = [(0.0, 0.0), (0.82, 0.03), (1.0, 0.20), (1.0, 0.36), (1.0, 0.43),
-           (1.0, 0.50), (0.95, 0.88), (0.0, 1.0)]
+           (1.0, 0.455), (1.0, 0.50), (0.95, 0.88), (0.0, 1.0)]
 SHOULDER = (0.70, 0.977)  # extra point between the window top and the roof line
 
 # Sections along the fuselage: (x, keel z, roof z, half width). The nose is
@@ -108,6 +117,8 @@ def materials():
         "slate": b.mat_flat("HeliSlate", SLATE, 0.4),
         "sand": b.mat_flat("HeliSand", SAND, 0.4),
         "white": b.mat_flat("HeliWhite", WHITE, 0.35),
+        "signal": b.mat_flat("HeliSignal", SIGNAL, 0.35),
+        "blue": b.mat_flat("HeliBlue", DEEP_BLUE, 0.35),
         "glass": b.mat_flat("HeliGlass", (0.015, 0.02, 0.025), 0.08),
         "blade": b.mat_flat("HeliBlade", (0.06, 0.06, 0.065), 0.5),
         "metal": b.mat_flat("HeliMetal", (0.25, 0.25, 0.26), 0.45),
@@ -143,10 +154,10 @@ def loft(g, rings, mat, caps=True):
 
 
 def _band(k):
-    """Paint band of ring segment k: 8 segments per side from the keel up,
+    """Paint band of ring segment k: 9 segments per side from the keel up,
     then back down the other side."""
-    k = k if k < 8 else 15 - k
-    return (0, 0, 1, 2, 3, 4, 5, 6)[k]
+    k = k if k < 9 else 17 - k
+    return (0, 0, 1, 2, 3, 4, 5, 6, 7)[k]
 
 
 def build_fuselage(g, m, liv):
@@ -155,15 +166,15 @@ def build_fuselage(g, m, liv):
     def paint(i, k):
         x0, x1 = SECTIONS[i][0], SECTIONS[i + 1][0]
         band = _band(k)
-        if WINDSCREEN[0] <= x1 and x0 <= WINDSCREEN[1] + 0.01 and band >= 4:
+        if WINDSCREEN[0] <= x1 and x0 <= WINDSCREEN[1] + 0.01 and band >= 5:
             return m["glass"]           # windscreen and the eyebrow panes
         return m[(liv["boom"] if x1 < CABIN_END - 0.01 else liv["cabin"])[band]]
 
     loft(g, rings, paint, caps=False)
-    g.add(m[liv["cabin"][3]], rings[0], [tuple(range(len(rings[0])))])               # nose cap
-    g.add(m[liv["boom"][3]], rings[-1], [tuple(reversed(range(len(rings[-1]))))])    # boom end
+    g.add(m[liv["cabin"][4]], rings[0], [tuple(range(len(rings[0])))])               # nose cap
+    g.add(m[liv["boom"][4]], rings[-1], [tuple(reversed(range(len(rings[-1]))))])    # boom end
     # Centre post and frame of the windscreen
-    g.beam(m[liv["cabin"][4]], (4.25, 0, ROOF + 0.02), (6.42, 0, 1.80), 0.12)
+    g.beam(m[liv["cabin"][5]], (4.25, 0, ROOF + 0.02), (6.42, 0, 1.80), 0.12)
 
 
 def side_quad(g, mat, x0, x1, z0, z1, y):
@@ -177,10 +188,12 @@ def build_cabin_details(g, m, liv):
     y = 1.255
     zw0, zw1 = 0.58 + 0.50 * 2.22 + 0.06, 0.58 + 0.88 * 2.22 - 0.07
     # Crew door window, then four big square cabin windows (the last behind the sliding door)
-    side_quad(g, m["glass"], 3.15, 4.10, zw0 - 0.15, zw1, y + 0.01)
-    for x in (2.05, 0.80, -0.45):
-        side_quad(g, m["glass"], x - 0.46, x + 0.46, zw0, zw1, y + 0.01)
-    side_quad(g, m["glass"], -1.55, -1.05, zw0 + 0.05, zw1, y + 0.01)
+    wins = [(3.15, 4.10, zw0 - 0.15)] + [(x - 0.46, x + 0.46, zw0) for x in (2.05, 0.80, -0.45)]
+    wins.append((-1.55, -1.05, zw0 + 0.05))
+    for x0, x1, z0 in wins:
+        side_quad(g, m["glass"], x0, x1, z0, zw1, y + 0.01)
+        if liv.get("frame"):
+            side_quad(g, m[liv["frame"]], x0 - 0.07, x1 + 0.07, z0 - 0.07, zw1 + 0.07, y + 0.005)
     # Sliding door seam and crew door seam: thin dark lines
     for x in (1.30, -1.0):
         side_quad(g, m["metal"], x, x + 0.05, 0.95, zw1 + 0.10, y + 0.012)
@@ -220,8 +233,13 @@ def build_tail(g, m, liv):
     for i in range(4):
         a = math.radians(20 + 90 * i)
         d = Vector((math.cos(a), 0, math.sin(a)))
-        g.beam(m["blade"], hub + d * 0.15, hub + d * (TAIL_R - 0.2), 0.20, 0.04)
-        g.beam(m["yellow"], hub + d * (TAIL_R - 0.2), hub + d * TAIL_R, 0.20, 0.04)
+        if "tail_rotor" in liv:     # striped blades: three bands, tip in the second colour
+            c0, c1 = (m[k] for k in liv["tail_rotor"])
+            for j, (r0, r1) in enumerate(((0.15, 0.6), (0.6, 0.9), (0.9, 1.15), (1.15, TAIL_R))):
+                g.beam(c1 if j % 2 else c0, hub + d * r0, hub + d * r1, 0.20, 0.04)
+        else:
+            g.beam(m["blade"], hub + d * 0.15, hub + d * (TAIL_R - 0.2), 0.20, 0.04)
+            g.beam(m["yellow"], hub + d * (TAIL_R - 0.2), hub + d * TAIL_R, 0.20, 0.04)
     # Tail skid and beacon on the fin
     g.beam(m["metal"], (-8.2, 0, 2.20), (-8.7, 0, 1.70), 0.08)
     g.prism(m["red"], (-9.85, 0), 0.07, 5.00, 5.10, 6)
@@ -355,7 +373,7 @@ def main():
     line = colls["lineup"] = bpy.data.collections.new("Lineup")
     scene.collection.children.link(line)
     for i, name in enumerate(names):
-        build_helicopter(m, line, ((i - 1) * 16.0, (i - 1) * -2.0, 0), math.radians(-25), name)
+        build_helicopter(m, line, ((i - 1.5) * 16.0, (i - 1.5) * -2.0, 0), math.radians(-25), name)
     g = op.Mesh()
     g.span(floor_m, -80, 80, -60, 60, -0.1, 0)
     g.objects("Floor_lineup", line)
@@ -366,7 +384,7 @@ def main():
     sun_d.energy = 3.0
     set_night(m, False)
     show(line)
-    shot(cam("Lineup", (6, -44, 15), (0, 0, 2.0), 35), "lineup", w, w * 9 // 16)
+    shot(cam("Lineup", (6, -58, 17), (0, 0, 2.0), 35), "lineup", w, w * 9 // 16)
     for name in names:
         show(colls[name])
         shot(cam("Q_" + name, (13, -15, 5.5), (0, 0, 2.2), 35), "quarter-" + name, w, w * 9 // 16)
