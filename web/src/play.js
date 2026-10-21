@@ -670,8 +670,8 @@ renderer.setAnimationLoop((now) => {
   outdoor.update(dt);
   renderer.toneMappingExposure = outdoor.light.exposure;
   room.setLights(controls.ceiling * FULL_LIGHT, controls.screens ? 1 : 0);
-  room.setDaylight(outdoor.light);
-  if (controls.screens) room.updateScreens(now / 1000);
+  room.setDaylight(outdoor.light, now / 1000);
+  if (controls.screens) room.updateScreens(now / 1000, outdoor.cctv);
   outdoor.render(renderer, camera);
   renderer.render(scene, camera);
   if (panelOpen) showFrameTime(frame);

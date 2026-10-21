@@ -1,7 +1,7 @@
 // Time of day and weather sliders for outdoor.js, built into a container.
 // Shared by the lighting viewer and the room control panel in the game.
 // The URL can set them too: ?time=14.5&weather=storm (or clouds/wind/fog/rain=0..1).
-import { WEATHER, clock } from './outdoor.js';
+import { WEATHER, REAL_TIME, clock } from './outdoor.js';
 
 const SLIDERS = [
   ['time', 'Time of day', 0, 24, 0.05, (v) => clock(v)],
@@ -11,7 +11,7 @@ const SLIDERS = [
   ['rain', 'Rain', 0, 1, 0.01, (v) => `${Math.round(v * 100)}%`],
 ];
 const PRESETS = { clear: 'Clear', cloudy: 'Cloudy', overcast: 'Overcast', storm: 'Storm', fog: 'Fog' };
-const RUN_SPEED = 0.5; // hours per second while the clock runs
+const RUN_SPEED = 0.5; // hours per second while the clock is sped up
 
 export function outdoorControls(root, outdoor) {
   const params = new URLSearchParams(location.search);
@@ -63,8 +63,9 @@ export function outdoorControls(root, outdoor) {
   const run = document.createElement('button');
   run.type = 'button';
   run.className = 'ghost';
-  const label = () => { run.textContent = outdoor.state.speed ? 'Stop the clock' : 'Run the clock'; };
-  run.addEventListener('click', () => { outdoor.set({ speed: outdoor.state.speed ? 0 : RUN_SPEED }); label(); });
+  const fast = () => outdoor.state.speed > REAL_TIME;
+  const label = () => { run.textContent = fast() ? 'Back to real time' : 'Speed up the clock'; };
+  run.addEventListener('click', () => { outdoor.set({ speed: fast() ? REAL_TIME : RUN_SPEED }); label(); });
   label();
   root.append(run);
 
@@ -78,7 +79,7 @@ export function outdoorControls(root, outdoor) {
   // While the clock runs, keep the time slider moving with it
   let shown = outdoor.state.time;
   (function follow() {
-    if (outdoor.state.time !== shown) {
+    if (Math.abs(outdoor.state.time - shown) > 1 / 120) {
       shown = outdoor.state.time;
       inputs.time.value = shown;
       outputs.time[0].textContent = clock(shown);

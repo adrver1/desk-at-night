@@ -9,7 +9,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { roomVertex } from './shaders.js';
-import { drawSlots, assign, contentOf } from './screens.js';
+import { drawSlots, assign, contentOf, setOutside } from './screens.js';
+import { SunShadow } from './sunShadow.js';
 
 const SCENE = 'control/';
 // GitHub Pages lets browsers reuse files for ten minutes without asking. After
@@ -23,9 +24,10 @@ const DISPLAY = { screens: 0.32, ceiling: 1 };
 // them a few times a second was too slow, so they are drawn once, as they
 // look STATIC_T seconds into the shift (phones get a half-size atlas), and
 // only screens showing LIVE content keep moving, each on its own small texture.
-const LIVE = ['assistant']; // content that keeps moving wherever it is shown
+const LIVE = ['assistant', 'deckCam', 'flareCam', 'weather']; // content that keeps moving wherever it is shown (the cameras and weather follow outdoor.js)
 const isLive = (name) => LIVE.includes(contentOf(name));
 const STATIC_T = 600, SCREEN_HZ = 4, SCREEN_GAIN = 1.4;
+const ATLAS_EVERY = 3; // s between redraws of the static screens for the clock
 const FOCUS_SCALE = 2, FOCUS_HZ = 8; // the screen the player zooms in on
 const SCREEN_SCALE = matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
 
@@ -82,13 +84,18 @@ const roomFragment = /* glsl */ `
   uniform vec3 uSky;     // the live sky's average radiance (the bake used 1)
   uniform int uMode;     // 0 final, 1 albedo, 2 ceiling light, 3 screens light, 4 sky light
   varying vec2 vUv;
-  #ifdef OUTSIDE
-  uniform vec3 uSun;     // the sun (or moon) as direct light, and where it is
+  // The sun (or moon) as direct light, live, with a shadow map (sunShadow.js)
+  uniform vec3 uSun;
   uniform vec3 uSunDir;
-  uniform vec3 uFogColor;
-  uniform float uFogDistance;
+  uniform sampler2D uShadowMap;
+  uniform mat4 uShadowMatrix;
+  uniform float uShadowTexel;  // one texel of the map, in metres
+  uniform vec3 uWindowLo, uWindowHi; // the window opening (x is the wall), for the sun inside
   varying vec3 vNormal;
   varying vec3 vWorld;
+  #ifdef OUTSIDE
+  uniform vec3 uFogColor;
+  uniform float uFogDistance;
   #endif
   #ifdef BOARD
   uniform sampler2D uBoard;
@@ -100,6 +107,33 @@ const roomFragment = /* glsl */ `
     return c * c * c * scale;
   }
 
+  // Share of the sun reaching this point: 0 in shadow, 1 in full sun. The
+  // point is pushed out along its normal by a couple of texels so a surface
+  // never shadows itself. Four taps a texel and a half apart, and the darkest
+  // wins: that closes hairline gaps between walls and ceiling, which would
+  // otherwise let thin lines of sun through.
+  float sunlit(vec3 n) {
+    #ifndef OUTSIDE
+    // Inside, the sun only comes in through the window: follow the ray from
+    // here to the sun to the window's wall and check it lands in the opening.
+    // This also stops it leaking through hairline gaps between walls.
+    if (uSunDir.x >= -1e-4) return 0.0;
+    float k = (uWindowLo.x - vWorld.x) / uSunDir.x;
+    vec3 at = vWorld + uSunDir * k;
+    if (k < 0.0 || at.y < uWindowLo.y || at.y > uWindowHi.y || at.z < uWindowLo.z || at.z > uWindowHi.z) return 0.0;
+    #endif
+    vec4 p = uShadowMatrix * vec4(vWorld + n * uShadowTexel * 2.0, 1.0);
+    vec3 c = p.xyz / p.w * 0.5 + 0.5;
+    if (c.x < 0.0 || c.x > 1.0 || c.y < 0.0 || c.y > 1.0 || c.z > 1.0) return 1.0;
+    vec2 d = vec2(1.5 / float(textureSize(uShadowMap, 0).x));
+    float lit = 1.0;
+    for (int i = 0; i < 4; i++) {
+      vec2 o = vec2(i == 1 || i == 3 ? 1.0 : -1.0, i >= 2 ? 1.0 : -1.0) * d;
+      lit = min(lit, step(c.z, texture2D(uShadowMap, c.xy + o).r + 1e-4));
+    }
+    return lit;
+  }
+
   void main() {
     #ifdef BOARD
     vec3 albedo = texture2D(uBoard, vUv1).rgb;  // whiteboards: their own sharp image, lit by the atlas
@@ -109,9 +143,9 @@ const roomFragment = /* glsl */ `
     vec3 eCeiling = uCeiling * decode(uLightCeiling, uScaleCeiling);
     vec3 eScreens = uScreens * decode(uLightScreens, uScaleScreens);
     vec3 eSky = uSky * decode(uLightSky, uScaleSky);
-    #ifdef OUTSIDE
-    eSky += uSun * max(dot(normalize(vNormal), uSunDir), 0.0);
-    #endif
+    vec3 n = normalize(vNormal);
+    float facing = dot(n, uSunDir);
+    if (facing > 0.0 && dot(uSun, uSun) > 1e-8) eSky += uSun * facing * sunlit(n);
     vec3 color = albedo * (eCeiling + eScreens + eSky);
     if (uMode == 2) color = eCeiling;
     if (uMode == 3) color = eScreens;
@@ -126,15 +160,15 @@ const roomFragment = /* glsl */ `
   }
 `;
 
-// Whiteboard surfaces: the room's vertex shader plus their second UV set
-const boardVertex = roomVertex
-  .replace('varying vec2 vUv;', 'varying vec2 vUv;\n  varying vec2 vUv1;')
-  .replace('vUv = uv;', 'vUv = uv;\n    vUv1 = uv1;');
-
-// The platform outside: the room's vertex shader plus its normals
-const outsideVertex = roomVertex
+// The room's vertex shader plus normals, for the sun
+const sunVertex = roomVertex
   .replace('varying vec2 vUv;', 'varying vec2 vUv;\n  varying vec3 vNormal;')
   .replace('vUv = uv;', 'vUv = uv;\n    vNormal = normalize(mat3(modelMatrix) * normal);');
+
+// Whiteboard surfaces: plus their second UV set
+const boardVertex = sunVertex
+  .replace('varying vec2 vUv;', 'varying vec2 vUv;\n  varying vec2 vUv1;')
+  .replace('vUv = uv;', 'vUv = uv;\n    vUv1 = uv1;');
 
 // A black 1×1 light map, for a bake from before the sky map existed
 function blackMap() {
@@ -171,14 +205,21 @@ export async function loadControlRoom(renderer) {
   ]);
   const gltf = await new GLTFLoader().parseAsync(glb, '');
 
+  const shadows = new SunShadow(renderer);
+  // The window, in three's axes (Blender y is -z); defaults match control_room.py
+  const [wx, wy0, wy1, wz0, wz1] = meta.layout?.window ?? [-5.4, -2.4, 2.6, 0.85, 2.45];
+  const windowLo = [wx, wz0, -wy1], windowHi = [wx, wz1, -wy0];
   const material = new THREE.ShaderMaterial({
-    vertexShader: roomVertex,
+    vertexShader: sunVertex,
     fragmentShader: roomFragment,
     uniforms: {
       uAlbedo: { value: albedo }, uLightCeiling: { value: lightCeiling }, uLightScreens: { value: lightScreens },
       uScaleCeiling: { value: meta.scaleCeiling }, uScaleScreens: { value: meta.scaleScreens },
       uCeiling: { value: 1 }, uScreens: { value: 1 }, uMode: { value: 0 },
       uLightSky: { value: lightSky }, uScaleSky: { value: meta.scaleSky ?? 0 }, uSky: { value: new THREE.Color(0, 0, 0) },
+      uSun: { value: new THREE.Color(0, 0, 0) }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+      ...shadows.room.uniforms,
+      uWindowLo: { value: new THREE.Vector3(...windowLo) }, uWindowHi: { value: new THREE.Vector3(...windowHi) },
     },
   });
   // The platform outside the window: the same atlas, plus the sun
@@ -186,10 +227,8 @@ export async function loadControlRoom(renderer) {
   let outside = null;
   if (outsideMesh) {
     outside = material.clone();
-    outside.vertexShader = outsideVertex;
     outside.defines = { OUTSIDE: '' };
-    outside.uniforms = { ...material.uniforms, uSun: { value: new THREE.Color(0, 0, 0) }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
-      uFogColor: { value: new THREE.Color() }, uFogDistance: { value: 1e5 } };
+    outside.uniforms = { ...material.uniforms, ...shadows.platform.uniforms, uFogColor: { value: new THREE.Color() }, uFogDistance: { value: 1e5 } };
     outsideMesh.material = outside;
   }
   // The movable things (chairs, mugs, coffee) share the room's atlas
@@ -218,7 +257,7 @@ export async function loadControlRoom(renderer) {
     const { canvas: size, slots } = meta.screens;
     const atlas = canvasTexture(renderer, size * SCREEN_SCALE, size * SCREEN_SCALE);
     drawSlots(atlas.image.getContext('2d'), slots, STATIC_T, SCREEN_SCALE);
-    screens = { atlas, meshes: [], overlays: new Map(), focus: null, drawn: -Infinity, focusDrawn: -Infinity };
+    screens = { atlas, meshes: [], overlays: new Map(), focus: null, drawn: -Infinity, focusDrawn: -Infinity, atlasTime: -1, atlasDrawn: -Infinity };
   }
   const emitters = [];
   for (const [name, e] of Object.entries(meta.emitters)) {
@@ -266,6 +305,12 @@ export async function loadControlRoom(renderer) {
   const slots = meta.screens?.slots ?? {};
   if (screens) for (const name of Object.keys(slots)) if (isLive(name)) { const o = overlay(name, 1); if (o) o.mesh.visible = true; }
   gltf.scene.updateMatrixWorld(true);
+  // What the sun's shadow maps cover: the room (with a margin for the walls)
+  // and the platform
+  const [rx0, ry0, rx1, ry1] = meta.layout?.room ?? [-6, -4, 6, 5];
+  shadows.room.fit(new THREE.Box3(new THREE.Vector3(rx0 - 0.6, -0.3, -ry1 - 0.6), new THREE.Vector3(rx1 + 0.6, 3.5, -ry0 + 0.6)));
+  if (outsideMesh) shadows.platform.fit(new THREE.Box3().setFromObject(outsideMesh));
+  const casters = gltf.scene.children.filter((o) => o.isMesh && !o.name.startsWith('Emit'));
 
   return {
     meta,
@@ -275,14 +320,17 @@ export async function loadControlRoom(renderer) {
     seaLevel: meta.seaLevel ?? -69.2,
     // Daylight from outdoor.js: the sky's average radiance, and the sun (or
     // moon) for the platform
-    setDaylight({ sky, sun, sunDir, fog, fogDistance }) {
-      material.uniforms.uSky.value.copy(sky);
-      if (!outside) return;
-      const u = outside.uniforms;
+    // and the shadows it casts (re-rendered when the sun moves, and now and
+    // then for the things that move in the room)
+    setDaylight({ sky, sun, sunDir, fog, fogDistance }, t = 0) {
+      const u = material.uniforms;
+      u.uSky.value.copy(sky);
       u.uSun.value.copy(sun);
       u.uSunDir.value.copy(sunDir);
-      u.uFogColor.value.copy(fog);
-      u.uFogDistance.value = fogDistance;
+      if (sun.r + sun.g + sun.b > 1e-5) shadows.update(sunDir, casters, gltf.scene, t);
+      if (!outside) return;
+      outside.uniforms.uFogColor.value.copy(fog);
+      outside.uniforms.uFogDistance.value = fogDistance;
     },
     // Set the light mix: weights for the two groups, and the debug view
     setLights(ceiling, screens, mode = 0) {
@@ -298,8 +346,22 @@ export async function loadControlRoom(renderer) {
     },
     // Redraw the live screens for time t (seconds), at most SCREEN_HZ times a
     // second; the focused one at FOCUS_HZ
-    updateScreens(t) {
+    // `outside` is outdoor.js's cctv summary, for the camera and weather screens
+    updateScreens(t, outside) {
       if (!screens) return;
+      if (outside) {
+        setOutside(outside, STATIC_T + t);
+        // The static screens show the clock too: redraw them when it has
+        // moved on a minute (or the time was changed), at most every few seconds
+        if (Math.abs(outside.time - screens.atlasTime) >= 1 / 60 && t - screens.atlasDrawn >= ATLAS_EVERY) {
+          screens.atlasTime = outside.time;
+          screens.atlasDrawn = t;
+          setOutside(outside, STATIC_T);
+          drawSlots(screens.atlas.image.getContext('2d'), slots, STATIC_T, SCREEN_SCALE);
+          screens.atlas.needsUpdate = true;
+          setOutside(outside, STATIC_T + t);
+        }
+      }
       const f = screens.focus;
       if (f && t - screens.focusDrawn >= 1 / FOCUS_HZ) { screens.focusDrawn = t; draw(f, t); }
       if (t - screens.drawn < 1 / SCREEN_HZ) return;

@@ -317,6 +317,7 @@ def main():
         "nookDoor": list(cr.NOOK_DOOR),  # the opening into it, an x range in the rear wall
         "boxes": [[round(v, 4) for v in o] for o in cr.obstacles()],  # centre x, y, half sizes, yaw
         "deskZ": cr.DESK_Z,
+        "window": [-cr.ROOM_X, cr.WIN_Y0, cr.WIN_Y1, cr.WIN_Z0, cr.WIN_Z1],  # x of the wall, y range, z range
     }
     meta["movable"] = sorted(movable)
 

@@ -30,6 +30,12 @@ const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
 const SHIFT_START = (2 * 60 + 10) * 60; // the night shift picks up at 02:10
 
+// The weather and time outside, from outdoor.js (its `cctv` summary), and the
+// shift time t at which it was last set. Without it the screens show a calm
+// night, as before.
+let outside = null, outsideAt = 0;
+export function setOutside(o, t) { outside = o; outsideAt = t; }
+
 // Smooth deterministic wobble, -1..1
 function wobble(t, seed) {
   return (Math.sin(t * 0.37 + seed * 1.7) + Math.sin(t * 0.91 + seed * 4.1) * 0.5 + Math.sin(t * 2.3 + seed * 7.3) * 0.25) / 1.75;
@@ -50,7 +56,7 @@ function sepLevel(t) {
 
 export const sim = {
   clock: (t) => {
-    const s = Math.floor(SHIFT_START + t) % 86400;
+    const s = ((Math.floor(outside ? outside.time * 3600 + (t - outsideAt) : SHIFT_START + t) % 86400) + 86400) % 86400;
     return `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   },
   sepLevel, valvePos,
@@ -62,9 +68,12 @@ export const sim = {
   gas: (t) => 4.1 + 0.08 * wobble(t * 0.3, 8),
   water: (t) => 6.3 + 0.15 * wobble(t * 0.3, 9),
   flare: (t) => 0.9 + 0.35 * Math.max(0, wobble(t * 0.2, 10)),
-  wind: (t) => 14 + 2.5 * wobble(t * 0.15, 11),
+  wind: (t) => (outside ? 3 + outside.wind * 22 : 14) * (1 + 0.15 * wobble(t * 0.15, 11)),
   windDir: (t) => 235 + 12 * wobble(t * 0.1, 12),
-  waves: (t) => 2.6 + 0.2 * wobble(t * 0.05, 13),
+  // Significant wave height for a sea grown fully under the mean wind
+  waves: (t) => (outside ? 0.4 + 0.017 * (3 + outside.wind * 22) ** 2 : 2.6) + 0.2 * wobble(t * 0.05, 13),
+  visibility: () => (outside ? 0.2 + 30 * (1 - outside.fog) ** 2.5 : 9),     // km
+  cloudBase: () => (outside ? Math.round((4500 - 3800 * outside.clouds) / 100) * 100 : 1400), // ft
   gen: (i, t) => [62, 58, 0][i] + (i < 2 ? 3 * wobble(t * 0.4, 14 + i) : 0),
 };
 
@@ -392,52 +401,118 @@ function esdOverview(ctx, w, h, t) {
 
 // ---------------------------------------------------------------- video wall (16:9)
 
-// Sources: a drawn night scene; sea glints and flare flicker move with t,
-// sensor noise is a fixed hash per frame; caption static.
+const rgba = ([r, g, b], a = 1) => `rgba(${r},${g},${b},${a})`;
+const NIGHT_CCTV = {
+  day: 0, clouds: 0.3, wind: 0.35, fog: 0.1, rain: 0,
+  skyTop: [11, 16, 24], skyLow: [20, 28, 38], cloud: [26, 32, 40], fogColor: [24, 30, 38],
+  seaFar: [12, 16, 21], seaNear: [6, 8, 11], glint: [160, 180, 200],
+};
+
+// Sources: a drawn scene lit like the sky outside (outdoor.js `cctv`, or a
+// calm night without it): sky, clouds, sea glints, whitecaps, fog and rain
+// follow the weather and move with t; flare flicker and sensor noise move
+// with t; caption static.
 function deckCamera(ctx, w, h, t, { name = 'CAM 04 · Weather deck', flare = false } = {}) {
-  const s = w / 1024;
-  const sky = ctx.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0, '#0b1018'); sky.addColorStop(0.55, '#141c26'); sky.addColorStop(0.56, '#0a0e13'); sky.addColorStop(1, '#06080b');
-  rect(ctx, 0, 0, w, h, sky);
-  // Sea glints
-  ctx.fillStyle = 'rgba(160,180,200,0.12)';
-  for (let i = 0; i < 70; i++) {
-    const x = ((i * 137.5) % 1024) * s, y = (330 + ((i * 53) % 230)) * s;
-    ctx.fillRect(x + Math.sin(t * 0.8 + i) * 6 * s, y, (12 + (i % 5) * 6) * s, 1.5 * s);
+  const s = w / 1024, o = outside ?? NIGHT_CCTV, horizon = 320;
+  const sky = ctx.createLinearGradient(0, 0, 0, horizon * s);
+  sky.addColorStop(0, rgba(o.skyTop)); sky.addColorStop(1, rgba(o.skyLow));
+  rect(ctx, 0, 0, w, horizon * s, sky);
+  // Clouds: soft blobs drifting with the wind
+  if (o.clouds > 0.05) {
+    ctx.save();
+    ctx.filter = `blur(${18 * s}px)`;
+    ctx.fillStyle = rgba(o.cloud, Math.min(0.9, 0.25 + o.clouds * 0.7));
+    const n = Math.round(4 + o.clouds * 14), drift = t * (4 + o.wind * 30);
+    for (let i = 0; i < n; i++) {
+      const x = (((i * 211 + drift) % 1400) + 1400) % 1400 - 200, y = 30 + ((i * 97) % 220) * (1 - i / n * 0.3);
+      ctx.beginPath(); ctx.ellipse(x * s, y * s, (90 + (i * 53) % 120) * s, (22 + (i * 31) % 26) * s, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
   }
+  const sea = ctx.createLinearGradient(0, horizon * s, 0, h);
+  sea.addColorStop(0, rgba(o.seaFar)); sea.addColorStop(1, rgba(o.seaNear));
+  rect(ctx, 0, horizon * s, w, h - horizon * s, sea);
+  // Glints and whitecaps on the sea, more of them in wind
+  ctx.fillStyle = rgba(o.glint, 0.18);
+  const glints = Math.round(30 + o.wind * 90);
+  for (let i = 0; i < glints; i++) {
+    const x = ((i * 137.5) % 1024) * s, y = (horizon + 8 + ((i * 53) % 250)) * s;
+    ctx.fillRect(x + Math.sin(t * (0.8 + o.wind) + i) * 6 * s, y, (10 + (i % 5) * 6) * s * (y / h + 0.3), 1.5 * s);
+  }
+  if (o.wind > 0.5) {
+    ctx.fillStyle = `rgba(235,240,245,${(o.wind - 0.5) * 0.5 * (0.3 + 0.7 * o.day)})`;
+    for (let i = 0; i < 60 * (o.wind - 0.5) * 2; i++) {
+      const x = ((i * 311 + t * 20) % 1024) * s, y = (horizon + 20 + ((i * 71) % 230)) * s;
+      ctx.beginPath(); ctx.ellipse(x, y, (6 + (i % 4) * 4) * s * (y / h + 0.4), 2 * s, 0, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  // Steel: a dark silhouette at night, grey by day
+  const lit = (night, day) => rgba(night.map((v, i) => Math.round(v + (day[i] - v) * o.day)));
   if (flare) {
-    // Flare boom and flame
-    ctx.strokeStyle = '#2a3038'; ctx.lineWidth = 10 * s;
+    ctx.strokeStyle = lit([42, 48, 56], [150, 156, 162]); ctx.lineWidth = 10 * s;
     ctx.beginPath(); ctx.moveTo(140 * s, 560 * s); ctx.lineTo(620 * s, 180 * s); ctx.stroke();
-    const flick = 1 + 0.12 * Math.sin(t * 9) + 0.08 * Math.sin(t * 23);
+    const flick = 1 + 0.12 * Math.sin(t * 9) + 0.08 * Math.sin(t * 23) + o.wind * 0.1 * Math.sin(t * 3.1);
     const g = ctx.createRadialGradient(640 * s, 160 * s, 4 * s, 640 * s, 160 * s, 120 * s * flick);
-    g.addColorStop(0, 'rgba(255,240,200,0.95)'); g.addColorStop(0.25, 'rgba(255,170,60,0.7)'); g.addColorStop(1, 'rgba(255,90,20,0)');
+    g.addColorStop(0, 'rgba(255,240,200,0.95)'); g.addColorStop(0.25, `rgba(255,170,60,${0.7 - 0.3 * o.day})`); g.addColorStop(1, 'rgba(255,90,20,0)');
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(640 * s, 160 * s, 130 * s * flick, 0, Math.PI * 2); ctx.fill();
   } else {
-    // Deck rail, crane silhouette, deck lights
-    ctx.fillStyle = '#1b2129';
+    ctx.fillStyle = lit([27, 33, 41], [120, 126, 132]);
     ctx.fillRect(0, 470 * s, w, 106 * s);
-    ctx.strokeStyle = '#323a44'; ctx.lineWidth = 4 * s;
+    ctx.strokeStyle = lit([50, 58, 68], [196, 168, 60]); ctx.lineWidth = 4 * s; // yellow rails by day
     ctx.beginPath(); ctx.moveTo(0, 470 * s); ctx.lineTo(w, 470 * s); ctx.moveTo(0, 430 * s); ctx.lineTo(w, 430 * s); ctx.stroke();
     for (let x = 30; x < 1024; x += 80) { ctx.beginPath(); ctx.moveTo(x * s, 430 * s); ctx.lineTo(x * s, 470 * s); ctx.stroke(); }
-    ctx.lineWidth = 9 * s;
+    ctx.strokeStyle = lit([34, 40, 48], [210, 180, 40]); ctx.lineWidth = 9 * s;
     ctx.beginPath(); ctx.moveTo(760 * s, 470 * s); ctx.lineTo(760 * s, 210 * s); ctx.lineTo(420 * s, 90 * s); ctx.stroke();
     for (const [x, y] of [[120, 455], [400, 455], [690, 455], [930, 455]]) {
       const g = ctx.createRadialGradient(x * s, y * s, 1, x * s, y * s, 40 * s);
-      g.addColorStop(0, 'rgba(255,220,160,0.6)'); g.addColorStop(1, 'rgba(255,220,160,0)');
+      g.addColorStop(0, `rgba(255,220,160,${0.6 * (1 - 0.8 * o.day)})`); g.addColorStop(1, 'rgba(255,220,160,0)');
       ctx.fillStyle = g; ctx.fillRect((x - 40) * s, (y - 40) * s, 80 * s, 80 * s);
     }
   }
-  // Sensor noise
-  ctx.fillStyle = 'rgba(255,255,255,0.035)';
+  // Fog: thickest at the horizon, over everything far away
+  if (o.fog > 0.05) {
+    const f = ctx.createLinearGradient(0, 0, 0, h);
+    const a = Math.min(0.95, o.fog * 1.1);
+    f.addColorStop(0, rgba(o.fogColor, a * 0.7)); f.addColorStop(horizon / 576, rgba(o.fogColor, a)); f.addColorStop(1, rgba(o.fogColor, a * 0.45));
+    ctx.fillStyle = f; ctx.fillRect(0, 0, w, h);
+  }
+  // Rain: slanting streaks, and drops on the lens
+  if (o.rain > 0.02) {
+    ctx.strokeStyle = `rgba(220,228,236,${0.12 + 0.18 * o.day})`; ctx.lineWidth = 1.2 * s;
+    const seed = Math.floor(t * 12), slant = 8 + o.wind * 30;
+    ctx.beginPath();
+    for (let i = 0; i < o.rain * 260; i++) {
+      const x = ((i * 7919 + seed * 3301) % 1100) * s, y = ((i * 104729 + seed * 7177) % 600) * s;
+      ctx.moveTo(x, y); ctx.lineTo(x - slant * s, y + 34 * s);
+    }
+    ctx.stroke();
+    ctx.fillStyle = `rgba(255,255,255,${0.05 + 0.06 * o.day})`;
+    for (let i = 0; i < o.rain * 24; i++) {
+      ctx.beginPath(); ctx.arc(((i * 389) % 1024) * s, ((i * 251) % 576) * s, (5 + (i % 4) * 4) * s, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  // Sensor noise, grainier in the dark
+  ctx.fillStyle = `rgba(255,255,255,${0.035 * (1 - 0.7 * o.day)})`;
   const seed = Math.floor(t * 12);
   for (let i = 0; i < 400; i++) ctx.fillRect(((i * 7919 + seed * 104729) % 1024) * s, ((i * 104729 + seed * 7919) % 576) * s, 2 * s, 2 * s);
-  text(ctx, name, 20 * s, 36 * s, { px: 20 * s, color: '#e6e6e6', mono: true });
-  text(ctx, `${sim.clock(t)}  ● REC`, w - 20 * s, 36 * s, { px: 20 * s, color: '#e6e6e6', mono: true, align: 'right' });
+  const caption = o.day > 0.5 ? '#111' : '#e6e6e6';
+  ctx.fillStyle = o.day > 0.5 ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0)';
+  ctx.fillRect(10 * s, 10 * s, w - 20 * s, 36 * s);
+  text(ctx, name, 20 * s, 36 * s, { px: 20 * s, color: caption, mono: true });
+  text(ctx, `${sim.clock(t)}  ● REC`, w - 20 * s, 36 * s, { px: 20 * s, color: caption, mono: true, align: 'right' });
 }
 
-// Sources: wind speed, direction and wave height noise; visibility, cloud,
-// temperatures, helideck and vessel window static.
+// Helicopters fly within wind, visibility and deck-motion limits
+function helideck(t) {
+  if (sim.wind(t) > 25) return 'Closed · wind';
+  if (sim.visibility() < 0.8) return 'Closed · visibility';
+  const motion = 0.3 + sim.waves(t) * 0.35;
+  return motion > 3 ? 'Closed · deck motion' : `Open · pitch/roll ${motion.toFixed(1)}°/${(motion * 0.7).toFixed(1)}°`;
+}
+
+// Sources: wind speed and wave height follow the weather outside (outdoor.js)
+// plus noise, direction noise; visibility and cloud base from the fog and
+// cloud cover; temperatures and vessel window static.
 function weather(ctx, w, h, t) {
   const s = w / 1024;
   rect(ctx, 0, 0, w, h, C.bg);
@@ -455,12 +530,13 @@ function weather(ctx, w, h, t) {
   // Numbers
   const rows = [
     ['Significant wave height', `${sim.waves(t).toFixed(1)} m`], ['Max wave', `${(sim.waves(t) * 1.9).toFixed(1)} m`],
-    ['Visibility', '9 km'], ['Cloud base', '1,400 ft'], ['Air / sea temp', '6 / 9 °C'], ['Helideck', 'Open · pitch/roll 1.2°/0.8°'],
+    ['Visibility', `${sim.visibility() < 1 ? sim.visibility().toFixed(1) : Math.round(sim.visibility())} km`],
+    ['Cloud base', `${sim.cloudBase().toLocaleString('en')} ft`], ['Air / sea temp', '6 / 9 °C'], ['Helideck', helideck(t)],
   ];
   rows.forEach(([k, v], i) => {
     const y = top + 60 * s + i * 52 * s;
     text(ctx, k, 400 * s, y, { px: 18 * s, color: C.dim });
-    text(ctx, v, 990 * s, y, { px: 22 * s, color: i === 5 ? C.ok : C.text, align: 'right', mono: true });
+    text(ctx, v, 990 * s, y, { px: 22 * s, color: i === 5 ? (v.startsWith('Open') ? C.ok : C.p2) : C.text, align: 'right', mono: true });
   });
   text(ctx, 'Supply vessel window: 06:00–11:00 (Hs < 3.0 m)', 400 * s, h - 30 * s, { px: 17 * s, color: C.text });
 }
