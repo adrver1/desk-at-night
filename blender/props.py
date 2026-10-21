@@ -10,6 +10,7 @@ These are baked with the room, and a bake stores diffuse light only, so
 nothing here is a true metal: steel is a light grey dielectric.
 """
 import math
+import os
 
 import bmesh
 import bpy
@@ -341,16 +342,29 @@ def make_mousepad(m, name="MousePad"):
     return pad.done()
 
 
+def _mug(bld, m, at=Vector(), yaw=0.0, coffee=True):
+    """Mug geometry on builder bld, standing at `at`, its handle toward
+    `yaw` (0: +X). The handle is a C: it leaves the wall nearly level,
+    drops straight down the outside and turns back in, rather than a thin
+    oval loop."""
+    r, h, wall = 0.041, 0.096, 0.004
+    rot = Matrix.Translation(at) @ Matrix.Rotation(yaw, 4, "Z")
+    bld.lathe([(0.0, 0.0), (r - 0.004, 0.0), (r, 0.004), (r + 0.001, h), (r - wall, h),
+               (r - wall, 0.008), (0.0, 0.008)], m["ceramic"], segs=32, center=at)
+    if coffee:
+        bld.cyl(r - wall, r - wall, 0.002, at + Vector((0, 0, 0.066)), m["coffee"], segs=32)
+
+    def sq(v):  # squarer than a sine: a flat outer side with round corners
+        return math.copysign(abs(v) ** 0.55, v)
+    arc = [rot @ Vector((r - 0.003 + 0.029 * sq(math.sin(t)), 0, 0.053 + 0.028 * sq(math.cos(t))))
+           for t in (math.pi * i / 12 for i in range(13))]
+    bld.tube(arc, 0.0058, m["ceramic"], segs=8, normal=rot.to_3x3() @ Vector((0, 1, 0)))
+
+
 def make_mug(m, name="Mug"):
     """Ceramic mug, half full, handle on +X."""
     mug = Builder(name)
-    r, h, wall = 0.041, 0.096, 0.004
-    mug.lathe([(0.0, 0.0), (r - 0.004, 0.0), (r, 0.004), (r + 0.001, h), (r - wall, h),
-               (r - wall, 0.008), (0.0, 0.008)], m["ceramic"])
-    mug.cyl(r - wall, r - wall, 0.002, Vector((0, 0, 0.066)), m["coffee"], segs=48)
-    arc = [Vector((r - 0.002 + 0.022 * math.sin(t), 0, 0.050 + 0.030 * math.cos(t)))
-           for t in (math.pi * i / 16 for i in range(17))]
-    mug.tube(arc, 0.0055, m["ceramic"], segs=10, normal=Vector((0, 1, 0)))
+    _mug(mug, m)
     return mug.done(smooth=True)
 
 
@@ -817,50 +831,169 @@ def make_kitchenette(m, name="Kitchenette", w=1.8):
     _coffee_machine(k, m, rm, -0.35, -0.02, h)
     top = h
     # Pump thermos and mugs
-    k.cyl(0.075, 0.075, 0.32, Vector((0.10, -0.25, top + 0.16)), m["steel"], segs=20)
-    k.box((0.10, 0.14, 0.06), Vector((0.10, -0.29, top + 0.35)), m["black"])
-    for i, (x, y) in enumerate([(0.32, -0.30), (0.42, -0.22), (0.38, -0.40)]):
-        k.cyl(0.042, 0.04, 0.095, Vector((x, y, top + 0.0475)), m["black"] if i % 2 else m["ceramic"], segs=16)
+    _pump_thermos(k, m, 0.10, -0.25, top)
+    for x, y, yaw in [(0.32, -0.30, 0.4), (0.44, -0.20, 2.0), (0.40, -0.42, -1.2)]:
+        _mug(k, m, Vector((x, y, top)), yaw, coffee=False)
     return k.done()
 
 
 def _coffee_machine(k, m, rm, x, y, z):
     """A filter coffee machine (the classic Dutch kind every platform has)
-    on builder k, its back at (x, y), standing at height z, facing -Y:
-    a base with the hot plate and switch, a steel column carrying the
-    frosted water tank, an outlet arm over the cone-shaped brew basket,
-    and a glass jug with handle and lid, a third full of coffee."""
+    on builder k, its back at (x, y), standing at height z, facing -Y.
+    Proportions of the real thing, 17 wide, 32 deep and 36 cm tall: a long
+    base with the hot plate and switch, an aluminium column at the back
+    carrying the frosted water tank, an outlet arm from the tank top over
+    the cone-shaped brew basket, which sits in a holder on the column just
+    above the jug, and a glass jug with handle and lid, a third full."""
     V = lambda dx, dy, dz: Vector((x + dx, y + dy, z + dz))  # noqa: E731
-    jy = -0.215  # jug and basket centre, in front of the column
-    k.rbox((0.19, 0.30, 0.045), V(0, -0.15, 0.0225), m["black"], 0.012, segs=2)          # base
-    k.cyl(0.068, 0.068, 0.006, V(0, jy, 0.048), m["steel"], segs=28)                     # hot plate
-    k.box((0.035, 0.012, 0.018), V(0.055, -0.302, 0.024), m["black"])                    # rocker switch
-    k.box((0.012, 0.004, 0.008), V(0.055, -0.309, 0.026), rm["lamp_red"])
-    k.rbox((0.095, 0.085, 0.27), V(0, -0.065, 0.045 + 0.135), m["alu"], 0.012, segs=2)   # column
-    k.rbox((0.20, 0.12, 0.20), V(0, -0.075, 0.315 + 0.10), rm["tank"], 0.015, segs=2)    # water tank
-    k.rbox((0.205, 0.125, 0.018), V(0, -0.075, 0.524), m["black"], 0.008, segs=2)        # its lid
-    for i in range(6):  # cup marks on the tank front
-        k.box((0.03 if i % 2 else 0.05, 0.002, 0.003), V(-0.06, -0.1355, 0.34 + i * 0.03), m["black"])
-    k.rbox((0.05, 0.16, 0.026), V(0, -0.17, 0.475), m["alu"], 0.008, segs=2)             # outlet arm
-    # Brew basket: an open cone hanging under the arm, with a lid and a tab
-    k.lathe([(0.0, 0.34), (0.030, 0.34), (0.034, 0.35), (0.072, 0.455), (0.076, 0.462), (0.0, 0.462)],
-            m["black"], segs=32, center=V(0, jy, 0))
-    k.box((0.03, 0.035, 0.012), V(0, jy - 0.09, 0.44), m["black"])
-    # Jug: glass above the coffee, a black lid and handle
-    coffee = [(0.0, 0.051), (0.058, 0.051), (0.067, 0.07), (0.069, 0.105)]
-    glass = [(0.069, 0.105), (0.064, 0.15), (0.056, 0.19), (0.058, 0.205)]
-    k.lathe(coffee, m["coffee"], segs=32, center=V(0, jy, 0))
-    k.lathe(glass, rm["glass"], segs=32, center=V(0, jy, 0))
-    k.cyl(0.062, 0.05, 0.018, V(0, jy, 0.213), m["black"], segs=28)                     # lid
-    k.tube([V(0.062, jy, 0.18), V(0.105, jy, 0.175), V(0.11, jy, 0.10), V(0.068, jy, 0.075)], 0.008,
-           m["black"], segs=10, normal=Vector((0, 1, 0)))
+    jy = -0.225  # jug and basket centre, in front of the column
+    k.rbox((0.17, 0.32, 0.04), V(0, -0.16, 0.02), m["black"], 0.012, segs=2)            # base
+    k.cyl(0.064, 0.064, 0.006, V(0, jy, 0.043), m["steel"], segs=24)                     # hot plate
+    k.box((0.012, 0.035, 0.018), V(0.086, -0.06, 0.022), m["black"])                     # rocker switch on the side
+    k.box((0.004, 0.012, 0.008), V(0.093, -0.06, 0.024), rm["lamp_red"])
+    k.rbox((0.10, 0.07, 0.17), V(0, -0.045, 0.04 + 0.085), m["alu"], 0.012, segs=2)     # column
+    k.rbox((0.165, 0.12, 0.14), V(0, -0.065, 0.21 + 0.07), rm["tank"], 0.015, segs=2)   # water tank
+    k.rbox((0.17, 0.125, 0.012), V(0, -0.065, 0.356), m["black"], 0.005, segs=2)        # its lid
+    for i in range(5):  # cup marks on the tank's side
+        k.box((0.002, 0.03 if i % 2 else 0.05, 0.003), V(-0.0835, -0.065, 0.23 + i * 0.025), m["black"])
+    k.rbox((0.04, 0.13, 0.02), V(0, -0.18, 0.338), m["black"], 0.006, segs=2)            # outlet arm
+    k.rbox((0.10, 0.06, 0.012), V(0, -0.105, 0.205), m["alu"], 0.004, segs=1)           # basket holder
+    # Brew basket: a cone sitting in the holder, its drip stop just above the jug lid
+    k.lathe([(0.0, 0.198), (0.028, 0.198), (0.032, 0.206), (0.068, 0.300), (0.071, 0.305), (0.0, 0.305)],
+            m["black"], segs=24, center=V(0, jy, 0))
+    k.box((0.028, 0.03, 0.01), V(0, jy - 0.082, 0.295), m["black"])                     # its handle tab
+    # Jug: wide at the bottom, narrowing to the neck, a black lid and handle
+    coffee = [(0.0, 0.046), (0.062, 0.046), (0.066, 0.058), (0.067, 0.09)]
+    glass = [(0.067, 0.09), (0.064, 0.13), (0.052, 0.165), (0.053, 0.175)]
+    k.lathe(coffee, m["coffee"], segs=24, center=V(0, jy, 0))
+    k.lathe(glass, rm["glass"], segs=24, center=V(0, jy, 0))
+    k.cyl(0.056, 0.036, 0.016, V(0, jy, 0.183), m["black"], segs=24)                    # lid
+    k.tube([V(0.05, jy, 0.168), V(0.092, jy, 0.163), V(0.097, jy, 0.10), V(0.066, jy, 0.07)], 0.007,
+           m["black"], segs=8, normal=Vector((0, 1, 0)))
 
 
-def _blade(bld, base, heading, rise, length, width, droop, mat, segs=5, fold=0.25, thick=0.0015):
+def _pump_thermos(k, m, x, y, z):
+    """A pump-action airpot on builder k, standing at (x, y, z), spout
+    toward -Y: a black foot, a steel body, a black head with a domed pump
+    button, the spout, and a carry handle arching over the top."""
+    V = lambda dx, dy, dz: Vector((x + dx, y + dy, z + dz))  # noqa: E731
+    k.lathe([(0.0, 0.0), (0.078, 0.0), (0.080, 0.01), (0.077, 0.03), (0.0, 0.03)], m["black"], segs=20, center=V(0, 0, 0))
+    k.lathe([(0.0, 0.03), (0.073, 0.03), (0.074, 0.25), (0.0, 0.25)], m["steel"], segs=20, center=V(0, 0, 0))
+    k.lathe([(0.0, 0.25), (0.076, 0.25), (0.077, 0.285), (0.062, 0.315), (0.035, 0.325), (0.0, 0.325)],
+            m["black"], segs=20, center=V(0, 0, 0))
+    k.lathe([(0.0, 0.322), (0.032, 0.322), (0.030, 0.338), (0.018, 0.346), (0.0, 0.348)], m["key_grey"], segs=16,
+            center=V(0, 0, 0))
+    k.rbox((0.030, 0.07, 0.026), V(0, -0.085, 0.292), m["black"], 0.008, segs=1,          # spout
+           bend=lambda v: v + Vector((0, 0, -0.25 * max(0.0, -v.y))))
+    arch = [V(0.078 * math.cos(t), 0.0, 0.29 + 0.085 * math.sin(t)) for t in (math.pi * i / 10 for i in range(11))]
+    k.tube(arch, 0.007, m["black"], segs=6, normal=Vector((0, 1, 0)))                    # carry handle
+
+
+def _text(bld, text, size, center, mat, orient=Matrix()):
+    """Flat lettering on builder bld, centred on `center`, in the XY plane
+    of `orient` (the default faces +Z). Few curve steps, to keep it light."""
+    def make():
+        cu = bpy.data.curves.new("Lettering", "FONT")
+        cu.body, cu.size, cu.resolution_u = text, size, 2
+        cu.align_x, cu.align_y = "CENTER", "CENTER"
+        tmp = bpy.data.objects.new("Lettering", cu)
+        bpy.context.collection.objects.link(tmp)
+        me = tmp.evaluated_get(bpy.context.evaluated_depsgraph_get()).to_mesh()
+        xf = Matrix.Translation(center) @ orient
+        vs = [bld.bm.verts.new(xf @ v.co) for v in me.vertices]
+        for f in me.polygons:
+            bld.bm.faces.new([vs[i] for i in f.vertices])
+        tmp.to_mesh_clear()
+        bpy.data.objects.remove(tmp)
+        bpy.data.curves.remove(cu)
+    bld._new(mat, make)
+
+
+CLOCK_TIME = (2, 47, 30)  # night shift: the hands are set to 02:47:30
+
+
+def make_wall_clock(m, name="WallClock", style="station"):
+    """Round wall clock, its back on the wall at y = 0, the dial facing -Y,
+    centred on the origin. Styles:
+    station: the railway clock: thin aluminium rim, white dial, thick black
+             bars instead of numerals, black bar hands and a red second hand
+             ending in a disc.
+    office:  a deep black plastic case, white dial with numerals 1 to 12,
+             slim black hands and a thin red second hand.
+    dark:    a rounded square dark grey case with a near-black dial, white
+             bars and hands, and an orange second hand: quiet at night."""
+    rm = _room_mats(m)
+    c = Builder(name)
+    face_y = Matrix.Rotation(math.radians(90), 4, "X")   # local Z -> -Y: discs face the room
+    hh, mm, ss = CLOCK_TIME
+
+    def radial(a, w, t, length, r_mid, y, mat):  # a bar along the dial's radius at clock angle a
+        orient = Matrix.Rotation(a, 4, "Y")
+        c.box((w, t, length), Vector((math.sin(a) * r_mid, y, math.cos(a) * r_mid)), mat, orient)
+
+    def hand(a, w, length, tail, y, mat, t=0.003):
+        radial(a, w, t, length + tail, (length - tail) / 2, y, mat)
+
+    a_h = 2 * math.pi * ((hh % 12) + mm / 60) / 12
+    a_m = 2 * math.pi * (mm + ss / 60) / 60
+    a_s = 2 * math.pi * ss / 60
+
+    if style == "station":
+        R = 0.175
+        c.cyl(R, R, 0.035, Vector((0, -0.0175, 0)), m["alu"], segs=40, orient=face_y)
+        c.ring(R - 0.010, R + 0.003, 0.012, Vector((0, -0.041, 0)), m["alu"], segs=40, orient=face_y)
+        c.cyl(R - 0.010, R - 0.010, 0.002, Vector((0, -0.036, 0)), m["paper"], segs=40, orient=face_y)
+        for i in range(60):
+            a = 2 * math.pi * i / 60
+            if i % 5:
+                radial(a, 0.0035, 0.002, 0.012, R - 0.026, -0.0375, m["black"])
+            else:
+                radial(a, 0.010, 0.002, 0.040, R - 0.040, -0.0375, m["black"])
+        hand(a_h, 0.013, 0.095, 0.03, -0.040, m["black"])
+        hand(a_m, 0.010, 0.140, 0.03, -0.043, m["black"])
+        hand(a_s, 0.0035, 0.100, 0.04, -0.046, rm["fg_red"], t=0.002)
+        c.cyl(0.013, 0.013, 0.002, Vector((math.sin(a_s) * 0.10, -0.046, math.cos(a_s) * 0.10)), rm["fg_red"],
+              segs=12, orient=face_y)
+        c.cyl(0.006, 0.006, 0.012, Vector((0, -0.044, 0)), rm["fg_red"], segs=10, orient=face_y)
+    elif style == "office":
+        R = 0.15
+        c.cyl(R + 0.012, R + 0.012, 0.045, Vector((0, -0.0225, 0)), m["black"], segs=40, orient=face_y)
+        c.ring(R - 0.004, R + 0.014, 0.012, Vector((0, -0.050, 0)), m["black"], segs=40, orient=face_y)
+        c.cyl(R - 0.004, R - 0.004, 0.002, Vector((0, -0.046, 0)), m["paper"], segs=40, orient=face_y)
+        for i in range(60):
+            a = 2 * math.pi * i / 60
+            radial(a, 0.004 if i % 5 == 0 else 0.0018, 0.002, 0.012 if i % 5 == 0 else 0.007,
+                   R - 0.014, -0.0475, m["black"])
+        lettering = face_y  # upright, readable from the room
+        for n in range(1, 13):
+            a = 2 * math.pi * n / 12
+            _text(c, str(n), 0.032, Vector((math.sin(a) * (R - 0.040), -0.0475, math.cos(a) * (R - 0.040))),
+                  m["black"], lettering)
+        hand(a_h, 0.008, 0.075, 0.015, -0.050, m["black"])
+        hand(a_m, 0.006, 0.115, 0.015, -0.052, m["black"])
+        hand(a_s, 0.002, 0.120, 0.03, -0.054, rm["fg_red"], t=0.002)
+        c.cyl(0.007, 0.007, 0.010, Vector((0, -0.052, 0)), m["black"], segs=10, orient=face_y)
+    else:  # dark
+        R = 0.15
+        c.rbox((0.34, 0.04, 0.34), Vector((0, -0.02, 0)), m["key"], 0.04, segs=3)
+        c.cyl(R, R, 0.002, Vector((0, -0.0405, 0)), m["black"], segs=40, orient=face_y)
+        for i in range(12):
+            a = 2 * math.pi * i / 12
+            radial(a, 0.008 if i % 3 == 0 else 0.005, 0.002, 0.034 if i % 3 == 0 else 0.022,
+                   R - 0.028, -0.042, m["paper"])
+        hand(a_h, 0.010, 0.080, 0.0, -0.044, m["paper"])
+        hand(a_m, 0.007, 0.120, 0.0, -0.046, m["paper"])
+        hand(a_s, 0.0025, 0.125, 0.03, -0.048, m["paint"], t=0.002)
+        c.cyl(0.008, 0.008, 0.010, Vector((0, -0.046, 0)), m["paint"], segs=10, orient=face_y)
+    return c.done()
+
+
+def _blade(bld, base, heading, rise, length, width, droop, mat, segs=5, fold=0.25, thick=0.0015, taper=1.4):
     """One strap leaf on builder bld: a thin solid ribbon from `base`
     leaving at angle `rise` above the horizontal toward `heading` (radians),
     arching down by `droop`, widest a third of the way along, with a fold
-    along the midrib. Its root sits on the stem, so nothing floats."""
+    along the midrib. Its root sits on the stem, so nothing floats. A lower
+    `taper` keeps the leaf wide further out, for a rounder tip."""
     def make():
         d = Vector((math.cos(heading), math.sin(heading), 0))
         side = Vector((0, 0, 1)).cross(d).normalized()
@@ -872,7 +1005,7 @@ def _blade(bld, base, heading, rise, length, width, droop, mat, segs=5, fold=0.2
             n = side.cross(ahead).normalized()
             if n.z < 0:
                 n = -n
-            w = width * max(0.08, math.sin(math.pi * min(t * 1.4, 1)) ** 0.7) * (0.35 + 0.65 * min(t * 3, 1)) / 2
+            w = width * max(0.08, math.sin(math.pi * min(t * taper, 1)) ** 0.7) * (0.35 + 0.65 * min(t * 3, 1)) / 2
             row = [c - side * w - n * w * fold, c, c + side * w - n * w * fold]
             top.append([bld.bm.verts.new(p) for p in row])
             bot.append([bld.bm.verts.new(p - n * thick) for p in row])
@@ -914,6 +1047,46 @@ def make_plant(m, name="Plant", height=1.4, light=False):
                    0.30 + 0.18 * u + rng.uniform(-0.03, 0.03), 0.06, 0.25 + 0.55 * u,
                    rm["leaf"] if (i + c) % 3 else rm["leaf_light"], segs=3 if light else 5)
     return p.done()
+
+
+def make_fern(m, name="Fern", leaves=9):
+    """Small bird's-nest fern in a terracotta pot, for counters and shelves
+    (after Poly Haven's Fern 02, whose leaf outlines come from a
+    transparency texture that the baked atlas can't carry): a rosette of
+    broad strap leaves, the inner ones upright, the outer ones arching over
+    the rim. About 1,500 triangles."""
+    rm = _room_mats(m)
+    clay = bpy.data.materials.get("PropTerracotta") or b.mat_flat("PropTerracotta", (0.42, 0.19, 0.11), 0.85)
+    f = Builder(name)
+    f.lathe([(0.0, 0.0), (0.072, 0.0), (0.094, 0.135), (0.104, 0.138), (0.106, 0.165), (0.090, 0.165),
+             (0.088, 0.150), (0.0, 0.150)], clay, segs=20)
+    f.cyl(0.088, 0.088, 0.006, Vector((0, 0, 0.148)), rm["soil"], segs=20)
+    rng = __import__("random").Random(len(name) * 13)
+    for i in range(leaves):
+        u = i / (leaves - 1)                      # 0: inner and upright; 1: outer, arching over the rim
+        heading = i * 2.4 + rng.uniform(-0.2, 0.2)
+        base = Vector((math.cos(heading), math.sin(heading), 0)) * 0.015 * u + Vector((0, 0, 0.15))
+        _blade(f, base, heading, math.radians(84 - 30 * u + rng.uniform(-5, 5)),
+               0.30 + 0.06 * u + rng.uniform(-0.03, 0.03), 0.08, 0.25 + 0.4 * u,
+               rm["leaf_light"] if i % 3 else rm["leaf"], segs=6, fold=0.15, taper=1.0)
+    return f.done()
+
+
+def make_kettle(m, name="Kettle"):
+    """The cordless electric kettle on its power base (CC0, OpenGameArt; see
+    blender/assets/README.md), with its flat colour swatches mapped onto our
+    prop materials. Stands on z = 0; 24.5 cm tall."""
+    rm = _room_mats(m)
+    swap = {"KettleBlack": m["black"], "KettleGrey": m["key"], "KettleWindow": m["key_grey"],
+            "KettleOrange": rm["lamp_red"]}
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets",
+                                                    "electric_kettle.glb"))
+    o = next(x for x in bpy.data.objects if x not in before and x.type == "MESH")
+    for i, mt in enumerate(o.data.materials):
+        o.data.materials[i] = swap[mt.name.split(".")[0]]
+    o.name = o.data.name = name
+    return o
 
 
 ALL = [make_keyboard, make_mouse, make_mousepad, make_mug, make_mic, make_notepad, make_pencil,

@@ -35,6 +35,7 @@ from mathutils import Matrix  # noqa: E402
 box, cylinder, mat_flat = b.box, b.cylinder, b.mat_flat
 
 LIGHT_PLANTS = True  # True: the lighter plants, about half the triangles (props.make_plant)
+CLOCK_STYLE = "station"  # wall clock in the rest corner: station, office or dark (props.make_wall_clock)
 
 # Desks (metres): two arcs of 80 degrees with a small gap between them
 DESK_Z, DESK_T = 0.74, 0.04
@@ -495,7 +496,12 @@ def build_lounge(m):
     NX, NY = NOOK_X0, NOOK_Y0
     props.place(props.make_sofa(pm, "Sofa", 2.0), NX + 1.35, NY, 0.0, math.pi)
     props.place(props.make_coffee_table(pm, "CoffeeTable"), NX + 1.35, NY + 1.30, 0.0)
-    props.place(props.make_kitchenette(pm, "Kitchenette", 1.8), ROOM_X - 0.9, NY, 0.0, math.pi)
+    kx = ROOM_X - 0.9
+    props.place(props.make_kitchenette(pm, "Kitchenette", 1.8), kx, NY, 0.0, math.pi)
+    # On the counter (0.90 high), left of the coffee machine and at the far end; the clock above it
+    props.place(props.make_kettle(pm, "Kettle"), kx + 0.68, NY + 0.27, 0.90, math.pi - 0.3)
+    props.place(props.make_fern(pm, "Fern"), kx - 0.68, NY + 0.30, 0.90, math.pi)
+    props.place(props.make_wall_clock(pm, "WallClock", CLOCK_STYLE), kx + 0.1, NY, 1.95, math.pi)
     props.place(props.make_plant(pm, "PlantNook", 1.2, light=LIGHT_PLANTS), NX + 0.30, ROOM_Y0 - 0.30, 0.0)
 
 
