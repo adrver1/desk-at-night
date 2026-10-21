@@ -887,29 +887,32 @@ def _blade(bld, base, heading, rise, length, width, droop, mat, segs=5, fold=0.2
     bld._new(mat, make)
 
 
-def make_plant(m, name="Plant", height=1.4):
+def make_plant(m, name="Plant", height=1.4, light=False):
     """Tall office dracaena: three bare canes of different heights in a
     dark pot, each topped by a rosette of arching strap leaves that grow
-    out of the cane (upright in the middle, drooping further out)."""
+    out of the cane (upright in the middle, drooping further out).
+    `light` gives about half the triangles: fewer leaves, each bent fewer
+    times, and coarser pot and canes."""
     rm = _room_mats(m)
     p = Builder(name)
-    p.cyl(0.16, 0.20, 0.42, Vector((0, 0, 0.21)), rm["pot"], segs=24)
-    p.cyl(0.185, 0.185, 0.01, Vector((0, 0, 0.395)), rm["soil"], segs=24)
+    round_ = 16 if light else 24
+    p.cyl(0.16, 0.20, 0.42, Vector((0, 0, 0.21)), rm["pot"], segs=round_)
+    p.cyl(0.185, 0.185, 0.01, Vector((0, 0, 0.395)), rm["soil"], segs=round_)
     rng = __import__("random").Random(len(name) * 7)
     for c, (frac, ox, oy) in enumerate([(1.0, 0.03, -0.02), (0.78, -0.06, 0.03), (0.6, 0.05, 0.06)]):
         top = 0.40 + (height - 0.65) * frac
         lean = Vector((ox, oy, 0)) * 1.5
         foot, tip = Vector((ox, oy, 0.39)), Vector((ox, oy, top)) + lean
-        p.tube([foot, (foot + tip) / 2 + lean * 0.1, tip], 0.014 - 0.002 * c, rm["cane"], segs=8,
+        p.tube([foot, (foot + tip) / 2 + lean * 0.1, tip], 0.014 - 0.002 * c, rm["cane"], segs=6 if light else 8,
                normal=Vector((-oy, ox, 0)).normalized() if (ox or oy) else Vector((1, 0, 0)))
-        n = 18 - 3 * c
+        n = 13 - 2 * c if light else 18 - 3 * c
         for i in range(n):
             u = i / (n - 1)                         # 0: innermost, upright; 1: outermost, drooping
             z = tip.z - 0.16 * u                    # the older leaves sit lower down the cane
             at = foot.lerp(tip, (z - foot.z) / (tip.z - foot.z))
             _blade(p, at, i * 2.4 + c + rng.uniform(-0.2, 0.2), math.radians(75 - 55 * u + rng.uniform(-6, 6)),
                    0.30 + 0.18 * u + rng.uniform(-0.03, 0.03), 0.06, 0.25 + 0.55 * u,
-                   rm["leaf"] if (i + c) % 3 else rm["leaf_light"])
+                   rm["leaf"] if (i + c) % 3 else rm["leaf_light"], segs=3 if light else 5)
     return p.done()
 
 

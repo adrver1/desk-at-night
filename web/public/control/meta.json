@@ -1,6 +1,6 @@
 {
-  "scaleCeiling": 1.5552476644515991,
-  "scaleScreens": 0.25684455037117004,
+  "scaleCeiling": 1.553163766860962,
+  "scaleScreens": 0.26419997215270996,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
   "samples": 128,
@@ -262,6 +262,12 @@
       ],
       "LinkScreen": [
         640,
+        720,
+        640,
+        360
+      ],
+      "TvScreen": [
+        1280,
         720,
         640,
         360
