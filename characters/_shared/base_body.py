@@ -105,6 +105,16 @@ def frame(w, hint=Y):
     return v.cross(w), v, w
 
 
+def ring_at(rings, z):
+    """(half width, half depth, forward offset) of a vertical part at height z,
+    interpolated between its rings: shells and bands follow the body."""
+    z = min(max(z, rings[0][0]), rings[-1][0])
+    for (z0, u0, v0, d0, _), (z1, u1, v1, d1, _) in zip(rings, rings[1:]):
+        if z0 <= z <= z1:
+            t = (z - z0) / (z1 - z0)
+            return u0 + (u1 - u0) * t, v0 + (v1 - v0) * t, d0 + (d1 - d0) * t
+
+
 def head_point(angle, z, offset=0.0):
     """Point on the head surface (or `offset` outside it) at a ring angle and
     height, interpolated between the HEAD rings: hair and hats hug it."""
@@ -692,14 +702,36 @@ def tri_count(obs):
     return sum(len(p.vertices) - 2 for ob in obs for p in ob.data.polygons)
 
 
-def finish(name, meshes, out_dir, title=None, notes=(), rigid=None, reference=None, private_dir=None):
+def drop_regions(ob, regions):
+    """Delete the faces of some regions (skin a clothing shell covers) and
+    the vertices left without faces."""
+    if not regions:
+        return
+    names = ob.data["regions"]
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    layer = bm.faces.layers.int["region"]
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if names[f[layer]] in regions], context="FACES_ONLY")
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
+    bm.to_mesh(ob.data)
+    bm.free()
+
+
+def finish(name, meshes, out_dir, title=None, notes=(), rigid=None, reference=None, private_dir=None,
+           hide=(), variant=None):
     """Turn Mesh parts into named objects, join them into one skinned mesh,
-    rig it, render the turnaround and pose check, save .blend and .glb."""
+    rig it, render the turnaround and pose check, save .blend and .glb.
+
+    The first part is the base body. `hide` drops body regions that clothing
+    covers; that happens after skinning, so shells still copy the weights of
+    the skin they cover. `variant` (an outfit) suffixes every output file."""
     os.makedirs(out_dir, exist_ok=True)
-    obs = [m.to_object(f"{name}_{part}") for part, m in meshes.items()]
-    tris = tri_count(obs)
-    arm = armature(f"{name}_rig")
+    sfx = f"_{variant}" if variant else ""
+    obs = [m.to_object(f"{name}{sfx}_{part}") for part, m in meshes.items()]
+    arm = armature(f"{name}{sfx}_rig")
     skin_to(obs[0], arm, obs[1:], rigid)
+    drop_regions(obs[0], set(hide))
+    tris = tri_count(obs)
     # One mesh, one material, one draw call. The parts stay findable through
     # the face attribute "region".
     bpy.ops.object.select_all(action="DESELECT")
@@ -713,14 +745,14 @@ def finish(name, meshes, out_dir, title=None, notes=(), rigid=None, reference=No
             a.value = regions.index(local[a.value])
     bpy.ops.object.join()
     ch = obs[0]
-    ch.name = ch.data.name = name
+    ch.name = ch.data.name = name + sfx
     ch.data["regions"] = regions
 
     cam = setup_render()
-    turn = strip(render_views(cam, out_dir, "t"), os.path.join(out_dir, "turnaround.png"),
-                 title or f"{name}  ·  {tris} triangles")
+    turn = strip(render_views(cam, out_dir, "t"), os.path.join(out_dir, f"turnaround{sfx}.png"),
+                 title or f"{name}{sfx}  ·  {tris} triangles")
     strip(render_views(cam, out_dir, "c", VIEWS[:3], height=1.56, scale=0.62),
-          os.path.join(out_dir, "closeup.png"), "head close-up")
+          os.path.join(out_dir, f"closeup{sfx}.png"), "head close-up")
     seat = bpy.data.objects.new("seat", bpy.data.meshes.new("seat"))
     seat.data.from_pydata([(x, y, z) for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)], [],
                           [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)])
@@ -741,22 +773,22 @@ def finish(name, meshes, out_dir, title=None, notes=(), rigid=None, reference=No
     pose(arm, {})
     arm.location = (0, 0, 0)
     bpy.data.objects.remove(seat)
-    strip(shots, os.path.join(out_dir, "pose_check.png"), "pose check: shoulders, elbows, hips, knees")
+    strip(shots, os.path.join(out_dir, f"pose_check{sfx}.png"), "pose check: shoulders, elbows, hips, knees")
 
     notes = [f"{tris} triangles, palette characters/_shared/palette.png"] + list(notes)
-    contact_sheet(turn, os.path.join(out_dir, "contact_sheet.png"), notes=notes)
+    contact_sheet(turn, os.path.join(out_dir, f"contact_sheet{sfx}.png"), notes=notes)
     if reference and private_dir:  # next to the reference: private project files only
         os.makedirs(private_dir, exist_ok=True)
-        contact_sheet(turn, os.path.join(private_dir, f"{name}_contact_sheet.png"), reference, notes)
+        contact_sheet(turn, os.path.join(private_dir, f"{name}{sfx}_contact_sheet.png"), reference, notes)
 
     bpy.context.preferences.filepaths.save_version = 0  # no .blend1 backups
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(out_dir, f"{name}.blend"), compress=True)
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(out_dir, f"{name}{sfx}.blend"), compress=True)
     bpy.ops.object.select_all(action="DESELECT")
     ch.select_set(True)
     arm.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=os.path.join(out_dir, f"{name}.glb"), export_format="GLB",
+    bpy.ops.export_scene.gltf(filepath=os.path.join(out_dir, f"{name}{sfx}.glb"), export_format="GLB",
                               use_selection=True, export_apply=False, export_animations=False)
-    print(f"{name}: {tris} triangles -> {out_dir}")
+    print(f"{name}{sfx}: {tris} triangles -> {out_dir}")
     return tris, turn
 
 

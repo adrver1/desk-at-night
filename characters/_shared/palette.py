@@ -30,7 +30,7 @@ ROWS = [
      ("teeth", "#f4f1e8"), ("blush", "#d98a7a")],
     # 3 workwear: offshore coveralls, hi-vis and reflective tape
     [("coverall_orange", "#e2632a"), ("coverall_red", "#b8322a"), ("coverall_navy", "#1f2e4a"),
-     ("hivis_yellow", "#d8e23a"), ("hivis_orange", "#f08a24"), ("reflective", "#c9cdd0"),
+     ("hivis_yellow", "#ece53a"), ("hivis_orange", "#f08a24"), ("reflective", "#c9cdd0"),
      ("helmet_white", "#eceeee"), ("helmet_orange", "#e8742c"), ("helmet_blue", "#2c5ea8")],
     # 4 office and casual cloth
     [("navy", "#02293c"), ("blue", "#3a6ea5"), ("light_blue", "#9cc0e0"), ("denim", "#45607f"),

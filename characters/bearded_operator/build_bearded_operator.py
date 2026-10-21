@@ -18,6 +18,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "_shared"))
 import base_body as base  # noqa: E402  (imports bpy)
+import outfits  # noqa: E402
 
 Vector = base.Vector
 NAME = "bearded_operator"
@@ -186,20 +187,40 @@ def main():
     ap.add_argument("--reference", help="reference image for the private contact sheet")
     ap.add_argument("--private", help="folder for the private contact sheet")
     ap.add_argument("--hair", default=HAIR_STYLE, choices=sorted(HAIR_STYLES))
+    ap.add_argument("--outfit", default="all", choices=["office", *outfits.OUTFITS, "all"])
     ap.add_argument("--out", default=HERE, help="output folder (previews of other variants)")
     args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
 
+    for outfit in (["office", *outfits.OUTFITS] if args.outfit == "all" else [args.outfit]):
+        build(outfit, args)
+
+
+def office(body):
+    """Today's look: white shirt tucked into navy trousers, brown shoes."""
+    return {"colors": {}, "hide": set(), "rigid": {"collar": "neck"},
+            "parts": {"collar": collar(), "shirt_details": shirt_details(body)}}
+
+
+def build(outfit, args):
     base.reset()
-    body = base.body(skin=SKIN, brow=BEARD, colors={
-        "hips": TROUSERS, "thigh": TROUSERS, "shin": TROUSERS, "shoe": SHOES,
-        "belly": SHIRT, "chest": SHIRT, "upper_arm": SHIRT, "forearm": SHIRT,
-    })
-    parts = {"body": body, "hair": HAIR_STYLES[args.hair](), "beard": beard(), "moustache": moustache(),
-             "collar": collar(), "shirt_details": shirt_details(body)}
-    rigid = {"hair": "head", "beard": "head", "moustache": "head", "collar": "neck"}
-    notes = ["Lower body is not in the reference: shirt tucked in, belt, navy trousers, brown shoes.",
-             "Beard and hair follow the head bone only; collar follows the neck."]
-    base.finish(NAME, parts, args.out, notes=notes, rigid=rigid,
+    shirt = {"hips": TROUSERS, "thigh": TROUSERS, "shin": TROUSERS, "shoe": SHOES,
+             "belly": SHIRT, "chest": SHIRT, "upper_arm": SHIRT, "forearm": SHIRT}
+    if outfit == "office":
+        body = base.body(skin=SKIN, brow=BEARD, colors=shirt)
+        o = office(body)
+    else:
+        o = outfits.OUTFITS[outfit]()
+        body = base.body(skin=SKIN, brow=BEARD, colors={**shirt, **o["colors"]})
+    # Under a helmet only the cropped cap is left of the hair
+    hair = cap() if "helmet" in o["parts"] else HAIR_STYLES[args.hair]()
+    parts = {"body": body, "hair": hair, "beard": beard(), "moustache": moustache(), **o["parts"]}
+    rigid = {"hair": "head", "beard": "head", "moustache": "head", **o["rigid"]}
+    notes = {"office": ["Lower body is not in the reference: shirt tucked in, belt, navy trousers, brown shoes."],
+             }.get(outfit, ["Offshore PPE: hi-vis jacket, navy trousers, reflective bands, safety boots."
+                            + (" Helmet with ear defenders and gloves." if outfit == "ppe_deck" else "")])
+    notes.append("Beard and hair follow the head bone only.")
+    base.finish(NAME, parts, args.out, notes=notes, rigid=rigid, hide=o["hide"],
+                variant=None if outfit == "office" else outfit,
                 reference=args.reference, private_dir=args.private)
 
 
