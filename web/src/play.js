@@ -7,7 +7,9 @@
 // Collision is 2D, on the floor plan the bake exports (meta.layout, in
 // Blender's X/Y). glTF swaps axes, so Blender (x, y) is three's (x, -z).
 import * as THREE from 'three';
-import { loadControlRoom, SKY } from './controlScene.js';
+import { loadControlRoom } from './controlScene.js';
+import { Outdoor } from './outdoor.js';
+import { outdoorControls } from './outdoorControls.js';
 import { RoomControls } from './roomControls.js';
 import { CONTENT, DEFAULT_LAYOUT, contentOf, screenLabel } from './screens.js';
 import { Highlight } from './highlight.js';
@@ -49,8 +51,8 @@ const renderer = new THREE.WebGLRenderer({ canvas: ui.canvas, antialias: true })
 renderer.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.5 : 2));
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.autoClear = false; // outdoor.render() clears and draws the sky and sea first
 const scene = new THREE.Scene();
-scene.background = SKY.clone();
 const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.03, 500);
 camera.rotation.order = 'YXZ';
 const highlight = new Highlight(scene, renderer, { width: coarse ? 3 : 2.5, frameOf: (name, from) => room.screenFrame(name, from) });
@@ -63,7 +65,7 @@ const player = {
 };
 const keys = new Set();
 const touch = { move: new THREE.Vector2() };
-let room, layout, playing = false, panelOpen = false;
+let room, outdoor, layout, playing = false, panelOpen = false;
 const chairs = [], mugs = [], pickables = [], items = [];
 const raycaster = new THREE.Raycaster();
 raycaster.far = REACH;
@@ -80,6 +82,9 @@ async function load() {
   layout = room.meta.layout;
   if (!layout) throw new Error('This scene was baked before the walk-around existed. Reload the page; if that does not help, re-run blender/bake_control_room.py.');
   scene.add(room.root);
+  outdoor = new Outdoor(room.seaLevel);
+  scene.add(outdoor.room);
+  outdoorControls($('tpOutdoor'), outdoor);
   const root = room.root;
   for (const name of room.meta.movable ?? []) {
     const obj = root.getObjectByName(name);
@@ -662,8 +667,12 @@ renderer.setAnimationLoop((now) => {
   update(dt);
   controls.step(dt);
   for (const key of switchKeys) key.material.color.copy(key.userData.scene === controls.scene ? KEY_ON : KEY_OFF);
+  outdoor.update(dt);
+  renderer.toneMappingExposure = outdoor.light.exposure;
   room.setLights(controls.ceiling * FULL_LIGHT, controls.screens ? 1 : 0);
+  room.setDaylight(outdoor.light);
   if (controls.screens) room.updateScreens(now / 1000);
+  outdoor.render(renderer, camera);
   renderer.render(scene, camera);
   if (panelOpen) showFrameTime(frame);
 });
@@ -687,6 +696,7 @@ window.__game = {
   get state() { return { pos: player.pos.toArray(), seated: Boolean(player.seat), target: target?.kind ?? null, busy: Boolean(player.busy) }; },
   blocked: (bx, by) => blocked(bx, -by),
   set fullLight(k) { FULL_LIGHT = k; },
+  outdoor(changes) { outdoor.set(changes); },
 };
 
 load().catch((err) => { ui.intro.textContent = err.message; ui.go.textContent = 'Could not load'; console.error(err); });

@@ -4,11 +4,13 @@ Bake the control room's lighting and export it for the web viewer.
     python blender/bake_control_room.py                       # 2048² atlas, 64 samples
     python blender/bake_control_room.py --res 512 --samples 8 # quick test
 
-Same scheme as build.py, with two light groups instead of moon and lamp:
+Same scheme as build.py, with three light groups instead of moon and lamp:
 
-    light_ceiling.png  irradiance from the ceiling panels, clock, sky and the
-                       platform outside the window
+    light_ceiling.png  irradiance from the ceiling panels, clock and the
+                       platform's lamps outside the window
     light_screens.png  irradiance from the desk monitors and the video wall
+    light_sky.png      irradiance from a plain white sky (radiance 1), which
+                       the browser tints with the live sky (outdoor.js)
     board_*.png        what is pinned and written on the whiteboards, drawn
                        by boards.py; too fine for the atlas, so each board
                        surface has a second UV set onto its own image
@@ -16,7 +18,9 @@ Same scheme as build.py, with two light groups instead of moon and lamp:
 so the browser can dim the room for the night shift and let the screens
 carry it. Everything that glows (screens, panels, clock, platform lights,
 flare) is left out of the bake and exported as separate meshes named
-Emit<Group>; meta.json gives each one's colour and strength.
+Emit<Group>; meta.json gives each one's colour and strength. The platform is
+split back out of the room as "Outside", so the browser can add sunlight to
+it. The sea only shades the bake; the browser draws its own.
 
 Outputs go to web/public/control/.
 """
@@ -148,10 +152,13 @@ def main():
     cr.build_lounge(m)
     cr.build_ceiling_mics(m)
     cr.build_outside(m)
-    world = bpy.data.worlds.new("Night")
+    # A plain white sky, baked on its own. The live sky's colour and
+    # brightness multiply it in the browser.
+    world = bpy.data.worlds.new("Sky")
     world.use_nodes = True
     sky = world.node_tree.nodes["Background"].inputs
-    sky["Color"].default_value = (0.012, 0.02, 0.045, 1)
+    sky["Color"].default_value = (1, 1, 1, 1)
+    sky["Strength"].default_value = 1.0
     scene.world = world
     main_cam = cr.cameras()[0]
     scene.camera = main_cam
@@ -181,6 +188,11 @@ def main():
                 o.vertex_groups.new(name=coffee).add(list(vs), 1.0, "REPLACE")
                 movable[coffee] = movable[o.name]
 
+    # The platform outside: found again after the join, to split it back out
+    outside = [o for o in scene.objects if o.type == "MESH" and o.name.startswith(("Plat", "Flare")) and not emissive(o)]
+    for o in outside:
+        o.vertex_groups.new(name="Outside").add(range(len(o.data.vertices)), 1.0, "REPLACE")
+
     # Whiteboard surfaces are baked with the room too, but the atlas is far
     # too coarse for their writing: they are split out afterwards and get a
     # second UV set for a texture of their own. Remember each one's frame.
@@ -192,11 +204,12 @@ def main():
 
     glowing = [o for o in scene.objects if emissive(o)]
     b.texel_weight = texel_weight  # unwrap_weighted() looks it up by name
-    room = b.join_static(glowing)
+    sea = scene.objects["Sea"]  # shades the bake, but is not exported
+    room = b.join_static(glowing + [sea])
     print(f"room: {len(room.data.polygons)} faces, {len(glowing)} emissive meshes", flush=True)
 
     imgs = {k: bpy.data.images.new(k, args.res, args.res, float_buffer=True, alpha=False)
-            for k in ("albedo", "ceiling", "screens")}
+            for k in ("albedo", "ceiling", "screens", "sky")}
     mats = {mat.name: mat for o in glowing for mat in o.data.materials}
     full = {name: strength(mat).default_value for name, mat in mats.items()}
     sky_full = sky["Strength"].default_value
@@ -204,7 +217,7 @@ def main():
     def only(group):
         for name, mat in mats.items():
             strength(mat).default_value = full[name] if GROUPS[name] == group else 0.0
-        sky["Strength"].default_value = sky_full if group == "ceiling" else 0.0
+        sky["Strength"].default_value = sky_full if group == "sky" else 0.0
 
     print(f"baking {args.res}x{args.res} atlases, {args.samples} samples", flush=True)
     scene.cycles.samples = 1
@@ -214,12 +227,17 @@ def main():
     b.bake(room, imgs["ceiling"], {"DIRECT", "INDIRECT"}, "ceiling")
     only("screens")
     b.bake(room, imgs["screens"], {"DIRECT", "INDIRECT"}, "screens")
+    only("sky")
+    b.bake(room, imgs["sky"], {"DIRECT", "INDIRECT"}, "sky")
     only(None)
+    bpy.data.objects.remove(sea)
 
     b.save_albedo(b.pixels(imgs["albedo"]), os.path.join(OUT, "albedo.png"))
     meta = {
         "scaleCeiling": b.save_light(b.pixels(b.denoise(imgs["ceiling"])), os.path.join(OUT, "light_ceiling.png")),
         "scaleScreens": b.save_light(b.pixels(b.denoise(imgs["screens"])), os.path.join(OUT, "light_screens.png")),
+        "scaleSky": b.save_light(b.pixels(b.denoise(imgs["sky"])), os.path.join(OUT, "light_sky.png")),
+        "seaLevel": round(-cr.PLATFORM_OFFSET.z, 3),  # in the room's frame, m
         "encoding": "L = pow(texel, 3) * scale",
         "resolution": args.res,
         "samples": args.samples,
@@ -249,6 +267,20 @@ def main():
             yaw = movable[name][1]
             part.data.transform(Matrix.Rotation(-yaw, 4, "Z"))
             part.rotation_euler.z = yaw
+    # The platform, with its origin left at the room's
+    if outside:
+        bpy.ops.object.select_all(action="DESELECT")
+        bpy.context.view_layer.objects.active = room
+        room.select_set(True)
+        room.vertex_groups.active_index = room.vertex_groups["Outside"].index
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.ops.mesh.select_all(action="DESELECT")
+        bpy.ops.object.vertex_group_select()
+        bpy.ops.mesh.separate(type="SELECTED")
+        bpy.ops.object.mode_set(mode="OBJECT")
+        part = [o for o in bpy.context.selected_objects if o is not room][0]
+        part.name = part.data.name = "Outside"
+        part.vertex_groups.clear()
     for o in [room] + [scene.objects[n] for n in [*movable, *boards]]:
         o.vertex_groups.clear()
 

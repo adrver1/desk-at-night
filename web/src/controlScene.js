@@ -1,9 +1,11 @@
 // Loads the control room bake (blender/bake_control_room.py) for both the
 // lighting viewer (control.js) and the walk-around game (play.js). Same
 // lighting model as the desk: albedo × a weighted sum of baked irradiance,
-// here with a ceiling map and a screens map. The glowing parts (screens,
-// ceiling panels, clock, exit sign, platform lights) are not baked; they are
-// drawn flat in their own colour, scaled by the same weights.
+// here with a ceiling map, a screens map and a sky map that outdoor.js tints
+// with the live sky. The glowing parts (screens, ceiling panels, clock, exit
+// sign, platform lights) are not baked; they are drawn flat in their own
+// colour, scaled by the same weights. The platform outside the window also
+// gets the sun live, from its normals (no shadows).
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { roomVertex } from './shaders.js';
@@ -14,7 +16,6 @@ const SCENE = 'control/';
 // a re-bake that can pair a new page with an old meta.json or atlas, so always
 // revalidate (a 304 costs next to nothing when nothing changed).
 const FRESH = { cache: 'no-cache' };
-export const SKY = new THREE.Color(0.012, 0.02, 0.045); // Blender world colour (linear)
 // The screens carry a pattern in Cycles but are drawn here in their average
 // colour; at full strength that reads as a white slab, so draw them dimmer.
 const DISPLAY = { screens: 0.32, ceiling: 1 };
@@ -76,8 +77,19 @@ const roomFragment = /* glsl */ `
   uniform float uScaleScreens;
   uniform float uCeiling;
   uniform float uScreens;
-  uniform int uMode;     // 0 final, 1 albedo, 2 ceiling light, 3 screens light
+  uniform sampler2D uLightSky;
+  uniform float uScaleSky;
+  uniform vec3 uSky;     // the live sky's average radiance (the bake used 1)
+  uniform int uMode;     // 0 final, 1 albedo, 2 ceiling light, 3 screens light, 4 sky light
   varying vec2 vUv;
+  #ifdef OUTSIDE
+  uniform vec3 uSun;     // the sun (or moon) as direct light, and where it is
+  uniform vec3 uSunDir;
+  uniform vec3 uFogColor;
+  uniform float uFogDistance;
+  varying vec3 vNormal;
+  varying vec3 vWorld;
+  #endif
   #ifdef BOARD
   uniform sampler2D uBoard;
   varying vec2 vUv1;
@@ -96,9 +108,17 @@ const roomFragment = /* glsl */ `
     #endif
     vec3 eCeiling = uCeiling * decode(uLightCeiling, uScaleCeiling);
     vec3 eScreens = uScreens * decode(uLightScreens, uScaleScreens);
-    vec3 color = albedo * (eCeiling + eScreens);
+    vec3 eSky = uSky * decode(uLightSky, uScaleSky);
+    #ifdef OUTSIDE
+    eSky += uSun * max(dot(normalize(vNormal), uSunDir), 0.0);
+    #endif
+    vec3 color = albedo * (eCeiling + eScreens + eSky);
     if (uMode == 2) color = eCeiling;
     if (uMode == 3) color = eScreens;
+    if (uMode == 4) color = eSky;
+    #ifdef OUTSIDE
+    if (uMode == 0) color = mix(color, uFogColor, 1.0 - exp2(-distance(vWorld, cameraPosition) / uFogDistance));
+    #endif
     gl_FragColor = vec4(color, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -110,6 +130,18 @@ const roomFragment = /* glsl */ `
 const boardVertex = roomVertex
   .replace('varying vec2 vUv;', 'varying vec2 vUv;\n  varying vec2 vUv1;')
   .replace('vUv = uv;', 'vUv = uv;\n    vUv1 = uv1;');
+
+// The platform outside: the room's vertex shader plus its normals
+const outsideVertex = roomVertex
+  .replace('varying vec2 vUv;', 'varying vec2 vUv;\n  varying vec3 vNormal;')
+  .replace('vUv = uv;', 'vUv = uv;\n    vNormal = normalize(mat3(modelMatrix) * normal);');
+
+// A black 1×1 light map, for a bake from before the sky map existed
+function blackMap() {
+  const tex = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
+  tex.needsUpdate = true;
+  return tex;
+}
 
 async function bytes(name) {
   const res = await fetch(SCENE + name, FRESH);
@@ -128,12 +160,14 @@ async function texture(renderer, buffer, srgb) {
 }
 
 export async function loadControlRoom(renderer) {
-  const [meta, glb, albedoBuf, ceilBuf, scrBuf] = await Promise.all([
-    fetch(SCENE + 'meta.json', FRESH).then((r) => { if (!r.ok) throw new Error('Could not load meta.json. Run blender/bake_control_room.py first.'); return r.json(); }),
+  const meta = await fetch(SCENE + 'meta.json', FRESH).then((r) => { if (!r.ok) throw new Error('Could not load meta.json. Run blender/bake_control_room.py first.'); return r.json(); });
+  const [glb, albedoBuf, ceilBuf, scrBuf, skyBuf] = await Promise.all([
     bytes('scene.glb'), bytes('albedo.png'), bytes('light_ceiling.png'), bytes('light_screens.png'),
+    meta.scaleSky ? bytes('light_sky.png') : null,
   ]);
-  const [albedo, lightCeiling, lightScreens] = await Promise.all([
+  const [albedo, lightCeiling, lightScreens, lightSky] = await Promise.all([
     texture(renderer, albedoBuf, true), texture(renderer, ceilBuf, false), texture(renderer, scrBuf, false),
+    skyBuf ? texture(renderer, skyBuf, false) : blackMap(),
   ]);
   const gltf = await new GLTFLoader().parseAsync(glb, '');
 
@@ -144,8 +178,20 @@ export async function loadControlRoom(renderer) {
       uAlbedo: { value: albedo }, uLightCeiling: { value: lightCeiling }, uLightScreens: { value: lightScreens },
       uScaleCeiling: { value: meta.scaleCeiling }, uScaleScreens: { value: meta.scaleScreens },
       uCeiling: { value: 1 }, uScreens: { value: 1 }, uMode: { value: 0 },
+      uLightSky: { value: lightSky }, uScaleSky: { value: meta.scaleSky ?? 0 }, uSky: { value: new THREE.Color(0, 0, 0) },
     },
   });
+  // The platform outside the window: the same atlas, plus the sun
+  const outsideMesh = gltf.scene.getObjectByName('Outside');
+  let outside = null;
+  if (outsideMesh) {
+    outside = material.clone();
+    outside.vertexShader = outsideVertex;
+    outside.defines = { OUTSIDE: '' };
+    outside.uniforms = { ...material.uniforms, uSun: { value: new THREE.Color(0, 0, 0) }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+      uFogColor: { value: new THREE.Color() }, uFogDistance: { value: 1e5 } };
+    outsideMesh.material = outside;
+  }
   // The movable things (chairs, mugs, coffee) share the room's atlas
   for (const name of ['Room', ...(meta.movable ?? [])]) {
     const mesh = gltf.scene.getObjectByName(name);
@@ -225,7 +271,19 @@ export async function loadControlRoom(renderer) {
     meta,
     root: gltf.scene,
     cameras: gltf.cameras,
-    sizes: { glb: glb.byteLength, maps: [albedoBuf, ceilBuf, scrBuf, ...boardBufs].reduce((n, b) => n + b.byteLength, 0) },
+    sizes: { glb: glb.byteLength, maps: [albedoBuf, ceilBuf, scrBuf, skyBuf, ...boardBufs].reduce((n, b) => n + (b?.byteLength ?? 0), 0) },
+    seaLevel: meta.seaLevel ?? -69.2,
+    // Daylight from outdoor.js: the sky's average radiance, and the sun (or
+    // moon) for the platform
+    setDaylight({ sky, sun, sunDir, fog, fogDistance }) {
+      material.uniforms.uSky.value.copy(sky);
+      if (!outside) return;
+      const u = outside.uniforms;
+      u.uSun.value.copy(sun);
+      u.uSunDir.value.copy(sunDir);
+      u.uFogColor.value.copy(fog);
+      u.uFogDistance.value = fogDistance;
+    },
     // Set the light mix: weights for the two groups, and the debug view
     setLights(ceiling, screens, mode = 0) {
       const u = material.uniforms;

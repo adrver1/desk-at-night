@@ -1,8 +1,11 @@
 // Lighting viewer for the control room bake: orbit around and mix the
-// ceiling and screen light maps (see controlScene.js).
+// ceiling and screen light maps (see controlScene.js), with the live sky and
+// sea outside (outdoor.js).
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { loadControlRoom, SKY } from './controlScene.js';
+import { loadControlRoom } from './controlScene.js';
+import { Outdoor } from './outdoor.js';
+import { outdoorControls } from './outdoorControls.js';
 
 const $ = (id) => document.getElementById(id);
 const ui = {
@@ -19,9 +22,9 @@ const renderer = new THREE.WebGLRenderer({ canvas: ui.canvas, antialias: true })
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.autoClear = false; // outdoor.render() clears, draws the sky and sea, then the room goes on top
 
 const scene = new THREE.Scene();
-scene.background = SKY.clone();
 const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.02, 500);
 const controls = new OrbitControls(camera, ui.canvas);
 controls.enableDamping = true;
@@ -30,11 +33,14 @@ controls.minDistance = 0.3;
 controls.maxDistance = 9;
 const home = { position: new THREE.Vector3(), target: new THREE.Vector3() };
 
-let room;
+let room, outdoor, last = 0, userEv = 0;
 
 async function load() {
   room = await loadControlRoom(renderer);
   scene.add(room.root);
+  outdoor = new Outdoor(room.seaLevel);
+  scene.add(outdoor.room);
+  outdoorControls(document.getElementById('outdoor'), outdoor);
   const pick = Number(new URLSearchParams(location.search).get('cam')) || 0; // ?cam=2 for the operator's view
   const cam = room.cameras[Math.min(pick, room.cameras.length - 1)];
   cam.getWorldPosition(home.position);
@@ -61,7 +67,7 @@ function setSlider(key, out, v) {
   out.textContent = `×${v.toFixed(2)}`;
 }
 function setExposure(ev) {
-  renderer.toneMappingExposure = 2 ** ev;
+  userEv = ev;
   ui.expOut.textContent = `${ev >= 0 ? '+' : '−'}${Math.abs(ev).toFixed(1)} EV`;
 }
 function setMode(mode) {
@@ -83,12 +89,18 @@ new ResizeObserver(() => {
 }).observe(ui.stage);
 
 renderer.setAnimationLoop((now) => {
+  const dt = Math.min((now - last) / 1000, 0.1);
+  last = now;
   if (!room) return;
+  outdoor.update(dt);
+  renderer.toneMappingExposure = 2 ** userEv * outdoor.light.exposure;
   room.setLights(state.ceiling, state.screens, state.mode);
+  room.setDaylight(outdoor.light);
   room.updateScreens(now / 1000);
   controls.update();
+  outdoor.render(renderer, camera);
   renderer.render(scene, camera);
-  ui.eq.innerHTML = `pixel = albedo × ( <b class="l">${state.ceiling.toFixed(2)}</b> · E<sub>ceiling</sub> + <b class="m">${state.screens.toFixed(2)}</b> · E<sub>screens</sub> )`;
+  ui.eq.innerHTML = `pixel = albedo × ( <b class="l">${state.ceiling.toFixed(2)}</b> · E<sub>ceiling</sub> + <b class="m">${state.screens.toFixed(2)}</b> · E<sub>screens</sub> + <b>sky</b> · E<sub>sky</sub> )`;
 });
 
 load()
