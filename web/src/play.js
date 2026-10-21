@@ -66,6 +66,7 @@ const player = {
 const keys = new Set();
 const touch = { move: new THREE.Vector2() };
 let room, outdoor, layout, playing = false, panelOpen = false;
+const lamps = {}; // the rest corner's lamps: name -> { on, w (eased brightness) }
 const chairs = [], mugs = [], pickables = [], items = [];
 const raycaster = new THREE.Raycaster();
 raycaster.far = REACH;
@@ -107,6 +108,10 @@ async function load() {
       usable({ kind: 'switch', item: obj }, obj);
       switchKeys.push(...lightKeys(obj));
     }
+  }
+  for (const name of room.lamps) {
+    lamps[name] = { on: true, w: 1 };
+    usable({ kind: 'lamp', item: name }, root.getObjectByName(room.meta.lamps[name].body), ...room.lampMeshes(name));
   }
   pickables.push(root.getObjectByName('Room')); // so walls and desks block the view of things behind them
   setUpScreenPicker();
@@ -393,6 +398,7 @@ function interact() {
   if (target?.kind === 'mug') return drink(target.item);
   if (target?.kind === 'panel') return openPanel();
   if (target?.kind === 'switch') return controls.nextScene(); // the room itself shows the change
+  if (target?.kind === 'lamp') { lamps[target.item].on = !lamps[target.item].on; return; }
   if (player.seat) return standUp();
   if (target?.kind === 'chair') return sit(target.item);
 }
@@ -505,6 +511,7 @@ function showPrompt() {
   if (target?.kind === 'mug') use = target.item.sips ? `Drink (${target.item.sips} sip${target.item.sips > 1 ? 's' : ''} left)` : 'Empty mug';
   else if (target?.kind === 'panel') use = 'Room controls';
   else if (target?.kind === 'switch') use = `Lights: ${controls.nextSceneName()}`;
+  else if (target?.kind === 'lamp') use = lamps[target.item].on ? 'Lamp off' : 'Lamp on';
   else if (target?.kind === 'screen' && !player.seat) use = 'Zoom in';
   else if (player.seat) { use = 'Stand up'; spinOk = true; }
   else if (target?.kind === 'chair') { use = 'Sit'; spinOk = true; }
@@ -671,6 +678,10 @@ renderer.setAnimationLoop((now) => {
   outdoor.update(dt);
   renderer.toneMappingExposure = outdoor.light.exposure;
   room.setLights(controls.ceiling * FULL_LIGHT, controls.screens ? 1 : 0);
+  for (const [name, l] of Object.entries(lamps)) {
+    l.w += ((l.on ? 1 : 0) - l.w) * Math.min(1, dt * 12); // a quick fade, like a bulb
+    room.setLamp(name, l.w);
+  }
   room.setDaylight(outdoor.light, now / 1000);
   room.setClock(outdoor.state.time); // the wall clock runs with the screens off too
   if (controls.screens) room.updateScreens(now / 1000, outdoor.cctv);
@@ -695,6 +706,7 @@ window.__game = {
   get target() { return target; },
   get panelOpen() { return panelOpen; },
   spin() { const c = player.seat ?? target?.item; if (c?.omega !== undefined) spin(c, 1); },
+  lamps,
   get state() { return { pos: player.pos.toArray(), seated: Boolean(player.seat), target: target?.kind ?? null, busy: Boolean(player.busy) }; },
   blocked: (bx, by) => blocked(bx, -by),
   set fullLight(k) { FULL_LIGHT = k; },

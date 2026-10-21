@@ -1,7 +1,7 @@
 {
-  "scaleCeiling": 1.555931806564331,
-  "scaleScreens": 0.2786647081375122,
-  "scaleSky": 0.9900318384170532,
+  "scaleCeiling": 1.555152416229248,
+  "scaleScreens": 0.27687039971351624,
+  "scaleSky": 0.9907616376876831,
   "seaLevel": -69.2,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
@@ -52,6 +52,24 @@
       "strength": 4.0,
       "group": "screens"
     },
+    "EmitFloorLampShade": {
+      "color": [
+        1.0,
+        0.78,
+        0.52
+      ],
+      "strength": 1.2000000476837158,
+      "group": "floorlamp"
+    },
+    "EmitFloorLampGlow": {
+      "color": [
+        1.0,
+        0.74,
+        0.46
+      ],
+      "strength": 4.0,
+      "group": "floorlamp"
+    },
     "EmitPlatformRed": {
       "color": [
         1.0,
@@ -78,6 +96,13 @@
       ],
       "strength": 80.0,
       "group": "ceiling"
+    }
+  },
+  "lamps": {
+    "floorlamp": {
+      "map": "light_floorlamp.png",
+      "body": "FloorLamp",
+      "scale": 1.99857759475708
     }
   },
   "boards": {
@@ -190,6 +215,13 @@
         0.0
       ],
       [
+        3.02,
+        -5.3,
+        0.16,
+        0.16,
+        0.0
+      ],
+      [
         -3.5482,
         -0.1133,
         0.66,
@@ -216,6 +248,7 @@
   "movable": [
     "Chair0",
     "Chair1",
+    "FloorLamp",
     "S0Coffee",
     "S0Mug",
     "S0TouchPanel",
