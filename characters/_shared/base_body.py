@@ -306,7 +306,7 @@ class Mesh:
 
 
 # --------------------------------------------------------------- base body
-def body(skin="skin_3", colors=None, hide=(), brow=None, ears=True):
+def body(skin="skin_3", colors=None, hide=(), brow=None, ears=True, ear_scale=1.0):
     """The shared base body as a Mesh. `colors` maps regions to swatches
     (e.g. {"chest": "coverall_orange"}); `hide` drops regions a clothing
     shell covers completely, to stay within the triangle budget."""
@@ -340,7 +340,8 @@ def body(skin="skin_3", colors=None, hide=(), brow=None, ears=True):
     right.tube([(0.0, 0.019, 0.016, 0, "hand"), (0.06, 0.014, 0.012, 0, "hand")], origin=palm,
                axes=frame(tdir, u), angles=QUAD4, colors=cols, cap_start=False)
     if ears:
-        ear = [Vector((0.113 + dx, -0.012 + dy, 1.60 + dz))
+        k = 1 + (ear_scale - 1) * 0.6  # ear_scale sets how far they stick out, height grows less
+        ear = [Vector((0.113 + dx * ear_scale, -0.012 + dy * k, 1.60 + dz * k))
                for dx in (0, 0.022) for dy in (-0.02, 0.018) for dz in (-0.035, 0.03)]
         right.hull(ear, cols["ear"], "ear")
     m.extend(right).extend(right.mirrored())

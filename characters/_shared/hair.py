@@ -41,6 +41,17 @@ def on_cap(hairline, angle, f, offset=0.011, lift=0.008):
     return base.head_point(angle, z + (CROWN - z) * f, offset) + Vector((0, 0, lift))
 
 
+# How far up the shell a top block starts, per head angle: low at the
+# forehead, high at the back, so the block thins out into the crown instead
+# of sitting on the cap as a ring.
+BLEND = {55: 0.3, 125: 0.3, 20: 0.45, 160: 0.45, 340: 0.72, 200: 0.72, 305: 0.9, 235: 0.9}
+
+
+def blend_ring(hairline, offset, lift=0.0):
+    """Base points for a top block that tapers into the cap at the back."""
+    return [on_cap(hairline, a, f, offset, lift) for a, f in BLEND.items()]
+
+
 def cap(color, hairline=FULL, offsets=(0.008, 0.012, 0.016), lifts=(0.0, 0.008, 0.02), region="hair",
         crown=True, fs=(0.0, 0.3, 0.55, 0.8, 1.0)):
     """Close-cropped shell from the hairline to the crown: rows of the
@@ -116,16 +127,16 @@ def curly_top(color, fade, hairline=FULL, helmet=False, height=1.0):
     if helmet:
         return m
     h = hairline
-    mass = [on_cap(h, a, 0.4, 0.010, 0.004) for a in base.BOXY8]
+    mass = blend_ring(h, 0.010, 0.006)
     def up(z):
         return CROWN + (z - CROWN) * height
     mass += [Vector((x, y, up(z))) for x, y, z in ((0.06, 0.10, 1.80), (-0.06, 0.10, 1.80), (0.0, 0.115, 1.81),
-                                                   (0.07, 0.0, 1.81), (-0.07, 0.0, 1.81), (0.05, -0.07, 1.79),
-                                                   (-0.05, -0.07, 1.79), (0.02, 0.06, 1.835), (-0.03, 0.0, 1.835))]
+                                                   (0.065, 0.01, 1.81), (-0.065, 0.01, 1.81),
+                                                   (0.02, 0.06, 1.835), (-0.03, 0.0, 1.835))]
     m.hull(mass, color, "hair")
     # lumps half sunk into the block break up its outline into curls
     for x, y, z in ((0.055, 0.09, 1.815), (-0.045, 0.095, 1.82), (0.005, 0.06, 1.84), (0.075, 0.02, 1.81),
-                    (-0.07, 0.03, 1.815), (0.03, -0.035, 1.83), (-0.035, -0.06, 1.815)):
+                    (-0.07, 0.03, 1.815), (0.03, -0.03, 1.83), (-0.03, -0.035, 1.825)):
         m.hull(lump(x, y, up(z) - 0.006 * (1 - height), 0.024 * (0.6 + 0.4 * height)), color, "hair")
     return m
 
@@ -194,9 +205,9 @@ def crop_top(color, temples, hairline=FULL, helmet=False):
     if helmet:
         return m
     h = hairline
-    pts = [on_cap(h, a, 0.05, 0.012) for a in (55, 125)] + [on_cap(h, a, 0.45, 0.014) for a in base.BOXY8]
+    pts = [on_cap(h, a, 0.05, 0.012) for a in (55, 125)] + blend_ring(h, 0.013, 0.004)
     pts += [Vector(p) for p in ((0.045, 0.112, 1.775), (-0.045, 0.11, 1.772), (0.0, 0.115, 1.782),
-                                (0.05, 0.03, 1.795), (-0.05, 0.03, 1.792), (0.0, -0.06, 1.785))]
+                                (0.05, 0.03, 1.795), (-0.05, 0.03, 1.792))]
     return m.hull(pts, color, "hair")
 
 

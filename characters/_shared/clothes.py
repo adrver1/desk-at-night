@@ -154,7 +154,7 @@ def _lerp_table(table, z):
 
 # Blazer front, as (z, x) along the edges: the V of shirt, and the outer
 # edge of the lapel with its notch below the collar
-V_EDGE = [(1.13, 0.0), (1.40, 0.072)]
+V_EDGE = [(1.13, 0.0), (1.40, 0.072), (1.43, 0.085)]
 LAPEL_EDGE = [(1.13, 0.008), (1.19, 0.065), (1.31, 0.122), (1.325, 0.10), (1.40, 0.112)]
 
 
@@ -163,12 +163,15 @@ def blazer(color, lapel, shirt, buttons="charcoal"):
     shirt showing down the front between two notched lapels."""
     m = torso_shell(color, hem=0.80, offset=0.024, flare=0.012, region="blazer")
     bvh = m.bvh()
-    zs = [1.13 + k * 0.03 for k in range(10)]
+    zs = [1.13 + k * 0.03 for k in range(10)] + [1.43]
     m.decal_band(bvh, zs, lambda z: -_lerp_table(V_EDGE, z), lambda z: _lerp_table(V_EDGE, z), shirt, "shirt_v")
     for s in (1, -1):
-        m.decal_band(bvh, zs, lambda z, s=s: s * _lerp_table(V_EDGE, z), lambda z, s=s: s * _lerp_table(LAPEL_EDGE, z),
+        m.decal_band(bvh, zs[:-1], lambda z, s=s: s * _lerp_table(V_EDGE, z), lambda z, s=s: s * _lerp_table(LAPEL_EDGE, z),
                      lapel, "lapel", lift=0.004)
     m.decal(bvh, 0.0, 1.085, 0.012, 0.012, buttons, "button", lift=0.004)
+    # the shirt's neck covers the shell's lid round the base of the neck
+    m.extend(base.Mesh().tube([(1.408, 0.106, 0.104, 0.004, "shirt_neck"), (1.45, 0.072, 0.068, -0.006, "shirt_neck")],
+                              swatch=shirt, angles=base.HEX6, angle_offset=30, cap_start=False, cap_end=False))
     return m.extend(sleeves(color, offset=0.018, region="blazer_sleeve"))
 
 
