@@ -5,6 +5,8 @@ Textures for the control room's whiteboards, drawn with PIL:
                    marked up with highlighter, plus sticky notes and scribbles
     shift_board()  a shift-status board: a marker grid with magnetic labels
                    for who is on shift, who is on call, and open work
+    notes_board()  a mobile whiteboard with a hand-drawn process sketch
+    esd_panel()    the printed front of the hardwired ESD matrix panel
 
 Everything is generic and seeded, so the same image comes out every build.
 Each returns the path of a PNG in blender/build/boards/.
@@ -251,6 +253,136 @@ def shift_board(w=2048, h=1536, seed=3):
     return _save(img, "shift_board.png")
 
 
+def notes_board(w=2048, h=1536, seed=11):
+    """1.2 x 0.9 m mobile whiteboard: a hand-drawn sketch of a process train
+    from a handover, with notes around it."""
+    rng = random.Random(seed)
+    img = Image.new("RGB", (w, h), BOARD)
+    d = ImageDraw.Draw(img)
+    px = w / 1.2
+    hand = _font(FONT_HAND, int(0.026 * px))
+    big = _font(FONT_HAND, int(0.04 * px))
+    blue, red, black = MARKER["blue"], MARKER["red"], MARKER["black"]
+    d.text((int(0.06 * px), int(0.05 * px)), "Handover / plan", fill=black, font=big)
+    # Separator train: three wobbly vessels joined by lines
+    y = int(0.38 * px)
+    xs = [int(f * px) for f in (0.16, 0.42, 0.68)]
+    for i, x in enumerate(xs):
+        vw, vh = int(0.10 * px), int(0.16 * px)
+        d.rounded_rectangle([x - vw, y - vh, x + vw, y + vh], radius=int(0.09 * px), outline=blue, width=7)
+        d.text((x, y + vh + int(0.04 * px)), f"{i + 1}st stage", fill=blue, font=hand, anchor="mm")
+        if i:
+            d.line([xs[i - 1] + vw, y, x - vw, y + rng.randint(-8, 8)], fill=blue, width=6)
+            d.polygon([(x - vw, y), (x - vw - 24, y - 12), (x - vw - 24, y + 12)], fill=blue)
+    d.line([xs[-1] + int(0.10 * px), y, int(1.10 * px), y], fill=blue, width=6)
+    d.text((int(0.90 * px), y - int(0.06 * px)), "to export", fill=blue, font=hand)
+    d.ellipse([xs[1] - int(0.14 * px), y - int(0.21 * px), xs[1] + int(0.14 * px), y + int(0.21 * px)],
+              outline=red, width=6)
+    d.text((xs[1] + int(0.15 * px), y - int(0.24 * px)), "level osc.?", fill=red, font=hand)
+    _scribble(d, rng, int(0.06 * px), int(0.66 * px), 0, 5, black, hand)
+    _scribble(d, rng, int(0.62 * px), int(0.66 * px), 0, 4, red, hand)
+    ghost = Image.new("RGB", (w, h), (255, 255, 255))
+    gd = ImageDraw.Draw(ghost)
+    for _ in range(25):
+        x, y = rng.randint(0, w), rng.randint(0, h)
+        gd.line([x, y, x + rng.randint(50, 300), y + rng.randint(-20, 20)], fill=(232, 234, 236), width=6)
+    from PIL import ImageChops
+    img = ImageChops.multiply(img, ghost)
+    return _save(img, "notes_board.png")
+
+
+ESD_ZONES = ["WELLHEAD", "PROCESS", "UTILITY", "LIVING QTR", "ELEC"]
+
+
+def esd_panel(w=2048, h=2560, seed=5):
+    """1.6 x 2.0 m front of a hardwired ESD matrix panel: printed on a grid
+    of square tiles, with a mimic of the platform's fire areas, black label
+    strips, and the outlines that the lamps and key switches sit in (those
+    are geometry, see props.make_esd_panel). Generic labels only."""
+    rng = random.Random(seed)
+    img = Image.new("RGB", (w, h), (226, 228, 228))
+    d = ImageDraw.Draw(img)
+    px = w / 1.6
+    tile = int(0.08 * px)
+    for x in range(0, w, tile):
+        d.line([x, 0, x, h], fill=(205, 208, 208), width=2)
+    for y in range(0, h, tile):
+        d.line([0, y, w, y], fill=(205, 208, 208), width=2)
+    lab = _font(FONT_BOLD, int(0.03 * px))
+    small = _font(FONT, int(0.017 * px))
+    strip = (45, 48, 52)
+
+    def band(y, text, x0=0.04, x1=1.56):
+        d.rectangle([int(x0 * px), int(y * px), int(x1 * px), int((y + 0.05) * px)], fill=strip)
+        d.text((int((x0 + 0.03) * px), int((y + 0.025) * px)), text, fill=(235, 235, 235), font=lab, anchor="lm")
+
+    band(0.08, "ESD SYSTEM")
+    band(0.08, "FIRE AREAS", x0=0.62)
+    # Vertical divider between the left column and the mimic
+    d.line([int(0.58 * px), int(0.13 * px), int(0.58 * px), int(1.05 * px)], fill=strip, width=6)
+    # Mimic: a stepped silhouette of the topsides, split into fire areas
+    gx0, gy1 = 0.72, 0.92
+    cols = [(0.16, 0.42), (0.14, 0.30), (0.14, 0.26), (0.14, 0.30), (0.16, 0.50)]
+    x = gx0
+    for i, (cw, ch) in enumerate(cols):
+        x0, x1 = int(x * px), int((x + cw) * px)
+        d.rectangle([x0, int((gy1 - ch) * px), x1, int(gy1 * px)], fill=(150, 172, 178), outline=(90, 110, 116), width=4)
+        d.text(((x0 + x1) // 2, int((gy1 + 0.035) * px)), ESD_ZONES[i], fill=(40, 44, 48), font=small, anchor="mm")
+        x += cw
+    d.line([int((gx0 + 0.70) * px), int(0.22 * px), int((gx0 + 0.70) * px), int(0.42 * px)], fill=(90, 110, 116), width=6)
+    # Labels over the lamp/key positions of the left column (see props)
+    for k, t in enumerate(["ESD 1", "ESD 2", "PSD", "BLOWDOWN", "F&G OVERRIDE"]):
+        d.text((int(0.10 * px), int((0.20 + 0.14 * k) * px)), t, fill=(40, 44, 48), font=small, anchor="lm")
+    band(1.08, "ALARMS")
+    band(1.08, "MANUAL ISOLATION", x0=0.62)
+    band(1.62, "ONSHORE OPS", x0=0.04, x1=0.78)
+    band(1.62, "MAINTENANCE BYPASS", x0=0.82)
+    for k in range(rng.randint(14, 18)):
+        cx, cy = rng.uniform(0.12, 1.50), rng.choice([1.24, 1.38, 1.50, 1.78, 1.90])
+        d.text((int(cx * px), int((cy - 0.045) * px)), f"{rng.choice('ABCDEFGH')}{rng.randint(10, 99)}",
+               fill=(70, 74, 78), font=small, anchor="mm")
+    return _save(img, "esd_panel.png")
+
+
+BINDER_COLOURS = [(80, 111, 173), (170, 170, 173), (194, 80, 70), (70, 70, 75), (218, 206, 124)]
+
+
+def binder_spines(size, shelves, seed=4, ppm=1100):
+    """Front of a shelving unit's binder rows, as one image: `size` is the
+    face (w, h) in metres, `shelves` the heights of the shelf boards above
+    its bottom edge. Each row is a run of coloured spines with a white
+    label and a finger hole, the odd gap, and dark shelf interior above."""
+    rng = random.Random(seed)
+    w, h = size
+    W, H = int(w * ppm), int(h * ppm)
+    img = Image.new("RGB", (W, H), (38, 39, 41))
+    d = ImageDraw.Draw(img)
+    y = lambda z: H - int(z * ppm)  # noqa: E731  metres up from the bottom -> pixel row
+    for z0 in shelves[:-1]:
+        x = 0.03
+        while x < w - 0.08:
+            if rng.random() < 0.12:
+                x += 0.12
+                continue
+            bw, bh = rng.choice([0.05, 0.075, 0.075, 0.08]), rng.choice([0.32, 0.32, 0.30])
+            c = rng.choice(BINDER_COLOURS)
+            x0, x1 = int(x * ppm), int((x + bw - 0.004) * ppm)
+            d.rectangle([x0, y(z0 + bh), x1, y(z0)], fill=c)
+            d.line([x1 - 2, y(z0 + bh), x1 - 2, y(z0)], fill=tuple(int(v * 0.7) for v in c), width=3)  # spine edge
+            cx = (x0 + x1) // 2
+            lw = int(0.0125 * ppm)
+            d.rectangle([cx - lw, y(z0 + bh * 0.75 + 0.03), cx + lw, y(z0 + bh * 0.75 - 0.03)], fill=(232, 230, 222))
+            for k in range(3):  # a few scribbled lines on the label
+                yy = y(z0 + bh * 0.75 + 0.02 - k * 0.015)
+                d.line([cx - lw + 4, yy, cx + lw - rng.randint(4, 10), yy], fill=(70, 70, 80), width=2)
+            r = int(0.011 * ppm)
+            d.ellipse([cx - r, y(z0 + 0.06) - r, cx + r, y(z0 + 0.06) + r], fill=(30, 30, 32))  # finger hole
+            x += bw
+    for z0 in shelves:  # the shelf boards, which sit in front of this face anyway
+        d.rectangle([0, y(z0 + 0.0125), W, y(z0 - 0.0125)], fill=(150, 152, 154))
+    return _save(img, "binders.png")
+
+
 def _save(img, name):
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, name)
@@ -261,3 +393,5 @@ def _save(img, name):
 if __name__ == "__main__":
     print(pnid_board())
     print(shift_board())
+    print(notes_board())
+    print(esd_panel())

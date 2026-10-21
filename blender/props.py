@@ -547,11 +547,13 @@ def make_ceiling_tv(m, name="CeilingTv", size=(1.24, 0.72), drop=0.5):
     return t.done()
 
 
-def make_whiteboard(m, name="Whiteboard", size=(2.4, 1.2), face=None):
+def make_whiteboard(m, name="Whiteboard", size=(2.4, 1.2), face=None, stand=None):
     """Wall whiteboard with an aluminium frame and a pen tray. `face` is the
     material for the writing surface (see board_material); the surface is a
     child object named <name>Face, so the bake can give it its own texture.
-    The origin is at the middle of the back, the face points -Y."""
+    The origin is at the middle of the back, the face points -Y. With
+    `stand` (the height of that middle above the floor) it is a mobile board
+    on two legs with castors instead."""
     w, h = size
     surface = Builder(name + "Face")
     surface.box((w, 0.012, h), Vector((0, -0.006, 0)), face or m["paper"])
@@ -566,6 +568,14 @@ def make_whiteboard(m, name="Whiteboard", size=(2.4, 1.2), face=None):
     for i, mat in enumerate((m["key_red"], m["key_green"], m["black"])):  # markers
         wb.cyl(0.008, 0.008, 0.13, Vector((-0.2 + i * 0.05, -0.04, -h / 2 - f + 0.008)), mat, segs=10,
                orient=_rot(y=math.pi / 2))
+    if stand:
+        for s in (-1, 1):  # side legs from the top of the frame to the floor, on castor feet
+            x = s * (w / 2 + f + 0.02)
+            wb.box((0.035, 0.035, stand + h / 2 + 0.05), Vector((x, 0.0, (h / 2 + 0.05 - stand) / 2)), m["alu"])
+            wb.box((0.05, 0.60, 0.035), Vector((x, 0.0, -stand + 0.09)), m["alu"])
+            for t in (-1, 1):
+                wb.cyl(0.03, 0.03, 0.025, Vector((x, t * 0.27, -stand + 0.035)), m["black"], segs=12,
+                       orient=_rot(y=math.pi / 2))
     frame = wb.done()
     surface.parent = frame
     return frame
@@ -612,6 +622,220 @@ def make_ceiling_mic(m, name="CeilingMic", drop=0.55):
     return c.done(smooth=True)
 
 
+# ------------------------------------------------- room furniture (rear)
+
+def _room_mats(m):
+    def flat(name, color, rough):
+        return bpy.data.materials.get(name) or b.mat_flat(name, color, rough)
+    return {
+        "cabinet": flat("PropCabinet", (0.80, 0.81, 0.80), 0.5),
+        "lamp_red": flat("PropLampRed", (0.70, 0.06, 0.04), 0.3),
+        "lamp_green": flat("PropLampGreen", (0.10, 0.60, 0.20), 0.3),
+        "fg_red": flat("PropFireRed", (0.62, 0.10, 0.05), 0.5),
+        "shelf": flat("PropShelfGrey", (0.36, 0.37, 0.38), 0.6),
+        "sofa": flat("PropSofa", (0.42, 0.13, 0.28), 0.95),       # the lounge's magenta upholstery
+        "white": flat("PropWhiteTop", (0.84, 0.84, 0.82), 0.4),
+        "leaf": flat("PropLeaf", (0.08, 0.22, 0.07), 0.7),
+        "pot": flat("PropPot", (0.12, 0.12, 0.13), 0.6),
+        "binders": [flat(f"PropBinder{i}", c, 0.6) for i, c in
+                    enumerate([(0.08, 0.16, 0.42), (0.40, 0.40, 0.42), (0.55, 0.08, 0.06), (0.06, 0.06, 0.07),
+                               (0.70, 0.62, 0.20)])],
+    }
+
+
+def make_esd_panel(m, name="EsdPanel", face=None, size=(1.6, 2.0)):
+    """Hardwired ESD matrix panel: a tall white steel cabinet whose front is
+    a printed mimic (the child <name>Face, so the bake can give it its own
+    texture, like a whiteboard), with key switches and square lamp buttons
+    standing out of it, and door handles. Stands on the floor against a
+    wall; the front faces -Y. Positions of the lamps match boards.esd_panel."""
+    rm = _room_mats(m)
+    w, h = size
+    d, z0 = 0.45, 0.10  # depth, plinth
+    surface = Builder(name + "Face")  # centred on its own origin, which board_material maps from
+    surface.box((w, 0.004, h), Vector((0, -d - 0.002, 0)), face or rm["cabinet"])
+    surface = surface.done()
+    surface.location = (0, 0, z0 + h / 2)
+    c = Builder(name)
+    c.box((w + 0.06, d, h + 0.06), Vector((0, -d / 2, z0 + h / 2)), rm["cabinet"])
+    c.box((w + 0.02, d - 0.04, z0), Vector((0, -d / 2, z0 / 2)), m["black"])  # plinth
+    c.box((0.04, 0.02, 0.20), Vector((-w / 2 + 0.04, -d - 0.02, z0 + h * 0.55)), m["steel"])  # handles
+    c.box((0.04, 0.02, 0.20), Vector((w / 2 - 0.04, -d - 0.02, z0 + h * 0.55)), m["steel"])
+    top = z0 + h  # the texture's y runs down from here, in metres
+    for k in range(5):  # left column: a key switch and a lamp per function
+        zz = top - (0.20 + 0.14 * k) - 0.05
+        c.cyl(0.022, 0.022, 0.03, Vector((-w / 2 + 0.38, -d - 0.015, zz)), m["black"], segs=16, orient=_rot(x=math.pi / 2))
+        c.box((0.012, 0.03, 0.035), Vector((-w / 2 + 0.38, -d - 0.04, zz)), m["steel"])
+        c.box((0.06, 0.02, 0.06), Vector((-w / 2 + 0.48, -d - 0.01, zz)), rm["lamp_red"] if k % 2 else rm["lamp_green"])
+    for row in (1.24, 1.38, 1.50, 1.78, 1.90):  # rows of lamp buttons under the label strips
+        for i in range(7):
+            x = -w / 2 + 0.16 + i * 0.205
+            c.box((0.05, 0.018, 0.05), Vector((x, -d - 0.009, top - row)), rm["lamp_red"] if (i + int(row * 10)) % 3 else rm["lamp_green"])
+    frame = c.done()
+    surface.parent = frame
+    return frame
+
+
+def make_fg_panel(m, name="FgPanel"):
+    """Fire & gas panel: a red wall-mounted unit with a small display and a
+    button block. Origin on the wall at its middle; the front faces -Y."""
+    rm = _room_mats(m)
+    p = Builder(name)
+    p.rbox((0.34, 0.10, 0.42), Vector((0, -0.05, 0)), rm["fg_red"], 0.01, segs=2)
+    p.box((0.20, 0.01, 0.10), Vector((0, -0.105, 0.10)), m["lens"])
+    p.box((0.22, 0.01, 0.14), Vector((0, -0.105, -0.07)), m["black"])
+    for i in range(3):
+        for j in range(2):
+            p.box((0.05, 0.01, 0.035), Vector((-0.06 + i * 0.06, -0.112, -0.04 - j * 0.05)), m["key_grey"])
+    return p.done()
+
+
+def make_shelving(m, name="Shelving", size=(1.6, 0.40, 1.80), face=None):
+    """Open grey shelving unit full of ring binders. Origin at the back,
+    middle, on the floor; the open side faces -Y. The binders are one flat
+    face (the child <name>Face) carrying a painted image of their spines
+    (see boards.binder_spines and SHELVES below), which the bake gives its
+    own texture like a whiteboard: a few hundred triangles instead of
+    thousands of little boxes."""
+    rm = _room_mats(m)
+    w, d, h = size
+    s = Builder(name)
+    for x in (-w / 2, w / 2):
+        s.box((0.025, d, h), Vector((x, -d / 2, h / 2)), rm["shelf"])
+    s.box((w, 0.01, h), Vector((0, -0.005, h / 2)), rm["shelf"])
+    for z in shelf_heights(h):
+        s.box((w, d, 0.025), Vector((0, -d / 2, z)), rm["shelf"])
+    fw, fh, z0 = shelving_face(size)
+    surface = Builder(name + "Face")  # centred on its own origin, which board_material maps from
+    surface.box((fw, 0.004, fh), Vector((0, -0.32, 0)), face or rm["shelf"])
+    surface = surface.done()
+    surface.location = (0, 0, z0 + fh / 2)
+    frame = s.done()
+    surface.parent = frame
+    return frame
+
+
+def shelf_heights(h, shelves=5):
+    return [0.05 + k * (h - 0.05) / (shelves - 1) for k in range(shelves)]
+
+
+def shelving_face(size):
+    """Width, height and bottom of the binder face for a unit of this size."""
+    w, _, h = size
+    z0 = 0.05 + 0.0125
+    return w - 0.025, h - z0, z0
+
+
+def make_link_stand(m, name="LinkStand", size=(1.9, 1.08), centre=1.55):
+    """Floor stand for the big video-link screen: two uprights on long feet
+    and a cross bar behind the screen. Origin on the floor, centred; the
+    screen hangs in front of it (toward -Y)."""
+    w, h = size
+    s = Builder(name)
+    for x in (-0.45, 0.45):
+        s.box((0.08, 0.06, centre + 0.25), Vector((x, 0.06, (centre + 0.25) / 2)), m["alu"])
+        s.box((0.09, 0.70, 0.04), Vector((x, 0.0, 0.02)), m["alu"])
+        for t in (-1, 1):
+            s.cyl(0.03, 0.03, 0.03, Vector((x, t * 0.32, 0.015)), m["black"], segs=10)
+    s.box((1.0, 0.05, 0.10), Vector((0, 0.06, centre)), m["alu"])
+    s.box((0.80, 0.05, 0.08), Vector((0, 0.06, 0.45)), m["alu"])  # lower bar with a shelf for the codec
+    s.box((0.80, 0.30, 0.02), Vector((0, -0.05, 0.50)), m["alu"])
+    s.box((0.40, 0.25, 0.06), Vector((0, -0.05, 0.54)), m["black"])
+    return s.done()
+
+
+def make_pillar(m, name="Pillar", size=(0.40, 0.40), height=2.9):
+    """Dark concrete column, floor to ceiling, with a black skirting."""
+    w, d = size
+    concrete = bpy.data.materials.get("PropConcrete") or b.mat_flat("PropConcrete", (0.20, 0.20, 0.21), 0.85)
+    p = Builder(name)
+    p.box((w, d, height), Vector((0, 0, height / 2)), concrete)
+    p.box((w + 0.01, d + 0.01, 0.08), Vector((0, 0, 0.04)), m["black"])
+    return p.done()
+
+
+def make_sofa(m, name="Sofa", w=2.0):
+    """Low lounge sofa in magenta upholstery with arms. Origin at the back,
+    middle, on the floor; the seat faces -Y."""
+    rm = _room_mats(m)
+    d = 0.85
+    s = Builder(name)
+    s.rbox((w, d - 0.12, 0.40), Vector((0, -d / 2 - 0.06, 0.22)), rm["sofa"], 0.04)      # base and seat
+    s.rbox((w, 0.20, 0.42), Vector((0, -0.10, 0.62)), rm["sofa"], 0.05)                  # back
+    for x in (-w / 2 + 0.09, w / 2 - 0.09):
+        s.rbox((0.18, d, 0.58), Vector((x, -d / 2, 0.31)), rm["sofa"], 0.04)            # arms
+    for x in (-w / 2 + 0.1, w / 2 - 0.1):
+        for y in (-0.08, -d + 0.08):
+            s.box((0.04, 0.04, 0.04), Vector((x, y, 0.02)), m["black"])
+    return s.done()
+
+
+def make_coffee_table(m, name="CoffeeTable", size=(1.1, 0.55), height=0.42):
+    rm = _room_mats(m)
+    w, d = size
+    t = Builder(name)
+    t.box((w, d, 0.03), Vector((0, 0, height - 0.015)), rm["white"])
+    for x in (-w / 2 + 0.05, w / 2 - 0.05):
+        for y in (-d / 2 + 0.05, d / 2 - 0.05):
+            t.cyl(0.015, 0.015, height - 0.03, Vector((x, y, (height - 0.03) / 2)), m["steel"], segs=10)
+    t.box((0.30, 0.22, 0.03), Vector((0.15, 0.02, height + 0.015)), m["paper"])  # magazines
+    t.cyl(0.13, 0.07, 0.08, Vector((-0.25, 0.0, height + 0.04)), m["ceramic"], segs=24)  # fruit bowl
+    return t.done()
+
+
+def make_kitchenette(m, name="Kitchenette", w=1.8):
+    """Counter for the rest corner: base cabinets with a white top, an
+    under-counter mini fridge at the right end, a filter coffee machine with
+    its glass jug, a pump thermos and a few mugs. Origin at the back,
+    middle, on the floor; the front faces -Y."""
+    rm = _room_mats(m)
+    d, h = 0.60, 0.90
+    k = Builder(name)
+    k.box((w, d, 0.03), Vector((0, -d / 2, h - 0.015)), rm["white"])
+    k.box((w - 0.60, d - 0.05, h - 0.13), Vector((-0.30, -d / 2 + 0.02, (h - 0.13) / 2 + 0.10)), rm["shelf"])
+    k.box((w - 0.60, d - 0.08, 0.10), Vector((-0.30, -d / 2 + 0.03, 0.05)), m["black"])  # plinth
+    for i in range(3):  # cabinet doors and handles
+        x = -w / 2 + 0.20 + i * 0.40
+        k.box((0.39, 0.01, h - 0.16), Vector((x, -d + 0.02, (h - 0.16) / 2 + 0.11)), rm["shelf"])
+        k.box((0.12, 0.02, 0.012), Vector((x, -d + 0.005, h - 0.10)), m["steel"])
+    # Mini fridge, under the counter at the right end
+    fx = w / 2 - 0.30
+    k.rbox((0.56, d - 0.04, h - 0.06), Vector((fx, -d / 2, (h - 0.06) / 2)), rm["white"], 0.015, segs=2)
+    k.box((0.012, 0.02, 0.30), Vector((fx - 0.24, -d + 0.01, h - 0.30)), m["steel"])
+    k.box((0.50, 0.003, 0.003), Vector((fx, -d + 0.02, h - 0.10)), m["key_grey"])
+    # Filter coffee machine with a glass jug, on the counter
+    cx, top = -0.35, h
+    k.rbox((0.22, 0.26, 0.36), Vector((cx, -0.15, top + 0.18)), m["black"], 0.02, segs=2)
+    k.rbox((0.22, 0.12, 0.05), Vector((cx, -0.33, top + 0.33)), m["black"], 0.015, segs=2)  # filter head
+    k.box((0.22, 0.12, 0.02), Vector((cx, -0.33, top + 0.01)), m["black"])                   # hot plate
+    k.cyl(0.07, 0.06, 0.13, Vector((cx, -0.33, top + 0.085)), m["lens"], segs=20)          # jug
+    k.cyl(0.062, 0.062, 0.05, Vector((cx, -0.33, top + 0.045)), m["coffee"], segs=20)
+    k.box((0.02, 0.003, 0.012), Vector((cx + 0.08, -0.281, top + 0.25)), rm["lamp_red"])
+    # Pump thermos and mugs
+    k.cyl(0.075, 0.075, 0.32, Vector((0.10, -0.25, top + 0.16)), m["steel"], segs=20)
+    k.box((0.10, 0.14, 0.06), Vector((0.10, -0.29, top + 0.35)), m["black"])
+    for i, (x, y) in enumerate([(0.32, -0.30), (0.42, -0.22), (0.38, -0.40)]):
+        k.cyl(0.042, 0.04, 0.095, Vector((x, y, top + 0.0475)), m["black"] if i % 2 else m["ceramic"], segs=16)
+    return k.done()
+
+
+def make_plant(m, name="Plant", height=1.4):
+    """Tall potted plant: a dark pot and a loose crown of long leaves."""
+    rm = _room_mats(m)
+    p = Builder(name)
+    p.cyl(0.20, 0.16, 0.42, Vector((0, 0, 0.21)), rm["pot"], segs=20)
+    p.cyl(0.015, 0.015, height - 0.4, Vector((0, 0, 0.4 + (height - 0.4) / 2)), m["card"], segs=8)
+    rng = __import__("random").Random(len(name) * 7)
+    for i in range(18):
+        a = i * 2.4
+        z = 0.65 + (height - 0.65) * (i / 18) ** 0.8
+        tilt = rng.uniform(0.5, 1.1)
+        p.box((0.06, 0.40, 0.006), Vector((0.18 * math.cos(a), 0.18 * math.sin(a), z)), rm["leaf"],
+              orient=_rot(x=tilt, z=a + math.pi / 2))
+    return p.done()
+
+
 ALL = [make_keyboard, make_mouse, make_mousepad, make_mug, make_mic, make_notepad, make_pencil,
        make_chair, make_videobar, make_touchpanel, make_lightpanel, make_deskphone, make_ptz_camera,
-       make_ceiling_tv, make_whiteboard, make_ceiling_mic]
+       make_ceiling_tv, make_whiteboard, make_ceiling_mic, make_esd_panel, make_fg_panel, make_shelving,
+       make_link_stand, make_pillar, make_sofa, make_coffee_table, make_kitchenette, make_plant]

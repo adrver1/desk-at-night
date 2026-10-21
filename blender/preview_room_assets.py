@@ -21,6 +21,7 @@ p.add_argument("--res", type=int, default=1280)
 p.add_argument("--out", default=os.path.join(b.BUILD, "room_assets"))
 p.add_argument("--device", default="auto")
 p.add_argument("--only", default="", help="comma-separated shot names")
+p.add_argument("--exposure", type=float, default=0.0, help="stops brighter, for judging shapes")
 args = p.parse_args()
 os.makedirs(args.out, exist_ok=True)
 
@@ -31,6 +32,7 @@ scene.cycles.device = b.pick_device(args.device)
 scene.cycles.samples = args.samples
 scene.cycles.use_denoising = True
 scene.view_settings.view_transform = "AgX"
+scene.view_settings.exposure = args.exposure
 
 m = cr.materials()
 cr.build_desk(m)
@@ -41,6 +43,8 @@ cr.build_chairs(m)
 cr.build_shell(m)
 cr.build_meeting_corner(m)
 cr.build_boards(m)
+cr.build_rear(m)
+cr.build_lounge(m)
 cr.build_ceiling_mics(m)
 cr.build_outside(m)
 world = bpy.data.worlds.new("Night")
@@ -82,6 +86,14 @@ shots = {  # name: (location, aim, lens, width, height)
     "meeting-table": (Vector((0.6, -1.2, 1.25)), Vector((2.6, -2.9, 0.55)), 24, 3, 2),
     "link-camera": (Vector((2.0, -1.6, 1.9)), Vector((2.6, -3.3, 2.3)), 35, 3, 2),
     "overview": (Vector((-3.0, -3.2, 2.2)), Vector((2.0, 1.5, 1.0)), 16, 16, 9),
+    "rear-from-desk": (cr.polar(cr.r_front(a0) + 0.1, a0 + 0.3, 1.5), Vector((1.2, -3.6, 1.0)), 16, 16, 9),
+    "esd-panel": (Vector((-2.4, -1.4, 1.45)), Vector((-3.1, cr.ROOM_Y0, 1.15)), 24, 3, 2),
+    "nook-doorway": (Vector((4.0, -1.2, 1.6)), Vector((4.0, -4.8, 0.9)), 22, 16, 9),
+    "nook-inside": (Vector((5.0, -3.8, 1.55)), Vector((1.0, -5.3, 0.6)), 18, 16, 9),
+    "desk-apron": (cr.polar(0.8, a0 + 0.85, 0.80), cr.polar(cr.r_front(a0 + 0.45), a0 + 0.45, 0.62), 26, 16, 9),
+    "binders": (Vector((-1.05, -2.05, 1.25)), Vector((-1.05, cr.ROOM_Y0, 0.85)), 30, 16, 9),
+    "binders-close": (Vector((-0.75, -2.95, 1.05)), Vector((-1.25, cr.ROOM_Y0, 0.75)), 32, 16, 9),
+    "band-right": (Vector((-1.2, -0.6, 1.5)), Vector((3.2, 3.6, 2.0)), 20, 16, 9),
 }
 only = set(filter(None, args.only.split(",")))
 for name, (loc, aim, lens, rw, rh) in shots.items():
