@@ -1,6 +1,6 @@
 """
-glasses_ceo: a short greying crop, heavy round black glasses, light grey
-stubble, a wide smile, and a blue blazer open over a white shirt. An
+glasses_ceo: a short greying crop, heavy round black glasses, clean-shaven,
+a wide smile, and a blue blazer open over a white shirt. An
 original character, not a likeness.
 
     python characters/glasses_ceo/build_glasses_ceo.py [--outfit office|ppe|ppe_deck|all]
@@ -48,7 +48,7 @@ LOOK = crew.Look(
     hair=lambda helmet: hair.crop_top(HAIR, TEMPLES, helmet=helmet),
     top={"belly": SHIRT, "chest": SHIRT, "upper_arm": BLAZER, "forearm": BLAZER},
     office=office,
-    face=lambda body: {"stubble": faces.stubble("stubble"), "smile": faces.smile(body)},
+    face=lambda body: {"smile": faces.smile(body)},
     glasses="round_thick", ears=1.5, extra={"casual": casual} if EXTRA_LOOKS else None,
     notes=["Lower body is not in the references: charcoal trousers and black shoes."])
 
