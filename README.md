@@ -65,6 +65,23 @@ viewer, and `play.html`, a first-person walk-around (WASD and mouse; sit in a
 chair and spin it, drink the coffee, set lights, sound and temperature on the
 desk touch panels, or switch the lights by the door).
 
+## Offshore platform
+
+```bash
+.venv/bin/python blender/offshore_platform.py              # stills in blender/build/platform/
+.venv/bin/python blender/offshore_platform.py --samples 16 # quick draft
+.venv/bin/python blender/offshore_platform.py --jackup     # with a jack-up rig over the wellbay
+```
+
+A medium-detail model of a North Sea production platform: a slender
+four-leg jacket, an open-framed process block, a laydown deck over the
+wellbay, a pedestal crane, the living quarters with the helideck on top,
+and a long flare boom. It has about 9,400 triangles above water, one mesh
+per material and no textures, and emissive deck lights and windows for
+night. `build_platform()` builds it into any scene: cut at the waterline
+for a view from the control room, or down to the seabed for a scale model
+on a table. It is not in the room yet.
+
 ## Run the viewer
 
 ```bash
