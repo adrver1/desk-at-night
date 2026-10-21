@@ -4,7 +4,8 @@ The platform as the two deck cameras see it, for the live CCTV screens.
     python blender/cctv_platform.py
 
 Builds the platform (offshore_platform.py), keeps only the faces the cameras
-can see (~2k triangles), moves it into the room's frame and writes
+can see (~2k triangles), parks the helicopter (helicopter.py, ~1.6k) on the
+helideck, moves it all into the room's frame and writes
 
     cctv.glb   the platform, one mesh per material, lamps and windows at
                their night strength (the browser dims them by day)
@@ -22,6 +23,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build as b  # noqa: E402  (imports bpy)
 import control_room as cr  # noqa: E402
+import helicopter as heli  # noqa: E402
 import offshore_platform as op  # noqa: E402
 
 bpy, Vector = b.bpy, b.Vector
@@ -59,7 +61,14 @@ def main():
             continue
         o.data.transform(Matrix.Translation(-cr.PLATFORM_OFFSET))
     print(f"platform for the cameras: {tris} -> {left} triangles", flush=True)
+    # The helicopter parked on the helideck, whole (its rotors and gear move,
+    # so it isn't culled); web/src/helicopter.js animates its parts
+    hm = heli.materials()
+    root, _, htris = heli.build_helicopter(hm, bpy.context.scene.collection, heli.DECK_LOC, heli.DECK_YAW)
+    root.location -= cr.PLATFORM_OFFSET
+    print(f"helicopter: {htris} triangles", flush=True)
     op.set_night(m, True)
+    heli.set_night(hm, True)
     os.makedirs(OUT, exist_ok=True)
     bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, "cctv.glb"), export_format="GLB", export_cameras=False,
                               export_lights=False, export_materials="EXPORT", export_normals=True,
@@ -68,7 +77,7 @@ def main():
                 "fov": round(math.degrees(2 * math.atan(36 * 9 / 16 / 2 / lens)), 2)}
             for k, (name, loc, aim, lens) in CAMS.items()}
     with open(os.path.join(OUT, "cctv.json"), "w") as f:
-        json.dump({"triangles": left, "cameras": cams}, f, indent=1, ensure_ascii=False)
+        json.dump({"triangles": left + htris, "cameras": cams}, f, indent=1, ensure_ascii=False)
     print("wrote", OUT, flush=True)
 
 

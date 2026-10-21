@@ -92,8 +92,9 @@ rain, noise and the caption drawn over it. The model comes from
 .venv/bin/python blender/cctv_platform.py   # web/public/control/cctv.glb + cctv.json, seconds, no bake
 ```
 
-which cuts the platform down to what the two cameras see (~2.3k triangles)
-and holds their positions. Where the GPU can't render to a float texture the
+which cuts the platform down to what the two cameras see (~2.3k triangles),
+parks the helicopter on the helideck and holds the cameras' positions. Add
+`?heli=running` to the page URL to see its rotors turning. Where the GPU can't render to a float texture the
 screens draw their old 2D camera instead.
 
 ## Offshore platform
@@ -114,6 +115,23 @@ for a view from the control room, or down to the seabed for a scale model
 on a table. The control room uses it as the view out of its window: the room
 sits on the top floor of the quarters, and `cull_to_view()` keeps only the
 faces that window can see (about 1,100 triangles).
+
+## Helicopter
+
+```bash
+.venv/bin/python blender/helicopter.py              # stills in blender/build/helicopter/
+.venv/bin/python blender/helicopter.py --glb        # also helicopter.glb, the default livery alone
+```
+
+A low-poly twin-engine offshore helicopter in the AW189's proportions
+(17.6 m long, 14.6 m five-blade rotor), about 1,600 triangles and no
+textures. The fuselage is lofted from cross sections, so a livery's paint
+bands follow its shape; `LIVERIES` keeps every paint scheme and `LIVERY`
+picks the one the scene uses. `build_helicopter()` returns its moving parts
+with their pivots: both rotors, the three gear legs (they swing forward into
+the nose and the sponsons) and a blur disc per rotor. In the browser,
+`web/src/helicopter.js` spools the rotors up and down, fading the blades into
+the discs at speed, and retracts the gear.
 
 ## Run the viewer
 
