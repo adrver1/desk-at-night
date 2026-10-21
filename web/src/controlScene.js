@@ -255,6 +255,16 @@ export async function loadControlRoom(renderer) {
     const mesh = gltf.scene.getObjectByName(name);
     if (mesh) mesh.material = material;
   }
+  // The rest corner's wall clock: its hands are split out of the bake,
+  // pointing at 12, each turning about the dial's axis (local +Z, the
+  // dial's front) to follow the game's clock
+  const hands = [];
+  for (const name of meta.movable ?? []) {
+    const kind = { HourHand: 12, MinuteHand: 1, SecondHand: 1 / 60 }[name.match(/(Hour|Minute|Second)Hand$/)?.[0]];
+    const obj = kind && gltf.scene.getObjectByName(name);
+    if (obj) hands.push({ obj, hours: kind, rest: obj.quaternion.clone() });
+  }
+  const handTurn = new THREE.Quaternion(), dialAxis = new THREE.Vector3(0, 0, 1);
   // Whiteboards share its light too, with their own image as albedo. Drawn
   // once at bake time, so they cost one texture each and nothing per frame.
   const boards = Object.entries(meta.boards ?? {});
@@ -384,6 +394,14 @@ export async function loadControlRoom(renderer) {
     // Redraw the live screens for time t (seconds), at most SCREEN_HZ times a
     // second; the focused one at FOCUS_HZ
     // `outside` is outdoor.js's cctv summary, for the camera and weather screens
+    // Set the wall clock's hands to a time of day in hours (outdoor.js's
+    // state.time); each hand goes round once per `hours`
+    setClock(time) {
+      for (const h of hands) {
+        handTurn.setFromAxisAngle(dialAxis, -2 * Math.PI * ((time % h.hours) / h.hours)); // clockwise, seen from the front
+        h.obj.quaternion.copy(h.rest).multiply(handTurn);
+      }
+    },
     updateScreens(t, outside) {
       if (wallClock && outside) drawWallClock(wallClock, clock(outside.time));
       if (!screens) return;

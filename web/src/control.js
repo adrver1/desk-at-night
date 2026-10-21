@@ -97,6 +97,7 @@ renderer.setAnimationLoop((now) => {
   renderer.toneMappingExposure = 2 ** userEv * outdoor.light.exposure;
   room.setLights(state.ceiling, state.screens, state.mode);
   room.setDaylight(outdoor.light, now / 1000);
+  room.setClock(outdoor.state.time);
   room.updateScreens(now / 1000, outdoor.cctv);
   controls.update();
   outdoor.render(renderer, camera);

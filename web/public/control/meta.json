@@ -1,7 +1,7 @@
 {
-  "scaleCeiling": 1.5561342239379883,
-  "scaleScreens": 0.27898725867271423,
-  "scaleSky": 0.9903918504714966,
+  "scaleCeiling": 1.555931806564331,
+  "scaleScreens": 0.2786647081375122,
+  "scaleSky": 0.9900318384170532,
   "seaLevel": -69.2,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
@@ -204,7 +204,14 @@
         -1.47
       ]
     ],
-    "deskZ": 0.74
+    "deskZ": 0.74,
+    "window": [
+      -5.4,
+      -2.4,
+      2.6,
+      0.85,
+      2.45
+    ]
   },
   "movable": [
     "Chair0",
@@ -215,6 +222,9 @@
     "S1Coffee",
     "S1Mug",
     "S1TouchPanel",
+    "WallClockHourHand",
+    "WallClockMinuteHand",
+    "WallClockSecondHand",
     "WallLightPanel"
   ],
   "screens": {
