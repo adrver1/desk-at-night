@@ -1,9 +1,9 @@
 {
-  "scaleCeiling": 1.5845749378204346,
-  "scaleScreens": 0.2713031470775604,
+  "scaleCeiling": 1.5552476644515991,
+  "scaleScreens": 0.25684455037117004,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
-  "samples": 64,
+  "samples": 128,
   "emitters": {
     "EmitScreen": {
       "color": [

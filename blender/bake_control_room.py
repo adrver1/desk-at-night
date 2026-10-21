@@ -48,15 +48,17 @@ def texel_weight(name):
     if name == "Sea":
         return 1e-6  # 800 m across: by area alone it would take the whole atlas
     if name.startswith(("Plat", "Flare")):
-        return 0.02  # only the culled shell outside the window is left, and it is close
-    if name in ("Ceiling", "WallRear", "CeilingNook") or name.startswith(("AirCassette", "WallNook", "Bulkhead")):
+        return 0.006  # only the culled shell outside the window is left; seen through glass, 5+ m away
+    if name in ("WallRear",):
         return 0.08
+    if name in ("Ceiling", "CeilingNook") or name.startswith(("AirCassette", "WallNook", "Bulkhead")):
+        return 0.2   # looked at more than expected: smudges show around the panels
     if name.startswith(("Sofa", "CoffeeTable", "Kitchenette", "PlantNook", "FloorNook")):
         return 0.15  # the rest corner, only seen from its doorway or up close
     if name.startswith(("Wall", "Floor", "Mullion", "Transom", "Link", "Meeting", "Glass", "Nook", "Pillar")):
         return 0.2
     if name.startswith("Whiteboard"):
-        return 1.0   # flat and bright: light-map noise shows on them
+        return 2.0   # flat and bright, thin frames: light-map noise shows on them
     if name.startswith("S") and name[1:2].isdigit():
         return 3.0   # desk props
     if name.startswith("Desk") and "Mon" not in name:
@@ -119,7 +121,7 @@ def screen_uvs(scene):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--res", type=int, default=2048)
-    p.add_argument("--samples", type=int, default=64)
+    p.add_argument("--samples", type=int, default=128)
     p.add_argument("--device", default="auto")
     args = p.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
     os.makedirs(OUT, exist_ok=True)
@@ -256,9 +258,15 @@ def main():
     for name, (to_local, (w, h), draw) in boards.items():
         o = scene.objects[name]
         uv = o.data.uv_layers.new(name="BoardUV")
-        for loop in o.data.loops:
-            p = to_local @ (o.matrix_world @ o.data.vertices[loop.vertex_index].co)
-            uv.data[loop.index].uv = (p.x / w + 0.5, 0.5 + p.z / h)
+        turn = to_local.to_3x3() @ o.matrix_world.to_3x3()
+        for f in o.data.polygons:
+            front = (turn @ f.normal).y < -0.5  # the writing faces -Y
+            for li in f.loop_indices:
+                if not front:  # back and edges: the blank corner, not the writing mirrored
+                    uv.data[li].uv = (0.002, 0.998)
+                    continue
+                p = to_local @ (o.matrix_world @ o.data.vertices[o.data.loops[li].vertex_index].co)
+                uv.data[li].uv = (p.x / w + 0.5, 0.5 + p.z / h)
         png = "board_" + name[len("Whiteboard"):-len("Face")].lower() + ".png"
         shutil.copy(draw(), os.path.join(OUT, png))
         meta["boards"][name] = png
