@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { loadControlRoom } from './controlScene.js';
 import { Outdoor } from './outdoor.js';
+import { Cctv } from './cctv.js';
 import { outdoorControls } from './outdoorControls.js';
 import { RoomControls } from './roomControls.js';
 import { CONTENT, DEFAULT_LAYOUT, contentOf, screenLabel } from './screens.js';
@@ -65,7 +66,7 @@ const player = {
 };
 const keys = new Set();
 const touch = { move: new THREE.Vector2() };
-let room, outdoor, layout, playing = false, panelOpen = false;
+let room, outdoor, cctv, layout, playing = false, panelOpen = false;
 const lamps = {}; // the rest corner's lamps: name -> { on, w (eased brightness) }
 const chairs = [], mugs = [], pickables = [], items = [];
 const raycaster = new THREE.Raycaster();
@@ -85,6 +86,8 @@ async function load() {
   scene.add(room.root);
   outdoor = new Outdoor(room.seaLevel);
   outdoor.setWindow(room.window.lo, room.window.hi);
+  // The deck cameras' live pictures; without them the screens draw their own
+  Cctv.load(renderer, outdoor).then((c) => { cctv = c; if (c) room.setFeeds(c.feeds, c.gain); }).catch((e) => console.warn('cctv', e));
   scene.add(outdoor.room);
   outdoorControls($('tpOutdoor'), outdoor);
   const root = room.root;
@@ -685,6 +688,7 @@ renderer.setAnimationLoop((now) => {
   room.setDaylight(outdoor.light, now / 1000);
   room.setClock(outdoor.state.time); // the wall clock runs with the screens off too
   if (controls.screens) room.updateScreens(now / 1000, outdoor.cctv);
+  if (controls.screens && cctv) cctv.update(now / 1000, room.feedsShown());
   outdoor.render(renderer, camera);
   renderer.render(scene, camera);
   if (panelOpen) showFrameTime(frame);

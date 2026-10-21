@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { roomVertex } from './shaders.js';
-import { drawSlots, assign, contentOf, setOutside } from './screens.js';
+import { drawSlots, assign, contentOf, setOutside, setFeeds, isFeed } from './screens.js';
 import { SunShadow } from './sunShadow.js';
 import { clock } from './outdoor.js';
 
@@ -340,7 +340,7 @@ export async function loadControlRoom(renderer) {
       for (const mesh of screens.meshes) {
         const geometry = sliceSlot(mesh.geometry, slot, meta.screens.canvas);
         if (!geometry) continue;
-        const mat = new THREE.MeshBasicMaterial({ polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
+        const mat = overlayMaterial(feedGain);
         o = { name, slot, mesh: new THREE.Mesh(geometry, mat), scale: 0, tex: null };
         o.mesh.visible = false; // until it has a texture and is wanted
         mesh.add(o.mesh);
@@ -354,14 +354,25 @@ export async function loadControlRoom(renderer) {
     o.tex?.dispose();
     o.tex = canvasTexture(renderer, slot[2] * scale, slot[3] * scale);
     o.scale = scale;
-    o.mesh.material.map = o.tex;
-    o.mesh.material.needsUpdate = true;
+    o.mesh.material.uniforms.uOver.value = o.tex;
+    showFeed(o);
     draw(o, 0);
     return o;
   }
   function draw(o, t) {
-    drawSlots(o.tex.image.getContext('2d'), { [o.name]: [0, 0, o.slot[2], o.slot[3]] }, STATIC_T + t, o.scale);
+    drawSlots(o.tex.image.getContext('2d'), { [o.name]: [0, 0, o.slot[2], o.slot[3]] }, STATIC_T + t, o.scale, undefined, true);
     o.tex.needsUpdate = true;
+  }
+  // Put a live camera's picture under the overlay when the screen shows one
+  const feeds = {}, feedGain = { value: 1 };
+  let gainSource = feedGain;
+  function showFeed(o) {
+    const m = o.mesh.material, id = contentOf(o.name), feed = isFeed(id) ? feeds[id] : null;
+    m.uniforms.uFeed.value = feed;
+    if (Boolean(m.defines.FEED) !== Boolean(feed)) {
+      if (feed) m.defines.FEED = ''; else delete m.defines.FEED;
+      m.needsUpdate = true;
+    }
   }
   const slots = meta.screens?.slots ?? {};
   if (screens) for (const name of Object.keys(slots)) if (isLive(name)) { const o = overlay(name, 1); if (o) o.mesh.visible = true; }
@@ -437,6 +448,7 @@ export async function loadControlRoom(renderer) {
       }
     },
     updateScreens(t, outside) {
+      feedGain.value = gainSource.value;
       if (wallClock && outside) drawWallClock(wallClock, clock(outside.time));
       if (!screens) return;
       if (outside) {
@@ -481,7 +493,22 @@ export async function loadControlRoom(renderer) {
       drawSlots(screens.atlas.image.getContext('2d'), { [name]: slots[name] }, STATIC_T, SCREEN_SCALE);
       screens.atlas.needsUpdate = true;
       const o = isLive(name) ? overlay(name, 1) : screens.overlays.get(name);
-      if (o) { if (o.tex) draw(o, 0); o.mesh.visible = isLive(name) || o === screens.focus; }
+      if (o) { showFeed(o); if (o.tex) draw(o, 0); o.mesh.visible = isLive(name) || o === screens.focus; }
+    },
+    // Live camera pictures from cctv.js (id -> texture) and the cameras' gain:
+    // those screens show the picture with only rain, noise and caption drawn
+    setFeeds(textures, gain) {
+      Object.assign(feeds, textures);
+      gainSource = gain;
+      setFeeds(Object.keys(textures));
+      if (!screens) return;
+      for (const o of screens.overlays.values()) { showFeed(o); if (o.tex) draw(o, 0); }
+    },
+    // Which camera pictures some screen shows right now (to skip the others)
+    feedsShown() {
+      const shown = new Set();
+      if (screens) for (const o of screens.overlays.values()) if (o.mesh.visible && o.mesh.material.uniforms.uFeed.value) shown.add(contentOf(o.name));
+      return shown;
     },
     // Show one screen sharp and fully live (null for none)
     setFocus(name) {
@@ -492,6 +519,39 @@ export async function loadControlRoom(renderer) {
       if (screens.focus) { screens.focus.mesh.visible = true; screens.focusDrawn = -Infinity; }
     },
   };
+}
+
+// A screen's own texture: its canvas, or for a live camera (cctv.js) the
+// camera's picture with the canvas drawn over it. The picture is linear and
+// unbounded; the camera's gain and a soft shoulder bring it into 0..1 like a
+// real camera's output, before the screen's own brightness and tone mapping.
+function overlayMaterial(feedGain) {
+  const m = new THREE.ShaderMaterial({
+    uniforms: { uOver: { value: null }, uFeed: { value: null }, uColor: { value: new THREE.Color(1, 1, 1) }, uFeedGain: feedGain },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D uOver, uFeed;
+      uniform vec3 uColor;
+      uniform float uFeedGain;
+      varying vec2 vUv;
+      void main() {
+        vec4 over = texture2D(uOver, vUv);
+        vec3 col = over.rgb;
+        #ifdef FEED
+          vec3 pic = texture2D(uFeed, vec2(vUv.x, 1.0 - vUv.y)).rgb * uFeedGain;  // render targets run bottom up
+          pic = pic / (1.0 + pic);
+          col = mix(pic, over.rgb, over.a);
+        #endif
+        gl_FragColor = vec4(col * uColor, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4,
+  });
+  m.color = m.uniforms.uColor.value; // so setLights can set it like a basic material's
+  return m;
 }
 
 // Fit P(u, v) = O + u·U + v·V to the biggest front-facing triangle of a

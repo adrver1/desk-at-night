@@ -36,6 +36,13 @@ const SHIFT_START = (2 * 60 + 10) * 60; // the night shift picks up at 02:10
 let outside = null, outsideAt = 0;
 export function setOutside(o, t) { outside = o; outsideAt = t; }
 
+// Cameras with a live 3D picture (cctv.js): their screens draw only what
+// lies on top of it (rain on the lens, sensor noise, caption), on a clear
+// canvas, and the picture shows through
+const feeds = new Set();
+export function setFeeds(ids) { feeds.clear(); for (const id of ids) feeds.add(id); }
+export const isFeed = (id) => feeds.has(id);
+
 // Smooth deterministic wobble, -1..1
 function wobble(t, seed) {
   return (Math.sin(t * 0.37 + seed * 1.7) + Math.sin(t * 0.91 + seed * 4.1) * 0.5 + Math.sin(t * 2.3 + seed * 7.3) * 0.25) / 1.75;
@@ -408,12 +415,19 @@ const NIGHT_CCTV = {
   seaFar: [12, 16, 21], seaNear: [6, 8, 11], glint: [160, 180, 200],
 };
 
-// Sources: a drawn scene lit like the sky outside (outdoor.js `cctv`, or a
-// calm night without it): sky, clouds, sea glints, whitecaps, fog and rain
-// follow the weather and move with t; flare flicker and sensor noise move
-// with t; caption static.
-function deckCamera(ctx, w, h, t, { name = 'CAM 04 · Weather deck', flare = false } = {}) {
+// Sources: in the room, the platform model drawn live under the sky outside
+// (cctv.js) with only rain, noise and caption drawn here; elsewhere (the
+// screens preview) a drawn scene lit like the sky outside (outdoor.js
+// `cctv`, or a calm night without it): sky, clouds, sea glints, whitecaps,
+// fog and rain follow the weather and move with t; flare flicker and sensor
+// noise move with t; caption static.
+function deckCamera(ctx, w, h, t, { name = 'CAM 04 · Helideck', flare = false, feed = false } = {}) {
   const s = w / 1024, o = outside ?? NIGHT_CCTV, horizon = 320;
+  if (!feed) drawnCamera(ctx, w, h, t, s, o, horizon, flare);
+  cameraOverlay(ctx, w, h, t, s, o, name);
+}
+
+function drawnCamera(ctx, w, h, t, s, o, horizon, flare) {
   const sky = ctx.createLinearGradient(0, 0, 0, horizon * s);
   sky.addColorStop(0, rgba(o.skyTop)); sky.addColorStop(1, rgba(o.skyLow));
   rect(ctx, 0, 0, w, horizon * s, sky);
@@ -476,6 +490,9 @@ function deckCamera(ctx, w, h, t, { name = 'CAM 04 · Weather deck', flare = fal
     f.addColorStop(0, rgba(o.fogColor, a * 0.7)); f.addColorStop(horizon / 576, rgba(o.fogColor, a)); f.addColorStop(1, rgba(o.fogColor, a * 0.45));
     ctx.fillStyle = f; ctx.fillRect(0, 0, w, h);
   }
+}
+
+function cameraOverlay(ctx, w, h, t, s, o, name) {
   // Rain: slanting streaks, and drops on the lens
   if (o.rain > 0.02) {
     ctx.strokeStyle = `rgba(220,228,236,${0.12 + 0.18 * o.day})`; ctx.lineWidth = 1.2 * s;
@@ -653,8 +670,8 @@ export const CONTENT = {
   esd: ['ESD / F&G status', esdOverview],
   procedures: ['Procedures', procedures],
   log: ['Shift log', logbook],
-  deckCam: ['Deck camera', deckCamera],
-  flareCam: ['Flare camera', (ctx, w, h, t) => deckCamera(ctx, w, h, t, { name: 'CAM 11 · Flare boom', flare: true })],
+  deckCam: ['Helideck camera', (ctx, w, h, t) => deckCamera(ctx, w, h, t, { feed: feeds.has('deckCam') })],
+  flareCam: ['Flare camera', (ctx, w, h, t) => deckCamera(ctx, w, h, t, { name: 'CAM 11 · Flare boom', flare: true, feed: feeds.has('flareCam') })],
   weather: ['Weather & helideck', weather],
   overview: ['Platform overview', platformOverview],
   production: ['Production', production],
@@ -689,9 +706,10 @@ export const contentOf = (name) => layout[name];
 export function assign(name, id) { if (CONTENT[id]) layout[name] = id; }
 
 // Draw one screen into a w × h region of ctx (origin already translated)
-export function drawScreen(ctx, fn, w, h, t) {
+export function drawScreen(ctx, fn, w, h, t, clear = false) {
   ctx.save();
-  rect(ctx, 0, 0, w, h, C.bg);
+  if (clear) ctx.clearRect(0, 0, w, h);
+  else rect(ctx, 0, 0, w, h, C.bg);
   ctx.beginPath(); ctx.rect(0, 0, w, h); ctx.clip();
   fn(ctx, w, h, t);
   ctx.restore();
@@ -704,13 +722,14 @@ export function screenFor(name) {
 
 // Draw every screen into its slot of the shared canvas (meta.screens from the
 // bake), at `scale` times the slot's pixel size; `names` picks a subset
-export function drawSlots(ctx, slots, t, scale = 1, names = Object.keys(slots)) {
+// clear: leave live camera feeds transparent (for a screen's own overlay)
+export function drawSlots(ctx, slots, t, scale = 1, names = Object.keys(slots), clear = false) {
   for (const name of names) {
     const [x, y, w, h] = slots[name];
     const fn = screenFor(name);
     if (!fn) continue;
     ctx.setTransform(scale, 0, 0, scale, x * scale, y * scale);
-    drawScreen(ctx, fn, w, h, t);
+    drawScreen(ctx, fn, w, h, t, clear && feeds.has(layout[name]));
   }
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
