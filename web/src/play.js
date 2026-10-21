@@ -53,7 +53,7 @@ camera.rotation.order = 'YXZ';
 const highlight = new Highlight(scene, renderer, { width: coarse ? 3 : 2.5, frameOf: (name, from) => room.screenFrame(name, from) });
 
 const player = {
-  pos: new THREE.Vector3(1.6, EYE, 1.8), // three coordinates; feet at y = 0, eye at pos.y
+  pos: new THREE.Vector3(0, EYE, 1.5), // behind the desks; three coordinates; feet at y = 0, eye at pos.y
   vel: new THREE.Vector3(), yaw: 0, pitch: -0.08, bob: 0,
   seat: null,   // the chair we're sitting in
   busy: null,   // the drinking animation, while it runs
@@ -101,6 +101,7 @@ async function load() {
   }
   pickables.push(root.getObjectByName('Room')); // so walls and desks block the view of things behind them
   setUpScreenPicker();
+  clearSpawn();
   lookAt(-0.6, 2.2);
   ui.go.disabled = false;
   ui.go.textContent = coarse ? 'Tap to start' : 'Click to start';
@@ -219,6 +220,17 @@ function blocked(x, z) {
     if (Math.hypot(x - c.obj.position.x, z - c.obj.position.z) < CHAIR_R + BODY) return true;
   }
   return false;
+}
+
+// If furniture has moved onto the start, step out to the nearest clear floor
+function clearSpawn() {
+  const p = player.pos;
+  for (let r = 0; r < 3; r += 0.1) {
+    for (let i = 0, n = Math.max(1, Math.round(r * 40)); i < n; i++) {
+      const a = (i / n) * 2 * Math.PI, x = p.x + r * Math.cos(a), z = p.z + r * Math.sin(a);
+      if (!blocked(x, z)) { p.x = x; p.z = z; return; }
+    }
+  }
 }
 
 // Move by (dx, dz), sliding along whatever is in the way
