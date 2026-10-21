@@ -650,6 +650,7 @@ def _room_mats(m):
         "cabinet": flat("PropCabinet", (0.80, 0.81, 0.80), 0.5),
         "lamp_red": flat("PropLampRed", (0.70, 0.06, 0.04), 0.3),
         "lamp_green": flat("PropLampGreen", (0.10, 0.60, 0.20), 0.3),
+        "button_blue": flat("PropButtonBlue", (0.04, 0.08, 0.30), 0.4),
         "fg_red": flat("PropFireRed", (0.62, 0.10, 0.05), 0.5),
         "shelf": flat("PropShelfGrey", (0.36, 0.37, 0.38), 0.6),
         "sofa": flat("PropSofa", (0.42, 0.13, 0.28), 0.95),       # the lounge's magenta upholstery
@@ -668,11 +669,12 @@ def _room_mats(m):
 
 
 def make_esd_panel(m, name="EsdPanel", face=None, size=(1.6, 2.0)):
-    """Hardwired ESD matrix panel: a tall white steel cabinet whose front is
-    a printed mimic (the child <name>Face, so the bake can give it its own
-    texture, like a whiteboard), with key switches and square lamp buttons
-    standing out of it, and door handles. Stands on the floor against a
-    wall; the front faces -Y. Positions of the lamps match boards.esd_panel."""
+    """Fire & gas / ESD CAP cabinet: a tall grey steel cabinet whose front
+    is printed (the child <name>Face, so the bake can give it its own
+    texture, like a whiteboard), with lit push buttons and key switches
+    standing out of it at boards.ESD_PARTS, and two door handles on the
+    left. Stands on the floor against a wall; the front faces -Y."""
+    from boards import ESD_PARTS
     rm = _room_mats(m)
     w, h = size
     d, z0 = 0.45, 0.10  # depth, plinth
@@ -683,18 +685,19 @@ def make_esd_panel(m, name="EsdPanel", face=None, size=(1.6, 2.0)):
     c = Builder(name)
     c.box((w + 0.06, d, h + 0.06), Vector((0, -d / 2, z0 + h / 2)), rm["cabinet"])
     c.box((w + 0.02, d - 0.04, z0), Vector((0, -d / 2, z0 / 2)), m["black"])  # plinth
-    c.box((0.04, 0.02, 0.20), Vector((-w / 2 + 0.04, -d - 0.02, z0 + h * 0.55)), m["steel"])  # handles
-    c.box((0.04, 0.02, 0.20), Vector((w / 2 - 0.04, -d - 0.02, z0 + h * 0.55)), m["steel"])
     top = z0 + h  # the texture's y runs down from here, in metres
-    for k in range(5):  # left column: a key switch and a lamp per function
-        zz = top - (0.20 + 0.14 * k) - 0.05
-        c.cyl(0.022, 0.022, 0.03, Vector((-w / 2 + 0.38, -d - 0.015, zz)), m["black"], segs=16, orient=_rot(x=math.pi / 2))
-        c.box((0.012, 0.03, 0.035), Vector((-w / 2 + 0.38, -d - 0.04, zz)), m["steel"])
-        c.box((0.06, 0.02, 0.06), Vector((-w / 2 + 0.48, -d - 0.01, zz)), rm["lamp_red"] if k % 2 else rm["lamp_green"])
-    for row in (1.24, 1.38, 1.50, 1.78, 1.90):  # rows of lamp buttons under the label strips
-        for i in range(7):
-            x = -w / 2 + 0.16 + i * 0.205
-            c.box((0.05, 0.018, 0.05), Vector((x, -d - 0.009, top - row)), rm["lamp_red"] if (i + int(row * 10)) % 3 else rm["lamp_green"])
+    for zz in (0.42, 1.12):  # door handles on the left edge
+        c.box((0.025, 0.035, 0.13), Vector((-w / 2 + 0.015, -d - 0.02, top - zz)), m["steel"])
+    face_y = -d - 0.004
+    for x, y, kind in ESD_PARTS:
+        at = Vector((-w / 2 + x, face_y, top - y))
+        if kind == "key":
+            c.cyl(0.016, 0.016, 0.012, at + Vector((0, -0.006, 0)), m["black"], segs=12, orient=_rot(x=math.pi / 2))
+            c.box((0.008, 0.016, 0.026), at + Vector((0, -0.018, 0)), m["steel"])
+            continue
+        mat = {"red": rm["lamp_red"], "grey": m["key_grey"], "lamp": rm["cabinet"],
+               "black": m["black"], "blue": rm["button_blue"]}[kind]
+        c.box((0.030, 0.012, 0.030), at + Vector((0, -0.006, 0)), mat)
     frame = c.done()
     surface.parent = frame
     return frame

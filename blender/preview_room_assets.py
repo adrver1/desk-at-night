@@ -88,6 +88,7 @@ shots = {  # name: (location, aim, lens, width, height)
     "overview": (Vector((-3.0, -3.2, 2.2)), Vector((2.0, 1.5, 1.0)), 16, 16, 9),
     "rear-from-desk": (cr.polar(cr.r_front(a0) + 0.1, a0 + 0.3, 1.5), Vector((1.2, -3.6, 1.0)), 16, 16, 9),
     "esd-panel": (Vector((-2.4, -1.4, 1.45)), Vector((-3.1, cr.ROOM_Y0, 1.15)), 24, 3, 2),
+    "esd-close": (Vector((-3.0, -2.0, 1.45)), Vector((-3.0, cr.ROOM_Y0, 1.40)), 30, 4, 3),
     "nook-doorway": (Vector((4.0, -1.2, 1.6)), Vector((4.0, -4.8, 0.9)), 22, 16, 9),
     "nook-inside": (Vector((5.0, -3.8, 1.55)), Vector((1.0, -5.3, 0.6)), 18, 16, 9),
     "desk-apron": (cr.polar(0.8, a0 + 0.85, 0.80), cr.polar(cr.r_front(a0 + 0.45), a0 + 0.45, 0.62), 26, 16, 9),
