@@ -105,6 +105,20 @@ def frame(w, hint=Y):
     return v.cross(w), v, w
 
 
+def head_point(angle, z, offset=0.0):
+    """Point on the head surface (or `offset` outside it) at a ring angle and
+    height, interpolated between the HEAD rings: hair and hats hug it."""
+    rings = HEAD
+    z = min(max(z, rings[0][0]), rings[-1][0])
+    for (z0, u0, v0, d0, _), (z1, u1, v1, d1, _) in zip(rings, rings[1:]):
+        if z0 <= z <= z1:
+            t = (z - z0) / (z1 - z0)
+            ru, rv, dv = u0 + (u1 - u0) * t, v0 + (v1 - v0) * t, d0 + (d1 - d0) * t
+            break
+    a = math.radians(angle)
+    return Vector(((ru + offset) * math.cos(a), dv + (rv + offset) * math.sin(a), z))
+
+
 # -------------------------------------------------------------- mesh builder
 class Mesh:
     """Collects faces with a swatch and a region each; becomes one object."""
@@ -364,6 +378,67 @@ def _kd(verts):
     return kd
 
 
+def _vertex_regions(ob):
+    regions = ob.data["regions"]
+    attr = ob.data.attributes["region"].data
+    out = {}
+    for poly in ob.data.polygons:
+        for vi in poly.vertices:
+            out.setdefault(vi, set()).add(regions[attr[poly.index].value])
+    return out
+
+
+def _set_weights(ob, vi, weights):
+    for g in list(ob.data.vertices[vi].groups):
+        ob.vertex_groups[g.group].remove([vi])
+    for bone, w in weights.items():
+        (ob.vertex_groups.get(bone) or ob.vertex_groups.new(name=bone)).add([vi], w, "REPLACE")
+
+
+# Joint rings: everything above the ring follows the upper bone, everything
+# below the lower one, and only the ring itself is shared half and half.
+KNEE_Z, ELBOW_T, HIPS_TOP = 0.47, UPPER_ARM, 0.95
+SPINE_BONES = {"hips", "spine", "chest", "neck", "head"}
+
+
+def _hinge_limbs(ob):
+    """Bone heat smears weights across a whole low-poly limb, so a bent knee
+    or elbow folds into a crumpled cone. Limbs get clean hinge weights
+    instead: rigid segments with one shared ring at each joint, the pelvis
+    stays with the hips bone, and the torso keeps its heat weights along
+    the spine but loses any pull from the arms and legs. The shoulder and
+    hip joints then turn like an action figure's, with the top of the limb
+    turning inside the torso."""
+    for vi, regs in _vertex_regions(ob).items():
+        co = ob.data.vertices[vi].co
+        tag = "R" if co.x > 0 else "L"
+        side = 1 if co.x > 0 else -1
+        if regs & {"thigh", "shin"}:
+            d = co.z - KNEE_Z
+            w = {f"thigh.{tag}": 1.0} if d > 0.02 else {f"shin.{tag}": 1.0} if d < -0.02 else \
+                {f"thigh.{tag}": 0.5, f"shin.{tag}": 0.5}
+        elif regs & {"upper_arm", "forearm"}:
+            s = Vector((side * SHOULDER.x, SHOULDER.y, SHOULDER.z))
+            d = (co - s).dot(arm_dir(side)) - ELBOW_T
+            w = {f"upper_arm.{tag}": 1.0} if d < -0.02 else {f"forearm.{tag}": 1.0} if d > 0.02 else \
+                {f"upper_arm.{tag}": 0.5, f"forearm.{tag}": 0.5}
+        elif "hand" in regs:
+            w = {f"hand.{tag}": 1.0}
+        elif "shoe" in regs:
+            w = {f"foot.{tag}": 1.0}
+        elif regs & {"hips", "belly", "chest"}:
+            if co.z < HIPS_TOP:
+                w = {"hips": 1.0}
+            else:
+                w = {ob.vertex_groups[g.group].name: g.weight for g in ob.data.vertices[vi].groups
+                     if ob.vertex_groups[g.group].name in SPINE_BONES and g.weight > 0.01}
+                total = sum(w.values()) or 1
+                w = {k: v / total for k, v in w.items()} or {"chest": 1.0}
+        else:
+            continue
+        _set_weights(ob, vi, w)
+
+
 def skin_to(body_ob, arm_ob, extras=(), rigid=None):
     """Automatic (bone heat) weights on the base body, as the style guide
     asks. Bone heat needs a clean surface, so it runs on the body only:
@@ -389,6 +464,7 @@ def skin_to(body_ob, arm_ob, extras=(), rigid=None):
     # the weights of the nearest weighted vertex and ride along with it.
     done = [v for v in vs if v.groups]
     _fill_from(_kd(done), done, body_ob, [v for v in vs if not v.groups], groups)
+    _hinge_limbs(body_ob)
 
     kd = _kd(done)
     rigid = rigid or {}
@@ -431,30 +507,68 @@ def bend(bone_dir, towards):
     return Vector(bone_dir).normalized().cross(Vector(towards)).normalized()
 
 
+def _legs(r, tag, thigh, shin):
+    """Bend a leg (degrees forward at the hip, back at the knee) and turn
+    the foot so the sole stays level with the floor."""
+    r[f"thigh.{tag}"] = (X, thigh)
+    r[f"shin.{tag}"] = (-X, shin)
+    r[f"foot.{tag}"] = (X, shin - thigh)
+
+
 def pose_tests():
-    """Poses that stress shoulders, elbows, knees and the neck."""
-    up, fwd, back = Z, Y, -Y
+    """Poses that stress shoulders, elbows, hips and knees. Each is grounded
+    (lowest point on the floor) when rendered; "seated" gets a chair seat."""
+    up, fwd = Z, Y
     tests = {}
     r = {}
     for side, tag in ((1, "R"), (-1, "L")):
         d = arm_dir(side)
         r[f"upper_arm.{tag}"] = (bend(d, up), 75 if side == 1 else 30)
         r[f"forearm.{tag}"] = (bend(d, fwd), 100)
-    r["thigh.R"] = (bend(-Z, fwd), 80)
-    r["shin.R"] = (bend(-Z, back), 95)
+    _legs(r, "R", 80, 95)
     r["head"] = (Z, 30)
     tests["reach"] = r
     r = {}
     for side, tag in ((1, "R"), (-1, "L")):
         d = arm_dir(side)
-        r[f"upper_arm.{tag}"] = (bend(d, fwd), 80)
-        r[f"forearm.{tag}"] = (bend(d, up), 60)
-        r[f"thigh.{tag}"] = (bend(-Z, fwd), 70)
-        r[f"shin.{tag}"] = (bend(-Z, back), 110)
-    r["spine"] = (X, 15)
-    r["neck"] = (X, -15)
+        r[f"upper_arm.{tag}"] = (bend(d, fwd), 40)
+        r[f"forearm.{tag}"] = (bend(d, fwd), 70)
+        _legs(r, tag, 90, 90)
+    tests["seated"] = r
+    r = {}
+    for side, tag in ((1, "R"), (-1, "L")):
+        d = arm_dir(side)
+        r[f"upper_arm.{tag}"] = (bend(d, fwd), 70)
+        r[f"forearm.{tag}"] = (bend(d, up), 50)
+        _legs(r, tag, 105, 125)
+    r["spine"] = (X, 20)
+    r["neck"] = (X, -20)
     tests["crouch"] = r
     return tests
+
+
+def ground(ch, arm, seat=None):
+    """Move the rig so its lowest vertex touches the floor. With a seat
+    object, also put the seat top just under the backs of the thighs."""
+    arm.location = (0, 0, 0)
+    bpy.context.view_layer.update()
+    dg = bpy.context.evaluated_depsgraph_get()
+    ev = ch.evaluated_get(dg)
+    me = ev.to_mesh()
+    pts = [ch.matrix_world @ v.co for v in me.vertices]
+    regions, attr = ch.data["regions"], ch.data.attributes["region"].data
+    thigh = set()
+    for poly in ch.data.polygons:
+        if regions[attr[poly.index].value] in ("thigh", "hips"):
+            thigh.update(poly.vertices)
+    ev.to_mesh_clear()
+    lift = -min(p.z for p in pts)
+    arm.location = (0, 0, lift)
+    if seat:
+        top = min(pts[i].z for i in thigh) + lift
+        seat.scale = (0.25, 0.24, top / 2)
+        seat.location = (0, 0.10, top / 2)
+    bpy.context.view_layer.update()
 
 
 # --------------------------------------------------------------- rendering
@@ -607,13 +721,27 @@ def finish(name, meshes, out_dir, title=None, notes=(), rigid=None, reference=No
                  title or f"{name}  ·  {tris} triangles")
     strip(render_views(cam, out_dir, "c", VIEWS[:3], height=1.56, scale=0.62),
           os.path.join(out_dir, "closeup.png"), "head close-up")
+    seat = bpy.data.objects.new("seat", bpy.data.meshes.new("seat"))
+    seat.data.from_pydata([(x, y, z) for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)], [],
+                          [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)])
+    seat.data.materials.append(material())
+    for poly in seat.data.polygons:
+        poly.use_smooth = False
+    uvl = seat.data.uv_layers.new()
+    for l in uvl.data:
+        l.uv = palette.uv("grey")
+    bpy.context.scene.collection.objects.link(seat)
     shots = []
     for label, rot in pose_tests().items():
         pose(arm, rot)
+        seat.hide_render = label != "seated"
+        ground(ch, arm, seat if label == "seated" else None)
         shots += [(f"{label} 3/4", p) for _, p in render_views(cam, out_dir, f"p_{label}", [("3/4", 35)])]
         shots += [(f"{label} side", p) for _, p in render_views(cam, out_dir, f"p_{label}s", [("side", 90)])]
     pose(arm, {})
-    strip(shots, os.path.join(out_dir, "pose_check.png"), "pose check: shoulders, elbows, knees")
+    arm.location = (0, 0, 0)
+    bpy.data.objects.remove(seat)
+    strip(shots, os.path.join(out_dir, "pose_check.png"), "pose check: shoulders, elbows, hips, knees")
 
     notes = [f"{tris} triangles, palette characters/_shared/palette.png"] + list(notes)
     contact_sheet(turn, os.path.join(out_dir, "contact_sheet.png"), notes=notes)

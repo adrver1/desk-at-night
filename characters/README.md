@@ -29,12 +29,16 @@ to also write a contact sheet next to the reference into a private folder.
   recolours the base body by region and drops faces its clothing covers.
 - Rig: root, hips, spine, chest, neck, head, upper_arm, forearm, hand,
   thigh, shin, foot (.L/.R), no finger bones. Bone heat weights on the base
-  body; hair, beards and helmets follow one bone, and clothing shells copy
-  the weights of the skin under them.
+  body, then the limbs get clean hinge weights (rigid segments, one shared
+  ring at each knee and elbow, pelvis on the hips bone). Hair, beards and
+  helmets follow one bone, and clothing shells copy the weights of the skin
+  under them.
+- `pose_check.png` shows reach, seated and crouch poses, grounded with the
+  feet kept flat.
 
 ## Cast
 
 | Character | Triangles | Palette | Check |
 |---|---|---|---|
-| `_shared/base_body` | 654 | undersuit, skin_3, charcoal | Knees crumple a little past 90°, normal for 3-ring joints |
-| `bearded_operator` | 868 | skin_2, hair_strawberry, hair_ginger, white, light_grey, navy, leather_brown, charcoal, steel | Lower body invented (reference is a head-and-shoulders shot): shirt tucked in, belt, navy trousers, brown shoes. Beard is a single convex hull, so it reads as a spade from the front but a wedge from the side |
+| `_shared/base_body` | 654 | undersuit, skin_3, charcoal | Past about 120° the calf passes into the thigh |
+| `bearded_operator` | 878 | skin_2, hair_strawberry, hair_ginger, white, light_grey, navy, leather_brown, charcoal, steel | Hair variants `side_part` (live), `quiff`, `crop`: `--hair` or `HAIR_STYLE`. Lower body invented (reference is a head-and-shoulders shot): shirt tucked in, belt, navy trousers, brown shoes. Beard is a single convex hull, so it reads as a spade from the front but a wedge from the side |

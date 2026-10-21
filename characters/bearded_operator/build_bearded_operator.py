@@ -35,18 +35,84 @@ def head_ring(i, offset=0.0, z=None):
     return pts
 
 
-def hair():
-    """Short sides and back, volume swept up at the front: one hull."""
-    pts = head_ring(4, 0.009) + head_ring(3, 0.006, 1.675)
-    # sides and back come down further than the front hairline, hugging the skull
-    pts += [p for p in head_ring(2, 0.008, 1.615) if p.y < 0.0]
-    pts += [Vector((x, -0.10, 1.585)) for x in (-0.05, 0.05)]
-    # the swept-up top: a near-vertical front rising from the hairline,
-    # sloping back to the crown
-    pts += [Vector((x, 0.108, 1.70)) for x in (-0.07, 0.07)]
-    pts += [Vector((x, 0.085, 1.795)) for x in (-0.055, 0.055)]
-    pts += [Vector((x, -0.04, 1.78)) for x in (-0.065, 0.065)]
-    return base.Mesh().hull(pts, HAIR, "hair")
+# Hairline height (z) at each head ring angle: high on the forehead, above
+# the ears at the sides (the beard takes over below), low at the nape.
+HAIRLINE = {20: 1.655, 55: 1.708, 125: 1.708, 160: 1.655,
+            200: 1.600, 235: 1.578, 305: 1.578, 340: 1.600}
+
+
+def cap(offsets=(0.008, 0.012, 0.016), lifts=(0.0, 0.008, 0.02), hairline=HAIRLINE):
+    """Close-cropped shell that hugs the skull from the hairline to the
+    crown: three rows of the head's eight facets plus a flat crown."""
+    m = base.Mesh()
+    rows = []
+    for k, f in enumerate((0.0, 0.55, 1.0)):
+        rows.append([base.head_point(a, z + (1.75 - z) * f, offsets[k]) + Vector((0, 0, lifts[k]))
+                     for a, z in ((a, hairline[a]) for a in base.BOXY8)])
+    n = len(base.BOXY8)
+    for k in range(len(rows) - 1):
+        for i in range(n):
+            j = (i + 1) % n
+            m.face([rows[k][i], rows[k][j], rows[k + 1][j], rows[k + 1][i]], HAIR, "hair")
+    m.face(rows[-1], HAIR, "hair")
+    return m
+
+
+def hairline(angle):
+    """Hairline height at any angle, between the HAIRLINE corners."""
+    keys = sorted(HAIRLINE)
+    a = angle % 360
+    for k0, k1 in zip(keys[-1:] + keys, keys + keys[:1]):
+        span = (k1 - k0) % 360
+        if (a - k0) % 360 <= span:
+            t = ((a - k0) % 360) / span
+            return HAIRLINE[k0] + (HAIRLINE[k1] - HAIRLINE[k0]) * t
+    return HAIRLINE[keys[0]]
+
+
+def on_cap(angle, f, offset=0.011, lift=0.008):
+    z = hairline(angle)
+    return base.head_point(angle, z + (1.75 - z) * f, offset) + Vector((0, 0, lift))
+
+
+def hair_quiff():
+    """Short sides, a tapered quiff swept up and back from the forehead."""
+    m = cap()
+    pts = [on_cap(a, 0.15, 0.010) for a in (55, 125)] + [on_cap(a, 0.6) for a in (20, 55, 125, 160)]
+    pts += [Vector((0.05, 0.112, 1.765)), Vector((-0.045, 0.108, 1.775)),   # front edge, a little uneven
+            Vector((0.035, 0.085, 1.80)), Vector((-0.03, 0.08, 1.806)),    # top, narrower than the base
+            Vector((0.04, -0.01, 1.795)), Vector((-0.04, -0.015, 1.798)),  # sweeping back
+            Vector((0.0, -0.075, 1.772))]
+    return m.hull(pts, HAIR, "hair")
+
+
+def hair_crop():
+    """Textured crop: the cropped cap with a few low angular tufts on the
+    front half of the top, all leaning back."""
+    m = cap()
+    # Low angular tufts sitting on the cap, each leaning back and up
+    for a, f in ((60, 0.5), (90, 0.55), (120, 0.5), (75, 0.95), (105, 0.95),
+                 (30, 0.6), (150, 0.6)):
+        c = on_cap(a, f + 0.12, 0.02, 0.02)
+        m.hull([on_cap(a - 17, f, 0.006, 0.004), on_cap(a + 17, f, 0.006, 0.004),
+                on_cap(a, min(f + 0.3, 1.0), 0.006, 0.004), c + Vector((0, -0.012, 0.012))], HAIR, "hair")
+    return m
+
+
+def hair_side_part():
+    """Side part: a cropped cap and one fringe block swept from a parting on
+    his left across the top to the right temple."""
+    m = cap()
+    pts = [on_cap(a, f) for a, f in ((20, 0.2), (55, 0.1), (125, 0.35), (20, 0.75), (55, 0.7), (340, 0.6))]
+    pts += [Vector((-0.045, 0.10, 1.765)), Vector((-0.04, 0.02, 1.79)), Vector((-0.04, -0.05, 1.775)),  # parting
+            Vector((0.02, 0.112, 1.765)), Vector((0.07, 0.10, 1.738)), Vector((0.112, 0.06, 1.70)),   # fringe edge
+            Vector((0.03, 0.03, 1.80)), Vector((0.085, 0.0, 1.765))]
+    return m.hull(pts, HAIR, "hair")
+
+
+# Every hair variant stays in the library; HAIR_STYLE picks the live one.
+HAIR_STYLES = {"quiff": hair_quiff, "crop": hair_crop, "side_part": hair_side_part}
+HAIR_STYLE = "side_part"
 
 
 def beard():
@@ -119,6 +185,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--reference", help="reference image for the private contact sheet")
     ap.add_argument("--private", help="folder for the private contact sheet")
+    ap.add_argument("--hair", default=HAIR_STYLE, choices=sorted(HAIR_STYLES))
+    ap.add_argument("--out", default=HERE, help="output folder (previews of other variants)")
     args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
 
     base.reset()
@@ -126,12 +194,12 @@ def main():
         "hips": TROUSERS, "thigh": TROUSERS, "shin": TROUSERS, "shoe": SHOES,
         "belly": SHIRT, "chest": SHIRT, "upper_arm": SHIRT, "forearm": SHIRT,
     })
-    parts = {"body": body, "hair": hair(), "beard": beard(), "moustache": moustache(),
+    parts = {"body": body, "hair": HAIR_STYLES[args.hair](), "beard": beard(), "moustache": moustache(),
              "collar": collar(), "shirt_details": shirt_details(body)}
     rigid = {"hair": "head", "beard": "head", "moustache": "head", "collar": "neck"}
     notes = ["Lower body is not in the reference: shirt tucked in, belt, navy trousers, brown shoes.",
              "Beard and hair follow the head bone only; collar follows the neck."]
-    base.finish(NAME, parts, HERE, notes=notes, rigid=rigid,
+    base.finish(NAME, parts, args.out, notes=notes, rigid=rigid,
                 reference=args.reference, private_dir=args.private)
 
 
