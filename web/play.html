@@ -60,6 +60,11 @@
   .tp-pick select { font: 500 14px/1.2 var(--body); color: var(--paper); background: var(--line); border: 0; border-radius: 10px; padding: 9px 10px; min-width: 0; }
   .tp-reset { justify-self: start; font: 500 13px/1 var(--body); color: var(--dim); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
   .tp-note { margin: 0; font-size: 13px; color: var(--dim); }
+  .tp-outdoor { display: grid; gap: 10px; }
+  .tp-outdoor .slider { display: flex; }
+  .tp-outdoor .slider input { flex: 1; min-width: 0; }
+  .tp-outdoor .seg { flex-wrap: wrap; }
+  .tp-outdoor .ghost { justify-self: start; }
   .touch { display: none; }
   .coarse .touch { display: block; }
   .coarse .keys { display: none; }
@@ -114,6 +119,10 @@
         </div>
         <button type="button" class="tp-reset" id="tpReset">Reset all screens</button>
         <p class="tp-note" id="tpPerf"></p>
+      </div>
+      <div class="tp-row">
+        <h2>Outside</h2>
+        <div class="tp-outdoor" id="tpOutdoor"></div>
       </div>
       <div class="tp-row">
         <h2>Sound</h2>

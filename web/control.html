@@ -16,7 +16,7 @@
   <header class="head">
     <p class="eyebrow"><a href="./">← Desk</a> · Work in progress · <a href="./play.html">Walk around →</a></p>
     <h1>Control Room</h1>
-    <p class="lede">Two operator desks, their monitors and the display band, with the light from the ceiling panels and from the screens baked separately in Cycles. Dim the ceiling to see the room as it looks on a night shift.</p>
+    <p class="lede">Two operator desks, their monitors and the display band, with the light from the ceiling panels, the screens and the sky baked separately in Cycles. Outside, the sky and the sea are drawn live: set the time of day and the weather below.</p>
   </header>
 
   <section class="stage" id="stage">
@@ -46,9 +46,12 @@
       <button type="button" role="radio" data-mode="1" aria-checked="false">Albedo</button>
       <button type="button" role="radio" data-mode="2" aria-checked="false">Ceiling bake</button>
       <button type="button" role="radio" data-mode="3" aria-checked="false">Screens bake</button>
+      <button type="button" role="radio" data-mode="4" aria-checked="false">Sky bake</button>
     </div>
     <button id="homeBtn" class="ghost" type="button">Reset view</button>
   </section>
+
+  <section class="controls outdoor" id="outdoor" aria-label="Time of day and weather"></section>
 
   <section class="eq" aria-live="off">
     <code id="eq">pixel = albedo × ( 0.25 · E<sub>ceiling</sub> + 1.00 · E<sub>screens</sub> )</code>

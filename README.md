@@ -58,12 +58,26 @@ camera bars. `control_room.py` renders Cycles preview stills.
 .venv/bin/python blender/bake_control_room.py          # 2048² atlas, 128 samples, ~15 min on CPU
 ```
 
-bakes it for the browser: one light map for the ceiling panels and one for
-the screens. The chairs and mugs are baked with the room and then split back
+bakes it for the browser: one light map for the ceiling panels, one for the
+screens and one for daylight from a plain white sky. The chairs and mugs are baked with the room and then split back
 out, so they can move. Two pages use the result: `control.html`, a lighting
 viewer, and `play.html`, a first-person walk-around (WASD and mouse; sit in a
 chair and spin it, drink the coffee, set lights, sound and temperature on the
 desk touch panels, or switch the lights by the door).
+
+### Sky, sea and weather
+
+Outside the window, `web/src/outdoor.js` draws the sky and the sea live: the
+sun and a full moon placed for the time of day at 59° N, stars, a cloud layer,
+waves that grow with the wind, whitecaps, fog and rain. Both pages have
+sliders for time of day, clouds, wind, fog and rain, plus weather presets
+(`control.html` under the view, `play.html` on the desk touch panels). The URL
+sets them too: `control.html?cam=4&time=17.2&weather=storm`.
+
+The same numbers light the room. The sky's average colour tints the baked
+sky light map, so daylight on the desks follows the window, and the platform
+outside also gets the sun from its normals (without shadows). The sun does
+not yet shine into the room itself.
 
 ## Offshore platform
 
