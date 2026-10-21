@@ -20,8 +20,8 @@ const OCEAN_SIZE = 80000;   // m across; the horizon from 70 m up is ~30 km away
 // and the sun's own colour as direct light: deep night, blue hour, sunset,
 // low sun, high sun.
 const KEYS = [
-  [-90, [0.0006, 0.0009, 0.002], [0.0012, 0.0016, 0.003], [0, 0, 0]],
-  [-18, [0.0006, 0.0009, 0.002], [0.0012, 0.0016, 0.003], [0, 0, 0]],
+  [-90, [0.003, 0.0045, 0.01], [0.007, 0.009, 0.015], [0, 0, 0]],
+  [-18, [0.003, 0.0045, 0.01], [0.007, 0.009, 0.015], [0, 0, 0]],
   [-10, [0.002, 0.004, 0.012], [0.006, 0.007, 0.014], [0, 0, 0]],
   [-4, [0.012, 0.025, 0.07], [0.08, 0.05, 0.07], [0, 0, 0]],
   [-1, [0.04, 0.08, 0.2], [0.45, 0.25, 0.16], [0, 0, 0]],
@@ -31,7 +31,12 @@ const KEYS = [
   [25, [0.45, 0.8, 1.7], [1.5, 1.6, 1.8], [6, 5.4, 4.6]],
   [90, [0.5, 0.9, 1.9], [1.6, 1.75, 2.0], [6.5, 6.2, 5.8]],
 ];
-const MOONLIGHT = [0.012, 0.016, 0.026];
+const MOONLIGHT = [0.03, 0.038, 0.055];
+// The moon's angle east of the sun: just past first quarter, so on an evening
+// shift it hangs low in the west-south-west, in view of the window, and sets
+// soon after midnight
+const MOON_ELONGATION = THREE.MathUtils.degToRad(100);
+const MOON_RADIUS = 0.009; // rad, a little larger than life so it reads on a phone
 export const REAL_TIME = 1 / 3600;
 const CCTV_GAIN = 8; // the cameras' most exposure gain: at night they see little
 
@@ -54,10 +59,13 @@ const rainVertex = /* glsl */ `
   varying float vFade;
   void main() {
     float h = ${(RAIN_BOX.y[1] - RAIN_BOX.y[0]).toFixed(1)};
-    float t = mod(seed.z * h - uTime * -uFall.y, h);
+    float t = mod(seed.z * h + uTime * -uFall.y, h);  // how far the drop has fallen
     vec3 p = vec3(seed.x, ${RAIN_BOX.y[1].toFixed(1)} - t, seed.y);
-    p.xz += uFall.xz * (t / -uFall.y);
+    // Blown sideways as it falls, but kept in the air outside the window
+    vec2 lo = vec2(${RAIN_BOX.x[0].toFixed(1)}, ${RAIN_BOX.z[0].toFixed(1)}), size = vec2(${(RAIN_BOX.x[1] - RAIN_BOX.x[0]).toFixed(1)}, ${(RAIN_BOX.z[1] - RAIN_BOX.z[0]).toFixed(1)});
+    p.xz = lo + mod(p.xz + uFall.xz * (t / -uFall.y) - lo, size);
     p -= uFall * 0.07 * seed.w;           // motion blur: the streak a drop draws while the eye looks
+    p.x = min(p.x, ${RAIN_BOX.x[1].toFixed(1)});
     vFade = smoothstep(0.0, 3.0, t) * smoothstep(h, h - 3.0, t);
     gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
   }
@@ -73,13 +81,84 @@ const rainFragment = /* glsl */ `
   }
 `;
 
+// Rain on the window: beads that land, sit and dry, and drops that run down.
+// Only the window's own pixels pay for it, and only while it rains.
+const glassVertex = /* glsl */ `
+  varying vec2 vPos;  // metres across the glass: along the wall, up
+  void main() {
+    vPos = vec2(position.x, position.y);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const glassFragment = /* glsl */ `
+  varying vec2 vPos;
+  uniform float uTime, uRain, uWet;
+  uniform vec3 uZenith, uHorizon;
+  vec2 hash2(vec2 p) {
+    vec3 q = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.xx + q.yz) * q.zy);
+  }
+  // One layer of beads on a grid of cells, cell metres across: x is how much
+  // of a drop covers the point, y how bright (its lens shows the sky upside down)
+  vec2 beads(vec2 p, float cell, float t, float seed) {
+    vec2 c = floor(p / cell), f = fract(p / cell);
+    vec2 a = hash2(c + seed), b = hash2(c + seed + 17.0);
+    if (b.x > uRain) return vec2(0.0);           // fewer cells hold a drop in light rain
+    float life = fract(t * (0.04 + 0.08 * a.y) + a.x);  // lands at 0, dries by 1
+    vec2 o = 0.25 + 0.5 * b;
+    float rad = (0.2 + 0.22 * a.x) * (1.0 - 0.6 * life);
+    float d = length((f - o) * vec2(1.0, 1.15)) / rad;
+    float m = (1.0 - smoothstep(0.75, 1.0, d)) * smoothstep(1.0, 0.85, life);
+    // Bright low in the drop, a dark rim, a glint at the top
+    float lens = mix(0.2, 1.7, smoothstep(0.2, -0.6, (f.y - o.y) / rad)) * mix(1.0, 0.15, smoothstep(0.5, 0.95, d));
+    lens += 2.0 * smoothstep(0.3, 0.0, length(f - o - vec2(-0.25, 0.35) * rad) / rad);
+    return vec2(m, lens);
+  }
+  // Drops that grow too heavy and run down, leaving a wet trail
+  vec2 runs(vec2 p, float t) {
+    float w = 0.06;
+    float col = floor(p.x / w);
+    vec2 a = hash2(vec2(col, 3.0)), b = hash2(vec2(col, 9.0));
+    if (a.x > uRain * 0.6) return vec2(0.0);
+    float period = 3.0 + 6.0 * a.y;
+    float k = (t + b.x * period) / period;
+    float head = 2.5 - fract(k) * 1.8;                     // height of the running drop, m
+    float x = (fract(p.x / w) - 0.5) * w + 0.006 * sin(p.y * 40.0 + floor(k) * 7.0); // it wanders
+    float drop = 1.0 - smoothstep(0.0025, 0.0045, length(vec2(x, (p.y - head) * 0.8)));
+    float trail = (1.0 - smoothstep(0.0006, 0.0016, abs(x))) * step(head, p.y) * exp(-(p.y - head) * 3.0) * 0.5;
+    return vec2(max(drop, trail), mix(0.5, 1.6, drop));
+  }
+  void main() {
+    float t = uTime;
+    vec2 a = beads(vPos, 0.022, t, 0.0), b = beads(vPos + 0.011, 0.045, t, 5.0), r = runs(vPos, t);
+    float cover = max(max(a.x, b.x), r.x);
+    float lens = (a.x * a.y + b.x * b.y + r.x * r.y) / max(a.x + b.x + r.x, 1e-3);
+    vec3 sky = mix(uHorizon, uZenith, 0.3) * 1.2 + 0.006;  // what the drops refract: the sky, and a little of the room
+    gl_FragColor = vec4(sky * lens, 1.0);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+    gl_FragColor.a = cover * 0.85 * uWet;
+  }
+`;
+
 const skyChunk = /* glsl */ `
   uniform vec3 uZenith, uHorizon, uSunColor, uSunDir, uMoonDir, uMoonColor, uFogColor;
-  uniform float uClouds, uFog, uStars, uTime;
+  uniform float uClouds, uFog, uStars, uTime, uMoonShow, uMoonPhase;
   uniform vec2 uCloudShift;
 
-  float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-  float hash3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+  // Hashes without sin(): phone GPUs lose sin()'s precision for the large
+  // arguments a sea in metres gives it, and the noise broke into blocks
+  float hash(vec2 p) {
+    vec3 q = fract(vec3(p.xyx) * 0.1031);
+    q += dot(q, q.yzx + 33.33);
+    return fract((q.x + q.y) * q.z);
+  }
+  float hash3(vec3 p) {
+    p = fract(p * 0.1031);
+    p += dot(p, p.zyx + 31.32);
+    return fract((p.x + p.y) * p.z);
+  }
   float noise(vec2 p) {
     vec2 i = floor(p), f = fract(p);
     f = f * f * (3.0 - 2.0 * f);
@@ -123,21 +202,37 @@ const skyChunk = /* glsl */ `
     float toSun = max(dot(v, uSunDir), 0.0);
     col += uSunColor * (0.02 * pow(toSun, 8.0) + 0.25 * pow(toSun, 120.0));
     float toMoon = max(dot(v, uMoonDir), 0.0);
-    col += uMoonColor * (0.6 * pow(toMoon, 60.0));
+    col += uMoonColor * (0.6 * pow(toMoon, 60.0) + 6.0 * pow(toMoon, 2000.0));
     // Overcast flattens the gradient toward grey
     col = mix(col, vec3(0.92, 0.96, 1.05) * lum(col) * 0.5, 0.85 * uClouds * uClouds);
     // Stars, then the discs, then the clouds over them
     if (stars > 0.0 && v.y > 0.0) {
       vec3 cell = floor(v * 260.0);
       float r = hash3(cell);
-      if (r > 0.9965) {
+      if (r > 0.99) {
         vec3 c = (cell + 0.5) / 260.0;
-        float b = smoothstep(0.0028, 0.0, length(v - normalize(c))) * (r - 0.9965) * 300.0;
-        col += vec3(0.8, 0.85, 1.0) * b * 0.02 * stars;
+        float m = (r - 0.99) / 0.01;  // magnitude: many faint stars, a few bright ones
+        float b = smoothstep(0.0012 + 0.0016 * m, 0.0, length(v - normalize(c)));
+        b *= 0.7 + 0.3 * sin(uTime * (2.0 + r * 40.0) + r * 900.0);  // twinkle
+        // Fewer stars near the horizon, where the air is thick
+        b *= smoothstep(0.0, 0.25, v.y);
+        col += mix(vec3(1.0, 0.85, 0.7), vec3(0.75, 0.85, 1.0), fract(r * 731.0)) * b * (0.08 + 1.2 * m * m * m) * stars;
       }
     }
     if (toSun > 0.99996) col += uSunColor * 30.0;
-    if (toMoon > 0.99997) col += vec3(0.9, 0.92, 1.0) * 0.6 * uStars;
+    // The moon's disc, lit on the side toward the sun: x runs toward the sun
+    // across the disc, and a point is lit where x > cos(elongation) * sqrt(1 - y^2)
+    vec3 off = (v - uMoonDir) / ${MOON_RADIUS.toFixed(4)};
+    float rr = dot(off, off);
+    if (uMoonShow > 0.0 && rr < 1.2) {
+      vec3 sx = normalize(uSunDir - uMoonDir * dot(uSunDir, uMoonDir));
+      float x = dot(off, sx), y2 = max(rr - x * x, 0.0);
+      float lit = smoothstep(-0.08, 0.08, x - uMoonPhase * sqrt(max(1.0 - y2, 0.0)));
+      float disc = 1.0 - smoothstep(0.92, 1.0, sqrt(rr));
+      // A few darker seas on its face
+      float maria = 0.8 + 0.2 * sin(off.x * 5.0 + 1.0) * sin(off.y * 4.0 - off.z * 3.0);
+      col += vec3(1.0, 0.98, 0.92) * disc * mix(0.012, 2.5 * maria, lit) * uMoonShow;
+    }
     float d = cloudDensity(v);
     col = mix(col, cloudColor(v, d), d);
     // Fog and haze close the horizon
@@ -231,7 +326,9 @@ const oceanFragment = /* glsl */ `
     float r2 = 0.0015 + rough + uWind * 0.006;
     float clear = 1.0 - cloudDensity(uSunDir) * 0.95;
     col += uSunColor * clear * exp((dot(r, uSunDir) - 1.0) / r2) * 0.05 / r2;
-    col += uMoonColor * 30.0 * (1.0 - cloudDensity(uMoonDir) * 0.95) * exp((dot(r, uMoonDir) - 1.0) / r2) * 0.05 / r2;
+    // The moon's is a narrower path: a small, dim light catches only the steeper slopes
+    float m2 = 0.0003 + 0.3 * rough + uWind * 0.0015;
+    col += uMoonColor * 1.5 * (1.0 - cloudDensity(uMoonDir) * 0.95) * exp((dot(r, uMoonDir) - 1.0) / m2) * 0.05 / m2;
     // Whitecaps in strong wind
     float foamAmount = smoothstep(0.45, 1.0, uWind);
     if (foamAmount > 0.0) {
@@ -278,7 +375,7 @@ export class Outdoor {
       uSunColor: { value: new THREE.Color() }, uMoonColor: { value: new THREE.Color() },
       uFogColor: { value: new THREE.Color() },
       uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uMoonDir: { value: new THREE.Vector3(0, 1, 0) },
-      uClouds: { value: 0 }, uFog: { value: 0 }, uStars: { value: 0 }, uTime: { value: 0 },
+      uClouds: { value: 0 }, uFog: { value: 0 }, uStars: { value: 0 }, uTime: { value: 0 }, uMoonShow: { value: 0 }, uMoonPhase: { value: 0 },
       uCloudShift: { value: new THREE.Vector2() },
       uWind: { value: 0 }, uWindDir: { value: new THREE.Vector2(0.8, -0.6).normalize() },
     };
@@ -315,6 +412,7 @@ export class Outdoor {
     this.rain.frustumCulled = false;
     this.room = new THREE.Group();
     this.room.add(this.waterline, this.rain);
+    this.wet = 0;  // how wet the window is: it dries slowly after the rain
     // What the room reads back each frame
     this.light = {
       sky: new THREE.Color(),     // average sky radiance over the upper hemisphere
@@ -330,6 +428,22 @@ export class Outdoor {
 
   set(changes) { Object.assign(this.state, changes); }
 
+  // Rain on the window glass, given the opening (lo, hi: room coordinates,
+  // the wall at x). The drops sit just outside the mullions.
+  setWindow(lo, hi) {
+    const w = hi.z - lo.z, h = hi.y - lo.y;
+    const geometry = new THREE.PlaneGeometry(w, h).translate(-(lo.z + w / 2), lo.y + h / 2, 0);
+    this.glass = new THREE.Mesh(geometry, new THREE.ShaderMaterial({
+      vertexShader: glassVertex, fragmentShader: glassFragment, transparent: true, depthWrite: false,
+      uniforms: { uTime: this.uniforms.uTime, uRain: { value: 0 }, uWet: { value: 0 }, uZenith: this.uniforms.uZenith, uHorizon: this.uniforms.uHorizon },
+    }));
+    // Turned to face into the room (+x): the plane's x runs along -z
+    this.glass.rotation.y = Math.PI / 2;
+    this.glass.position.x = lo.x - 0.05;
+    this.glass.visible = false;
+    this.room.add(this.glass);
+  }
+
   // Advance the waves and clouds by dt seconds, and the clock by `speed`
   // hours per second, then recompute the light
   update(dt) {
@@ -339,7 +453,7 @@ export class Outdoor {
     const decl = THREE.MathUtils.degToRad(-23.44 * Math.cos((2 * Math.PI / 365) * (s.day + 10)));
     const hour = THREE.MathUtils.degToRad(15 * (s.time - 12));
     const sun = toward(decl, hour);
-    const moon = toward(-decl, hour + Math.PI); // a full moon, opposite the sun
+    const moon = toward(-decl * Math.cos(MOON_ELONGATION), hour - MOON_ELONGATION);
     const e = THREE.MathUtils.radToDeg(Math.asin(sun.y));
     const c = s.clouds;
 
@@ -353,7 +467,9 @@ export class Outdoor {
     u.uMoonDir.value.copy(moon);
     const night = THREE.MathUtils.smoothstep(-e, 2, 12);
     const moonUp = THREE.MathUtils.smoothstep(moon.y, -0.02, 0.1);
-    u.uMoonColor.value.setRGB(...MOONLIGHT).multiplyScalar(night * moonUp);
+    u.uMoonColor.value.setRGB(...MOONLIGHT).multiplyScalar(night * moonUp * (1 - Math.cos(MOON_ELONGATION)) / 2);
+    u.uMoonShow.value = THREE.MathUtils.smoothstep(-e, -8, 6) * moonUp;
+    u.uMoonPhase.value = Math.cos(MOON_ELONGATION);
     u.uStars.value = THREE.MathUtils.smoothstep(-e, 4, 14) * (1 - c);
     u.uClouds.value = c;
     u.uFog.value = Math.min(1, s.fog + 0.35 * s.rain);
@@ -370,6 +486,14 @@ export class Outdoor {
     // zenith, half horizon, flattened and dimmed by cloud.
     // Rain: how many drops, how they slant in the wind, and how bright
     this.rain.visible = s.rain > 0.01;
+    // The glass gets wet at once and dries over a minute or two
+    this.wet = s.rain > 0.01 ? Math.min(1, this.wet + dt / 3) : Math.max(0, this.wet - dt / 90);
+    if (this.glass) {
+      this.glass.visible = this.wet > 0.001;
+      const g = this.glass.material.uniforms;
+      g.uRain.value = Math.max(s.rain, 0.25 * this.wet);
+      g.uWet.value = this.wet;
+    }
     this.rain.geometry.setDrawRange(0, 2 * Math.round(RAIN_DROPS * s.rain));
     const ru = this.rain.material.uniforms;
     ru.uFall.value.set(u.uWindDir.value.x * windSpeed * 0.5, -9, u.uWindDir.value.y * windSpeed * 0.5);

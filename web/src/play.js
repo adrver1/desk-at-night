@@ -83,6 +83,7 @@ async function load() {
   if (!layout) throw new Error('This scene was baked before the walk-around existed. Reload the page; if that does not help, re-run blender/bake_control_room.py.');
   scene.add(room.root);
   outdoor = new Outdoor(room.seaLevel);
+  outdoor.setWindow(room.window.lo, room.window.hi);
   scene.add(outdoor.room);
   outdoorControls($('tpOutdoor'), outdoor);
   const root = room.root;
