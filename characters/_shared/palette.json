@@ -89,6 +89,21 @@
   "col": 9,
   "hex": "#c4804e"
  },
+ "hair_dark_blond": {
+  "row": 1,
+  "col": 10,
+  "hex": "#9c7a4c"
+ },
+ "hair_salt_pepper": {
+  "row": 1,
+  "col": 11,
+  "hex": "#7b756e"
+ },
+ "hair_fade": {
+  "row": 1,
+  "col": 12,
+  "hex": "#7a6a5e"
+ },
  "eye": {
   "row": 2,
   "col": 0,
@@ -118,6 +133,16 @@
   "row": 2,
   "col": 5,
   "hex": "#d98a7a"
+ },
+ "stubble": {
+  "row": 2,
+  "col": 6,
+  "hex": "#b39580"
+ },
+ "stubble_dark": {
+  "row": 2,
+  "col": 7,
+  "hex": "#8f7563"
  },
  "coverall_orange": {
   "row": 3,
@@ -223,6 +248,21 @@
   "row": 4,
   "col": 11,
   "hex": "#5b4a86"
+ },
+ "turquoise": {
+  "row": 4,
+  "col": 12,
+  "hex": "#4cc0cc"
+ },
+ "turquoise_dark": {
+  "row": 4,
+  "col": 13,
+  "hex": "#2f98a4"
+ },
+ "pale_blue": {
+  "row": 4,
+  "col": 14,
+  "hex": "#d7e3ee"
  },
  "white": {
   "row": 5,

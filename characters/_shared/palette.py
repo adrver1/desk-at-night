@@ -24,10 +24,12 @@ ROWS = [
     [("hair_black", "#1e1a19"), ("hair_dark_brown", "#3b2a20"), ("hair_brown", "#5e4030"),
      ("hair_light_brown", "#8a6446"), ("hair_blond", "#d2b071"), ("hair_ginger", "#b45a2c"),
      ("hair_grey", "#8d8a86"), ("hair_white", "#dcdad4"), ("hair_auburn", "#9a4b24"),
-     ("hair_strawberry", "#c4804e")],
+     ("hair_strawberry", "#c4804e"), ("hair_dark_blond", "#9c7a4c"), ("hair_salt_pepper", "#7b756e"),
+     ("hair_fade", "#7a6a5e")],
     # 2 face details
     [("eye", "#1b1d22"), ("eye_white", "#f2f0ea"), ("lip", "#a8584e"), ("lip_dark", "#6e3a33"),
-     ("teeth", "#f4f1e8"), ("blush", "#d98a7a")],
+     ("teeth", "#f4f1e8"), ("blush", "#d98a7a"),
+     ("stubble", "#b39580"), ("stubble_dark", "#8f7563")],
     # 3 workwear: offshore coveralls, hi-vis and reflective tape
     [("coverall_orange", "#e2632a"), ("coverall_red", "#b8322a"), ("coverall_navy", "#1f2e4a"),
      ("hivis_yellow", "#ece53a"), ("hivis_orange", "#f08a24"), ("reflective", "#c9cdd0"),
@@ -35,7 +37,8 @@ ROWS = [
     # 4 office and casual cloth
     [("navy", "#02293c"), ("blue", "#3a6ea5"), ("light_blue", "#9cc0e0"), ("denim", "#45607f"),
      ("red", "#b03a30"), ("green", "#4f7a46"), ("olive", "#6b6a3c"), ("khaki", "#b9a77c"),
-     ("sand", "#d2ccb3"), ("burgundy", "#6e2433"), ("teal", "#2e7a78"), ("purple", "#5b4a86")],
+     ("sand", "#d2ccb3"), ("burgundy", "#6e2433"), ("teal", "#2e7a78"), ("purple", "#5b4a86"),
+     ("turquoise", "#4cc0cc"), ("turquoise_dark", "#2f98a4"), ("pale_blue", "#d7e3ee")],
     # 5 neutrals
     [("white", "#f1f1ee"), ("light_grey", "#c4c6c6"), ("grey", "#8b8f92"), ("slate", "#73838d"),
      ("charcoal", "#3c4145"), ("black", "#16181a"), ("undersuit", "#9aa0a4")],

@@ -141,26 +141,26 @@ def ear_defender(m, s):
     """Helmet-mounted ear defender on side s: a black clip plugged into the
     slot on the helmet's side, an arm down from it, a wire yoke round the
     cup to two pivots, and the blue cup on a black cushion over the ear."""
-    cy, cz = -0.012, 1.598          # cup centre (over the ear)
+    cy, cz = -0.012, 1.594          # cup centre (over the ear)
     # Cushion against the head and the blue shell outside it, both oval
-    for x0, x1, ru, rv, sw in ((0.128, 0.145, 0.054, 0.042, RUBBER), (0.145, 0.168, 0.052, 0.040, CUP)):
+    for x0, x1, ru, rv, sw in ((0.128, 0.146, 0.068, 0.054, RUBBER), (0.146, 0.180, 0.066, 0.052, CUP)):
         shrink = 0.82 if sw == CUP else 1.0
         pts = []
         for x, k in ((x0, 1.0), (x1, shrink)):
-            for i in range(6):
-                a = math.radians(60 * i)
+            for i in range(8):
+                a = math.radians(22.5 + 45 * i)
                 pts.append(Vector((s * x, cy + k * rv * math.cos(a), cz + k * ru * math.sin(a))))
         m.hull(pts, sw, "ear_cup")
     # Clip in the helmet's side slot, just above the rim
-    m.hull([Vector((s * x, cy + dy, z)) for x in (0.146, 0.166) for dy in (-0.016, 0.016)
+    m.hull([Vector((s * x, cy + dy, z)) for x in (0.146, 0.172) for dy in (-0.016, 0.016)
             for z in (1.664, 1.692)], CLIP, "ear_cup")
     # Arm from the clip down past the rim to the top of the yoke
-    top = (s * 0.174, cy, 1.656)
-    m.bar((s * 0.170, cy, 1.672), top, 0.006, CLIP, "ear_cup")
+    top = (s * 0.180, cy, 1.660)
+    m.bar((s * 0.176, cy, 1.676), top, 0.006, CLIP, "ear_cup")
     # Yoke: two wires from the arm out to pivots at the cup's front and back
-    for dy in (0.046, -0.046):
-        m.bar(top, (s * 0.172, cy + dy, cz), 0.0035, CLIP, "ear_cup")
-        m.hull([Vector((s * x, cy + dy * 0.98 + ddy, cz + dz)) for x in (0.156, 0.176)
+    for dy in (0.058, -0.058):
+        m.bar(top, (s * 0.180, cy + dy, cz), 0.0035, CLIP, "ear_cup")
+        m.hull([Vector((s * x, cy + dy * 0.98 + ddy, cz + dz)) for x in (0.160, 0.186)
                 for ddy in (-0.008, 0.008) for dz in (-0.008, 0.008)], CLIP, "ear_cup")
 
 
