@@ -308,5 +308,20 @@
   "row": 6,
   "col": 9,
   "hex": "#2a2c2f"
+ },
+ "logo_magenta": {
+  "row": 7,
+  "col": 0,
+  "hex": "#c42a72"
+ },
+ "logo_orange": {
+  "row": 7,
+  "col": 1,
+  "hex": "#ec8a3c"
+ },
+ "logo_green": {
+  "row": 7,
+  "col": 2,
+  "hex": "#2e9a52"
  }
 }

@@ -10,28 +10,50 @@ An outfit is a dict:
     parts   {name: Mesh} shells and accessories
     rigid   {region: bone} parts that follow one bone (helmets)
 
-Offshore PPE follows the two-tone hi-vis worn by the platform crew: a
-yellow jacket with navy collar and cuffs, reflective bands round the chest,
-waist, sleeves and shins, navy trousers and black safety boots. Out on
-deck add a white helmet with ear defenders and gloves.
+Offshore PPE follows the Aker BP crew's two-tone hi-vis: a yellow jacket
+with a navy collar, navy lower sleeves and cuffs, a reflective band round
+the waist, the sleeves and the shins, reflective patches on the shoulders,
+the company's ribbon logo big on the back and small on the chest pocket,
+navy trousers and black safety boots. Out on deck add a white helmet with
+the logo sticker, blue ear defenders, safety glasses and gloves.
 """
 import base_body as base
 
 Vector = base.Vector
 
 HIVIS, NAVY, TAPE = "hivis_yellow", "coverall_navy", "reflective"
-HELMET, RUBBER, CUP, GLOVE = "helmet_white", "rubber", "plastic_black", "grey"
+HELMET, RUBBER, CUP, GLOVE, LENS = "helmet_white", "rubber", "helmet_blue", "grey", "glass"
+
+# The Aker BP logo, simplified to three flat ribbons (magenta, orange,
+# green) stacked in an S, as (swatch, outline) in a unit box seen from the
+# front: u from left to right, v from bottom to top.
+LOGO = [("logo_magenta", [(0.12, 0.95), (0.33, 1.0), (0.30, 0.83), (0.55, 0.70), (0.55, 0.53),
+                          (0.02, 0.51), (0.05, 0.67), (0.18, 0.80)]),
+        ("logo_orange", [(0.36, 0.56), (0.56, 0.67), (1.0, 0.73), (1.0, 0.46), (0.86, 0.40),
+                         (0.46, 0.30), (0.22, 0.34)]),
+        ("logo_green", [(0.0, 0.31), (0.40, 0.39), (0.72, 0.41), (0.62, 0.23), (0.32, 0.14),
+                        (0.47, 0.0), (0.12, 0.02), (0.0, 0.11)])]
+
+
+def logo(m, bvh, x, z, w, h, facing=1, region="logo"):
+    """Put the logo centred at (x, z), w wide and h high, on the front
+    (facing=1) or the back (facing=-1) of the mesh behind it."""
+    # Seen from the front, the viewer's right is the character's left (-X)
+    sx = -1 if facing == 1 else 1
+    for k, (swatch, outline) in enumerate(LOGO):
+        m.decal_poly(bvh, [(x + sx * (u - 0.5) * w, z + (v - 0.5) * h) for u, v in outline],
+                     swatch, region, facing, lift=0.003 + 0.001 * k)
 
 JACKET_OFF, SLEEVE_OFF = 0.022, 0.016
 HEM = 0.86
 
 
 def jacket():
-    """Hi-vis jacket over the torso: hem at the hips, two reflective bands,
-    closed at the neck where the collar sits."""
+    """Hi-vis jacket over the torso: hem at the hips, a reflective band round
+    the waist, closed at the neck where the collar sits."""
     rings = []
-    for z, reg in ((HEM, "jacket"), (0.94, "band"), (0.985, "jacket"), (1.13, "band"),
-                   (1.175, "jacket"), (1.35, "jacket"), (base.TORSO[-1][0], "jacket")):
+    for z, reg in ((HEM, "jacket"), (0.94, "band"), (0.985, "jacket"), (1.18, "jacket"),
+                   (1.35, "jacket"), (base.TORSO[-1][0], "jacket")):
         ru, rv, dv = base.ring_at(base.TORSO, z)
         rings.append((z, ru, rv, dv, reg))
     # the hem flares a little, like a jacket hanging over the trousers
@@ -42,18 +64,24 @@ def jacket():
     # Navy stand-up collar, zipped to the top
     m.tube([(1.40, 0.088, 0.084, -0.008, "collar"), (1.475, 0.078, 0.074, -0.006, "collar")],
            swatch=NAVY, angles=base.HEX6, angle_offset=30, cap_start=False, cap_end=False)
-    # A plain navy patch on the left chest
     bvh = m.bvh()
-    m.decal(bvh, -0.10, 1.255, 0.075, 0.045, NAVY, "patch")
+    # Chest pocket on his left: a navy zip line along the flap, the logo below
+    m.decal(bvh, -0.10, 1.285, 0.075, 0.008, NAVY, "pocket")
+    logo(m, bvh, -0.10, 1.235, 0.055, 0.065)
+    # The logo big on the back, and reflective patches on the shoulder blades
+    logo(m, bvh, 0.0, 1.16, 0.23, 0.29, facing=-1)
+    for s in (1, -1):
+        m.decal_poly(bvh, [(s * 0.105, 1.31), (s * 0.16, 1.31), (s * 0.16, 1.37), (s * 0.105, 1.37)],
+                     TAPE, "band", facing=-1)
     return m
 
 
 def sleeves():
-    """Hi-vis sleeves with a band above and below the elbow and navy cuffs."""
-    pts = sorted({r[0] for r in base.ARM} | {0.10, 0.14, 0.34, 0.38, 0.43})
+    """Hi-vis upper sleeves and navy forearms, each with a reflective band."""
+    pts = sorted({r[0] for r in base.ARM} | {0.10, 0.14, 0.34, 0.38})
     rings = []
     for t in pts:
-        reg = "band" if t in (0.10, 0.34) else "cuff" if t >= 0.43 else "sleeve"
+        reg = "band" if t in (0.10, 0.34) else "cuff" if t >= 0.25 else "sleeve"
         ru, rv = _arm_radius(t)
         rings.append((t, ru, rv, 0.0, reg))
     right = base.Mesh().tube(rings, origin=base.SHOULDER, axes=base.frame(base.arm_dir(1)),
@@ -87,21 +115,43 @@ def leg_bands():
 
 def helmet():
     """White safety helmet: a faceted dome, a short peak at the front and
-    ear defenders clipped under the rim at the sides."""
+    ear defenders clipped under the rim at the sides, the logo sticker on
+    the front."""
     rings = []
-    for z, off in ((1.655, 0.034), (1.72, 0.032), (1.765, 0.03), (1.795, 0.0), (1.81, 0.0)):
-        ru, rv, dv = base.ring_at(base.HEAD, min(z, base.HEAD[-1][0]))
-        if z > 1.79:
-            ru, rv = (0.085, 0.09) if z < 1.8 else (0.045, 0.05)
+    # (height, head ring height it follows, offset): the top two rings round
+    # the dome off over the crown
+    for z, zh, off in ((1.655, 1.655, 0.034), (1.72, 1.70, 0.034), (1.775, 1.72, 0.022),
+                       (1.80, 1.74, 0.0), (1.812, 1.75, -0.02)):
+        ru, rv, dv = base.ring_at(base.HEAD, zh)
         rings.append((z, ru + off, rv + off, dv, "helmet"))
     m = base.Mesh().tube(rings, swatch=HELMET, cap_start=False)
     # the peak
     m.hull([Vector((x, y, z)) for x in (-0.085, 0.085) for y, z in ((0.10, 1.668), (0.185, 1.655), (0.10, 1.655))],
            HELMET, "helmet")
+    logo(m, m.bvh(), 0.0, 1.705, 0.042, 0.05)
     for s in (1, -1):
         # cup over the ear, its top tucked under the helmet rim
         m.hull([Vector((s * (0.122 + dx), -0.012 + dy, 1.605 + dz))
                 for dx in (0.0, 0.035) for dy in (-0.04, 0.035) for dz in (-0.045, 0.05)], CUP, "ear_cup")
+    return m
+
+
+def glasses():
+    """Clear safety glasses, drawn as their frame only so the eyes show:
+    a top bar over both eyes, lower rims, a bridge and arms to the ears."""
+    m = base.Mesh()
+    y = base.head_point(90, 1.62).y + 0.012
+
+    def bar(x0, x1, z0, z1, y0, y1):
+        m.hull([Vector((x, yy, z)) for x in (x0, x1) for z in (z0, z1) for yy in (y0, y1)], LENS, "glasses")
+    bar(-0.078, 0.078, 1.632, 1.641, y - 0.004, y + 0.002)
+    for s in (1, -1):
+        lo, hi = sorted((s * 0.018, s * 0.07))
+        bar(lo, hi, 1.594, 1.6, y - 0.004, y + 0.001)
+        # the outer edge of the lens and the arm back to the ear
+        bar(s * 0.07 - 0.004, s * 0.07 + 0.004, 1.594, 1.641, y - 0.006, y)
+        m.hull([Vector((s * 0.078, y - 0.01, 1.632)), Vector((s * 0.078, y - 0.01, 1.64)),
+                Vector((s * 0.128, -0.02, 1.625)), Vector((s * 0.128, -0.02, 1.632))], LENS, "glasses")
     return m
 
 
@@ -118,7 +168,8 @@ def ppe_deck():
     o = ppe()
     o["colors"]["hand"] = GLOVE
     o["parts"]["helmet"] = helmet()
-    o["rigid"] = {"helmet": "head", "ear_cup": "head"}
+    o["parts"]["glasses"] = glasses()
+    o["rigid"] = {"helmet": "head", "ear_cup": "head", "glasses": "head"}
     return o
 
 

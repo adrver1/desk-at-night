@@ -226,6 +226,23 @@ class Mesh:
                    c + t1 * w / 2 + t2 * h / 2, c + t1 * w / 2 - t2 * h / 2], swatch, region)
         return self
 
+    def decal_poly(self, bvh, pts, swatch, region, facing=1, lift=0.003):
+        """Flat polygon stuck on the surface: each (x, z) corner is projected
+        onto the mesh from the front (facing=1) or the back (facing=-1).
+        For logos and badges made of a few flat-coloured shapes."""
+        out, normal = [], Vector()
+        for x, z in pts:
+            hit, n, _, _ = bvh.ray_cast(Vector((x, facing * 1.0, z)), Vector((0, -facing, 0)))
+            assert hit is not None, (region, x, z)
+            out.append(hit + n * lift)
+            normal += n
+        # Newell normal of the polygon; flip the winding to face outwards
+        nw = Vector()
+        for a, b in zip(out, out[1:] + out[:1]):
+            nw += Vector(((a.y - b.y) * (a.z + b.z), (a.z - b.z) * (a.x + b.x), (a.x - b.x) * (a.y + b.y)))
+        self.face(out if nw.dot(normal) > 0 else out[::-1], swatch, region)
+        return self
+
     def to_object(self, name, collection=None):
         me = bpy.data.meshes.new(name)
         me.from_pydata([tuple(p) for p in self.verts], [], [ids for ids, _, _ in self.faces])
@@ -592,6 +609,35 @@ def reset():
     return sc
 
 
+# Neutral white studio light for the turnarounds: ambient plus one key light
+# from the upper left (view space), adding up to 1 on faces that look at the
+# camera, so palette colours render close to their swatch and the facets
+# still read. Blender's own studio lights are tinted and dim: they turned
+# hi-vis yellow olive and the logo's magenta brown.
+STUDIO_LIGHT = {"ambient": 0.58, "key": (0.5, (-0.4, 0.45, 0.8)), "fill": (0.1, (0.8, -0.3, 0.5))}
+
+
+def _studio_light():
+    import tempfile
+    a = STUDIO_LIGHT["ambient"]
+    lines = ["version 1"] + [f"light_ambient.{c} {a:.6f}" for c in "xyz"]
+    lights = [STUDIO_LIGHT["key"], STUDIO_LIGHT["fill"], (0.0, (0, 0, 1)), (0.0, (0, 0, 1))]
+    for i, (power, d) in enumerate(lights):
+        d = Vector(d).normalized()
+        lines += [f"light[{i}].flag {int(power > 0)}", f"light[{i}].smooth 0.000000"]
+        lines += [f"light[{i}].col.{c} {power:.6f}" for c in "xyz"]
+        lines += [f"light[{i}].spec.{c} 0.000000" for c in "xyz"]
+        lines += [f"light[{i}].vec.{c} {v:.6f}" for c, v in zip("xyz", d)]
+    path = os.path.join(tempfile.gettempdir(), "character_flat.sl")
+    with open(path, "w") as f:
+        f.write("\n".join(lines) + "\n")
+    lights = bpy.context.preferences.studio_lights
+    old = lights.get("character_flat.sl")
+    if old:
+        lights.remove(old)
+    return lights.load(path, "STUDIO").name
+
+
 def setup_render(res=(640, 960)):
     sc = bpy.context.scene
     sc.render.engine = "BLENDER_WORKBENCH"
@@ -599,6 +645,7 @@ def setup_render(res=(640, 960)):
     sc.render.film_transparent = False
     sh = sc.display.shading
     sh.light = "STUDIO"
+    sh.studio_light = _studio_light()
     sh.color_type = "TEXTURE"
     sh.show_object_outline = True
     sh.object_outline_color = (0.12, 0.13, 0.14)

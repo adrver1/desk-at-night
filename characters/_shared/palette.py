@@ -43,6 +43,8 @@ ROWS = [
     [("leather_brown", "#5a3a26"), ("leather_tan", "#a0714a"), ("rubber", "#26282a"),
      ("steel", "#9ea7ad"), ("gold", "#c9a24a"), ("glass", "#9fc4d2"), ("lens", "#202a33"),
      ("signal_red", "#d8261c"), ("screen_green", "#4cd17a"), ("plastic_black", "#2a2c2f")],
+    # 7 logos and badges
+    [("logo_magenta", "#c42a72"), ("logo_orange", "#ec8a3c"), ("logo_green", "#2e9a52")],
 ]
 
 SWATCHES = {}
