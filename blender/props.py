@@ -912,7 +912,7 @@ def _text(bld, text, size, center, mat, orient=Matrix()):
 CLOCK_TIME = (2, 47, 30)  # night shift: the hands are set to 02:47:30
 
 
-def make_wall_clock(m, name="WallClock", style="station"):
+def make_wall_clock(m, name="WallClock", style="station", live=False):
     """Round wall clock, its back on the wall at y = 0, the dial facing -Y,
     centred on the origin. Styles:
     station: the railway clock: thin aluminium rim, white dial, thick black
@@ -921,18 +921,24 @@ def make_wall_clock(m, name="WallClock", style="station"):
     office:  a deep black plastic case, white dial with numerals 1 to 12,
              slim black hands and a thin red second hand.
     dark:    a rounded square dark grey case with a near-black dial, white
-             bars and hands, and an orange second hand: quiet at night."""
+             bars and hands, and an orange second hand: quiet at night.
+    Returns the clock. With `live`, returns [clock, hour, minute, second
+    hand]: the hands are their own objects named <name>HourHand and so on,
+    pointing at 12, with the same origin as the clock (the dial's centre),
+    so the game can turn them about the dial's axis to the in-game time.
+    Otherwise the hands are part of the clock, set to CLOCK_TIME."""
     rm = _room_mats(m)
     c = Builder(name)
     face_y = Matrix.Rotation(math.radians(90), 4, "X")   # local Z -> -Y: discs face the room
-    hh, mm, ss = CLOCK_TIME
+    hh, mm, ss = (0, 0, 0) if live else CLOCK_TIME
+    H, M, S = (Builder(name + k) for k in ("HourHand", "MinuteHand", "SecondHand")) if live else (c, c, c)
 
-    def radial(a, w, t, length, r_mid, y, mat):  # a bar along the dial's radius at clock angle a
+    def radial(a, w, t, length, r_mid, y, mat, bld=c):  # a bar along the dial's radius at clock angle a
         orient = Matrix.Rotation(a, 4, "Y")
-        c.box((w, t, length), Vector((math.sin(a) * r_mid, y, math.cos(a) * r_mid)), mat, orient)
+        bld.box((w, t, length), Vector((math.sin(a) * r_mid, y, math.cos(a) * r_mid)), mat, orient)
 
-    def hand(a, w, length, tail, y, mat, t=0.003):
-        radial(a, w, t, length + tail, (length - tail) / 2, y, mat)
+    def hand(bld, a, w, length, tail, y, mat, t=0.003):
+        radial(a, w, t, length + tail, (length - tail) / 2, y, mat, bld)
 
     a_h = 2 * math.pi * ((hh % 12) + mm / 60) / 12
     a_m = 2 * math.pi * (mm + ss / 60) / 60
@@ -949,12 +955,12 @@ def make_wall_clock(m, name="WallClock", style="station"):
                 radial(a, 0.0035, 0.002, 0.012, R - 0.026, -0.0375, m["black"])
             else:
                 radial(a, 0.010, 0.002, 0.040, R - 0.040, -0.0375, m["black"])
-        hand(a_h, 0.013, 0.095, 0.03, -0.040, m["black"])
-        hand(a_m, 0.010, 0.140, 0.03, -0.043, m["black"])
-        hand(a_s, 0.0035, 0.100, 0.04, -0.046, rm["fg_red"], t=0.002)
-        c.cyl(0.013, 0.013, 0.002, Vector((math.sin(a_s) * 0.10, -0.046, math.cos(a_s) * 0.10)), rm["fg_red"],
+        hand(H, a_h, 0.013, 0.095, 0.03, -0.040, m["black"])
+        hand(M, a_m, 0.010, 0.140, 0.03, -0.043, m["black"])
+        hand(S, a_s, 0.0035, 0.100, 0.04, -0.046, rm["fg_red"], t=0.002)
+        S.cyl(0.013, 0.013, 0.002, Vector((math.sin(a_s) * 0.10, -0.046, math.cos(a_s) * 0.10)), rm["fg_red"],
               segs=12, orient=face_y)
-        c.cyl(0.006, 0.006, 0.012, Vector((0, -0.044, 0)), rm["fg_red"], segs=10, orient=face_y)
+        S.cyl(0.006, 0.006, 0.012, Vector((0, -0.044, 0)), rm["fg_red"], segs=10, orient=face_y)
     elif style == "office":
         R = 0.15
         c.cyl(R + 0.012, R + 0.012, 0.045, Vector((0, -0.0225, 0)), m["black"], segs=40, orient=face_y)
@@ -969,10 +975,10 @@ def make_wall_clock(m, name="WallClock", style="station"):
             a = 2 * math.pi * n / 12
             _text(c, str(n), 0.032, Vector((math.sin(a) * (R - 0.040), -0.0475, math.cos(a) * (R - 0.040))),
                   m["black"], lettering)
-        hand(a_h, 0.008, 0.075, 0.015, -0.050, m["black"])
-        hand(a_m, 0.006, 0.115, 0.015, -0.052, m["black"])
-        hand(a_s, 0.002, 0.120, 0.03, -0.054, rm["fg_red"], t=0.002)
-        c.cyl(0.007, 0.007, 0.010, Vector((0, -0.052, 0)), m["black"], segs=10, orient=face_y)
+        hand(H, a_h, 0.008, 0.075, 0.015, -0.050, m["black"])
+        hand(M, a_m, 0.006, 0.115, 0.015, -0.052, m["black"])
+        hand(S, a_s, 0.002, 0.120, 0.03, -0.054, rm["fg_red"], t=0.002)
+        S.cyl(0.007, 0.007, 0.010, Vector((0, -0.052, 0)), m["black"], segs=10, orient=face_y)
     else:  # dark
         R = 0.15
         c.rbox((0.34, 0.04, 0.34), Vector((0, -0.02, 0)), m["key"], 0.04, segs=3)
@@ -981,10 +987,12 @@ def make_wall_clock(m, name="WallClock", style="station"):
             a = 2 * math.pi * i / 12
             radial(a, 0.008 if i % 3 == 0 else 0.005, 0.002, 0.034 if i % 3 == 0 else 0.022,
                    R - 0.028, -0.042, m["paper"])
-        hand(a_h, 0.010, 0.080, 0.0, -0.044, m["paper"])
-        hand(a_m, 0.007, 0.120, 0.0, -0.046, m["paper"])
-        hand(a_s, 0.0025, 0.125, 0.03, -0.048, m["paint"], t=0.002)
-        c.cyl(0.008, 0.008, 0.010, Vector((0, -0.046, 0)), m["paint"], segs=10, orient=face_y)
+        hand(H, a_h, 0.010, 0.080, 0.0, -0.044, m["paper"])
+        hand(M, a_m, 0.007, 0.120, 0.0, -0.046, m["paper"])
+        hand(S, a_s, 0.0025, 0.125, 0.03, -0.048, m["paint"], t=0.002)
+        S.cyl(0.008, 0.008, 0.010, Vector((0, -0.046, 0)), m["paint"], segs=10, orient=face_y)
+    if live:
+        return [c.done(), H.done(), M.done(), S.done()]
     return c.done()
 
 
@@ -1072,6 +1080,21 @@ def make_fern(m, name="Fern", leaves=9):
     return f.done()
 
 
+def make_coffee_machine(m, name="CoffeeMachine"):
+    """The filter coffee machine on its own (the kitchenette builds it into
+    its counter), its back on y = 0."""
+    k = Builder(name)
+    _coffee_machine(k, m, _room_mats(m), 0, 0, 0)
+    return k.done()
+
+
+def make_thermos(m, name="Thermos"):
+    """The pump airpot on its own (the kitchenette builds it into its counter)."""
+    k = Builder(name)
+    _pump_thermos(k, m, 0, 0, 0)
+    return k.done()
+
+
 def make_kettle(m, name="Kettle"):
     """The cordless electric kettle on its power base (CC0, OpenGameArt; see
     blender/assets/README.md), with its flat colour swatches mapped onto our
@@ -1085,6 +1108,16 @@ def make_kettle(m, name="Kettle"):
     o = next(x for x in bpy.data.objects if x not in before and x.type == "MESH")
     for i, mt in enumerate(o.data.materials):
         o.data.materials[i] = swap[mt.name.split(".")[0]]
+    # glTF stores every flat face with its own corners; weld them again, or
+    # the bake unwraps each face as its own atlas island (a few texels each,
+    # which bleed into one another)
+    bm = bmesh.new()
+    bm.from_mesh(o.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+    bm.to_mesh(o.data)
+    bm.free()
+    o.data.shade_smooth()
+    o.data.set_sharp_from_angle(angle=math.radians(40))
     o.name = o.data.name = name
     return o
 
@@ -1092,4 +1125,5 @@ def make_kettle(m, name="Kettle"):
 ALL = [make_keyboard, make_mouse, make_mousepad, make_mug, make_mic, make_notepad, make_pencil,
        make_chair, make_videobar, make_touchpanel, make_lightpanel, make_deskphone, make_ptz_camera,
        make_ceiling_tv, make_whiteboard, make_ceiling_mic, make_esd_panel, make_fg_panel, make_shelving,
-       make_link_stand, make_pillar, make_sofa, make_coffee_table, make_kitchenette, make_plant]
+       make_link_stand, make_pillar, make_sofa, make_coffee_table, make_kitchenette, make_plant,
+       make_coffee_machine, make_thermos, make_kettle, make_fern, make_wall_clock]

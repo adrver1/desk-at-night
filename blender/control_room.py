@@ -501,7 +501,8 @@ def build_lounge(m):
     # On the counter (0.90 high), left of the coffee machine and at the far end; the clock above it
     props.place(props.make_kettle(pm, "Kettle"), kx + 0.68, NY + 0.27, 0.90, math.pi - 0.3)
     props.place(props.make_fern(pm, "Fern"), kx - 0.68, NY + 0.30, 0.90, math.pi)
-    props.place(props.make_wall_clock(pm, "WallClock", CLOCK_STYLE), kx + 0.1, NY, 1.95, math.pi)
+    for o in props.make_wall_clock(pm, "WallClock", CLOCK_STYLE, live=True):  # the hands follow the game's clock
+        props.place(o, kx + 0.1, NY, 1.95, math.pi)
     props.place(props.make_plant(pm, "PlantNook", 1.2, light=LIGHT_PLANTS), NX + 0.30, ROOM_Y0 - 0.30, 0.0)
 
 

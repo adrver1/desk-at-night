@@ -173,12 +173,12 @@ def main():
         bpy.data.objects.remove(o)
 
     # Things the player can move or use (chairs spin, mugs get picked up,
-    # light panels get pressed) are baked with the room so they carry its
+    # light panels get pressed), and the wall clock's hands, are baked with the room so they carry its
     # light, then split back out afterwards.
     # A vertex group per object survives the join and finds them again.
     movable = {}
     for o in scene.objects:
-        if o.name.startswith("Chair") or o.name.endswith(("Mug", "TouchPanel", "LightPanel")):
+        if o.name.startswith("Chair") or o.name.endswith(("Mug", "TouchPanel", "LightPanel", "Hand")):
             movable[o.name] = (o.matrix_world.translation.copy(), o.matrix_world.to_euler().z)
             o.vertex_groups.new(name=o.name).add(range(len(o.data.vertices)), 1.0, "REPLACE")
             if o.name.endswith("Mug"):  # the coffee drops as it's drunk, so it moves on its own
