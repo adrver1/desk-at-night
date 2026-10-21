@@ -11,6 +11,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { roomVertex } from './shaders.js';
 import { drawSlots, assign, contentOf, setOutside } from './screens.js';
 import { SunShadow } from './sunShadow.js';
+import { clock } from './outdoor.js';
 
 const SCENE = 'control/';
 // GitHub Pages lets browsers reuse files for ten minutes without asking. After
@@ -30,6 +31,24 @@ const STATIC_T = 600, SCREEN_HZ = 4, SCREEN_GAIN = 1.4;
 const ATLAS_EVERY = 3; // s between redraws of the static screens for the clock
 const FOCUS_SCALE = 2, FOCUS_HZ = 8; // the screen the player zooms in on
 const SCREEN_SCALE = matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
+
+// Seven-segment style digits: the unlit segments faintly, the time bright.
+// White on black: the material's colour makes it red.
+function drawWallClock(c, text) {
+  if (c.shown === text) return;
+  c.shown = text;
+  const canvas = c.tex.image, ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.font = `bold ${canvas.height * 0.86}px ui-monospace, Menlo, Consolas, monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#121212';
+  ctx.fillText('88:88', canvas.width / 2, canvas.height * 0.54);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(text, canvas.width / 2, canvas.height * 0.54);
+  c.tex.needsUpdate = true;
+}
 
 function canvasTexture(renderer, w, h) {
   const canvas = document.createElement('canvas');
@@ -268,6 +287,23 @@ export async function loadControlRoom(renderer) {
     emitters.push({ material: mesh.material, color: new THREE.Color(...e.color), strength: e.strength, group: e.group, textured });
     if (textured) screens.meshes.push(mesh);
   }
+  // The red wall clock: its digits on a face in front of the glowing box,
+  // lit with the same colour and strength, showing the time outside
+  const clockMesh = gltf.scene.getObjectByName('EmitClock');
+  let wallClock = null;
+  if (clockMesh && meta.emitters.EmitClock) {
+    const box = new THREE.Box3().setFromObject(clockMesh), size = box.getSize(new THREE.Vector3());
+    const tex = canvasTexture(renderer, 320, 80);
+    tex.flipY = true;
+    const mat = new THREE.MeshBasicMaterial({ map: tex });
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(size.x, size.y), mat);
+    face.position.set((box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, box.max.z + 0.002);
+    gltf.scene.add(face);
+    const e = meta.emitters.EmitClock;
+    emitters.push({ material: mat, color: new THREE.Color(...e.color), strength: e.strength, group: e.group });
+    wallClock = { tex, shown: '' };
+    drawWallClock(wallClock, '--:--');
+  }
   // The overlay for one screen, made the first time it is needed; `scale`
   // times the atlas slot's resolution
   function overlay(name, scale) {
@@ -318,6 +354,7 @@ export async function loadControlRoom(renderer) {
     cameras: gltf.cameras,
     sizes: { glb: glb.byteLength, maps: [albedoBuf, ceilBuf, scrBuf, skyBuf, ...boardBufs].reduce((n, b) => n + (b?.byteLength ?? 0), 0) },
     seaLevel: meta.seaLevel ?? -69.2,
+    window: { lo: new THREE.Vector3(...windowLo), hi: new THREE.Vector3(...windowHi) },
     // Daylight from outdoor.js: the sky's average radiance, and the sun (or
     // moon) for the platform
     // and the shadows it casts (re-rendered when the sun moves, and now and
@@ -348,6 +385,7 @@ export async function loadControlRoom(renderer) {
     // second; the focused one at FOCUS_HZ
     // `outside` is outdoor.js's cctv summary, for the camera and weather screens
     updateScreens(t, outside) {
+      if (wallClock && outside) drawWallClock(wallClock, clock(outside.time));
       if (!screens) return;
       if (outside) {
         setOutside(outside, STATIC_T + t);

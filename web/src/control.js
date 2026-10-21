@@ -39,6 +39,7 @@ async function load() {
   room = await loadControlRoom(renderer);
   scene.add(room.root);
   outdoor = new Outdoor(room.seaLevel);
+  outdoor.setWindow(room.window.lo, room.window.hi);
   scene.add(outdoor.room);
   outdoorControls(document.getElementById('outdoor'), outdoor);
   const pick = Number(new URLSearchParams(location.search).get('cam')) || 0; // ?cam=2 for the operator's view
