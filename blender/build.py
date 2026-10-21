@@ -441,7 +441,10 @@ def join_static(live):
     bpy.ops.object.mode_set(mode="EDIT")
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.uv.select_all(action="SELECT")
-    bpy.ops.uv.pack_islands(rotate=True, scale=True, margin=0.006, shape_method="CONCAVE")
+    # A fixed gap of a few texels between islands. The default margin grows
+    # with the island count, and with thousands of small islands (boxes,
+    # culled faces) the gaps took most of the atlas.
+    bpy.ops.uv.pack_islands(rotate=True, scale=True, margin_method="FRACTION", margin=0.0015, shape_method="CONCAVE")
     bpy.ops.object.mode_set(mode="OBJECT")
     return room
 
