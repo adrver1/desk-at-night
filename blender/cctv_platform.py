@@ -8,7 +8,9 @@ can see (~2k triangles), parks the helicopter (helicopter.py, ~1.6k) on the
 helideck, moves it all into the room's frame and writes
 
     cctv.glb   the platform, one mesh per material, lamps and windows at
-               their night strength (the browser dims them by day)
+               their night strength (the browser dims them by day); the big
+               crane's turning part is one more object, CraneSlew, with its
+               origin on the slewing ring, so the browser can swing it
     cctv.json  each camera's position, aim and vertical field of view,
                in the room's frame (three.js axes)
 
@@ -49,7 +51,11 @@ def room_frame(v):
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     m = op.materials()
-    objs, tris, _ = op.build_platform(m, z_cut=-1.0)
+    objs, tris, _ = op.build_platform(m, z_cut=-1.0, crane_slew=True)
+    # The crane's turning part stays whole (the browser swings it) and out
+    # of the way while the rest is culled
+    slew = bpy.data.objects[op.CRANE_SLEW]
+    bpy.context.scene.collection.objects.unlink(slew)
     # A few eyes around each lens, so faces a hair off the exact ray stay
     eyes = [Vector(loc) + Vector(j) for _, loc, _, _ in CAMS.values()
             for j in ((0, 0, 0), (0.5, 0, 0), (0, 0.5, 0), (0, 0, 0.5))]
@@ -59,11 +65,17 @@ def main():
             bpy.data.objects.remove(o)
             continue
         o.data.transform(cr.PLATFORM_TO_ROOM)
-    print(f"platform for the cameras: {tris} -> {left} triangles", flush=True)
+    bpy.context.scene.collection.objects.link(slew)
+    bpy.context.view_layer.update()  # matrix_world catches up with the location set at build
+    slew.matrix_world = cr.PLATFORM_TO_ROOM @ slew.matrix_world
+    stris = sum(len(p.vertices) - 2 for p in slew.data.polygons)
+    left += stris
+    print(f"platform for the cameras: {tris} -> {left} triangles ({stris} in {op.CRANE_SLEW})", flush=True)
     # The helicopter parked on the helideck, whole (its rotors and gear move,
     # so it isn't culled); web/src/helicopter.js animates its parts
     hm = heli.materials()
     root, _, htris = heli.build_helicopter(hm, bpy.context.scene.collection, heli.DECK_LOC, heli.DECK_YAW)
+    bpy.context.view_layer.update()
     root.matrix_world = cr.PLATFORM_TO_ROOM @ root.matrix_world
     print(f"helicopter: {htris} triangles", flush=True)
     op.set_night(m, True)

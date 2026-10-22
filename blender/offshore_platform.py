@@ -81,6 +81,8 @@ FLARE_TIP = Vector((-96.0, 0, 115.0))
 
 # The crane pedestal, between the laydown deck and the plant module
 CRANE_X, CRANE_Y = 8.5, -13.0
+CRANE_RING = UTIL_TOP + 27.6            # top of its slewing ring: the pivot of the part that turns
+CRANE_SLEW = "CraneSlew"                # that part's object name with build_platform(crane_slew=True)
 
 # Wellbay under the laydown deck, inside the jacket
 WELL_X0, WELL_X1, WELL_Y0, WELL_Y1 = -15.0, -3.0, -5.0, 5.0
@@ -190,6 +192,32 @@ class Mesh:
             collection.objects.link(o)
             out.append(o)
         return out
+
+
+    def single(self, name, collection, origin):
+        """Everything as one object with a material slot each, its origin
+        at origin (world space)."""
+        vs, fs, mi, mats = [], [], [], list(self.parts)
+        for k, mat in enumerate(mats):
+            pv, pf = self.parts[mat]
+            o = len(vs)
+            vs.extend(pv)
+            fs.extend([tuple(i + o for i in f) for f in pf])
+            mi.extend([k] * len(pf))
+        me = bpy.data.meshes.new(name)
+        me.from_pydata([tuple(v) for v in vs], [], fs)
+        me.polygons.foreach_set("material_index", mi)
+        me.validate()
+        for mat in mats:
+            me.materials.append(mat)
+        tiles = [mat["tile"] for mat in mats if mat.get("tile")]
+        if tiles:
+            _box_uvs(me, tiles[0])
+        me.transform(Matrix.Translation(-Vector(origin)))
+        o = bpy.data.objects.new(name, me)
+        o.location = origin
+        collection.objects.link(o)
+        return o
 
 
 BOX_FACES = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
@@ -635,13 +663,15 @@ def build_flare(g, m):
     return tip
 
 
-def build_crane(g, m, base, ped_h, yaw, luff, boom_len, rest=None):
+def build_crane(g, m, base, ped_h, yaw, luff, boom_len, rest=None, slew=None):
     """Pedestal crane after the photos: a tall yellow column wound with a
     spiral stair, a slewing deck with the machinery house and cab, a tall
     yellow lattice A-frame, and a long red lattice boom hung from it on
     pendants. yaw is the boom direction in plan, luff its angle above
     horizontal (negative dips toward the tip). rest = (x, y, z0) puts a boom
-    rest under the tip, standing on z0."""
+    rest under the tip, standing on z0. slew is a separate Mesh for what
+    turns on the slewing ring (house, cab, A-frame, boom), so it can be
+    exported as its own object; by default it all goes into g."""
     x, y, z = base
     cr = m["crane"]
     zt = z + ped_h
@@ -656,6 +686,7 @@ def build_crane(g, m, base, ped_h, yaw, luff, boom_len, rest=None):
     for zz in (z + ped_h * 0.45, zt - 0.6):
         g.ring(m["white"], (x, y), 2.1, 3.6, zz, 16)
     g.prism(cr, (x, y), 3.6, zt - 0.6, zt, 16)                  # slewing ring
+    fixed, g = g, slew or g
     fwd = Vector((math.cos(yaw), math.sin(yaw), 0))
     side = Vector((-fwd.y, fwd.x, 0))
     up = Vector((0, 0, 1))
@@ -683,16 +714,16 @@ def build_crane(g, m, base, ped_h, yaw, luff, boom_len, rest=None):
         rx, ry, rz = rest
         top = tip - dirv * 3.0 - up * 1.4
         for sgn in (-1, 1):
-            g.beam(m["white"], Vector((rx, ry, rz)) + side * sgn * 2.0, top + side * sgn * 0.8, 0.35)
-        g.beam(m["white"], top - side * 1.2, top + side * 1.2, 0.4)
+            fixed.beam(m["white"], Vector((rx, ry, rz)) + side * sgn * 2.0, top + side * sgn * 0.8, 0.35)
+        fixed.beam(m["white"], top - side * 1.2, top + side * 1.2, 0.4)
     return tip
 
 
-def build_cranes(g, m):
+def build_cranes(g, m, slew=None):
     # The big crane between the laydown deck and the plant module, boom
     # stowed horizontal over the process module on its rest
-    build_crane(g, m, (CRANE_X, CRANE_Y, UTIL_TOP + 0.1), 27.5, math.radians(180), math.radians(-3.0), 58,
-                rest=(-49.5, CRANE_Y, PROC_TOP + 0.6))
+    build_crane(g, m, (CRANE_X, CRANE_Y, CRANE_RING - 27.5), 27.5, math.radians(180), math.radians(-3.0), 58,
+                rest=(-49.5, CRANE_Y, PROC_TOP + 0.6), slew=slew)
 
 
 def build_lights(g, m):
@@ -764,21 +795,27 @@ def build_jackup(g, m, z_cut):
 
 # ------------------------------------------------------------------ build
 
-def build_platform(m, collection=None, jackup=False, z_cut=-4.0):
+def build_platform(m, collection=None, jackup=False, z_cut=-4.0, crane_slew=False):
     """Build the platform into collection; returns (objects, triangles, flare tip).
     z_cut is where the jacket stops: just under the sea surface for a view
-    from above the water, SEABED for a scale model."""
+    from above the water, SEABED for a scale model. crane_slew=True builds
+    the big crane's turning part as one more object, CRANE_SLEW, with its
+    origin on the slewing ring (CRANE_X, CRANE_Y, CRANE_RING) so a viewer
+    can swing it; it is left out of the returned objects."""
     collection = collection or bpy.context.collection
     g = Mesh()
+    slew = Mesh() if crane_slew else None
     build_jacket(g, m, z_cut)
     build_topsides(g, m)
     build_quarters(g, m)
     tip = build_flare(g, m)
-    build_cranes(g, m)
+    build_cranes(g, m, slew)
     build_lights(g, m)
     if jackup:
         build_jackup(g, m, z_cut)
-    return g.objects("Platform", collection), g.tris, tip
+    if slew:
+        slew.single(CRANE_SLEW, collection, Vector((CRANE_X, CRANE_Y, CRANE_RING)))
+    return g.objects("Platform", collection), g.tris + (slew.tris if slew else 0), tip
 
 
 def _delete_faces(o, drop):
