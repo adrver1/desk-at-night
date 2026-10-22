@@ -295,10 +295,18 @@ def side_quad(g, mat, x0, x1, z0, z1, y):
 
 
 # Side windows as (x0, x1, z0, z1): the crew door window, then four big
-# square cabin windows (the last behind the sliding door)
+# square cabin windows (the last behind the sliding door). The skin and the
+# lining get rectangular openings; WINDOW_SHAPE gives the glass its outline
+# inside that box: "rounded", corners cut by WINDOW_CHAMFER (one cut each,
+# an octagon) and the crew window's front edge leaning back by CREW_SLANT
+# at the top, along the windscreen; or "square", the first look.
 _ZW0, _ZW1 = 0.58 + 0.50 * 2.22 + 0.06, 0.58 + 0.88 * 2.22 - 0.07
-WINDOWS = ([(3.15, 4.10, _ZW0 - 0.15, _ZW1)] + [(x - 0.46, x + 0.46, _ZW0, _ZW1) for x in (2.05, 0.80, -0.45)]
+CREW_WINDOW = (3.15, 4.10, _ZW0 - 0.15, _ZW1)
+WINDOWS = ([CREW_WINDOW] + [(x - 0.46, x + 0.46, _ZW0, _ZW1) for x in (2.05, 0.80, -0.45)]
            + [(-1.55, -1.05, _ZW0 + 0.05, _ZW1)])
+WINDOW_SHAPE = "rounded"
+WINDOW_CHAMFER = 0.14
+CREW_SLANT = 0.40
 # The sliding cabin door on each side, (x0, x1, z0, z1): it carries the two
 # middle windows and slides aft to open (the HeliDoorL/R parts, interior
 # only). People step out at its front, at EXIT_X, onto the step and down.
@@ -344,18 +352,92 @@ def build_door(g, m, liv, side):
     g.add(m["cabin"], [Vector((x0, t0, z0)), Vector((x1, t0, z0)), Vector((x1, t1, z0)), Vector((x0, t1, z0))],
           [(0, 1, 2, 3), (3, 2, 1, 0)])
     for wx0, wx1, wz0, wz1 in (w for w in WINDOWS if _in_door(w)):
-        _window(g, m, liv, wx0, wx1, wz0, wz1, side * 1.265, side)
+        _window(g, m, liv, wx0, wx1, wz0, wz1, side * 1.265, side, holes=True)
 
 
-def _window(g, m, liv, x0, x1, z0, z1, y, side=None):
-    """Glass and, if the livery has one, a frame; on one side or both."""
-    quad = side_quad if side is None else (lambda g, mat, a, b, c, d, yy: one_quad(g, mat, a, b, c, d, yy, side))
-    quad(g, m["glass"], x0, x1, z0, z1, abs(y) + 0.01 if side is None else y + side * 0.01)
-    if liv.get("frame"):  # a ring, so the window stays clear from inside
-        f, mf = 0.07, m[liv["frame"]]
-        for fx0, fx1, fz0, fz1 in ((x0 - f, x1 + f, z0 - f, z0), (x0 - f, x1 + f, z1, z1 + f),
-                                   (x0 - f, x0, z0, z1), (x1, x1 + f, z0, z1)):
-            quad(g, mf, fx0, fx1, fz0, fz1, abs(y) + 0.005 if side is None else y + side * 0.005)
+def _outline(w):
+    """The glass outline of window w as (x, z) points, anticlockwise seen
+    from +Y, inside its box."""
+    x0, x1, z0, z1 = w
+    if WINDOW_SHAPE == "square":
+        return [(x0, z0), (x1, z0), (x1, z1), (x0, z1)]
+    top = x1 - CREW_SLANT if w == CREW_WINDOW else x1
+    corners = [(x0, z0), (x1, z0), (top, z1), (x0, z1)]
+    pts = []
+    for i, p in enumerate(corners):   # cut each corner, WINDOW_CHAMFER along both edges
+        for q in (corners[i - 1], corners[(i + 1) % 4]):
+            d = Vector(q) - Vector(p)
+            c = min(WINDOW_CHAMFER, d.length / 3)
+            pts.append(tuple(Vector(p) + d.normalized() * c))
+    return pts
+
+
+def _offset(pts, f):
+    """Convex polygon pts grown outward by f (each edge moved out, the
+    corners where the moved edges meet)."""
+    n, lines = len(pts), []
+    for i in range(n):
+        a, b = Vector(pts[i]), Vector(pts[(i + 1) % n])
+        nrm = Vector((b.y - a.y, a.x - b.x)).normalized()    # outward for anticlockwise
+        lines.append((a + nrm * f, b - a))
+    out = []
+    for i in range(n):
+        (p, u), (q, v) = lines[i - 1], lines[i]
+        cross = u.x * v.y - u.y * v.x
+        t = ((q - p).x * v.y - (q - p).y * v.x) / cross
+        out.append(tuple(p + u * t))
+    return out
+
+
+def _outside(box, pts):
+    """The pieces of rectangle box outside convex polygon pts, one per edge
+    (empty pieces left out), as point lists."""
+    x0, x1, z0, z1 = box
+    rect = [Vector(v) for v in ((x0, z0), (x1, z0), (x1, z1), (x0, z1))]
+    pieces = []
+    for i in range(len(pts)):
+        a, b = Vector(pts[i]), Vector(pts[(i + 1) % len(pts)])
+        nrm = Vector((b.y - a.y, a.x - b.x)).normalized()
+        out = []
+        for j, p in enumerate(rect):   # keep the side past this edge
+            q = rect[(j + 1) % 4]
+            dp, dq = (p - a).dot(nrm), (q - a).dot(nrm)
+            if dp >= 0:
+                out.append(p)
+            if (dp >= 0) != (dq >= 0):
+                out.append(p.lerp(q, dp / (dp - dq)))
+        area = sum(out[k].x * out[k - 1].y - out[k - 1].x * out[k].y for k in range(len(out))) / 2
+        if len(out) >= 3 and abs(area) > 1e-5:
+            pieces.append(out)
+    return pieces
+
+
+def _flat(g, mat, pts, y, s, inward=False):
+    """Polygon pts (x, z) flat at y on side s (+1 or -1), facing out (or in)."""
+    vs = [Vector((x, y, z)) for x, z in pts]
+    g.add(mat, vs if (s > 0) != inward else vs[::-1], [tuple(range(len(vs)))])
+
+
+def _window(g, m, liv, x0, x1, z0, z1, y, side=None, holes=False):
+    """Glass and, if the livery has one, a frame; on one side or both.
+    holes: the skin has the window's rectangular opening, so fill what the
+    outline leaves of it, in paint outside and lining inside."""
+    w, y = (x0, x1, z0, z1), abs(y)
+    glass = _outline(w)
+    f = 0.07 if liv.get("frame") else 0.0
+    rim = _offset(glass, f) if f else glass
+    for s in ((1, -1) if side is None else (side,)):
+        _flat(g, m["glass"], glass, s * (y + 0.01), s)
+        if f:  # a ring, so the window stays clear from inside
+            n = len(glass)
+            for i in range(n):
+                _flat(g, m[liv["frame"]], [glass[i], rim[i], rim[(i + 1) % n], glass[(i + 1) % n]],
+                      s * (y + 0.005), s)
+        if holes:
+            for piece in _outside(w, rim):
+                _flat(g, m[liv["cabin"][5]], piece, s * (y + 0.003), s)
+            for piece in _outside(w, glass):
+                _flat(g, m["cabin"], piece, s * (y - 0.02), s, inward=True)
 
 
 def one_quad(g, mat, x0, x1, z0, z1, y, s):
@@ -370,7 +452,7 @@ def build_cabin_details(g, m, liv, door=False):
     zw1 = _ZW1
     for w in WINDOWS:
         if not (door and _in_door(w)):
-            _window(g, m, liv, *w, y)
+            _window(g, m, liv, *w, y, holes=door)
     # Sliding door seam and crew door seam: thin dark lines
     for x in (() if door else (1.30, -1.0)):
         side_quad(g, m["metal"], x, x + 0.05, DOOR[2], zw1 + 0.10, y + 0.012)

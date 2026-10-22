@@ -390,7 +390,7 @@ resize();
 const aim = new THREE.Vector3(), aimTo = new THREE.Vector3();
 let last = performance.now(), landed = false, cut = q.get('view') === 'deck';
 function frame(now) {
-  const dt = Math.min(0.1, (now - last) / 1000);
+  const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); // a first frame stamp can come before last
   last = now;
   step(paused ? 0 : dt);
   outdoor.render(renderer, camera);
