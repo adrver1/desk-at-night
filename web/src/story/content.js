@@ -49,6 +49,8 @@ export const TITLE = 'A day in the life of EIGA';
 export const CREDITS = [
   ['Story and engineering', 'Adriaen', 'bearded_operator'],
   ['With', 'Brage', 'blazer_lead'],
+  // CC BY 3.0 asks for this line wherever the recording plays (see story/README.md)
+  ['Music · Wagner, Ride of the Valkyries', 'Philip Milman · CC BY 3.0', 'vessel'],
   ['Built with', 'Claude · GitHub Copilot', 'descent'],
 ];
 

@@ -49,11 +49,19 @@ dropped in by hand (for example a paid voice for a main character).
 
 ## Music
 
-The flight plays `public/story/music/flight.mp3` if it is there, ducked
-under the pilot's lines and faded out after landing. Only a recording that
-is free to use belongs there. Wagner's music is in the public domain, but
-most recordings are not; recordings by US military bands (public domain as
-US government works) and CC0 ones from Musopen or Wikimedia Commons are.
+The flight plays `public/story/music/flight.mp3`, ducked under the pilot's
+lines and faded out after landing. It is Wagner's *Ride of the Valkyries*
+conducted by Philip Milman (PM Music, https://pmmusic.pro/), from
+[Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Ride_of_the_Valkyries.ogg)
+under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0): the first
+100 s, re-encoded at 128 kb/s with a fade at the end. The licence asks for
+credit, which the flight shows among its credits (`CREDITS` in content.js);
+keep that line if the music stays.
+
+Only a recording that is free to use belongs there. Wagner's music is in
+the public domain, but most recordings are not; recordings by US military
+bands (public domain as US government works), CC0 ones, and CC BY ones
+with their credit shown are.
 
 ## The private build
 
