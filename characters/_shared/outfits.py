@@ -144,7 +144,7 @@ def helmet():
     return m
 
 
-CUP_Y, CUP_Z = -0.012, 1.594      # ear defender cup centre (over the ear)
+CUP_X, CUP_Y, CUP_Z = 0.110, -0.012, 1.594   # ear defender cup: inner face, centre over the ear
 
 
 def _cup(m, s):
@@ -156,8 +156,10 @@ def _cup(m, s):
         axes, ru, rv = (Vector((0, 1, 0)), Vector((0, 0, 1)), Vector((1, 0, 0))), 0.054, 0.068
     else:
         axes, ru, rv = (Vector((0, 0, 1)), Vector((0, 1, 0)), Vector((-1, 0, 0))), 0.068, 0.054
-    sub = base.Mesh().tube([(0.128, ru, rv, 0, "cushion"), (0.146, ru, rv, 0, "shell"),
-                            (0.180, ru * 0.82, rv * 0.82, 0, "shell")],
+    # the cushion starts just inside the head's facets, so no gap shows
+    # the ear (which the outfits hide anyway) between head and cup
+    sub = base.Mesh().tube([(CUP_X, ru, rv, 0, "cushion"), (CUP_X + 0.02, ru, rv, 0, "shell"),
+                            (CUP_X + 0.054, ru * 0.82, rv * 0.82, 0, "shell")],
                            origin=(0, CUP_Y, CUP_Z), axes=axes, angles=base.HEX6,
                            colors={"cushion": RUBBER, "shell": CUP}, cap_start=False)
     for ids, sw, _ in sub.faces:
@@ -171,7 +173,7 @@ def ear_muffs():
     m = base.Mesh()
     for s in (1, -1):
         _cup(m, s)
-    return accessories.headband(m, CLIP, "ear_cup", clear=0.022, cy=CUP_Y, end=(0.166, 1.650),
+    return accessories.headband(m, CLIP, "ear_cup", clear=0.022, cy=CUP_Y, end=(CUP_X + 0.040, 1.650),
                                 width=0.013, thick=0.008)
 
 
@@ -185,11 +187,11 @@ def ear_defender(m, s):
     m.hull([Vector((s * x, cy + dy, z)) for x in (0.146, 0.172) for dy in (-0.016, 0.016)
             for z in (1.664, 1.692)], CLIP, "ear_cup")
     # Arm from the clip down past the rim to the top of the yoke
-    top = (s * 0.180, cy, 1.660)
+    top = (s * (CUP_X + 0.054), cy, 1.660)
     m.bar((s * 0.176, cy, 1.676), top, 0.006, CLIP, "ear_cup")
     # Yoke: two wires from the arm down to the cup's front and back
     for dy in (0.058, -0.058):
-        m.bar(top, (s * 0.165, cy + dy * 0.84, cz), 0.0035, CLIP, "ear_cup")
+        m.bar(top, (s * (CUP_X + 0.040), cy + dy * 0.84, cz), 0.0035, CLIP, "ear_cup")
 
 
 def glasses():
@@ -240,6 +242,7 @@ def ppe_deck():
     o["parts"]["helmet"] = helmet()
     o["parts"]["glasses"] = glasses()
     o["rigid"] = {"helmet": "head", "ear_cup": "head", "glasses": "head"}
+    o["hide"] = o["hide"] | {"ear"}   # under the ear cups: never seen
     return o
 
 
@@ -301,7 +304,7 @@ def survival():
     """Helicopter travel: immersion suit, lifejacket and headband ear
     defenders (always on in the helicopter), no helmet."""
     return {"colors": {"hips": SUIT, "thigh": SUIT, "shin": SUIT, "shoe": RUBBER},
-            "hide": {"belly", "chest", "upper_arm", "forearm"},
+            "hide": {"belly", "chest", "upper_arm", "forearm", "ear"},   # ears under the cups
             "parts": {"suit": survival_suit(), "lifejacket": lifejacket(), "ear_muffs": ear_muffs()},
             "rigid": {"ear_cup": "head"}}
 
