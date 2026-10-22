@@ -110,8 +110,9 @@ checked against photos: a sturdy four-leg jacket with its conductors, an
 open-framed process block, a laydown deck over the wellbay, a pedestal crane,
 the plant module and the living quarters with the lifeboats on the end face,
 the helideck on a deep truss, a steep flare boom and the yellow name boards.
-Heights follow the photos (deck underside 22 m, quarters roof 53 m, flare
-tip about 115 m). It has one mesh per material, and emissive deck lights
+Heights and positions follow the photos and the main-areas side drawing
+(deck underside 22 m, process roof 52.5 m, quarters roof 56 m, helideck
+57.5 m, flare tip about 115 m). It has one mesh per material, and emissive deck lights
 and windows for night. Three small tileable textures drawn by
 `platform_textures.py` (pipes and walkways inside the open modules,
 walkways, stairs and doors on the clad walls and the quarters) make it look

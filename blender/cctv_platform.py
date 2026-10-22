@@ -36,12 +36,12 @@ OUT = os.path.join(b.ROOT, "web", "public", "control")
 # the picture, location, aim, lens (mm on a 36 mm wide sensor, 16:9)
 CAMS = {
     # On a mast at the corner of the quarters roof, looking down over the helideck
-    "deckCam": ("CAM 04 · Helideck", (46.0, -16.0, 62.0), (57.5, 2.0, 54.5), 20),
+    "deckCam": ("CAM 04 · Helideck", (46.0, -16.0, 65.0), (op.HELI_X - 4.0, 2.0, op.HELI_Z), 20),
     # On the plant module roof, looking over the process module along the boom to the tip
     "flareCam": ("CAM 11 · Flare boom", (12.0, 17.5, 63.0), (-95.0, 0.0, 85.0), 24),
     # Under the big crane's cab, looking down at the supply vessel's berth
     # (supply_vessel.py BERTH_LOC) on the crane side
-    "craneCam": ("CAM 07 · Crane", (8.5, -17.5, 58.0), (6.0, -45.0, 2.0), 22),
+    "craneCam": ("CAM 07 · Crane", (op.CRANE_X, -17.5, 58.0), (op.CRANE_X + 4.5, -45.0, 2.0), 22),
 }
 
 

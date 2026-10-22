@@ -57,7 +57,7 @@ DECK_BOT, CELLAR = 22.0, 24.5          # underside and top of the cellar deck pl
 MEZZ, LOWER_TOP = 31.5, 39.5           # open storeys of the process block
 PROC_TOP = 52.5                         # process module roof
 NOTCH_TOP = LOWER_TOP + 0.5             # laydown deck over the lower block, also the crane's footing
-UTIL_TOP, LQ_TOP = 32.0, 53.0           # utility module roof = quarters floor; quarters roof
+UTIL_TOP, LQ_TOP = 32.0, 56.0           # utility module roof = quarters floor; quarters roof
 PLANT_TOP = 57.0                        # clad plant module between the crane and the quarters
 TOP_X, TOP_Y = 54.0, 19.0               # topsides half extents: 108 x 38 m
 
@@ -68,20 +68,21 @@ LQ_X0, LQ_X1, LQ_Y = 31.0, 49.0, 18.5   # quarters block
 END_X0 = 49.0                           # end tower, full height
 
 # Jacket: centred toward the flare end, four sturdy legs with a slight batter
-JACKET_X = -7.0
-LEG_TOP, LEG_BASE, LEG_R = (20.5, 16.0), (25.0, 21.0), 1.5
+JACKET_X = -4.5
+LEG_TOP, LEG_BASE, LEG_R = (19.5, 16.0), (24.0, 21.0), 1.5
 JACKET_LEVELS = (20.5, 16.0, 6.0, -14.0, -38.0, -62.0, -87.0, SEABED)  # horizontal frames
 
 # Helideck: octagon on a deep truss, overhanging the quarters end at roof height
-HELI_Z, HELI_R, HELI_X = 54.5, 11.5, 57.5
+HELI_Z, HELI_R, HELI_X = 57.5, 11.5, 65.5
 
 # Flare boom: two Warren trusses, deep at the root, meeting at the tip
 FLARE_ROOT_TOP, FLARE_ROOT_BOT = Vector((-TOP_X, 0, 52.0)), Vector((-TOP_X + 3, 0, 25.0))
 FLARE_TIP = Vector((-96.0, 0, 115.0))
 
 # The crane pedestal, between the laydown deck and the plant module
-CRANE_X, CRANE_Y = 8.5, -13.0
-CRANE_RING = UTIL_TOP + 27.6            # top of its slewing ring: the pivot of the part that turns
+CRANE_X, CRANE_Y = 5.0, -13.0           # on the stair tower
+CRANE_RING = 61.6                       # top of its slewing ring: the pivot of the part that turns
+CRANE_BOOM = 61.0                       # boom length, level when stowed
 CRANE_SLEW = "CraneSlew"                # that part's object name with build_platform(crane_slew=True)
 
 # Wellbay under the laydown deck, inside the jacket
@@ -677,7 +678,7 @@ def build_crane(g, m, base, ped_h, yaw, luff, boom_len, rest=None, slew=None):
     yellow lattice A-frame, and a long red lattice boom hung from it on
     pendants. yaw is the boom direction in plan, luff its angle above
     horizontal (negative dips toward the tip). rest = (x, y, z0) puts a boom
-    rest under the tip, standing on z0. slew is a separate Mesh for what
+    rest under the boom at (x, y), standing on z0. slew is a separate Mesh for what
     turns on the slewing ring (house, cab, A-frame, boom), so it can be
     exported as its own object; by default it all goes into g."""
     x, y, z = base
@@ -719,7 +720,7 @@ def build_crane(g, m, base, ped_h, yaw, luff, boom_len, rest=None, slew=None):
     g.prism(m["red"], (m1.x, m1.y), 0.3, m1.z + 0.8, m1.z + 1.4, 6)
     if rest:
         rx, ry, rz = rest
-        top = tip - dirv * 3.0 - up * 1.4
+        top = foot + dirv * (Vector((rx, ry, rz)) - foot).dot(dirv) - up * 1.4  # under the boom, over the feet
         for sgn in (-1, 1):
             fixed.beam(m["white"], Vector((rx, ry, rz)) + side * sgn * 2.0, top + side * sgn * 0.8, 0.35)
         fixed.beam(m["white"], top - side * 1.2, top + side * 1.2, 0.4)
@@ -731,16 +732,17 @@ def build_cranes(g, m, slew=None, lift=None):
     default its boom is stowed horizontal over the process module on its
     rest. lift = (x, y, z) swings it out instead and lowers the hook to that
     point with a container slung under it, as when unloading a supply vessel."""
-    base = (CRANE_X, CRANE_Y, CRANE_RING - 27.5)
+    base = (CRANE_X, CRANE_Y, NOTCH_TOP)
+    ped_h = CRANE_RING - NOTCH_TOP
     if not lift:
-        build_crane(g, m, base, 27.5, math.radians(180), math.radians(-3.0), 58,
-                    rest=(-49.5, CRANE_Y, PROC_TOP + 0.6), slew=slew)
+        build_crane(g, m, base, ped_h, math.radians(180), 0.0, CRANE_BOOM,
+                    rest=(-42.5, CRANE_Y, PROC_TOP + 0.6), slew=slew)
         return
     hx, hy, hz = lift
     yaw = math.atan2(hy - CRANE_Y, hx - CRANE_X)
     reach = math.hypot(hx - CRANE_X, hy - CRANE_Y) - 3.2       # from the boom foot
-    luff = math.acos(min(1.0, reach / 58))
-    tip = build_crane(g, m, base, 27.5, yaw, luff, 58, slew=slew)
+    luff = math.acos(min(1.0, reach / CRANE_BOOM))
+    tip = build_crane(g, m, base, ped_h, yaw, luff, CRANE_BOOM, slew=slew)
     hang = slew or g
     hook = Vector((tip.x, tip.y, hz))
     hang.beam(m["steel"], tip, hook + Vector((0, 0, 3.2)), 0.08)            # hoist wire
