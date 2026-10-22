@@ -207,15 +207,19 @@ function route(p) {
 
 // Bend forward from the hips by u.duck, eased; undone first, so it never
 // adds up on bones the playing clip doesn't move
+// The arms hang from the chest, so they would swing back with it: turn
+// them back toward hanging down, the right one a little ahead, reaching
+// for the door frame
+const BEND = [['spine', 0.55], ['chest', 0.55], ['neck', -0.25], ['upper_armL', -0.95], ['upper_armR', -1.25]];
 function bend(p, dt) {
-  const u = p.userData, sp = u.bones.spine, ch = u.bones.chest, nk = u.bones.neck;
-  if (!sp || !ch) return;
+  const u = p.userData;
+  if (!u.bones.spine || !u.bones.chest) return;
   u.ducked += (u.duck - u.ducked) * Math.min(1, dt * 5);
-  for (const [b, k] of [[sp, 0.55], [ch, 0.55], [nk, -0.25]]) if (b) b.rotateX(-u.ducked * k);
+  for (const [n, k] of BEND) u.bones[n]?.rotateX(-u.ducked * k);
 }
 function unbend(p) {
-  const u = p.userData, sp = u.bones.spine, ch = u.bones.chest, nk = u.bones.neck;
-  for (const [b, k] of [[sp, 0.55], [ch, 0.55], [nk, -0.25]]) if (b) b.rotateX(u.ducked * k);
+  const u = p.userData;
+  for (const [n, k] of BEND) u.bones[n]?.rotateX(u.ducked * k);
 }
 
 function disembark(p, since, dt) {
