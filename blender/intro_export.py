@@ -37,7 +37,7 @@ OUT = os.path.join(b.ROOT, "web", "public", "intro")
 PILOTS = "cast"
 # The supply vessel, sailing in to its berth on the crane side while we fly
 # (intro.js moves it, so it is exported at the origin), and the crane swung
-# out over the berth with a container on the hook, waiting for it
+# out over the berth with an empty hook, waiting for it
 # (False: no vessel, crane stowed)
 VESSEL = True
 # The passengers (in their survival suits) and the pilot, copied from the
@@ -45,8 +45,8 @@ VESSEL = True
 CAST = ["blazer_lead", "bearded_operator", "crop_supervisor", "curly_analyst", "curly_fade_tech",
         "glasses_engineer", "grey_beard_lead"]
 CHARS = [f"{c}/{c}_survival.glb" for c in CAST] + ["heli_pilot/heli_pilot_flying_headset.glb"]
-# The hook over the cargo deck 12 m aft of amidships, well above it
-LIFT = (sv.BERTH_LOC[0] - 12.0 * math.cos(sv.BERTH_YAW), sv.BERTH_LOC[1] - 12.0 * math.sin(sv.BERTH_YAW), 24.0)
+# The empty hook over the berth's cargo deck, 12 m aft of amidships, well above it
+LIFT = (sv.BERTH_LOC[0] - 12.0 * math.cos(sv.BERTH_YAW), sv.BERTH_LOC[1] - 12.0 * math.sin(sv.BERTH_YAW), 24.0, False)
 
 
 def three(v):

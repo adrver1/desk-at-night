@@ -730,13 +730,15 @@ def build_cranes(g, m, slew=None, lift=None):
     """The big crane between the laydown deck and the plant module. By
     default its boom is stowed horizontal over the process module on its
     rest. lift = (x, y, z) swings it out instead and lowers the hook to that
-    point with a container slung under it, as when unloading a supply vessel."""
+    point with a container slung under it, as when unloading a supply vessel;
+    (x, y, z, False) leaves the hook empty, waiting for one."""
     base = (CRANE_X, CRANE_Y, CRANE_RING - 27.5)
     if not lift:
         build_crane(g, m, base, 27.5, math.radians(180), math.radians(-3.0), 58,
                     rest=(-49.5, CRANE_Y, PROC_TOP + 0.6), slew=slew)
         return
-    hx, hy, hz = lift
+    hx, hy, hz = lift[:3]
+    load = lift[3] if len(lift) > 3 else True
     yaw = math.atan2(hy - CRANE_Y, hx - CRANE_X)
     reach = math.hypot(hx - CRANE_X, hy - CRANE_Y) - 3.2       # from the boom foot
     luff = math.acos(min(1.0, reach / 58))
@@ -745,6 +747,8 @@ def build_cranes(g, m, slew=None, lift=None):
     hook = Vector((tip.x, tip.y, hz))
     hang.beam(m["steel"], tip, hook + Vector((0, 0, 3.2)), 0.08)            # hoist wire
     hang.box(m["orange"], hook + Vector((0, 0, 3.0)), (0.6, 0.6, 0.8))      # hook block
+    if not load:
+        return hook
     for dx, dy in ((-2.6, -1.1), (2.6, -1.1), (2.6, 1.1), (-2.6, 1.1)):     # four-leg sling
         hang.beam(m["steel"], hook + Vector((0, 0, 2.6)), hook + Vector((dx, dy, 0.1)), 0.04)
     hang.box(m["red"], hook - Vector((0, 0, 1.2)), (6.0, 2.4, 2.6))         # container
