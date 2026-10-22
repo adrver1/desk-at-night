@@ -806,11 +806,12 @@ canvas.addEventListener('pointerup', () => { drag = null; });
 // Probe for the 60-to-30 fps drop on phones: draw at a lower resolution, or
 // not at all, to tell a GPU that ran out of time (fps comes back) from the
 // system capping the page (it doesn't: Low Power Mode, heat, an idle iframe)
-const probe = { scale: 1, paused: false, start: performance.now(), drops: [], frames: [], work: [], low: 0 };
+const probe = { scale: 1, seaHalf: true, paused: false, start: performance.now(), drops: [], frames: [], work: [], low: 0 };
 const basePixelRatio = renderer.getPixelRatio();
 const setPixelRatio = () => { renderer.setPixelRatio(basePixelRatio * probe.scale * level().res); resize(); };
-const probeRow = group('Probe', [['auto', 'Auto quality'], ['1', 'Full res'], ['0.5', 'Half res'], ['0.25', 'Quarter res'], ['pause', 'Pause drawing']], 'probe', (k) => {
+const probeRow = group('Probe', [['auto', 'Auto quality'], ['sea', 'Sea at ½ res'], ['1', 'Full res'], ['0.5', 'Half res'], ['0.25', 'Quarter res'], ['pause', 'Pause drawing']], 'probe', (k) => {
   if (k === 'pause') probe.paused = !probe.paused;
+  else if (k === 'sea') probe.seaHalf = !probe.seaHalf;
   else if (k === 'auto') { quality.auto = !quality.auto; if (!quality.auto) setLevel(0, performance.now()); }
   else { probe.scale = Number(k); setPixelRatio(); }
 });
@@ -869,7 +870,7 @@ function probeTick(now, work) {
   const sorted = [...probe.work].sort((a, b) => a - b);
   for (const b of probeRow.querySelectorAll('button')) {
     const k = b.dataset.value;
-    b.classList.toggle('on', k === 'pause' ? probe.paused : k === 'auto' ? quality.auto : Number(k) === probe.scale);
+    b.classList.toggle('on', k === 'pause' ? probe.paused : k === 'auto' ? quality.auto : k === 'sea' ? probe.seaHalf : Number(k) === probe.scale);
   }
   const lv = state.variant === 'c' ? `${LEVELS[quality.level].name}${quality.auto ? ' (auto)' : ''} · ` : '';
   probeLine.textContent = `${lv}${span.toFixed(1)} ms/frame · page work ${sorted[30].toFixed(1)} ms (worst ${sorted[59].toFixed(1)}) · ${renderer.info.render.calls} draws · up ${mmss(now - probe.start)}`
@@ -906,6 +907,38 @@ function drawClouds() {
   outdoor.ocean.visible = true;
   outdoor.sky.material = skyComposite;
 }
+// The sea and sky at half the screen's resolution, scaled up under the
+// sharp platform: Adriaen found the sea smoother this way, and it costs a
+// quarter of the pixels. Drawn linear into a half-float target, tone mapped
+// on the way to the screen.
+const seaTarget = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
+const blitGeometry = new THREE.BufferGeometry();
+blitGeometry.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3));
+const blit = new THREE.Mesh(blitGeometry, new THREE.ShaderMaterial({
+  vertexShader: 'varying vec2 vUv; void main() { vUv = position.xy * 0.5 + 0.5; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+  fragmentShader: /* glsl */ `
+    uniform sampler2D uTex;
+    varying vec2 vUv;
+    void main() {
+      gl_FragColor = vec4(texture2D(uTex, vUv).rgb, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+  uniforms: { uTex: { value: seaTarget.texture } }, depthTest: false, depthWrite: false,
+}));
+blit.frustumCulled = false;
+const blitScene = new THREE.Scene().add(blit), blitCamera = new THREE.Camera();
+function drawSea() {
+  const size = renderer.getDrawingBufferSize(new THREE.Vector2()).multiplyScalar(0.5).ceil();
+  if (seaTarget.width !== size.x || seaTarget.height !== size.y) seaTarget.setSize(size.x, size.y);
+  renderer.setRenderTarget(seaTarget);
+  outdoor.render(renderer, camera);
+  renderer.setRenderTarget(null);
+  renderer.clear();
+  renderer.render(blitScene, blitCamera);
+  renderer.clearDepth();
+}
+
 function frame(now) {
   frameNo++;
   if (Math.abs(renderer.getPixelRatio() - basePixelRatio * probe.scale * level().res) > 1e-3) setPixelRatio();
@@ -929,7 +962,8 @@ function frame(now) {
   if (!probe.paused) {
     if (U.uMirrorOn.value) renderMirror();
     if (level().variant === 'c' && level().clouds) drawClouds();
-    outdoor.render(renderer, camera);
+    if (probe.seaHalf) drawSea();
+    else outdoor.render(renderer, camera);
     renderer.render(scene, camera);
   }
   probeTick(now, performance.now() - now);
