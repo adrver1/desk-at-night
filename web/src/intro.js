@@ -11,6 +11,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { Outdoor, WEATHER, PLATFORM_HEADING } from './outdoor.js';
 import { approachPose } from './vessel.js';
+import { Wake } from './wake.js';
 import { Helicopter } from './helicopter.js';
 
 const q = new URLSearchParams(location.search);
@@ -126,14 +127,42 @@ platform.scene.traverse((o) => {
 const radars = [];
 const berth = info.berth && { x: info.berth.position[0], y: info.berth.position[1], yaw: info.berth.yaw };
 const VESSEL_F = [0.35, 0.95, 1];   // approachPose's f at the start, at touchdown and at the end
-const vesselPose = {};
-function moveVessel(t) {
+const vesselPose = {}, wakeFog = { color: new THREE.Color(), density: { value: 0 } };
+// The V-shaped wake (wake.js), laid in the platform's frame: z up turned to y up
+const wake = vessel && berth && new Wake({ length: 88.5, fog: wakeFog });
+if (wake) {
+  const sea = new THREE.Group();
+  sea.rotation.x = -Math.PI / 2;
+  sea.add(wake.mesh);
+  scene.add(sea);
+}
+const vesselF = (t) => BOARD ? 1 : t < FLIGHT ? THREE.MathUtils.lerp(VESSEL_F[0], VESSEL_F[1], t / FLIGHT)
+  : THREE.MathUtils.lerp(VESSEL_F[1], VESSEL_F[2], THREE.MathUtils.clamp((t - FLIGHT) / (T_END - FLIGHT), 0, 1));
+const vesselSpeed = (t) => {   // m/s along the approach at time t
+  const a = approachPose(berth, vesselF(Math.max(0, t - 0.5))), b = approachPose(berth, vesselF(t));
+  return Math.hypot(b.x - a.x, b.y - a.y) / 0.5;
+};
+let wakeAt = null;   // pose last frame, to spot a jump (Skip, or the start)
+function moveVessel(t, dt) {
   if (!vessel || !berth) return;
-  const f = t < FLIGHT ? THREE.MathUtils.lerp(VESSEL_F[0], VESSEL_F[1], t / FLIGHT)
-    : THREE.MathUtils.lerp(VESSEL_F[1], VESSEL_F[2], THREE.MathUtils.clamp((t - FLIGHT) / (T_END - FLIGHT), 0, 1));
-  approachPose(berth, BOARD ? 1 : f, vesselPose);
+  approachPose(berth, vesselF(t), vesselPose);
   vessel.scene.position.copy(B(vesselPose.x, vesselPose.y, 0));
   vessel.scene.rotation.y = vesselPose.yaw;
+  if (!wake) return;
+  if (!wakeAt || Math.hypot(vesselPose.x - wakeAt.x, vesselPose.y - wakeAt.y) > 40) {
+    // Lay the wake it would have left: the track behind it, newest first
+    const past = [];
+    for (let k = 0, g = t; k < 110 && g >= 0; k++, g -= 1) {
+      const q = approachPose(berth, vesselF(g));
+      past.push({ ...q, speed: vesselSpeed(g), age: t - g });
+    }
+    wake.seed(past);
+  }
+  wakeAt = { x: vesselPose.x, y: vesselPose.y };
+  wake.update(dt, vesselPose.x, vesselPose.y, vesselPose.yaw, vesselSpeed(t));
+  const L = outdoor.light;   // foam takes the light of the sky and sun
+  wake.uniforms.uFoam.value.copy(L.sun).multiplyScalar(0.5 * Math.max(0, L.sunDir.y)).add(L.sky.clone().multiplyScalar(Math.PI));
+  wakeFog.density.value = Math.LN2 / L.fogDistance;
 }
 if (vessel) {
   scene.add(vessel.scene);
@@ -676,7 +705,7 @@ function step(dt) {
   }
   for (const m of pilots) m.update(dt);
   radars.forEach((r, i) => { r.rotation.y -= dt * (i ? 2.6 : 2.1); });
-  moveVessel(t);
+  moveVessel(t, dt);
 
   // On short final, the helideck camera picks it up and follows it down
   if (left < CUT_AT || q.get('view') === 'deck') cut = true;
