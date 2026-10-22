@@ -15,6 +15,9 @@ import { outdoorControls } from './outdoorControls.js';
 import { RoomControls } from './roomControls.js';
 import { CONTENT, DEFAULT_LAYOUT, contentOf, screenLabel } from './screens.js';
 import { Highlight } from './highlight.js';
+import { fpsCounter } from './fps.js';
+
+fpsCounter(); // debug readout, ` toggles (see fps.js)
 
 const EYE = 1.65;          // standing eye height, m
 const SEATED_EYE = 1.18;

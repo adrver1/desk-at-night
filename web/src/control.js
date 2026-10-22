@@ -8,6 +8,9 @@ import { Outdoor, ROOM_HEADING } from './outdoor.js';
 import { Cctv } from './cctv.js';
 import { addVessel } from './vessel.js';
 import { outdoorControls } from './outdoorControls.js';
+import { fpsCounter } from './fps.js';
+
+fpsCounter(); // debug readout, ` toggles (see fps.js)
 
 const $ = (id) => document.getElementById(id);
 const ui = {
