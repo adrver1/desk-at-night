@@ -18,7 +18,10 @@ glasses) instead of the clear safety specs.
 
 `extra` adds a character's own outfits ({name: function returning an
 outfit dict}). Such a dict may also say "covered": True (a hat: keep only
-the hair below its rim) and "glasses": False (goggles instead).
+the hair below its rim), "bald": True (a helmet that hides all the hair:
+build none) and "glasses": False (goggles instead).
+`shared` lists which shared outfits the character has (all of them by
+default; a pilot has none).
 `ears` scales how far the ears stick out (1.0 is the base body) and
 `ear_flare` swings their back edges away from the head (metres).
 """
@@ -34,13 +37,14 @@ HEAD_PARTS = ("hair", "stubble", "beard", "smile", "glasses", "headset", "beanie
 
 class Look:
     def __init__(self, name, skin, brow, trousers, shoes, hair, top, office, face=None, glasses=None,
-                 headset=False, notes=(), extra=None, ears=1.0, ear_flare=0.0):
+                 headset=False, notes=(), extra=None, ears=1.0, ear_flare=0.0, shared=None):
         self.name, self.skin, self.brow, self.top = name, skin, brow, top
         self.trousers, self.shoes = trousers, shoes
         self.hair, self.office, self.face = hair, office, face or (lambda body: {})
         self.glasses, self.headset, self.notes = glasses, headset, list(notes)
         self.extra = extra or {}
         self.ears, self.ear_flare = ears, ear_flare
+        self.outfits = list(outfits.OUTFITS if shared is None else shared)
 
 
 def build(look, outfit, out, reference=None, private_dir=None):
@@ -53,7 +57,9 @@ def build(look, outfit, out, reference=None, private_dir=None):
         o = (look.extra.get(outfit) or outfits.OUTFITS[outfit])()
         body = base.body(skin=look.skin, brow=look.brow, colors={**legs, **o["colors"]}, ear_scale=look.ears, ear_flare=look.ear_flare)
     helmet = "helmet" in o["parts"] or o.get("covered", False)
-    parts = {"body": body, "hair": look.hair(helmet=helmet), **look.face(body)}
+    parts = {"body": body, **look.face(body)}
+    if not o.get("bald", False):
+        parts["hair"] = look.hair(helmet=helmet)
     if look.glasses and o.get("glasses", True):
         parts["glasses"] = accessories.glasses(look.glasses)
         o["parts"].pop("glasses", None)
@@ -79,7 +85,7 @@ def main(look, here):
     ap = argparse.ArgumentParser()
     ap.add_argument("--reference", help="reference image for the private contact sheet")
     ap.add_argument("--private", help="folder for the private contact sheet")
-    names = ["office", *outfits.OUTFITS, *look.extra]
+    names = ["office", *look.outfits, *look.extra]
     ap.add_argument("--outfit", default="all", choices=[*names, "all"])
     ap.add_argument("--out", default=here, help="output folder")
     args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])

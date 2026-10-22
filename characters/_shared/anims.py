@@ -7,6 +7,9 @@ into every character's .glb as named glTF animations:
     seated_idle  on a 0.45 m seat, hands on thighs            (loop, 4 s)
     stand_up     seated_idle to idle                          (1.5 s)
     typing       seated, hands on a desk at 0.74 m            (loop, 2 s)
+    flying       seated as a pilot: right hand on the cyclic between
+                 the knees, left on the collective by the left
+                 thigh, small stick inputs, glancing out  (loop, 4 s)
     point        standing, points at something ahead          (2 s)
     step_down    two 0.5 m steps down and 0.6 m forward, as out
                  of a helicopter cabin; ends with the hips 1 m lower,
@@ -145,6 +148,28 @@ def typing(phase):
     return r
 
 
+def flying(phase):
+    """Seated in a pilot's seat: right hand forward on the cyclic grip
+    between the knees, left hand low by the left thigh on the collective,
+    head scanning out of the windscreen."""
+    r = seated(head=12 * math.sin(2 * math.pi * phase), look_down=-2)
+    wob = 0.03 * math.sin(2 * math.pi * phase * 2)
+    # right: elbow by the side, forearm forward and in to the grip, fist
+    # round it with the palm facing in
+    d = _arm(1)
+    aim(r, [("upper_arm.R", d, (0.06, 0.40, -0.92)),
+            ("forearm.R", d, (-0.45, 0.80 + wob, -0.40), ((-0.707, 0, -0.707), (-1.0, 0, 0.0))),
+            ("hand.R", d, (-0.40, 0.90, -0.15), ((-0.707, 0, -0.707), (-1.0, 0, 0.0)))],
+        Matrix.Rotation(math.radians(-6), 3, X))
+    # left: arm down and forward to the collective lever by the left thigh
+    d = _arm(-1)
+    aim(r, [("upper_arm.L", d, (-0.10, 0.42, -0.90)),
+            ("forearm.L", d, (0.05, 0.86, -0.50 + wob * 0.5), ((0.707, 0, -0.707), (1.0, 0, 0.0))),
+            ("hand.L", d, (0.05, 0.92, -0.38), ((0.707, 0, -0.707), (1.0, 0, 0.0)))],
+        Matrix.Rotation(math.radians(-6), 3, X))
+    return r
+
+
 def walk_pose(t):
     """Walk cycle at phase t (0..1), right heel strike at 0."""
     keys = [(0.0, 24, 4, 0), (0.125, 17, 14, 0), (0.25, 5, 6, 0), (0.375, -8, 5, 0),
@@ -201,6 +226,7 @@ def clips():
     rise["hips_offset"] = (0.0, 0.05, -0.18)
     c["stand_up"] = [(0, seated()), (12, lean), (24, rise), (36, up)]
     c["typing"] = [(k * 6, typing(k / 8)) for k in range(9)]
+    c["flying"] = [(k * 12, flying(k / 8)) for k in range(9)]
     c["point"] = [(0, pointing(0)), (10, pointing(1)), (36, pointing(1)), (48, pointing(0))]
     c["step_down"] = stepping_down()
     return c

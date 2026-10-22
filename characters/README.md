@@ -43,7 +43,11 @@ to also write a contact sheet next to the reference into a private folder.
   side shields, gloves) and `survival` for the helicopter ride: an orange
   immersion suit with neck and wrist seals, the hood rolled behind the
   neck, reflective tape, boots, a yellow lifejacket and headband ear
-  defenders.
+  defenders. Pilots have their own kit instead (`FLIGHT_OUTFITS`): a navy
+  flight suit with captain's epaulettes, wings and a name tag, and either a
+  white flight helmet (visor up, boom mic, no hair built under it) or an
+  olive headset with a boom mic. `crew.Look(shared=())` leaves out the
+  crew's PPE and survival outfits.
   Logos are flat polygons projected onto the shell (`Mesh.decal_poly`). A character script builds every outfit by default
   (`--outfit office|ppe|ppe_deck|all`); each one writes its own
   `<name>_<outfit>.glb` on the same rig, plus suffixed renders.
@@ -61,11 +65,13 @@ to also write a contact sheet next to the reference into a private folder.
   deck instead of the clear safety specs. Each character ships one
   everyday look plus `ppe` and `ppe_deck`; kept extra outfits are behind
   `EXTRA_LOOKS = True` in their script.
-- `anims.py` keys six clips on the shared rig and every .glb carries them
+- `anims.py` keys eight clips on the shared rig and every .glb carries them
   as named glTF animations: `idle`, `walk` (in place; move the root),
   `seated_idle` (0.45 m seat), `stand_up`, `typing` (0.74 m desk) and
   `point`, plus `step_down` (two 0.5 m steps down from a 1 m helicopter
-  cabin floor, ending 1 m lower and 0.6 m ahead). One clip set plays on
+  cabin floor, ending 1 m lower and 0.6 m ahead) and `flying` (seated,
+  right hand on a cyclic between the knees, left on a collective by the
+  left thigh). One clip set plays on
   every character and outfit. Face clips move only the face bones, so they
   play on top of a body clip: `blink`, `brows_raise`, `brows_frown`, the
   expressions `happy`, `sad`, `surprised`, `angry` and `worried`, and
@@ -93,3 +99,4 @@ to also write a contact sheet next to the reference into a private folder.
 | `crop_supervisor` | 788 | skin_2, hair_light_brown, white, light_grey, charcoal, black, lip | `ppe` 896, `ppe_deck` 1,207, `survival` 1,018. Very short receding crop, clean-shaven, white shirt. Reference is black and white, so the colours are guesses |
 | `curly_analyst` | 1,200 | skin_3, hair_dark_brown, stubble, turquoise, turquoise_dark, hivis_orange, plastic_black, khaki, leather_brown | `ppe` 1,252, `ppe_deck` 1,386, `survival` 1,374. Curly mullet receding on top, dark glasses, dark goatee, turquoise polo, orange watch. `HEADSET = True` adds the shared headset; `EXTRA_LOOKS = True` adds an amber `jacket` (1,234) and `winter` with beanie and goggles (1,196) |
 | `glasses_ceo` | 1,063 | skin_2, hair_brown, hair_salt_pepper, blue, denim, navy, white, charcoal, black | `ppe` 1,050, `ppe_deck` 1,231, `survival` 1,172. Short crop greying at the sides, clean-shaven, ears that stand out (`ears=1.1`, `ear_flare=0.022`), heavy round black glasses (kept on deck), blue blazer over a white shirt. `EXTRA_LOOKS = True` adds `casual`, a charcoal overshirt over a light-blue tee and jeans (1,105) |
+| `heli_pilot` | 836 | skin_4, hair_dark_brown, hair_salt_pepper, coverall_navy, black, gold, rubber, helmet_white, lens, plastic_black, olive | Outfits: office (flight suit alone) 836, `flying` (helmet) 958, `flying_headset` 1,020. The helicopter captain: an original character, no reference and no operator's colours or logo. Short crop greying at the sides, clean-shaven |

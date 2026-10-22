@@ -22,6 +22,11 @@ orange one-piece with black neoprene neck and wrist seals, the hood rolled
 up behind the neck, reflective tape on the shoulders and arms, integral
 boots, a yellow lifejacket vest over the chest with a black waist strap, and
 headband ear defenders.
+
+Helicopter pilots wear their own kit (`FLIGHT_OUTFITS`, not part of the
+crew's outfits): a navy one-piece flight suit with captain's epaulettes,
+and either a white flight helmet with the visor up and a boom mic, or an
+over-ear headset with a boom mic. Plain colours, no operator's logo.
 """
 import math
 
@@ -310,3 +315,154 @@ def survival():
 
 
 OUTFITS = {"ppe": ppe, "ppe_deck": ppe_deck, "survival": survival}
+
+
+FLIGHT, FLIGHT_TRIM, STRIPE = "coverall_navy", "black", "gold"
+
+
+def flight_suit():
+    """Pilot's one-piece flight suit: a navy torso and full sleeves with
+    black wrist cuffs, a stand collar, a zip up the front, gold wings over a
+    name tag on the left chest, a zipped pocket on the right and epaulettes
+    with four gold stripes. The legs are the body's own, recoloured."""
+    import clothes
+    rings = []
+    for z in (HEM, 0.94, 1.18, 1.35, base.TORSO[-1][0]):
+        ru, rv, dv = base.ring_at(base.TORSO, z)
+        rings.append((z, ru, rv, dv, "suit"))
+    m = base.Mesh().tube(rings, swatch=FLIGHT, offset=0.018, cap_start=False)
+    bvh = m.bvh()
+    m.extend(clothes.zip_line(m, FLIGHT_TRIM, 0.90, 1.40))
+    # wings over the name tag on his left, a pocket zip on his right
+    m.decal_poly(bvh, [(-0.050, 1.300), (-0.098, 1.292), (-0.146, 1.300), (-0.098, 1.278)], STRIPE, "badge")
+    m.decal(bvh, -0.098, 1.258, 0.066, 0.022, FLIGHT_TRIM, "badge")
+    m.decal(bvh, 0.098, 1.288, 0.070, 0.006, FLIGHT_TRIM, "pocket")
+    m.extend(clothes.stand_collar(FLIGHT, region="suit_collar"))
+    pts = sorted({r[0] for r in base.ARM if r[0] != 0.06} | {0.44})
+    arm = []
+    for t in pts:
+        ru, rv = _arm_radius(t)
+        arm.append((t, ru, rv, 0.0, "cuff" if t >= 0.44 else "sleeve"))
+    right = base.Mesh().tube(arm, origin=base.SHOULDER, axes=base.frame(base.arm_dir(1)),
+                             angles=base.HEX6, angle_offset=30, offset=0.014,
+                             colors={"sleeve": FLIGHT, "cuff": FLIGHT_TRIM}, cap_start=True, cap_end=False)
+    # epaulettes lie on the shoulder seam, over the sleeve's top
+    top = base.Mesh().extend(m).extend(right).extend(right.mirrored()).bvh()
+    for s in (1, -1):
+        epaulette(m, top, s)
+    # thigh pockets: flat black flaps on the front of each leg (the leg
+    # rings run top down, so reverse them for outward faces)
+    leg = base.Mesh().tube(base.LEG[::-1], origin=(base.LEG_X, 0, 0), angles=base.HEX6, angle_offset=30, swatch=FLIGHT)
+    right.decal(leg.bvh(), base.LEG_X + 0.02, 0.66, 0.075, 0.012, FLIGHT_TRIM, "pocket", lift=0.003)
+    right.tube([(0.07, 0.058, 0.064, 0.005, "boot"), (0.17, 0.056, 0.060, 0.0, "boot")],
+               origin=(base.LEG_X, 0, 0), swatch=RUBBER, angles=base.HEX6, angle_offset=30, offset=0.008,
+               cap_start=False, cap_end=False)
+    return m.extend(right).extend(right.mirrored())
+
+
+def epaulette(m, bvh, s):
+    """A black shoulder board on side s from the collar to the shoulder,
+    lying on the suit, with four gold stripes at the shoulder end."""
+    top = {}
+    for x in (0.105, 0.175):
+        for y in (-0.024, 0.020):
+            hit, n, _, _ = bvh.ray_cast(Vector((s * x, y, 2.0)), Vector((0, 0, -1)))
+            top[x, y] = (hit, n)
+    pts = [h + n * k for h, n in top.values() for k in (0.001, 0.006)]
+    m.hull(pts, FLIGHT_TRIM, "badge")
+    (a0, na), (a1, _), (b0, _), (b1, _) = (top[0.105, -0.024], top[0.105, 0.020],
+                                           top[0.175, -0.024], top[0.175, 0.020])
+    lift = na * 0.0068
+    for k in range(4):
+        f0, f1 = 0.52 + k * 0.115, 0.52 + k * 0.115 + 0.07
+        q = [a0.lerp(b0, f0), a0.lerp(b0, f1), a1.lerp(b1, f1), a1.lerp(b1, f0)]
+        q = [p + lift for p in q]
+        if (q[1] - q[0]).cross(q[2] - q[0]).z < 0:
+            q = q[::-1]
+        m.face(q, STRIPE, "badge")
+
+
+# Flight helmet rim height by ring angle (90 is the front): above the brows
+# at the front, down over the ears at the sides, to the nape at the back.
+HELMET_RIM = {0: 1.548, 30: 1.625, 60: 1.668, 90: 1.676, 120: 1.668, 150: 1.625,
+              180: 1.548, 210: 1.556, 240: 1.570, 270: 1.575, 300: 1.570, 330: 1.556}
+
+
+def flight_helmet():
+    """White flight helmet: a smooth twelve-sided shell over the ears with a
+    black edge trim, round ear covers, a dark visor raised over the brow and
+    a boom mic to the mouth."""
+    m = base.Mesh()
+    angles = sorted(HELMET_RIM)
+
+    def ring(f, off, lift=0.0):
+        return [base.head_point(a, z + (1.74 - z) * f, off) + Vector((0, 0, lift))
+                for a, z in ((a, HELMET_RIM[a]) for a in angles)]
+    rows = [ring(0.0, 0.028), ring(0.06, 0.031), ring(0.45, 0.034), ring(1.0, 0.030, 0.012)]
+    crown = [base.head_point(a, 1.75, 0.0) + Vector((0, 0, 0.046)) for a in angles]
+    m.loft(rows[:2], FLIGHT_TRIM, "helmet", caps=False)
+    m.loft(rows[1:] + [crown], HELMET, "helmet", caps=False)
+    m.face(crown, HELMET, "helmet")
+    for s in (1, -1):
+        # ear cover: a flat hexagonal dome on the side of the shell
+        x0 = base.head_point(0, CUP_Z, 0.034).x
+        pts = []
+        for x, r in ((x0, 0.046), (x0 + 0.016, 0.036)):
+            for i in range(6):
+                a = math.radians(30 + 60 * i)
+                pts.append(Vector((s * x, CUP_Y + r * math.cos(a), CUP_Z - 0.006 + r * math.sin(a))))
+        m.hull(pts, HELMET, "helmet")
+    # visor raised over the front, a tinted band clear of the shell
+    secs = []
+    for a in (38, 64, 90, 116, 142):
+        secs.append([base.head_point(a, z, off) + Vector((0, 0, dz))
+                     for z, off, dz in ((1.690, 0.037, 0.0), (1.690, 0.044, 0.0), (1.735, 0.044, 0.012), (1.735, 0.037, 0.012))])
+    m.loft(secs, "lens", "visor")
+    for s in (1, -1):
+        p = base.head_point(90 - s * 54, 1.712, 0.040)
+        m.hull([p + Vector((dx, dy, dz)) for dx in (-0.006, 0.006) for dy in (-0.008, 0.008) for dz in (-0.008, 0.008)],
+               FLIGHT_TRIM, "visor")
+    boom_mic(m, x0 + 0.010)
+    return m
+
+
+def boom_mic(m, x, side=-1):
+    """Boom mic from the ear on his left (side -1) round to the mouth."""
+    ear = (side * x, CUP_Y + 0.030, CUP_Z - 0.020)
+    bend = (side * 0.112, 0.098, 1.540)
+    tip = (side * 0.032, 0.136, 1.528)
+    m.bar(ear, bend, 0.0035, CLIP, "mic")
+    m.bar(bend, tip, 0.0035, CLIP, "mic")
+    m.hull([Vector(tip) + Vector((dx, dy, dz)) for dx in (-0.012, 0.004) for dy in (-0.006, 0.006)
+            for dz in (-0.007, 0.007)], CLIP, "mic")
+    return m
+
+
+def flying():
+    """Flying: flight suit and white flight helmet, visor up, boom mic."""
+    return {"colors": {"hips": FLIGHT, "thigh": FLIGHT, "shin": FLIGHT, "shoe": RUBBER},
+            "hide": {"belly", "chest", "upper_arm", "forearm", "ear"},
+            "parts": {"suit": flight_suit(), "helmet": flight_helmet()},
+            "rigid": {"helmet": "head", "visor": "head", "mic": "head"},
+            "bald": True}   # the shell reaches the nape: no hair shows
+
+
+def flying_headset():
+    """Flying: flight suit and an olive over-ear headset with a boom mic."""
+    import accessories
+    o = flying()
+    del o["parts"]["helmet"], o["bald"]
+    o["parts"]["headset"] = boom_mic(accessories.headset("olive", clear=0.018), 0.160)
+    o["hide"] = o["hide"] - {"ear"}
+    return o
+
+
+def flight_suit_only():
+    """Flight suit, no helmet: walking out to the helicopter."""
+    o = flying()
+    del o["parts"]["helmet"], o["bald"]
+    o["hide"] = o["hide"] - {"ear"}
+    return o
+
+
+FLIGHT_OUTFITS = {"flying": flying, "flying_headset": flying_headset}
