@@ -48,12 +48,28 @@ def on_cap(hairline, angle, f, offset=0.011, lift=0.008):
 BLEND = {55: 0.3, 125: 0.3, 20: 0.45, 160: 0.45, 340: 0.72, 200: 0.72, 305: 0.9, 235: 0.9}
 
 
+CAP_OFFSETS, CAP_LIFTS = (0.008, 0.012, 0.016), (0.0, 0.008, 0.02)
+
+
+def _at(vals, f):
+    """Value at fraction f from three given at the hairline, half way (0.55)
+    and the crown: how cap() spreads its offsets and lifts."""
+    return vals[0] + (vals[1] - vals[0]) * f / 0.55 if f <= 0.55 else \
+        vals[1] + (vals[2] - vals[1]) * (f - 0.55) / 0.45
+
+
+def flush(hairline, angle, f, offsets=CAP_OFFSETS, lifts=CAP_LIFTS, extra=0.003):
+    """Point just outside a cap built with these offsets and lifts: a block
+    whose edge sits here meets the cap without a step."""
+    return on_cap(hairline, angle, f, _at(offsets, f) + extra, _at(lifts, f))
+
+
 def blend_ring(hairline, offset, lift=0.0):
     """Base points for a top block that tapers into the cap at the back."""
     return [on_cap(hairline, a, f, offset, lift) for a, f in BLEND.items()]
 
 
-def cap(color, hairline=FULL, offsets=(0.008, 0.012, 0.016), lifts=(0.0, 0.008, 0.02), region="hair",
+def cap(color, hairline=FULL, offsets=CAP_OFFSETS, lifts=CAP_LIFTS, region="hair",
         crown=True, fs=(0.0, 0.3, 0.55, 0.8, 1.0), row_colors=None):
     """Close-cropped shell from the hairline to the crown: rows of the
     head's eight facets at fractions fs of the way up, plus a flat crown.
@@ -62,9 +78,7 @@ def cap(color, hairline=FULL, offsets=(0.008, 0.012, 0.016), lifts=(0.0, 0.008, 
     of rows from the bottom up, for a fade that darkens towards the top."""
     m = base.Mesh()
 
-    def at(vals, f):
-        return vals[0] + (vals[1] - vals[0]) * f / 0.55 if f <= 0.55 else \
-            vals[1] + (vals[2] - vals[1]) * (f - 0.55) / 0.45
+    at = _at
     shades = list(row_colors or []) + [color] * len(fs)
     rows = []
     for f in fs:
@@ -161,12 +175,14 @@ def swept_back(color, temples, hairline=FULL, helmet=False):
     if helmet:
         return m
     h = hairline
-    pts = [on_cap(h, a, 0.25, 0.012) for a in (20, 55, 125, 160)]
-    pts += [on_cap(h, a, 0.4, 0.016) for a in (200, 235, 305, 340)]
+    # the base sits flush on the cap: grey shows at the temples and sides,
+    # and at the back the top hair runs smoothly down to the nape
+    pts = [flush(h, a, f) for a, f in ((55, 0.2), (125, 0.2), (20, 0.4), (160, 0.4),
+                                       (340, 0.3), (200, 0.3), (305, 0.06), (235, 0.06))]
+    pts += [flush(h, a, f, extra=0.012) for a, f in ((305, 0.5), (235, 0.5), (340, 0.7), (200, 0.7))]
     pts += [Vector((0.05, 0.112, 1.77)), Vector((-0.05, 0.112, 1.765)), Vector((0.0, 0.118, 1.778)),
             Vector((0.06, 0.06, 1.80)), Vector((-0.06, 0.06, 1.80)), Vector((0.0, 0.02, 1.815)),
-            Vector((0.06, -0.05, 1.79)), Vector((-0.06, -0.05, 1.79)), Vector((0.0, -0.10, 1.76)),
-            Vector((0.05, -0.12, 1.70)), Vector((-0.05, -0.12, 1.70))]
+            Vector((0.055, -0.05, 1.79)), Vector((-0.055, -0.05, 1.79))]
     m.hull(pts, color, "hair")
     # Two waves breaking over the forehead, one to each side
     for s, y in ((1, 0.10), (-1, 0.095)):
@@ -211,7 +227,9 @@ def crop_top(color, temples, hairline=FULL, helmet=False):
     if helmet:
         return m
     h = hairline
-    pts = [on_cap(h, a, 0.05, 0.012) for a in (55, 125)] + blend_ring(h, 0.013, 0.004)
+    offsets, lifts = (0.007, 0.010, 0.012), (0.0, 0.004, 0.01)
+    pts = [flush(h, a, f, offsets, lifts) for a, f in BLEND.items()]
+    pts += [flush(h, a, 0.05, offsets, lifts, 0.006) for a in (55, 125)]
     pts += [Vector(p) for p in ((0.045, 0.112, 1.775), (-0.045, 0.11, 1.772), (0.0, 0.115, 1.782),
                                 (0.05, 0.03, 1.795), (-0.05, 0.03, 1.792))]
     return m.hull(pts, color, "hair")
