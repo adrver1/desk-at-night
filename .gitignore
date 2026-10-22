@@ -6,3 +6,4 @@ blender/build/
 __pycache__/
 web/preview.html
 dist-preview/
+dist-prototype
