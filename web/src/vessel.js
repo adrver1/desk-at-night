@@ -8,6 +8,7 @@
 // in platform coordinates (metres, +Z up, the berth from vessel.json) and
 // mapped into the room's frame with its toRoom matrix.
 import * as THREE from 'three';
+import { Wake } from './wake.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // Game-clock hours: start of the approach, alongside, start of the departure,
@@ -162,13 +163,21 @@ export class SupplyVessel {
     });
     const group = new THREE.Group();
     group.add(root);
+    // The wake, laid in the platform's frame
+    this.wakeFog ??= { color: new THREE.Color(), density: { value: 0 } };
+    const wake = new Wake({ length: this.info.length ?? 88, fog: this.wakeFog });
+    const sea = new THREE.Group();
+    sea.matrixAutoUpdate = false;
+    sea.matrix.copy(this.toRoom);
+    sea.add(wake.mesh);
+    group.add(sea);
     if (lights) {
       // The room's own surfaces are baked; only the vessel uses these
       this.hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
       this.sun = new THREE.DirectionalLight(0xffffff, Math.PI);
       group.add(this.hemi, this.sun, this.sun.target);
     }
-    const c = { group, root, glowing, radars };
+    const c = { group, root, glowing, radars, wake };
     this.copies.push(c);
     return group;
   }
@@ -223,7 +232,11 @@ export class SupplyVessel {
     const visible = phase !== 'away';
     for (const c of this.copies) c.group.visible = visible;
     this.slew(dt, phase === 'alongside');
-    if (!visible) return;
+    if (!visible) {
+      for (const c of this.copies) c.wake.clear();
+      this.last = null;
+      return;
+    }
 
     const p = this.pose, B = this.berth;
     if (phase === 'approaching') approachPose(B, f, p);
@@ -231,6 +244,16 @@ export class SupplyVessel {
     else { p.x = B.x; p.y = B.y; p.yaw = B.yaw; }
     // Unwrap the heading so it turns the short way from the berth heading
     p.yaw = B.yaw + Math.atan2(Math.sin(p.yaw - B.yaw), Math.cos(p.yaw - B.yaw));
+    // Speed through the water, smoothed, for the wake; when it first shows
+    // up or the clock jumps, lay the wake it would have left behind it
+    const jump = !this.last || Math.hypot(p.x - this.last.x, p.y - this.last.y) > 100;
+    const moved = !jump && dt > 0 ? Math.hypot(p.x - this.last.x, p.y - this.last.y) / dt : 0;
+    this.speed = jump ? this.trackSpeed(phase, f) : THREE.MathUtils.lerp(this.speed, Math.min(moved, 12), 1 - Math.exp(-dt * 2));
+    this.last = { x: p.x, y: p.y };
+    if (jump) {
+      const past = this.pastTrack(phase, f);
+      for (const c of this.copies) c.wake.seed(past);
+    }
 
     // Dynamic positioning: small slow drifts around the target; the swell:
     // heave, roll and pitch growing with the wind
@@ -254,7 +277,13 @@ export class SupplyVessel {
     const lsky = L.sky.r * 0.2126 + L.sky.g * 0.7152 + L.sky.b * 0.0722;
     const night = 1 - THREE.MathUtils.smoothstep(lsky, 0.01, 0.15);
     const spin = (i) => (this.t * RADAR_RPM[i] / 60) * Math.PI * 2;
+    // Foam takes the light of the sky and sun
+    this.foam ??= new THREE.Color();
+    this.foam.copy(L.sun).multiplyScalar(0.5 * Math.max(0, L.sunDir.y)).add(L.sky.clone().multiplyScalar(Math.PI));
+    this.wakeFog.density.value = Math.LN2 / L.fogDistance;
     for (const c of this.copies) {
+      c.wake.update(dt, p.x, p.y, p.yaw, this.speed);
+      c.wake.uniforms.uFoam.value.copy(this.foam);
       c.root.matrix.copy(m);
       c.root.matrixWorldNeedsUpdate = true;
       for (const [mat, k] of c.glowing) mat.emissiveIntensity = k * (0.03 + 0.97 * night);
@@ -274,6 +303,37 @@ export class SupplyVessel {
     }
   }
 }
+
+// How long the phase lasts in seconds of game time
+SupplyVessel.prototype.duration = function duration(phase) {
+  const i = { approaching: 0, alongside: 1, departing: 2 }[phase];
+  return this.demand !== null ? ON_DEMAND[i] : (SCHEDULE[i + 1] - SCHEDULE[i]) * 3600;
+};
+
+SupplyVessel.prototype.poseAt = function poseAt(phase, f, p = {}) {
+  const B = this.berth;
+  if (phase === 'approaching') return approachPose(B, f, p);
+  if (phase === 'departing') return departPose(B, f, p);
+  return Object.assign(p, B);
+};
+
+// Speed in m/s at progress f through a phase
+SupplyVessel.prototype.trackSpeed = function trackSpeed(phase, f) {
+  if (phase === 'alongside') return 0;
+  const a = this.poseAt(phase, Math.max(0, f - 0.005)), b = this.poseAt(phase, f);
+  return Math.hypot(b.x - a.x, b.y - a.y) / (Math.max(f - Math.max(0, f - 0.005), 1e-6) * this.duration(phase));
+};
+
+// Where it sailed before progress f, newest first, for the wake
+SupplyVessel.prototype.pastTrack = function pastTrack(phase, f) {
+  if (phase === 'alongside') return [];
+  const out = [], T = this.duration(phase);
+  for (let k = 0, g = f; k < 110 && g >= 0; k++, g -= 0.002) {
+    const q = this.poseAt(phase, g);
+    out.push({ x: q.x, y: q.y, yaw: q.yaw, speed: this.trackSpeed(phase, g), age: (f - g) * T });
+  }
+  return out;
+};
 
 SupplyVessel.prototype.slew = function slew(dt, out) {
   const c = this.crane;
