@@ -211,7 +211,11 @@ def _open_lid(m, shirt):
     z = m.verts[ids[0]].z
     qr = m._v((m.verts[p[55]].x, -0.01, z))
     ql = m._v((m.verts[p[125]].x, -0.01, z))
-    m.faces += [([p[55], p[125], ql, qr], shirt, "shirt_v"),
+    # the shirt piece's front edge reaches past the shell to meet the V
+    # decal, which sits a little off the surface, without a seam
+    fr = m._v(m.verts[p[55]] + Vector((0, 0.004, 0)))
+    fl = m._v(m.verts[p[125]] + Vector((0, 0.004, 0)))
+    m.faces += [([fr, fl, ql, qr], shirt, "shirt_v"),
                 ([p[340], p[20], p[55], qr], sw, reg),
                 ([ql, p[125], p[160], p[200]], sw, reg),
                 ([p[200], p[235], p[305], p[340], qr, ql], sw, reg)]

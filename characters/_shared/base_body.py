@@ -256,18 +256,43 @@ class Mesh:
         """A strip stuck on the front of the mesh between two edges, left(z)
         and right(z), as one row of quads per step in zs. Unlike one big
         flat polygon it follows a curved surface (a V of shirt, lapels)."""
+        def cast(x, z):
+            hit, n, _, _ = bvh.ray_cast(Vector((x, 1.0, z)), -Y)
+            assert hit is not None, (region, x, z)
+            return hit, n
+
+        def creases(x0, x1, z):
+            # where the strip crosses an edge of the surface, found by
+            # bisection: a column there keeps the strip on both facets
+            # instead of cutting the corner under the surface
+            n0, n1 = cast(x0, z)[1], cast(x1, z)[1]
+            if n0.angle(n1, 0.0) < 0.05:
+                return []
+            if abs(x1 - x0) < 0.002:
+                return [(x0 + x1) / 2]
+            xm = (x0 + x1) / 2
+            return creases(x0, xm, z) + creases(xm, x1, z)
+
+        spans = [(left(z), right(z)) for z in zs]
+        fracs = []
+        for (l, r), z in zip(spans, zs):
+            fracs.append([(x - l) / (r - l) for x in creases(l, r, z)] if abs(r - l) > 1e-6 else [])
+        k = max(len(f) for f in fracs)
+        full = [f for f in fracs if len(f) == k]
         rows = []
-        for z in zs:
-            row = []
-            for x in (left(z), right(z)):
-                hit, n, _, _ = bvh.ray_cast(Vector((x, 1.0, z)), -Y)
-                assert hit is not None, (region, x, z)
-                row.append(hit + n * lift)
-            rows.append(row)
-        for (a0, b0), (a1, b1) in zip(rows, rows[1:]):
-            pts = [a0, b0, b1, a1]
-            n = (b0 - a0).cross(a1 - a0)
-            self.face(pts if n.y > 0 else pts[::-1], swatch, region)
+        for (l, r), z, f in zip(spans, zs, fracs):
+            if len(f) != k:   # no crease here: columns where the nearest row has them
+                f = min(full, key=lambda g: sum(abs(a - b) for a, b in zip(g, f)) if f else 0)
+            xs = [l] + [l + (r - l) * t for t in f] + [r]
+            rows.append([h + n * lift for h, n in (cast(x, z) for x in xs)])
+        for r0, r1 in zip(rows, rows[1:]):
+            for i in range(len(r0) - 1):
+                a0, b0, b1, a1 = r0[i], r0[i + 1], r1[i + 1], r1[i]
+                if (b0 - a0).length < 1e-6 and (b1 - a1).length < 1e-6:
+                    continue
+                pts = [a0, b0, b1, a1]
+                n = (b0 - a0).cross(a1 - a0) if (b0 - a0).length > 1e-6 else (b1 - a1).cross(a1 - a0)
+                self.face(pts if n.y > 0 else pts[::-1], swatch, region)
         return self
 
     def to_object(self, name, collection=None):
