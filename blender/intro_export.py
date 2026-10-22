@@ -78,7 +78,7 @@ def main():
         "quarters": {"x": [op.LQ_X0, op.LQ_X1], "z": [-op.LQ_Y, op.LQ_Y], "roof": op.LQ_TOP},
         "eye": three(heli.EYE_SEAT),
         "seats": seats,          # x, y, z of the seat pan, then +1 facing forward or -1 aft
-        "door": {"x": [heli.DOOR[0], heli.DOOR[1]], "sill": heli.DOOR[2], "slide": heli.DOOR_SLIDE},
+        "door": {"x": [heli.DOOR[0], heli.DOOR[1]], "sill": heli.DOOR[2], "slide": heli.DOOR_SLIDE, "exit": heli.EXIT_X},
         "floor": heli.FLOOR,
     }
     with open(os.path.join(OUT, "intro.json"), "w") as f:

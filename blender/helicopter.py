@@ -265,9 +265,11 @@ _ZW0, _ZW1 = 0.58 + 0.50 * 2.22 + 0.06, 0.58 + 0.88 * 2.22 - 0.07
 WINDOWS = ([(3.15, 4.10, _ZW0 - 0.15, _ZW1)] + [(x - 0.46, x + 0.46, _ZW0, _ZW1) for x in (2.05, 0.80, -0.45)]
            + [(-1.55, -1.05, _ZW0 + 0.05, _ZW1)])
 # The sliding cabin door on each side, (x0, x1, z0, z1): it carries the two
-# middle windows and slides aft to open (the HeliDoorL/R parts, interior only)
+# middle windows and slides aft to open (the HeliDoorL/R parts, interior
+# only). People step out at its front, at EXIT_X, onto the step and down.
 DOOR = (-1.0, 1.30, 1.12, 0.58 + 0.88 * 2.22 - 0.005)
 DOOR_SLIDE = (0.42, 2.40)   # out, then aft (m), fully open
+EXIT_X = 0.95
 _in_door = lambda w: DOOR[0] <= w[0] and w[1] <= DOOR[1]
 
 
@@ -341,8 +343,8 @@ def build_cabin_details(g, m, liv, door=False):
     # Sponsons with the main gear under the door sill, and a step
     sp = m[liv["sponson"]]
     for s in (1, -1):
-        g.box(sp, (-0.25, s * 1.40, 0.785), (2.9, 0.40, 0.67))
-        g.box(sp, (1.35, s * 1.30, 1.02), (0.5, 0.30, 0.45))
+        g.box(sp, (-0.575, s * 1.40, 0.785), (2.25, 0.40, 0.67))   # ends short of the door's front, where people step out
+        g.box(m["metal"], (0.95, s * 1.45, 0.47), (0.60, 0.30, 0.06))   # step, half way down to the deck
         g.box(m["metal"], (2.6, s * 1.30, 0.62), (0.5, 0.18, 0.05))
     # Engine cowling: a low hump over the cabin roof with two exhausts aft
     cw = m[liv["cowl"]]

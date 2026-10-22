@@ -21,20 +21,28 @@ const PLAYER_SEAT = [1, 0];
 const OUTFIT = q.get('outfit') ?? 'survival'; // offshore flights: immersion suit and lifejacket
 
 // The flight, in platform coordinates as Blender has them (x east, y north,
-// z up, metres): in from the south-east, round the platform clockwise so it
+// z up, metres): in from the east, round the platform clockwise so it
 // stays in our right-hand window, then a right turn onto the helideck from the east
 const ROUTE = [
-  [1250, -720, 290], [700, -450, 270],
-  ...[-70, -115, -160, -205, -250, -295, -340].map((a) => {
-    const r = THREE.MathUtils.degToRad(a);
-    return [-15 + 330 * Math.cos(r), 330 * Math.sin(r), 250];
+  // On the circle's tangent line, so it rolls straight into the right turn;
+  // dense points so the spline follows the line and the arc, without the
+  // small left wiggle a sparse one puts in before the turn
+  ...[1100, 900, 700, 500, 300, 150, 60, 20].map((d) => [97.9 + 0.940 * d, -310.1 + 0.342 * d, 250 + d * 0.04]),
+  ...Array.from({ length: 55 }, (_, i) => {   // the circle, sinking over its last quarter
+    const a = -70 - 5 * i, r = THREE.MathUtils.degToRad(a);
+    return [-15 + 330 * Math.cos(r), 330 * Math.sin(r), 250 - 70 * THREE.MathUtils.clamp((-250 - a) / 90, 0, 1)];
   }),
-  [330, -20, 175], [280, -95, 140], [190, -85, 112], [120, -30, 90],
+  // then on round to the right onto the deck's line, heading west
+  ...Array.from({ length: 9 }, (_, i) => {
+    const r = THREE.MathUtils.degToRad(-10 * (i + 1));
+    return [182 + 113 * Math.cos(r), 113 + 113 * Math.sin(r), 180 - 75 * (i + 1) / 9];
+  }),
 ];
 const HOVER = 6;            // m over the deck where the descent starts
+const SETTLE = 5;           // m short of the spot (east of it) where the route ends
 const CRUISE = [60, 52];    // m/s on the way out and round the platform
 const BRAKE = 2.2;          // m/s² slowing down for the deck
-const DESCENT = 4;          // s from the hover to the deck
+const DESCENT = 5;          // s from the end of the route to the deck
 const CUT_AT = 260;         // m from the deck: cut to the helideck camera
 const GEAR_AT = 170;        // m from the deck: gear down, in view of the helideck camera
 
@@ -161,7 +169,7 @@ people.forEach((gltf, i) => {
 const WALK = 1.25;          // m/s, the walk clip's pace
 const EXIT_AT = 3;          // s after touchdown the first one stands up
 const EXIT_GAP = 1.0;       // s between passengers
-const doorX = (info.door.x[0] + info.door.x[1]) / 2 + 0.3;
+const doorX = info.door.exit;   // clear of the sponson, over the step
 const stairs = B(47.5, -4, 72.5);  // top of the stairs from the helideck down into the quarters
 passengers.sort((a, b) => Math.abs(a.userData.seat.x - doorX) - Math.abs(b.userData.seat.x - doorX));
 passengers.forEach((p, i) => { p.userData.leaveAt = EXIT_AT + i * EXIT_GAP; });
@@ -246,8 +254,8 @@ const PLATFORM_EYE = B(-10, 0, 55);   // where the eyes go when left alone  // r
 // ---------------------------------------------------------------- the route
 
 const curve = new THREE.CatmullRomCurve3([...ROUTE.map((p) => B(...p)),
-  B(info.park.position[0] + 25, -info.park.position[2], info.park.position[1] + HOVER + 3),
-  new THREE.Vector3().fromArray(info.park.position).add(new THREE.Vector3(0, HOVER, 0))], false, 'centripetal', 0.5);
+  B(info.park.position[0] + 40 + SETTLE, -info.park.position[2], info.park.position[1] + HOVER + 5),  // lined up with the deck
+  new THREE.Vector3().fromArray(info.park.position).add(new THREE.Vector3(SETTLE, HOVER, 0))], false, 'centripetal', 0.5);
 const LENGTH = curve.getLength();
 const circleStart = curve.getLengthAtFraction?.(0) ?? 0;
 // Speed along the path: cruise, then slow to a walk over the deck
@@ -299,18 +307,22 @@ function poseAt(t, dt) {
     turn = Math.atan2(Math.sin(turn), Math.cos(turn));      // rad/s
     const want = THREE.MathUtils.clamp(-Math.atan(v * turn / 9.81), -0.5, 0.5);
     bank += (want - bank) * Math.min(1, dt * 1.5);
-    // Nose a little down in cruise, up as it brakes
-    const braking = speedAt(s) < CRUISE[1] - 1 ? BRAKE : 0;
-    pitch = -0.05 * v / CRUISE[0] + 0.05 * braking;
+    // Nose a little down in cruise, up as it brakes, easing level again as
+    // it slows to a walk over the deck
+    const braking = THREE.MathUtils.smoothstep(CRUISE[1] - v, 0, 4) * THREE.MathUtils.smoothstep(v, 2, 14);
+    pitch = -0.05 * v / CRUISE[0] + 0.05 * BRAKE * braking;
     // Over the last stretch, turn to the heading it parks with
     const k = 1 - THREE.MathUtils.smoothstep(LENGTH - s, 0, 80);
     yaw = lerpAngle(yaw, info.park.yaw, k);
   } else {
-    const k = THREE.MathUtils.smoothstep(Math.min(t - FLIGHT, DESCENT), 0, DESCENT);
-    P.copy(park).add(new THREE.Vector3(0, HOVER * (1 - k), 0));
+    // Settling onto the deck: still drifting forward the last few metres and
+    // already sinking as the route ends, so neither motion stops dead
+    const k = Math.min(t - FLIGHT, DESCENT) / DESCENT;
+    const sink = 0.3 * k + 0.7 * THREE.MathUtils.smoothstep(k, 0, 1), drift = 1 - (1 - k) ** 2;
+    P.copy(park).add(new THREE.Vector3(SETTLE * (1 - drift) * Math.cos(info.park.yaw + Math.PI), HOVER * (1 - sink), 0));
     yaw = info.park.yaw;
-    pitch = 0.02 * (1 - k);
-    bank *= 0.95;
+    pitch = -0.05 * 2 / CRUISE[0] * (1 - k);
+    bank += (0 - bank) * Math.min(1, (dt || 0.016) * 1.5);
     s = LENGTH;
   }
   heliRoot.position.copy(P);
@@ -467,4 +479,4 @@ window.intro = { advance(sec) { for (let k = 0; k < sec * 30; k++) step(1 / 30);
     poseAt(tt, 0.016); heliRoot.updateMatrixWorld(true);
     const v = heliRoot.worldToLocal(new THREE.Vector3(0, 40, 0)).sub(head.position);
     return [Math.round(THREE.MathUtils.radToDeg(Math.atan2(-v.z, v.x))), Math.round(THREE.MathUtils.radToDeg(Math.atan2(v.y, Math.hypot(v.x, v.z)))), Math.round(THREE.MathUtils.radToDeg(heliRoot.rotation.y)), heliRoot.position.toArray().map(Math.round).join(",")];
-  }, get t() { return t; }, set t(v) { t = v; }, FLIGHT, T_LAND, T_END, LENGTH, look, curve, passengers };
+  }, get t() { return t; }, set t(v) { t = v; }, FLIGHT, T_LAND, T_END, LENGTH, heli: heliRoot, look, curve, passengers };
