@@ -164,6 +164,20 @@ export. Skip jumps to the landing, the walkout, then the end.
 `&off=x,y,z&at=x,y,z` (camera in the helicopter's frame), `&world=x,y,z`
 (in the platform's), `&cutaway`.
 
+## Story mode
+
+`story.html` is the on-rails presentation, "A day in the life of EIGA": a
+prologue over the intro flight, three acts in the control room (yesterday,
+today, tomorrow) and a fly-out to the platform at night. Space or → moves on,
+← goes back, 1 to 9 jump to a chapter, F toggles free mode, P shows presenter
+notes. The script, voices, private build and open items are described in
+[web/src/story/README.md](web/src/story/README.md).
+
+```bash
+python web/scripts/voices.py --model DIR             # Kokoro voices for changed lines
+.venv/bin/python blender/sola_apron.py               # web/public/story/sola/sola.glb (?sola=1 opening)
+```
+
 ## Supply vessel
 
 ```bash
