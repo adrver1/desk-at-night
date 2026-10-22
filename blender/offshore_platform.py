@@ -469,8 +469,8 @@ def build_topsides(g, m):
     name_board(g, m, ("y", -TOP_Y + 0.5), -1, 25.0, 36.9, 10.0, 4.6)  # on the plant module
     name_board(g, m, ("y", TOP_Y), 1, -26.0, PROC_TOP - 3.6, 9.5, 5.0)  # far side, high on the process module
     # Escape tunnel: a white clad corridor along the bottom of the far side,
-    # from the quarters to the process end, panel seams every few metres
-    tx0, tx1, ty, tz0, tz1 = -26.0, 42.0, TOP_Y + 2.8, DECK_BOT - 0.3, 27.6
+    # nearly the full length of the platform, panel seams every few metres
+    tx0, tx1, ty, tz0, tz1 = -48.0, 47.0, TOP_Y + 2.8, DECK_BOT - 0.3, 27.6
     g.span(m["white"], tx0, tx1, TOP_Y, ty, tz0, tz1)
     for i in range(int((tx1 - tx0) / 3.4) + 1):
         xx = tx0 + i * 3.4
