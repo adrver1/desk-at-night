@@ -160,7 +160,8 @@ people.forEach((gltf, i) => {
   shade(0.7);  // in the cabin the sky only reaches them through the windows
   const bones = {};
   p.traverse((o) => { if (o.isBone) bones[o.name] = o; });
-  Object.assign(p.userData, { mixer, act, shade, seat: s.clone(), face, bones, duck: 0, ducked: 0,
+  Object.assign(p.userData, { mixer, act, shade, seat: s.clone(), face, bones, duck: 0, ducked: 0, grab: false, grabbed: 0,
+    hipsUp: bones.hips ? bones.hips.position.clone().normalize() : new THREE.Vector3(0, 1, 0),
     state: 'seated', blinkAt: Math.random() * 4 });
   heliRoot.add(p);
   passengers.push(p);
@@ -207,20 +208,29 @@ function route(p) {
 
 // Bend forward from the hips by u.duck, eased; undone first, so it never
 // adds up on bones the playing clip doesn't move
-// The arms hang from the chest, so they would swing back with it: turn
-// them back toward hanging down, the right one a little ahead, reaching
-// for the door frame
-const BEND = [['spine', 0.55], ['chest', 0.55], ['neck', -0.25], ['upper_armL', -0.95], ['upper_armR', -1.25]];
+// Ducking, on top of the clips: bend forward at the spine and chest, the
+// head kept up; the arms hang from the chest, so turn them back toward
+// hanging down; bend the knees and sink the hips to match. At the door
+// (u.grab) the right hand reaches out to the door's front post.
+const BEND = [['spine', 0.45], ['chest', 0.45], ['neck', -0.25], ['upper_armL', -0.8], ['upper_armR', -0.8]];
+const KNEE = 0.35 / DUCK_DOOR;   // thigh forward, shin back twice that, per rad of duck
+const GRAB = [['upper_armR', 'z', -0.8], ['upper_armR', 'x', 0.1], ['forearmR', 'x', -1.5]];
+function pose(p, k) {
+  const u = p.userData, b = u.bones, d = u.ducked * k, g = u.grabbed * k, q = u.ducked * KNEE * k;
+  for (const [n, f] of BEND) b[n]?.rotateX(-d * f);
+  for (const n of ['thighL', 'thighR']) b[n]?.rotateX(-q);
+  for (const n of ['shinL', 'shinR']) b[n]?.rotateX(2 * q);
+  for (const [n, axis, f] of GRAB) b[n]?.[axis === 'z' ? 'rotateZ' : 'rotateX'](g * f);
+  if (b.hips) b.hips.position.addScaledVector(u.hipsUp, -0.84 * (1 - Math.cos(u.ducked * KNEE)) * k);
+}
 function bend(p, dt) {
   const u = p.userData;
   if (!u.bones.spine || !u.bones.chest) return;
   u.ducked += (u.duck - u.ducked) * Math.min(1, dt * 5);
-  for (const [n, k] of BEND) u.bones[n]?.rotateX(-u.ducked * k);
+  u.grabbed += ((u.grab ? 1 : 0) - u.grabbed) * Math.min(1, dt * 6);
+  pose(p, 1);
 }
-function unbend(p) {
-  const u = p.userData;
-  for (const [n, k] of BEND) u.bones[n]?.rotateX(u.ducked * k);
-}
+function unbend(p) { if (p.userData.bones.spine) pose(p, -1); }
 
 function disembark(p, since, dt) {
   const u = p.userData;
@@ -248,6 +258,7 @@ function disembark(p, since, dt) {
   if (u.state === 'stepping') {
     // Head clear of the door as they go down: straighten up
     u.duck = since < u.stepEnd - 0.6 ? DUCK_DOOR : 0;
+    u.grab = since < u.stepEnd - 0.4;
     if (since < u.stepEnd) return;
     // The clip ends 1.0 m down and 0.6 m out: move the root there and walk
     // on, cut over (a cross-fade would blend in the clip's drop as well,
@@ -280,6 +291,7 @@ function disembark(p, since, dt) {
   p.rotation.y = lerpAngle(p.rotation.y, want, Math.min(1, dt * 8));
   // Bent under the roof in the cabin, lower still for the door
   u.duck = u.leg >= STEP ? 0 : u.leg >= STEP - 2 ? DUCK_DOOR : DUCK_CABIN;
+  u.grab = u.leg === STEP - 1;
   if (u.leg > STEP) u.shade(1);
   // Fade out at the top of the stairs
   const left = u.path.slice(u.leg + 1).reduce((acc, q, k, arr) => acc + (k ? q.distanceTo(arr[k - 1]) : q.distanceTo(p.position)), 0);
@@ -541,7 +553,7 @@ function step(dt) {
     ui.caption.classList.toggle('on', !!c[1]);
   }
   if (ui.skip) {
-    ui.skip.hidden = t > WALKOUT() - 0.5 || (t > FLIGHT - 8 && t < FLIGHT - 7 + 3);   // a beat between the two
+    ui.skip.hidden = t > WALKOUT() - 0.5;
   }
   ui.end?.classList.toggle('on', t > T_END);
 
