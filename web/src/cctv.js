@@ -1,18 +1,18 @@
 // The deck cameras' live pictures: the platform as they see it (cctv.glb, from
 // blender/cctv_platform.py) under outdoor.js's sky, sea, sun, moon and fog,
-// each drawn a few times a second into a small texture the wall screens show.
-// The cameras always see look B: a flat sea, with the platform mirrored in it.
+// drawn in turn into small, coarse textures the wall screens show: a few
+// pictures a second between them all, so they cost the room little. The
+// cameras see look B's flat sea, without its mirror (too small to see here).
 // The pictures stay linear and bright; the screens' shader exposes them like
 // a camera would (controlScene.js), and screens.js draws rain, noise and the
 // caption over them.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Helicopter } from './helicopter.js';
-import { reflectable } from './outdoor.js';
 
-const COARSE = matchMedia('(pointer: coarse)').matches;
-const WIDTH = COARSE ? 384 : 512; // pixels across, 16:9
-const HZ = 4;                     // pictures a second per camera, taken in turn
+// Pixels across (16:9, shown pixelated) and pictures a second for all the
+// shown cameras together, taken in turn: ?cctv=256,3 sets both
+const [WIDTH, HZ] = (new URLSearchParams(location.search).get('cctv') ?? '256,3').split(',').map(Number);
 
 export class Cctv {
   // Resolves to null where the GPU can't render to a float texture
@@ -34,7 +34,6 @@ export class Cctv {
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
     this.sun = new THREE.DirectionalLight(0xffffff, Math.PI);
     this.scene.add(this.hemi, this.sun, this.sun.target);
-    reflectable(model, this.hemi, this.sun);
     this.scene.add(outdoor.surface());   // the sea's surface hides what is under it
     this.scene.fog = new THREE.FogExp2(0x000000, 0);
     // The helicopter on the helideck: parked, rotors stopped (?heli=running to spin them)
@@ -51,7 +50,7 @@ export class Cctv {
       camera.position.fromArray(c.position);
       camera.lookAt(new THREE.Vector3().fromArray(c.aim));
       camera.updateMatrixWorld();
-      const target = new THREE.WebGLRenderTarget(WIDTH, Math.round(WIDTH * 9 / 16), { type: THREE.HalfFloatType });
+      const target = new THREE.WebGLRenderTarget(WIDTH, Math.round(WIDTH * 9 / 16), { type: THREE.HalfFloatType, magFilter: THREE.NearestFilter });
       return { id, camera, target };
     });
     // id -> texture, for the screens
@@ -66,7 +65,7 @@ export class Cctv {
   // is the ids some screen shows, so the others aren't drawn for nothing
   update(t, shown = null) {
     const cams = shown ? this.cams.filter((c) => shown.has(c.id)) : this.cams;
-    if (!cams.length || t - this.at < 1 / (HZ * cams.length)) return;
+    if (!cams.length || t - this.at < 1 / HZ) return;
     this.heli.update(this.prevT === undefined ? 0 : t - this.prevT);
     this.prevT = t;
     this.at = t;
@@ -86,7 +85,7 @@ export class Cctv {
     this.sun.target.position.copy(cam.camera.position);
     const r = this.renderer, prev = r.getRenderTarget();
     r.setRenderTarget(cam.target);
-    this.outdoor.render(r, cam.camera, { reflect: this.scene }); // clears, draws the sky and sea, clears depth
+    this.outdoor.render(r, cam.camera); // clears, draws the sky and sea, clears depth
     r.render(this.scene, cam.camera);
     r.setRenderTarget(prev);
   }

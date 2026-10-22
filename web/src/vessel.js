@@ -427,9 +427,7 @@ export async function addVessel({ renderer, scene, room, outdoor, cctv, panel })
   if (panel) vesselControls(panel, vessel, outdoor);
   cctv.then((c) => {
     if (!c) return;
-    const pictured = vessel.copy({ seaLevel: room.seaLevel, outdoor });
-    reflectable(pictured);
-    c.scene.add(pictured);
+    c.scene.add(vessel.copy({ seaLevel: room.seaLevel, outdoor }));
     const crane = c.scene.getObjectByName('CraneSlew');
     if (crane) vessel.attachCrane(crane);
   }).catch(() => {});
