@@ -158,36 +158,64 @@ people.forEach((gltf, i) => {
   });
   const shade = (k) => { for (const [m, c] of mats) m.color.copy(c).multiplyScalar(k); };
   shade(0.7);  // in the cabin the sky only reaches them through the windows
-  Object.assign(p.userData, { mixer, act, shade, seat: s.clone(), face, state: 'seated', blinkAt: Math.random() * 4 });
+  const bones = {};
+  p.traverse((o) => { if (o.isBone) bones[o.name] = o; });
+  Object.assign(p.userData, { mixer, act, shade, seat: s.clone(), face, bones, duck: 0, ducked: 0,
+    state: 'seated', blinkAt: Math.random() * 4 });
   heliRoot.add(p);
   passengers.push(p);
 });
 
 // Off the helicopter: in turn, nearest the door first, each passenger stands
-// up, walks to the open door on their side, steps down to the deck and walks
-// across the helideck to the stairs down into the quarters
+// up (out of the seat, so as not to rise through it), walks bent under the
+// low cabin roof to the door on the stairs side, ducks through it, steps
+// down to the deck and walks across the helideck to the stairs down into
+// the quarters
 const WALK = 1.25;          // m/s, the walk clip's pace
 const EXIT_AT = 3;          // s after touchdown the first one stands up
-const EXIT_GAP = 1.0;       // s between passengers
+const EXIT_GAP = 1.4;       // s between passengers
+const STAND = 1.5;          // s the stand_up clip takes
 const doorX = info.door.exit;   // clear of the sponson, over the step
 const stairs = B(47.5, -4, 72.5);  // top of the stairs from the helideck down into the quarters
-passengers.sort((a, b) => Math.abs(a.userData.seat.x - doorX) - Math.abs(b.userData.seat.x - doorX));
+const parked = new THREE.Object3D();   // where the helicopter sits once down
+parked.position.fromArray(info.park.position);
+parked.rotation.y = info.park.yaw;
+parked.updateMatrixWorld(true);
+const stairsLocal = () => parked.worldToLocal(stairs.clone());
+const EXIT_SIDE = Math.sign(stairsLocal().z) || -1;   // everyone uses the door facing the stairs
+passengers.sort((a, b) => Math.abs(a.userData.seat.x - doorX) + (Math.sign(a.userData.seat.z) === EXIT_SIDE ? 0 : 0.5)
+  - Math.abs(b.userData.seat.x - doorX) - (Math.sign(b.userData.seat.z) === EXIT_SIDE ? 0 : 0.5));
 passengers.forEach((p, i) => { p.userData.leaveAt = EXIT_AT + i * EXIT_GAP; });
 
-const STEP = 3;   // the route point at the door sill
+const STEP = 4;   // the route point at the door sill
+// How far they bend (rad, split over spine and chest): under the cabin
+// roof (1.75 m people, 1.70 m inside), and lower through the 1.4 m door
+const DUCK_CABIN = 0.45, DUCK_DOOR = 1.25;
 
 function route(p) {
-  const { seat: st } = p.userData, side = Math.sign(st.z) || 1;
-  const floor = info.floor;
-  const aisle = new THREE.Vector3(st.x, floor, side * 0.05);
-  // Out through the door on their side to the sill, the step_down clip
-  // down onto the deck (1.0 m down, 0.6 m out), then across to the stairs
-  const pts = [new THREE.Vector3(st.x, floor, st.z), aisle,
-    new THREE.Vector3(doorX, floor, side * 0.4), new THREE.Vector3(doorX, floor, side * 1.15),
-    new THREE.Vector3(doorX, 0, side * 1.75), new THREE.Vector3(doorX - 2.5, 0, side * 4.5)];
-  heliRoot.updateMatrixWorld(true);
-  pts.push(heliRoot.worldToLocal(stairs.clone()));
-  return pts;
+  const { seat: st, face } = p.userData, side = EXIT_SIDE;
+  const floor = info.floor, deck = info.helideck.centre[1] - info.park.position[1];
+  const up = new THREE.Vector3(st.x + face * 0.35, floor, st.z);   // stood up, clear of the seat
+  // Along the aisle, out through the door to the sill, the step_down clip
+  // down onto the deck (1.0 m down, 0.6 m out), out from under the rotor
+  // ahead of the sponson, then straight on to the stairs
+  return [up, new THREE.Vector3(up.x, floor, side * 0.05),
+    new THREE.Vector3(doorX, floor, side * 0.4), new THREE.Vector3(doorX, floor, side * 0.8),
+    new THREE.Vector3(doorX, floor, side * 1.15),
+    new THREE.Vector3(doorX, deck, side * 1.75), new THREE.Vector3(doorX + 1.2, deck, side * 3.2), stairsLocal().setY(deck)];
+}
+
+// Bend forward from the hips by u.duck, eased; undone first, so it never
+// adds up on bones the playing clip doesn't move
+function bend(p, dt) {
+  const u = p.userData, sp = u.bones.spine, ch = u.bones.chest, nk = u.bones.neck;
+  if (!sp || !ch) return;
+  u.ducked += (u.duck - u.ducked) * Math.min(1, dt * 5);
+  for (const [b, k] of [[sp, 0.55], [ch, 0.55], [nk, -0.25]]) if (b) b.rotateX(-u.ducked * k);
+}
+function unbend(p) {
+  const u = p.userData, sp = u.bones.spine, ch = u.bones.chest, nk = u.bones.neck;
+  for (const [b, k] of [[sp, 0.55], [ch, 0.55], [nk, -0.25]]) if (b) b.rotateX(u.ducked * k);
 }
 
 function disembark(p, since, dt) {
@@ -199,18 +227,30 @@ function disembark(p, since, dt) {
     u.path = route(p);
     u.leg = 0;
     u.along = 0;
+    u.from = p.position.clone();
   }
-  if (u.state === 'standing' && since >= u.leaveAt + 1.5) {
-    u.state = 'walking';
-    u.act.walk?.reset().play();
-    if (u.act.walk) u.act.stand_up?.crossFadeTo(u.act.walk, 0.35, false);
+  if (u.state === 'standing') {
+    // Rise forward out of the seat, bending under the roof as they come up
+    const k = THREE.MathUtils.smoothstep(since - u.leaveAt, 0.2, STAND);
+    p.position.lerpVectors(u.from, u.path[0], k);
+    u.duck = DUCK_CABIN * k;
+    if (since >= u.leaveAt + STAND) {
+      u.state = 'walking';
+      u.act.walk?.reset().play();
+      if (u.act.walk) u.act.stand_up?.crossFadeTo(u.act.walk, 0.35, false);
+    }
+    return;
   }
   if (u.state === 'stepping') {
+    // Head clear of the door as they go down: straighten up
+    u.duck = since < u.stepEnd - 0.6 ? DUCK_DOOR : 0;
     if (since < u.stepEnd) return;
-    // The clip ends 1.0 m down and 0.6 m out: move the root there and walk on
+    // The clip ends 1.0 m down and 0.6 m out: move the root there and walk
+    // on, cut over (a cross-fade would blend in the clip's drop as well,
+    // and dip them into the deck)
     u.state = 'walking';
+    u.act.step_down.stop();
     u.act.walk?.reset().play();
-    if (u.act.walk) u.act.step_down.crossFadeTo(u.act.walk, 0.2, false);
     u.leg = STEP + 1;
     u.along = 0;
     p.position.copy(u.path[u.leg]);
@@ -234,7 +274,9 @@ function disembark(p, since, dt) {
   p.position.copy(a).addScaledVector(d, u.along / len);
   const want = Math.atan2(-d.x, -d.z);
   p.rotation.y = lerpAngle(p.rotation.y, want, Math.min(1, dt * 8));
-  if (u.leg >= 4) u.shade(1);
+  // Bent under the roof in the cabin, lower still for the door
+  u.duck = u.leg >= STEP ? 0 : u.leg >= STEP - 2 ? DUCK_DOOR : DUCK_CABIN;
+  if (u.leg > STEP) u.shade(1);
   // Fade out at the top of the stairs
   const left = u.path.slice(u.leg + 1).reduce((acc, q, k, arr) => acc + (k ? q.distanceTo(arr[k - 1]) : q.distanceTo(p.position)), 0);
   if (left < 1.5) p.visible = false;
@@ -285,7 +327,7 @@ const sAt = (t) => { // arc length at flight time t
   return (lo + THREE.MathUtils.clamp(f, 0, 1)) / N * LENGTH;
 };
 const T_LAND = FLIGHT + DESCENT;
-const T_END = T_LAND + 21;   // fade out as the last ones reach the stairs
+const T_END = T_LAND + 24;   // fade out as the last ones walk to the stairs
 
 const park = new THREE.Vector3().fromArray(info.park.position);
 const deckEdge = B(56, 15.5, 75.2);   // camera on a lamp post at the helideck's north-west rim
@@ -434,7 +476,9 @@ function step(dt) {
     if (landed) disembark(p, t - T_LAND, dt);
     const u = p.userData;
     if (u.act.blink && t > u.blinkAt) { u.act.blink.reset().play(); u.blinkAt = t + 2.5 + Math.random() * 4; }
+    unbend(p);
     p.userData.mixer.update(dt);
+    bend(p, dt);
   }
 
   // On short final, the helideck camera picks it up and follows it down
@@ -448,9 +492,19 @@ function step(dt) {
     deckCam.updateProjectionMatrix();
   }
   if (cut && !q.has('off')) {
-    aimTo.copy(heliRoot.position).add(new THREE.Vector3(0, 2.0, 0));
-    // Once they're off, pan with the passengers toward the quarters
-    aimTo.lerp(stairs, 0.15 * THREE.MathUtils.smoothstep(t - T_LAND, EXIT_AT + 2, EXIT_AT + 11));
+    const close = t - T_LAND > EXIT_AT - 0.5;
+    if (close && !deckCam.userData.close) {   // cut to a camera close to the door as they get up
+      deckCam.userData.close = true;
+      deckCam.position.copy(parked.localToWorld(new THREE.Vector3(doorX + 7, 1.7, EXIT_SIDE * 8)));
+      aim.set(0, 0, 0);
+    }
+    if (close) {
+      // On the door, then a little way after them toward the stairs
+      aimTo.copy(parked.localToWorld(new THREE.Vector3(doorX + 0.6, 1.5, EXIT_SIDE * 1.3)));
+      aimTo.lerp(stairs, 0.22 * THREE.MathUtils.smoothstep(t - T_LAND, EXIT_AT + 5, EXIT_AT + 16));
+    } else {
+      aimTo.copy(heliRoot.position).add(new THREE.Vector3(0, 2.0, 0));
+    }
     aim.lengthSq() ? aim.lerp(aimTo, Math.min(1, dt * 4)) : aim.copy(aimTo);
     deckCam.lookAt(aim);
     if (t - touched > 3 && !drag) { deckLook.toYaw *= 1 - Math.min(1, dt * 0.8); deckLook.toPitch *= 1 - Math.min(1, dt * 0.8); }
@@ -458,7 +512,7 @@ function step(dt) {
     deckLook.pitch += (deckLook.toPitch - deckLook.pitch) * Math.min(1, dt * 6);
     deckCam.rotateY(deckLook.yaw);
     deckCam.rotateX(deckLook.pitch);
-    deckCam.fov = THREE.MathUtils.clamp(2 * THREE.MathUtils.radToDeg(Math.atan(14 / deckCam.position.distanceTo(aim))), 28, 55);
+    deckCam.fov = close ? 50 : THREE.MathUtils.clamp(2 * THREE.MathUtils.radToDeg(Math.atan(14 / deckCam.position.distanceTo(aim))), 28, 55);
     deckCam.updateProjectionMatrix();
   }
 
