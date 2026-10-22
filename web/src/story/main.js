@@ -30,6 +30,9 @@ addStoryScreens();
 
 const host = document.getElementById('game');
 const ui = new StoryUI(host, { privateBase: PRIVATE });
+// The chapter navigator along the bottom (?nav=a|b|c, off with ?nav=0); see ui.nav
+const NAV = new URLSearchParams(location.search).get('nav') ?? 'b';
+if (NAV !== '0') ui.nav(CHAPTERS, NAV, (c, i) => (c === 'next' ? next() : c === 'back' ? back() : enter(c, i, { instant: true })));
 const sound = new Sound();
 const call = new Call(ui.el.call);
 let cast = null, shots = null, epilogue = null;
@@ -233,6 +236,7 @@ async function say(id, my) {
 function showHud() {
   const ch = CHAPTERS[chapter];
   ui.hud(ch, beat, ch.beats.length, waiting);
+  ui.navUpdate(chapter, beat, waiting);
 }
 
 // ---------------------------------------------------------------- moving on
