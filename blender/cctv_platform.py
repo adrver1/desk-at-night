@@ -41,7 +41,7 @@ CAMS = {
     "flareCam": ("CAM 11 · Flare boom", (12.0, 17.5, 63.0), (-95.0, 0.0, 85.0), 24),
     # Under the big crane's cab, looking down at the supply vessel's berth
     # (supply_vessel.py BERTH_LOC) on the crane side
-    "craneCam": ("CAM 07 · Crane", (8.5, -17.5, 58.0), (4.5, -45.0, 2.0), 22),
+    "craneCam": ("CAM 07 · Crane", (8.5, -17.5, 58.0), (6.0, -45.0, 2.0), 22),
 }
 
 

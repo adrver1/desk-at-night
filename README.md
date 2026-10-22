@@ -173,8 +173,11 @@ a mast with two turning radars, crash rails and deck cargo. `DESIGNS` keeps
 three hulls (`modern` 88 m with a conventional bow, the default; `xbow`, an
 inverted bow; `classic`, an older 70 m vessel) and `LIVERIES` three paint
 schemes; `DESIGN` and `LIVERY` pick the scene's. It berths on the crane side
-under the big crane (`BERTH_LOC`). In the browser, `web/src/vessel.js` sails
-it in once a game day (approach from 06:45, alongside 07:00 to 10:00), crabs
+under the big crane (`BERTH_LOC`), bow toward the helideck end, with its
+bridge under the control room window. `approachPose()` in `vessel.js` gives
+its position along the approach for other scenes (the intro). In the browser, `web/src/vessel.js` sails
+it in from the north-east once a game day (approach from 10:45, alongside
+11:06 to 14:00, so it is still coming in during the 11:00 helicopter intro), crabs
 it onto the berth, holds it there with small dynamic-positioning drifts and
 the swell, and swings the crane's boom out over its deck on the CCTV. The
 outdoor panel has a button to call it in (or send it away); the URL takes

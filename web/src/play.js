@@ -8,7 +8,7 @@
 // Blender's X/Y). glTF swaps axes, so Blender (x, y) is three's (x, -z).
 import * as THREE from 'three';
 import { loadControlRoom } from './controlScene.js';
-import { Outdoor } from './outdoor.js';
+import { Outdoor, ROOM_HEADING } from './outdoor.js';
 import { Cctv } from './cctv.js';
 import { addVessel } from './vessel.js';
 import { outdoorControls } from './outdoorControls.js';
@@ -90,7 +90,7 @@ async function load() {
   layout = room.meta.layout;
   if (!layout) throw new Error('This scene was baked before the walk-around existed. Reload the page; if that does not help, re-run blender/bake_control_room.py.');
   scene.add(room.root);
-  outdoor = new Outdoor(room.seaLevel);
+  outdoor = new Outdoor(room.seaLevel, { heading: ROOM_HEADING });
   outdoor.setWindow(room.window.lo, room.window.hi);
   outdoor.set({ time: START_TIME });   // ?time= on the URL still wins (outdoorControls)
   // The deck cameras' live pictures; without them the screens draw their own

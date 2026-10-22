@@ -10,8 +10,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-// Game-clock hours: start of the approach, alongside, start of the departure, gone
-export const SCHEDULE = [9.75, 10.0, 13.0, 13.25];   // alongside from 10:00 to 13:00, so the crew-change flight (11:00) and the game (11:30) find it there
+// Game-clock hours: start of the approach, alongside, start of the departure,
+// gone. It is still coming in when the crew-change flight lands (11:00, the
+// intro) and alongside when the game starts (11:30).
+export const SCHEDULE = [10.75, 11.1, 14.0, 14.25];
 // Called in on demand: seconds for the approach, alongside, the departure
 const ON_DEMAND = [120, 300, 75];
 const CRAB = 0.25;     // share of the approach spent crabbing in sideways (and of the departure crabbing out)
@@ -21,11 +23,12 @@ const RADAR_RPM = [24, 30];
 // spot it aims at, metres aft of the vessel's middle (its cargo deck)
 const SLEW_RATE = 2.5, CRANE_AIM = 22;
 
-// Bezier paths in platform coordinates, relative to the berth (bx, by).
-// The approach comes up from the south-east bow first and ends heading -X
-// (the berth heading) 30 m out; the departure leaves westward.
-const APPROACH = (bx, by) => [[bx + 400, by - 2150], [bx + 380, by - 350], [bx + 170, by - 30], [bx + 50, by - 30]];
-const DEPART = (bx, by) => [[bx - 30, by - 30], [bx - 200, by - 30], [bx - 450, by - 260], [bx - 520, by - 2400]];
+// Bezier paths in platform coordinates, from the berth (bx, by; the vessel
+// alongside heads +X, true 240°). The approach comes in from the north-east
+// (platform -X, a little -Y) bow first along the crane side and ends 60 m
+// short of the berth and 30 m out; the departure carries on to the west.
+const APPROACH = (bx, by) => [[-2125, -570], [-1000, by - 260], [bx - 260, by - 30], [bx - 60, by - 30]];
+const DEPART = (bx, by) => [[bx, by - 30], [bx + 250, by - 30], [bx + 600, by - 250], [bx + 2400, by - 1100]];
 
 function bezier(p, t, out) {
   const u = 1 - t, a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
@@ -60,6 +63,44 @@ function atDistance(table, f) {
 const smooth = (x) => x * x * (3 - 2 * x);
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
 
+const cache = new Map();
+function pathsFor(B) {
+  const key = `${B.x},${B.y}`;
+  if (!cache.has(key)) {
+    const approach = APPROACH(B.x, B.y), depart = DEPART(B.x, B.y);
+    cache.set(key, { approach, depart, ta: arcTable(approach), td: arcTable(depart) });
+  }
+  return cache.get(key);
+}
+
+// Where the vessel is f (0..1) of the way through its approach to the berth
+// ({x, y, yaw} in platform coordinates, metres and radians): sailing in and
+// slowing down, then crabbing sideways onto the berth. Shared with the intro.
+export function approachPose(B, f, p = {}) {
+  const { approach, ta } = pathsFor(B);
+  if (f < 1 - CRAB) {
+    const g = clamp01(f / (1 - CRAB));
+    bezier(approach, atDistance(ta, 1 - (1 - g) * (1 - g)), p);
+  } else {
+    const g = smooth(clamp01((f - (1 - CRAB)) / CRAB)), e = approach[3];
+    p.x = e[0] + (B.x - e[0]) * g; p.y = e[1] + (B.y - e[1]) * g; p.yaw = B.yaw;
+  }
+  return p;
+}
+
+// And f of the way through leaving: crabbing out, then sailing off
+export function departPose(B, f, p = {}) {
+  const { depart, td } = pathsFor(B);
+  if (f < CRAB) {
+    const g = smooth(clamp01(f / CRAB)), s = depart[0];
+    p.x = B.x + (s[0] - B.x) * g; p.y = B.y + (s[1] - B.y) * g; p.yaw = B.yaw;
+  } else {
+    const g = clamp01((f - CRAB) / (1 - CRAB));
+    bezier(depart, atDistance(td, g * g), p);
+  }
+  return p;
+}
+
 export class SupplyVessel {
   static async load(base = 'control/') {
     const [gltf, info] = await Promise.all([
@@ -76,9 +117,6 @@ export class SupplyVessel {
     this.yUp = new THREE.Matrix4().makeRotationX(Math.PI / 2);
     const [bx, by, byaw] = info.berth;
     this.berth = { x: bx, y: by, yaw: byaw };
-    this.approach = APPROACH(bx, by);
-    this.depart = DEPART(bx, by);
-    this.tables = [arcTable(this.approach), arcTable(this.depart)];
     this.copies = [];
     this.model = model;
     // ?vessel=alongside keeps it at the berth, =call calls it in now, =off hides it
@@ -187,27 +225,10 @@ export class SupplyVessel {
     this.slew(dt, phase === 'alongside');
     if (!visible) return;
 
-    const p = this.pose, B = this.berth, [ta, td] = this.tables;
-    if (phase === 'approaching') {
-      // Sail in slowing down (ease-out), then crab sideways onto the berth
-      if (f < 1 - CRAB) {
-        const g = f / (1 - CRAB);
-        bezier(this.approach, atDistance(ta, 1 - (1 - g) * (1 - g)), p);
-      } else {
-        const g = smooth((f - (1 - CRAB)) / CRAB), e = this.approach[3];
-        p.x = e[0] + (B.x - e[0]) * g; p.y = e[1] + (B.y - e[1]) * g; p.yaw = B.yaw;
-      }
-    } else if (phase === 'departing') {
-      if (f < CRAB) {
-        const g = smooth(f / CRAB), s = this.depart[0];
-        p.x = B.x + (s[0] - B.x) * g; p.y = B.y + (s[1] - B.y) * g; p.yaw = B.yaw;
-      } else {
-        const g = (f - CRAB) / (1 - CRAB);
-        bezier(this.depart, atDistance(td, g * g), p);
-      }
-    } else {
-      p.x = B.x; p.y = B.y; p.yaw = B.yaw;
-    }
+    const p = this.pose, B = this.berth;
+    if (phase === 'approaching') approachPose(B, f, p);
+    else if (phase === 'departing') departPose(B, f, p);
+    else { p.x = B.x; p.y = B.y; p.yaw = B.yaw; }
     // Unwrap the heading so it turns the short way from the berth heading
     p.yaw = B.yaw + Math.atan2(Math.sin(p.yaw - B.yaw), Math.cos(p.yaw - B.yaw));
 
