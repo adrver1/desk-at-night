@@ -128,6 +128,7 @@ heliModel.scene.traverse((o) => {
   o.castShadow = o.receiveShadow = true;
   if (INSIDE.includes(o.material.name)) o.material.color.multiplyScalar(0.6);
   if (o.material.name === 'HeliClear') { o.castShadow = false; o.material.depthWrite = false; }
+  if (q.has('cutaway') && !['HeliFloor', 'HeliSeat'].includes(o.material.name)) o.visible = false;   // debug: see inside
 });
 
 // Passengers, sat down: each character carries a seated_idle clip for a
@@ -141,7 +142,7 @@ people.forEach((gltf, i) => {
   p.rotation.y = -face * Math.PI / 2;    // characters face -z, a seat faces +x (1) or -x (-1)
   p.position.set(s.x, s.y - 0.45, s.z);
   const mixer = new THREE.AnimationMixer(p);
-  const act = Object.fromEntries(['seated_idle', 'stand_up', 'walk', 'step_down', 'blink'].map((n) => {
+  const act = Object.fromEntries(['seated_idle', 'stand_up', 'walk', 'step_down', 'blink', 'idle'].map((n) => {
     const clip = THREE.AnimationClip.findByName(gltf.animations, n);
     return [n, clip && mixer.clipAction(clip)];
   }));
@@ -209,19 +210,48 @@ function route(p) {
 // Bend forward from the hips by u.duck, eased; undone first, so it never
 // adds up on bones the playing clip doesn't move
 // Ducking, on top of the clips: bend forward at the spine and chest, the
-// head kept up; the arms hang from the chest, so turn them back toward
-// hanging down; bend the knees and sink the hips to match. At the door
-// (u.grab) the right hand reaches out to the door's front post.
-const BEND = [['spine', 0.45], ['chest', 0.45], ['neck', -0.25], ['upper_armL', -0.8], ['upper_armR', -0.8]];
+// head kept up, the knees bent and the hips sunk to match. The arms are
+// aimed instead (the clips swing them, and a bent chest would carry them
+// out behind): hanging a little ahead of the body, and at the door
+// (u.grab) the right hand out to the door's front post.
+const BEND = [['spine', 0.45], ['chest', 0.45], ['neck', -0.25]];
 const KNEE = 0.35 / DUCK_DOOR;   // thigh forward, shin back twice that, per rad of duck
-const GRAB = [['upper_armR', 'z', -0.8], ['upper_armR', 'x', 0.1], ['forearmR', 'x', -1.5]];
 function pose(p, k) {
-  const u = p.userData, b = u.bones, d = u.ducked * k, g = u.grabbed * k, q = u.ducked * KNEE * k;
+  const u = p.userData, b = u.bones, d = u.ducked * k, q = u.ducked * KNEE * k;
+  const L = k > 0 ? (u.liftOn = u.lift && { ...u.lift }) : u.liftOn;   // undo what was done, not what's asked now
   for (const [n, f] of BEND) b[n]?.rotateX(-d * f);
-  for (const n of ['thighL', 'thighR']) b[n]?.rotateX(-q);
-  for (const n of ['shinL', 'shinR']) b[n]?.rotateX(2 * q);
-  for (const [n, axis, f] of GRAB) b[n]?.[axis === 'z' ? 'rotateZ' : 'rotateX'](g * f);
+  for (const n of ['thighL', 'thighR']) b[n]?.rotateX(q + (L?.[n] ?? 0) * k);       // + is forward
+  for (const n of ['shinL', 'shinR']) b[n]?.rotateX(-2 * q - 1.3 * (L?.[n.replace('shin', 'thigh')] ?? 0) * k);
   if (b.hips) b.hips.position.addScaledVector(u.hipsUp, -0.84 * (1 - Math.cos(u.ducked * KNEE)) * k);
+}
+// Turn bone so its length (+Y) points along world direction dir, by w,
+// keeping its twist
+const _q = new THREE.Quaternion(), _p = new THREE.Quaternion(), _v = new THREE.Vector3(), _a = new THREE.Vector3();
+function aimBone(bone, dir, w) {
+  if (!bone || w <= 0) return;
+  bone.updateWorldMatrix(true, false);
+  bone.getWorldQuaternion(_q);
+  _v.set(0, 1, 0).applyQuaternion(_q);
+  const turn = new THREE.Quaternion().setFromUnitVectors(_v, _a.copy(dir).normalize());
+  bone.parent.getWorldQuaternion(_p);
+  const target = _p.clone().invert().multiply(turn).multiply(_q);   // new local rotation
+  bone.quaternion.slerp(target, Math.min(1, w));
+}
+const _f = new THREE.Vector3(), _r = new THREE.Vector3(), _post = new THREE.Vector3(), _sh = new THREE.Vector3();
+function arms(p) {
+  const u = p.userData, b = u.bones, w = Math.min(1, u.ducked / DUCK_CABIN) * 0.85;
+  if (w <= 0.01) return;
+  p.getWorldQuaternion(_q);
+  _f.set(0, 0, -1).applyQuaternion(_q);   // the way they face
+  _r.set(1, 0, 0).applyQuaternion(_q);    // their right
+  aimBone(b.upper_armL, new THREE.Vector3(0, -1, 0).addScaledVector(_f, 0.35).addScaledVector(_r, -0.15), w);
+  aimBone(b.upper_armR, new THREE.Vector3(0, -1, 0).addScaledVector(_f, 0.35).addScaledVector(_r, 0.15), w * (1 - u.grabbed));
+  if (u.grabbed > 0.01 && b.upper_armR) {   // reach for the post, elbow a little bent
+    heliRoot.localToWorld(_post.set(info.door.x[1] + 0.04, info.floor + 1.15, EXIT_SIDE * 1.2));
+    b.upper_armR.getWorldPosition(_sh);
+    aimBone(b.upper_armR, _post.clone().sub(_sh).addScaledVector(_r, 0.1), u.grabbed);
+    if (b.forearmR) b.forearmR.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.35), u.grabbed);
+  }
 }
 function bend(p, dt) {
   const u = p.userData;
@@ -229,6 +259,7 @@ function bend(p, dt) {
   u.ducked += (u.duck - u.ducked) * Math.min(1, dt * 5);
   u.grabbed += ((u.grab ? 1 : 0) - u.grabbed) * Math.min(1, dt * 6);
   pose(p, 1);
+  arms(p);
 }
 function unbend(p) { if (p.userData.bones.spine) pose(p, -1); }
 
@@ -245,9 +276,10 @@ function disembark(p, since, dt) {
   }
   if (u.state === 'standing') {
     // Rise forward out of the seat, bending under the roof as they come up
-    const k = THREE.MathUtils.smoothstep(since - u.leaveAt, 0.2, STAND);
+    // Lean well forward over the feet first, then rise out of the seat
+    const s = since - u.leaveAt, k = THREE.MathUtils.smoothstep(s, 0.45, STAND);
     p.position.lerpVectors(u.from, u.path[0], k);
-    u.duck = DUCK_CABIN * k;
+    u.duck = DUCK_CABIN + 0.45 * Math.sin(Math.PI * THREE.MathUtils.clamp(s / (STAND * 0.8), 0, 1));
     if (since >= u.leaveAt + STAND) {
       u.state = 'walking';
       u.act.walk?.reset().play();
@@ -258,7 +290,7 @@ function disembark(p, since, dt) {
   if (u.state === 'stepping') {
     // Head clear of the door as they go down: straighten up
     u.duck = since < u.stepEnd - 0.6 ? DUCK_DOOR : 0;
-    u.grab = since < u.stepEnd - 0.4;
+    u.grab = since < u.stepStart + 0.3;   // let go as the body drops, or the arm goes up
     if (since < u.stepEnd) return;
     // The clip ends 1.0 m down and 0.6 m out: move the root there and walk
     // on, cut over (a cross-fade would blend in the clip's drop as well,
@@ -273,6 +305,7 @@ function disembark(p, since, dt) {
   if (u.state !== 'walking') return;
   if (u.leg === STEP && u.act.step_down) { // at the sill, facing out: step down
     u.state = 'stepping';
+    u.stepStart = since;
     u.stepEnd = since + u.act.step_down.getClip().duration;
     p.position.copy(u.path[STEP]);
     p.rotation.y = Math.atan2(0, -Math.sign(u.path[STEP].z));
@@ -296,6 +329,93 @@ function disembark(p, since, dt) {
   // Fade out at the top of the stairs
   const left = u.path.slice(u.leg + 1).reduce((acc, q, k, arr) => acc + (k ? q.distanceTo(arr[k - 1]) : q.distanceTo(p.position)), 0);
   if (left < 1.5) p.visible = false;
+}
+
+
+// Boarding (?scene=board, a test scene for now): the reverse trip. From
+// the stairs to the step, up into the cabin holding the door post, bent
+// along the aisle to their seat, turn and sit down (stand_up played back).
+// The farthest seats fill first.
+const BOARD = q.get('scene') === 'board';
+const STEP_UP = 1.3;   // s from the deck up onto the sill
+const SIT = 1.5;
+if (BOARD) {
+  [...passengers].reverse().forEach((p, i) => {
+    Object.assign(p.userData, { state: 'waiting', boardAt: 0.5 + i * 2.4 });
+    p.visible = false;
+  });
+}
+function walkAlong(p, pts, dt) {   // returns true at the end of the polyline
+  const u = p.userData;
+  const a = pts[u.leg], b = pts[u.leg + 1];
+  if (!b) return true;
+  const d = new THREE.Vector3().subVectors(b, a), len = d.length();
+  u.along += WALK * dt;
+  if (u.along >= len) { u.along -= len; u.leg++; return walkAlong(p, pts, 0); }
+  p.position.copy(a).addScaledVector(d, u.along / len);
+  p.rotation.y = lerpAngle(p.rotation.y, Math.atan2(-d.x, -d.z), Math.min(1, dt * 8));
+  return false;
+}
+function embark(p, since, dt) {
+  const u = p.userData;
+  if (u.state === 'waiting') {
+    if (since < u.boardAt) return;
+    const r = route(p);
+    u.outside = [r[6].clone().lerp(r[7], 0.35), r[6], r[5]];   // from the stairs, clear of the rotor, foot of the step
+    u.inside = [r[4], r[3], r[2], r[1], r[0]];   // sill, through the door, aisle, in front of the seat
+    Object.assign(u, { state: 'approach', leg: 0, along: 0 });
+    p.position.copy(u.outside[0]);
+    p.visible = true;
+    u.shade(1);
+    u.act.seated_idle?.stop();
+    u.act.walk?.reset().play();
+  }
+  if (u.state === 'approach') {
+    u.duck = 0;
+    if (!walkAlong(p, u.outside, dt)) return;
+    Object.assign(u, { state: 'stepup', stepAt: since });
+    p.rotation.y = Math.atan2(0, Math.sign(u.inside[0].z));   // facing the door
+  }
+  if (u.state === 'stepup') {
+    // Hand on the post, up the step and over the sill, ducking under the
+    // door top; the walk clip slowed down carries the legs
+    // Two steps: right foot onto the step and up onto it, then the left
+    // foot onto the sill and up; legs lifted by hand over the idle clip
+    const k = THREE.MathUtils.clamp((since - u.stepAt) / STEP_UP, 0, 1);
+    if (!u.idling) { u.idling = true; u.act.idle?.reset().play(); if (u.act.idle) u.act.walk?.crossFadeTo(u.act.idle, 0.25, false); }
+    const from = u.outside[2], to = u.inside[0], stepY = from.y + 0.5, ss = THREE.MathUtils.smoothstep;
+    p.position.lerpVectors(from, to, 0.45 * ss(k, 0.1, 0.45) + 0.55 * ss(k, 0.55, 0.92));
+    p.position.y = from.y + (stepY - from.y) * ss(k, 0.15, 0.45) + (to.y - stepY) * ss(k, 0.6, 0.92);
+    const bump = (a, b) => Math.sin(Math.PI * THREE.MathUtils.clamp((k - a) / (b - a), 0, 1));
+    u.lift = { thighR: 1.0 * bump(0.0, 0.42), thighL: 1.1 * bump(0.45, 0.9) };
+    u.grab = k < 0.85;
+    u.duck = k > 0.45 ? DUCK_DOOR : DUCK_CABIN * 0.6;
+    if (k < 1) return;
+    u.lift = null;
+    u.act.walk?.reset().play();
+    if (u.act.walk) u.act.idle?.crossFadeTo(u.act.walk, 0.25, false);
+    Object.assign(u, { state: 'aisle', leg: 0, along: 0, grab: false });
+    u.shade(0.7);
+  }
+  if (u.state === 'aisle') {
+    u.duck = u.leg < 2 ? DUCK_DOOR : DUCK_CABIN;
+    if (!walkAlong(p, u.inside, dt)) return;
+    // Turn round with the back to the seat and sit: stand_up backwards
+    Object.assign(u, { state: 'sitting', sitAt: since, from: p.position.clone(), turnFrom: p.rotation.y });
+    const su = u.act.stand_up;
+    if (su) { su.reset(); su.timeScale = -1; su.time = su.getClip().duration; su.play(); u.act.walk?.crossFadeTo(su, 0.3, false); }
+  }
+  if (u.state === 'sitting') {
+    const s = since - u.sitAt, k = THREE.MathUtils.smoothstep(s, 0.1, SIT - 0.3);
+    p.rotation.y = lerpAngle(u.turnFrom, -u.face * Math.PI / 2, Math.min(1, s / 0.5));
+    p.position.lerpVectors(u.from, new THREE.Vector3(u.seat.x, u.seat.y - 0.45, u.seat.z), k);
+    u.duck = DUCK_CABIN + 0.45 * Math.sin(Math.PI * THREE.MathUtils.clamp(s / SIT, 0, 1)) - DUCK_CABIN * k;
+    if (s < SIT) return;
+    u.state = 'seated';
+    u.duck = 0;
+    u.act.seated_idle?.reset().play();
+    if (u.act.seated_idle) u.act.stand_up?.crossFadeTo(u.act.seated_idle, 0.4, false);
+  }
 }
 
 
@@ -426,7 +546,7 @@ const ui = {
   clock: document.querySelector('.clock'),
   end: document.querySelector('.end'),
 };
-let t = Number(q.get('t') ?? 0);
+let t = q.get('scene') === 'board' ? FLIGHT + DESCENT + 3 : Number(q.get('t') ?? 0);
 const paused = q.has('pause');
 // One button: skip to the landing in flight, then to the walk-off
 const WALKOUT = () => T_LAND + EXIT_AT - 0.8;
@@ -470,7 +590,7 @@ function step(dt) {
   t += dt;
   const left = poseAt(t, dt || 0.016);
   if (left < GEAR_AT) heli.setGear(true);
-  if (!landed && t >= T_LAND) { landed = true; heli.stop(); }
+  if (!landed && t >= T_LAND) { landed = true; if (!BOARD) heli.stop(); }   // boarding: rotors running
   heli.setDoors(t >= T_LAND + 1);
   heli.update(dt);
 
@@ -491,7 +611,7 @@ function step(dt) {
   const shake = landed ? 0 : 0.0016;
   head.rotation.set(look.pitch + shake * Math.sin(t * 23.1), -Math.PI / 2 + look.yaw + shake * Math.sin(t * 17.3), 0);
   for (const p of passengers) {
-    if (landed) disembark(p, t - T_LAND, dt);
+    if (landed) (BOARD ? embark : disembark)(p, t - T_LAND, dt);
     const u = p.userData;
     if (u.act.blink && t > u.blinkAt) { u.act.blink.reset().play(); u.blinkAt = t + 2.5 + Math.random() * 4; }
     unbend(p);
@@ -502,10 +622,10 @@ function step(dt) {
   // On short final, the helideck camera picks it up and follows it down
   if (left < CUT_AT || q.get('view') === 'deck') cut = true;
   camera = cut ? deckCam : cabinCam;
-  if (q.has('off')) { // debug: a camera riding along outside, at ?off=x,y,z in the helicopter's frame
+  if (q.has('off')) { // debug: a camera riding along, at ?off=x,y,z in the helicopter's frame (aimed at ?at=x,y,z)
     camera = deckCam;
     deckCam.position.copy(heliRoot.localToWorld(new THREE.Vector3(...q.get('off').split(',').map(Number))));
-    deckCam.lookAt(heliRoot.localToWorld(new THREE.Vector3(0, 1.8, 0)));
+    deckCam.lookAt(heliRoot.localToWorld(new THREE.Vector3(...(q.get('at') ?? '0,1.8,0').split(',').map(Number))));
     deckCam.fov = 40;
     deckCam.updateProjectionMatrix();
   }
@@ -519,7 +639,8 @@ function step(dt) {
     if (close) {
       // On the door, then a little way after them toward the stairs
       aimTo.copy(parked.localToWorld(new THREE.Vector3(doorX + 0.6, 1.5, EXIT_SIDE * 1.3)));
-      aimTo.lerp(stairs, 0.22 * THREE.MathUtils.smoothstep(t - T_LAND, EXIT_AT + 5, EXIT_AT + 16));
+      aimTo.lerp(stairs, BOARD ? 0.18 * (1 - THREE.MathUtils.smoothstep(t - T_LAND, 4, 9))
+        : 0.22 * THREE.MathUtils.smoothstep(t - T_LAND, EXIT_AT + 5, EXIT_AT + 16));
     } else {
       aimTo.copy(heliRoot.position).add(new THREE.Vector3(0, 2.0, 0));
     }
@@ -547,15 +668,15 @@ function step(dt) {
   for (const m of glowing) if (m.name !== 'PlatFlare') m.emissiveIntensity = 0.05;
 
   if (ui.clock) ui.clock.textContent = `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')} / ${Math.floor(T_END / 60)}:${String(Math.floor(T_END % 60)).padStart(2, '0')}`;
-  if (ui.caption) {
+  if (ui.caption && !BOARD) {
     const c = CAPTIONS.filter(([at]) => t >= at).pop();
     if (ui.caption.dataset.text !== c[1]) { ui.caption.dataset.text = c[1]; ui.caption.textContent = c[1]; }
     ui.caption.classList.toggle('on', !!c[1]);
   }
   if (ui.skip) {
-    ui.skip.hidden = t > WALKOUT() - 0.5;
+    ui.skip.hidden = BOARD || t > WALKOUT() - 0.5;
   }
-  ui.end?.classList.toggle('on', t > T_END);
+  ui.end?.classList.toggle('on', t > T_END && !BOARD);
 
 }
 document.body.classList.add('ready');
