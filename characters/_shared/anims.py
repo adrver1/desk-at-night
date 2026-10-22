@@ -8,6 +8,9 @@ into every character's .glb as named glTF animations:
     stand_up     seated_idle to idle                          (1.5 s)
     typing       seated, hands on a desk at 0.74 m            (loop, 2 s)
     point        standing, points at something ahead          (2 s)
+    step_down    two 0.5 m steps down and 0.6 m forward, as out
+                 of a helicopter cabin; ends with the hips 1 m lower,
+                 so move the root there when it finishes      (1.75 s)
 
 Face clips move only the eye and brow bones, so they play on top of any
 body clip (body clips never touch the face bones):
@@ -163,7 +166,30 @@ def clips():
     c["stand_up"] = [(0, seated()), (12, lean), (24, rise), (36, up)]
     c["typing"] = [(k * 6, typing(k / 8)) for k in range(9)]
     c["point"] = [(0, pointing(0)), (10, pointing(1)), (36, pointing(1)), (48, pointing(0))]
+    c["step_down"] = stepping_down()
     return c
+
+
+def stepping_down(rise=0.5, run=0.3):
+    """Two steps down, right foot first: reach down with the leading leg
+    while the other knee bends, land, then bring the feet together."""
+    keys = [(0, standing())]
+    for k, (lead, back) in enumerate((("R", "L"), ("L", "R"))):
+        y0, z0, f0 = run * k, -rise * k, 21 * k
+        reach = arms_down(standing(), lower=30, swing=(12, 12), elbow=(25, 25))
+        legs(reach, lead, 34, 12, -14)
+        legs(reach, back, 42, 72)
+        reach["spine"] = (X, -8)
+        reach["hips_offset"] = (0.0, y0 + 0.12, z0 - 0.24)
+        land = arms_down(standing(), lower=32, swing=(6, 6), elbow=(18, 18))
+        legs(land, lead, 12, 18)
+        legs(land, back, -10, 46)
+        land["spine"] = (X, -5)
+        land["hips_offset"] = (0.0, y0 + 0.24, z0 - rise - 0.02)
+        stand = standing()
+        stand["hips_offset"] = (0.0, y0 + run, z0 - rise)
+        keys += [(f0 + 8, reach), (f0 + 14, land), (f0 + 21, stand)]
+    return keys
 
 
 def face(brow_up=0.0, brow_tilt=0.0, eye_open=1.0):

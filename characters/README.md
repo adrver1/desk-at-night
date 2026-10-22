@@ -40,7 +40,9 @@ to also write a contact sheet next to the reference into a private folder.
   trousers, reflective bands, safety boots) and `ppe_deck` (adds a white
   helmet with logo sticker, blue ear defenders on black clip arms from the
   helmet's side slots, wraparound safety glasses drawn as frame and clear
-  side shields, gloves).
+  side shields, gloves) and `survival` for the helicopter ride: an orange
+  immersion suit with neck and wrist seals, the hood rolled behind the
+  neck, reflective tape, boots and a yellow lifejacket.
   Logos are flat polygons projected onto the shell (`Mesh.decal_poly`). A character script builds every outfit by default
   (`--outfit office|ppe|ppe_deck|all`); each one writes its own
   `<name>_<outfit>.glb` on the same rig, plus suffixed renders.
@@ -61,7 +63,9 @@ to also write a contact sheet next to the reference into a private folder.
 - `anims.py` keys six clips on the shared rig and every .glb carries them
   as named glTF animations: `idle`, `walk` (in place; move the root),
   `seated_idle` (0.45 m seat), `stand_up`, `typing` (0.74 m desk) and
-  `point`. One clip set plays on every character and outfit. Face clips
+  `point`, plus `step_down` (two 0.5 m steps down from a 1 m helicopter
+  cabin floor, ending 1 m lower and 0.6 m ahead). One clip set plays on
+  every character and outfit. Face clips
   `blink`, `brows_raise` and `brows_frown` move only the eye and brow
   bones, so they play on top of a body clip.
 - Renders use a neutral white studio light (`STUDIO_LIGHT`) so colours

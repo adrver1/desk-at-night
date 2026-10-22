@@ -216,6 +216,7 @@ def build(outfit, args):
     parts = {"body": body, "hair": hair, "beard": beard(), "moustache": moustache(), **o["parts"]}
     rigid = {"hair": "head", "beard": "head", "moustache": "head", **o["rigid"]}
     notes = {"office": ["Lower body is not in the reference: shirt tucked in, belt, navy trousers, brown shoes."],
+             "survival": ["Helicopter immersion suit with a lifejacket."],
              }.get(outfit, ["Offshore PPE: hi-vis jacket, navy trousers, reflective bands, safety boots."
                             + (" Helmet with ear defenders and gloves." if outfit == "ppe_deck" else "")])
     notes.append("Beard and hair follow the head bone only.")

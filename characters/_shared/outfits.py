@@ -16,6 +16,11 @@ the waist, the sleeves and the shins, reflective patches on the shoulders,
 the company's ribbon logo big on the back and small on the chest pocket,
 navy trousers and black safety boots. Out on deck add a white helmet with
 the logo sticker, blue ear defenders, safety glasses and gloves.
+
+For the helicopter ride out, `survival` is a North Sea immersion suit: an
+orange one-piece with black neoprene neck and wrist seals, the hood rolled
+up behind the neck, reflective tape on the shoulders and arms, integral
+boots, and a yellow lifejacket vest over the chest with a black waist strap.
 """
 import math
 
@@ -220,4 +225,66 @@ def ppe_deck():
     return o
 
 
-OUTFITS = {"ppe": ppe, "ppe_deck": ppe_deck}
+SUIT, SEAL, VEST, STRAP = "coverall_orange", "rubber", "hivis_yellow", "plastic_black"
+
+
+def survival_suit():
+    """Orange one-piece torso, sleeves with tape bands and wrist seals, a
+    neck seal and the hood rolled behind the neck."""
+    rings = []
+    for z in (HEM, 0.94, 1.18, 1.35, base.TORSO[-1][0]):
+        ru, rv, dv = base.ring_at(base.TORSO, z)
+        rings.append((z, ru, rv, dv, "suit"))
+    m = base.Mesh().tube(rings, swatch=SUIT, offset=0.022, cap_start=False)
+    m.tube([(1.40, 0.072, 0.068, -0.008, "seal"), (1.49, 0.064, 0.060, -0.006, "seal")],
+           swatch=SEAL, angles=base.HEX6, angle_offset=30, cap_start=False, cap_end=False)
+    # the hood, rolled into a fat collar round the back of the neck
+    roll = []
+    for a in range(180, 361, 30):
+        a = math.radians(a)
+        for r, z in ((0.080, 1.425), (0.112, 1.445), (0.104, 1.505), (0.076, 1.50)):
+            roll.append(Vector((r * 1.05 * math.cos(a), -0.008 + r * math.sin(a), z)))
+    m.hull(roll, SUIT, "hood")
+    pts = sorted({r[0] for r in base.ARM} | {0.07, 0.11, 0.42, 0.45})
+    arm = []
+    for t in pts:
+        reg = "band" if t == 0.07 else "seal" if t >= 0.42 else "sleeve"
+        ru, rv = _arm_radius(t)
+        arm.append((t, ru, rv, 0.0, reg))
+    right = base.Mesh().tube(arm, origin=base.SHOULDER, axes=base.frame(base.arm_dir(1)),
+                             angles=base.HEX6, angle_offset=30, offset=0.016,
+                             colors={"sleeve": SUIT, "band": TAPE, "seal": SEAL},
+                             cap_start=False, cap_end=False)
+    x = base.LEG_X
+    right.tube([(0.30, 0.068, 0.072, -0.004, "band"), (0.345, 0.067, 0.071, -0.003, "band")],
+               origin=(x, 0, 0), swatch=TAPE, angles=base.HEX6, angle_offset=30, offset=0.008,
+               cap_start=False, cap_end=False)
+    right.tube([(0.07, 0.058, 0.064, 0.005, "boot"), (0.19, 0.057, 0.061, 0.0, "boot")],
+               origin=(x, 0, 0), swatch=RUBBER, angles=base.HEX6, angle_offset=30, offset=0.010,
+               cap_start=False, cap_end=False)
+    return m.extend(right).extend(right.mirrored())
+
+
+def lifejacket():
+    """Yellow vest over the chest, zipped up the front, with a black strap
+    round the waist below it."""
+    rings = []
+    for z in (1.17, 1.20, 1.35, base.TORSO[-1][0]):
+        ru, rv, dv = base.ring_at(base.TORSO, z)
+        rings.append((z, ru, rv, dv, "strap" if z < 1.19 else "vest"))
+    m = base.Mesh().tube(rings, colors={"vest": VEST, "strap": STRAP}, offset=0.042, cap_start=True)
+    bvh = m.bvh()
+    m.decal(bvh, 0.0, 1.31, 0.008, 0.20, STRAP, "zip")
+    m.decal(bvh, 0.0, 1.185, 0.05, 0.03, "steel", "buckle")
+    return m
+
+
+def survival():
+    """Helicopter travel: immersion suit and lifejacket, no helmet."""
+    return {"colors": {"hips": SUIT, "thigh": SUIT, "shin": SUIT, "shoe": RUBBER},
+            "hide": {"belly", "chest", "upper_arm", "forearm"},
+            "parts": {"suit": survival_suit(), "lifejacket": lifejacket()},
+            "rigid": {}}
+
+
+OUTFITS = {"ppe": ppe, "ppe_deck": ppe_deck, "survival": survival}

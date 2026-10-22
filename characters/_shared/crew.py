@@ -1,10 +1,11 @@
 """
-Builds a crew character's three looks from one description, so every
+Builds a crew character's looks from one description, so every
 character script stays a short list of choices:
 
     office     the character's own clothes, from the reference
     ppe        indoor PPE (outfits.ppe)
     ppe_deck   deck PPE with helmet, ear defenders, gloves (outfits.ppe_deck)
+    survival   helicopter immersion suit and lifejacket (outfits.survival)
 
 A character is a `Look`: skin, brows, trousers and shoes, a hair function
 (taking helmet=True|False), facial hair and expression parts, optional
