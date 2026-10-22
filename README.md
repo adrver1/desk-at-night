@@ -108,10 +108,15 @@ screens draw their old 2D camera instead.
 A medium-detail model of Ivar Aasen, a North Sea production platform,
 checked against photos: a sturdy four-leg jacket with its conductors, an
 open-framed process block, a laydown deck over the wellbay, a pedestal crane,
-the plant module and the living quarters with the lifeboats on the end face,
-the helideck on a deep truss, a steep flare boom and the yellow name boards.
-Heights follow the photos (deck underside 22 m, quarters roof 53 m, flare
-tip about 115 m). It has one mesh per material, and emissive deck lights
+the plant module and the living quarters (terraced on the crane side, an open
+end bay with the two free-fall lifeboats between white corner columns), the
+helideck on a deep truss with raking struts, a steep flare boom and the yellow
+name boards. `QUARTERS` picks the quarters end from the library: "terraced"
+(default), "box" (the same end painted on, fewer triangles) or "v5" (the
+earlier plain block).
+Heights and positions follow the photos and the main-areas side drawing
+(deck underside 22 m, process roof 52.5 m, quarters roof 56 m, helideck
+57.5 m, flare tip about 115 m). It has one mesh per material, and emissive deck lights
 and windows for night. Three small tileable textures drawn by
 `platform_textures.py` (pipes and walkways inside the open modules,
 walkways, stairs and doors on the clad walls and the quarters) make it look

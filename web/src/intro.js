@@ -139,7 +139,7 @@ if (wake) {
   sea.add(wake.mesh);
   scene.add(sea);
 }
-const vesselF = (t) => BOARD ? 1 : t < FLIGHT ? THREE.MathUtils.lerp(VESSEL_F[0], VESSEL_F[1], t / FLIGHT)
+const vesselF = (t) => BOARD ? 1 : t < FLIGHT ? Math.max(0, THREE.MathUtils.lerp(VESSEL_F[0], VESSEL_F[1], t / FLIGHT))   // before 0: where it sailed before we came
   : THREE.MathUtils.lerp(VESSEL_F[1], VESSEL_F[2], THREE.MathUtils.clamp((t - FLIGHT) / (T_END - FLIGHT), 0, 1));
 const vesselSpeed = (t) => {   // m/s along the approach at time t
   const a = approachPose(berth, vesselF(Math.max(0, t - 0.5))), b = approachPose(berth, vesselF(t));
@@ -153,9 +153,10 @@ function moveVessel(t, dt) {
   vessel.scene.rotation.y = vesselPose.yaw;
   if (!wake) return;
   if (!wakeAt || Math.hypot(vesselPose.x - wakeAt.x, vesselPose.y - wakeAt.y) > 40) {
-    // Lay the wake it would have left: the track behind it, newest first
+    // Lay the wake it would have left: the track behind it, newest first,
+    // reaching back before the intro starts, as it was already under way
     const past = [];
-    for (let k = 0, g = t; k < 110 && g >= 0; k++, g -= 1) {
+    for (let k = 0, g = t; k < 110; k++, g -= 1) {
       const q = approachPose(berth, vesselF(g));
       past.push({ ...q, speed: vesselSpeed(g), age: t - g });
     }
@@ -261,7 +262,7 @@ const EXIT_AT = 3;          // s after touchdown the first one stands up
 const EXIT_GAP = 1.4;       // s between passengers
 const STAND = 1.5;          // s the stand_up clip takes
 const doorX = info.door.exit;   // clear of the sponson, over the step
-const stairs = B(46.5, -4, 54.5);  // top of the stairs from the helideck down into the quarters
+const stairs = B(46.5, -4, 57.5);  // top of the stairs from the helideck down into the quarters
 const parked = new THREE.Object3D();   // where the helicopter sits once down
 parked.position.fromArray(info.park.position);
 parked.rotation.y = info.park.yaw;
@@ -515,7 +516,7 @@ heliRoot.add(head);
 head.add(cabinCam);
 const look = { yaw: -0.35, pitch: -0.08, toYaw: -0.35, toPitch: -0.08 };
 const YAW = [-1.95, 1.25], PITCH = [-0.9, 0.7];
-const PLATFORM_EYE = B(-10, 0, 55);   // where the eyes go when left alone  // right is negative; we're against the right wall
+const PLATFORM_EYE = B(-10, 0, 58);   // where the eyes go when left alone  // right is negative; we're against the right wall
 
 // ---------------------------------------------------------------- the route
 
@@ -554,7 +555,7 @@ const T_LAND = FLIGHT + DESCENT;
 const T_END = T_LAND + 24;   // fade out as the last ones walk to the stairs
 
 const park = new THREE.Vector3().fromArray(info.park.position);
-const deckEdge = B(45, 15.5, 57.2);   // camera on a lamp post at the helideck's north-west rim
+const deckEdge = B(45, 15.5, 60.2);   // camera on a lamp post at the helideck's north-west rim
 deckCam.position.copy(deckEdge);
 
 // Pose of the helicopter at time t
