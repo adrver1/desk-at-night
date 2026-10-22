@@ -751,22 +751,41 @@ def _quarters(g, m, terraced):
 
 
 def _helideck(g, m, beams):
-    """Helideck as on the top view: a big octagon, most of it out past the
-    end, on a deep truss with two pairs of raking struts down to the corner
+    """Helideck as on the top view: an octagon out past the end, its deck
+    running on level back over the quarters' roof, on a deep truss with two pairs of raking struts down to the corner
     columns. beams builds the truss from members; otherwise it is a solid
     octagonal frustum with the bracing painted on (platform_textures.truss)."""
     hz, hx, r = HELI_Z, HELI_X, HELI_R
     rot = math.pi / 8
-    g.prism(m["heli"], (hx, 0), r, hz - 1.0, hz, 8, rot)
-    g.prism(m["steel"], (hx, 0), r + 1.3, hz - 1.4, hz - 1.1, 8, rot)  # safety net shelf
+    # The deck: the octagon's outer five sides, then on level back over the
+    # quarters' roof as wide as it is across the flats; the safety net shelf
+    # follows the same outline 1.3 m out
+    x0 = LQ_X1 + 1.5
+
+    def outline(rr, z0, z1, mat):
+        ring = [(x0, -rr * math.cos(rot))]
+        for k in range(-3, 3):
+            a = rot + k * math.pi / 4
+            ring.append((hx + rr * math.cos(a), rr * math.sin(a)))
+        ring.append((x0, rr * math.cos(rot)))
+        n = len(ring)
+        vs = [Vector((x, y, z0)) for x, y in ring] + [Vector((x, y, z1)) for x, y in ring]
+        fs = [(i, (i + 1) % n, n + (i + 1) % n, n + i) for i in range(n)]
+        g.add(mat, vs, fs + [tuple(reversed(range(n))), tuple(range(n, 2 * n))])
+
+    outline(r, hz - 1.0, hz, m["heli"])
+    outline(r + 1.3, hz - 1.4, hz - 1.1, m["steel"])
+    half = r * math.cos(rot)
+    for s in (-1, 1):
+        g.beam(m["white"], (TOP_X + 0.3, s * (half - 0.3), hz - 4.5), (x0, s * (half - 0.3), hz - 1.0), 0.4)
     g.ring(m["mark"], (hx, 0), r * 0.42, r * 0.50, hz + 0.03, 20)
     for c, s in (((hx, -1.6, hz + 0.04), (4.0, 0.7, 0.04)), ((hx, 1.6, hz + 0.04), (4.0, 0.7, 0.04)),
                  ((hx, 0, hz + 0.04), (0.7, 3.2, 0.04))):
         g.box(m["white"], c, s)
     g.box(m["dark"], (hx + r * 0.8, 0, hz + 0.04), (1.0, 5, 0.06))  # name panel
-    for i in range(8):
-        a = rot + 2 * math.pi * i / 8
-        g.prism(m["lamp"], (hx + (r - 0.3) * math.cos(a), (r - 0.3) * math.sin(a)), 0.25, hz, hz + 0.3, 6)
+    lamps = [(hx + (r - 0.3) * math.cos(rot + k * math.pi / 4), (r - 0.3) * math.sin(rot + k * math.pi / 4)) for k in range(-3, 3)]
+    for c in lamps + [(x0 + 0.3, -half + 0.3), (x0 + 0.3, half - 0.3)]:
+        g.prism(m["lamp"], c, 0.25, hz, hz + 0.3, 6)
     # The truss under it: top ring under the deck, a smaller ring 3.5 m lower
     zt, zb, rb = hz - 1.0, hz - 4.5, r * 0.8
     top = [Vector((hx + r * math.cos(rot + 2 * math.pi * i / 8), r * math.sin(rot + 2 * math.pi * i / 8), zt)) for i in range(8)]
