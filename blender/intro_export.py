@@ -18,6 +18,7 @@ The browser draws them under outdoor.js's sky and sea (web/src/intro.js).
 Seconds to run; no bake needed.
 """
 import json
+import math
 import os
 import shutil
 import sys
@@ -34,15 +35,18 @@ OUT = os.path.join(b.ROOT, "web", "public", "intro")
 # "cast": the intro seats the cast pilot (characters/heli_pilot) in the
 # cockpit; "standin": the helicopter's own block pilots
 PILOTS = "cast"
-# The supply vessel alongside on the crane side, the crane lifting a
-# container off its cargo deck (None: no vessel, crane stowed)
+# The supply vessel, sailing in to its berth on the crane side while we fly
+# (intro.js moves it, so it is exported at the origin), and the crane swung
+# out over the berth with a container on the hook, waiting for it
+# (False: no vessel, crane stowed)
 VESSEL = True
 # The passengers (in their survival suits) and the pilot, copied from the
 # character kit (characters/, built by its own scripts) for the page
 CAST = ["blazer_lead", "bearded_operator", "crop_supervisor", "curly_analyst", "curly_fade_tech",
         "glasses_engineer", "grey_beard_lead"]
 CHARS = [f"{c}/{c}_survival.glb" for c in CAST] + ["heli_pilot/heli_pilot_flying_headset.glb"]
-LIFT = (sv.BERTH_LOC[0] + 10.0, sv.BERTH_LOC[1], 11.0)
+# The hook over the cargo deck 12 m aft of amidships, well above it
+LIFT = (sv.BERTH_LOC[0] - 12.0 * math.cos(sv.BERTH_YAW), sv.BERTH_LOC[1] - 12.0 * math.sin(sv.BERTH_YAW), 24.0)
 
 
 def three(v):
@@ -86,7 +90,7 @@ def main():
     if VESSEL:
         vc = bpy.data.collections.new("Vessel")
         bpy.context.scene.collection.children.link(vc)
-        _, _, vtris = sv.build_vessel(sv.materials(), vc, sv.BERTH_LOC, sv.BERTH_YAW)
+        _, _, vtris = sv.build_vessel(sv.materials(), vc)
         export(os.path.join(OUT, "vessel.glb"), vc.objects)
         print(f"supply vessel: {vtris} triangles", flush=True)
 
@@ -101,6 +105,7 @@ def main():
         "seats": seats,          # x, y, z of the seat pan, then +1 facing forward or -1 aft
         "door": {"x": [heli.DOOR[0], heli.DOOR[1]], "sill": heli.DOOR[2], "slide": heli.DOOR_SLIDE, "exit": heli.EXIT_X},
         "floor": heli.FLOOR,
+        "berth": {"position": list(sv.BERTH_LOC), "yaw": sv.BERTH_YAW} if VESSEL else None,   # Blender axes
         "pilots": [three((heli.PILOT_X, y, heli.FLOOR + 0.50)) for y in (-heli.PILOT_Y, heli.PILOT_Y)] if PILOTS == "cast" else [],
     }
     os.makedirs(os.path.join(OUT, "chars"), exist_ok=True)

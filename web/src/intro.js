@@ -9,7 +9,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { Outdoor, WEATHER } from './outdoor.js';
+import { Outdoor, WEATHER, PLATFORM_HEADING } from './outdoor.js';
+import { approachPose } from './vessel.js';
 import { Helicopter } from './helicopter.js';
 
 const q = new URLSearchParams(location.search);
@@ -21,17 +22,20 @@ const SEATING = [[0, 1], [0, 2], [0, 3], [1, 2], [2, 1], [2, 2], [3, 1]];
 const PLAYER_SEAT = [1, 0];
 const OUTFIT = q.get('outfit') ?? 'survival'; // offshore flights: immersion suit and lifejacket
 
-// The flight, in platform coordinates as Blender has them (x east, y north,
-// z up, metres): in from the east, round the platform clockwise so it
-// stays in our right-hand window, then a right turn onto the helideck from the east
+// The flight, in platform coordinates as Blender has them (metres, z up;
+// the platform's +X end, the helideck's, faces true bearing 240°, so true
+// east is (-0.866, 0.5) and north (-0.5, -0.866)): in from the east, round
+// the platform clockwise so it stays in our right-hand window, then a right
+// turn onto the helideck along -X
+const CIRCLE = [60, 27.5, 250];   // centre x, y and radius: ends where the turn onto the deck begins
 const ROUTE = [
   // On the circle's tangent line, so it rolls straight into the right turn;
   // dense points so the spline follows the line and the arc, without the
   // small left wiggle a sparse one puts in before the turn
-  ...[1100, 900, 700, 500, 300, 150, 60, 20].map((d) => [97.9 + 0.940 * d, -310.1 + 0.342 * d, 250 + d * 0.04]),
-  ...Array.from({ length: 55 }, (_, i) => {   // the circle, sinking over its last quarter
-    const a = -70 - 5 * i, r = THREE.MathUtils.degToRad(a);
-    return [-15 + 330 * Math.cos(r), 330 * Math.sin(r), 250 - 70 * THREE.MathUtils.clamp((-250 - a) / 90, 0, 1)];
+  ...[1100, 900, 700, 500, 300, 150, 60, 20].map((d) => [185.0 - 0.866 * d, 244.0 + 0.5 * d, 250 + d * 0.04]),
+  ...Array.from({ length: 81 }, (_, i) => {   // the circle, a little over once round, sinking over its last quarter
+    const a = 60 - 5 * i, r = THREE.MathUtils.degToRad(a);
+    return [CIRCLE[0] + CIRCLE[2] * Math.cos(r), CIRCLE[1] + CIRCLE[2] * Math.sin(r), 250 - 70 * THREE.MathUtils.clamp((-250 - a) / 90, 0, 1)];
   }),
   // then on round to the right onto the deck's line, heading west
   ...Array.from({ length: 9 }, (_, i) => {
@@ -63,7 +67,7 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0);
-const outdoor = new Outdoor(0);
+const outdoor = new Outdoor(0, { heading: PLATFORM_HEADING });   // three's -z (the platform's +Y) points to true bearing 150°
 outdoor.set({ clouds: 0.3, wind: 0.3, fog: 0.03, rain: 0, ...WEATHER[q.get('weather')], time: Number(q.get('time') ?? 11.0), speed: 0 });
 scene.add(outdoor.room);
 const hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
@@ -116,8 +120,21 @@ platform.scene.traverse((o) => {
   if (o.material.emissive?.getHex()) glowing.push(o.material);
 });
 
-// The supply vessel alongside, its radars turning (intro_export.py VESSEL)
+// The supply vessel (exported at the origin, bow +X), its radars turning;
+// it sails in from the north-east to its berth while we fly in, the same
+// path as the game's (vessel.js), and is alongside as the crew walks off
 const radars = [];
+const berth = info.berth && { x: info.berth.position[0], y: info.berth.position[1], yaw: info.berth.yaw };
+const VESSEL_F = [0.35, 0.95, 1];   // approachPose's f at the start, at touchdown and at the end
+const vesselPose = {};
+function moveVessel(t) {
+  if (!vessel || !berth) return;
+  const f = t < FLIGHT ? THREE.MathUtils.lerp(VESSEL_F[0], VESSEL_F[1], t / FLIGHT)
+    : THREE.MathUtils.lerp(VESSEL_F[1], VESSEL_F[2], THREE.MathUtils.clamp((t - FLIGHT) / (T_END - FLIGHT), 0, 1));
+  approachPose(berth, BOARD ? 1 : f, vesselPose);
+  vessel.scene.position.copy(B(vesselPose.x, vesselPose.y, 0));
+  vessel.scene.rotation.y = vesselPose.yaw;
+}
 if (vessel) {
   scene.add(vessel.scene);
   vessel.scene.traverse((o) => {
@@ -659,6 +676,7 @@ function step(dt) {
   }
   for (const m of pilots) m.update(dt);
   radars.forEach((r, i) => { r.rotation.y -= dt * (i ? 2.6 : 2.1); });
+  moveVessel(t);
 
   // On short final, the helideck camera picks it up and follows it down
   if (left < CUT_AT || q.get('view') === 'deck') cut = true;
