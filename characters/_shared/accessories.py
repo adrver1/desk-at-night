@@ -68,8 +68,12 @@ def glasses(style="thin_metal"):
     for s in (1, -1):
         _rim(m, s * cx, EYE_Z, y, hw, hh, t, d, swatch, region, round_=style.startswith("round"))
         # arm: from the outer edge of the frame back to the top of the ear
-        m.bar((s * (cx + hw + t), y - d, EYE_Z + hh * 0.6), (s * 0.121, -0.02, 1.628),
-              max(t * 0.6, 0.0025), swatch, region)
+        # along the side of the head, clear of the temple, to rest on the ear
+        w = max(t * 0.6, 0.0025)
+        a = Vector((s * (cx + hw + t), y - d, EYE_Z + hh * 0.6))
+        b = Vector((s * 0.127, 0.055, 1.632))
+        m.bar(a, b, w, swatch, region)
+        m.bar(b, (s * 0.129, -0.022, 1.630), w, swatch, region)
     # bridge over the nose
     m.bar((cx - hw - t * 0.5, y - d * 0.5, EYE_Z + hh * 0.35), (-(cx - hw - t * 0.5), y - d * 0.5, EYE_Z + hh * 0.35),
           max(t * 0.5, 0.0022), swatch, region)

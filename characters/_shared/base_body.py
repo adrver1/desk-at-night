@@ -341,9 +341,9 @@ def body(skin="skin_3", colors=None, hide=(), brow=None, ears=True, ear_scale=1.
                axes=frame(tdir, u), angles=QUAD4, colors=cols, cap_start=False)
     if ears:
         k = 1 + (ear_scale - 1) * 0.6  # ear_scale sets how far they stick out, height grows less
-        # ear_flare swings the back edge out, hinged at the front: ears that
-        # stand away from the head
-        ear = [Vector((0.113 + dx * ear_scale + (ear_flare if dy < 0 else 0), -0.012 + dy * k, 1.60 + dz * k))
+        # ear_flare swings the outer back edge out while the inner face stays
+        # sunk in the head: ears that stand away without a gap
+        ear = [Vector((0.113 + dx * ear_scale + (ear_flare if dy < 0 and dx else 0), -0.012 + dy * k, 1.60 + dz * k))
                for dx in (0, 0.022) for dy in (-0.02, 0.018) for dz in (-0.035, 0.03)]
         right.hull(ear, cols["ear"], "ear")
     m.extend(right).extend(right.mirrored())
