@@ -709,7 +709,7 @@ renderer.setAnimationLoop((now) => {
   room.setDaylight(outdoor.light, now / 1000);
   room.setClock(outdoor.state.time); // the wall clock runs with the screens off too
   if (controls.screens) room.updateScreens(now / 1000, outdoor.cctv);
-  if (controls.screens && cctv) cctv.update(now / 1000, room.feedsShown());
+  if (controls.screens && cctv) cctv.update(now / 1000, room.feedsShown(), room.focusedFeed());
   outdoor.render(renderer, camera, { reflect: scene });   // the vessel mirrored in the sea
   renderer.render(scene, camera);
   for (const f of hooks.render) f(renderer, camera); // the story's own lit pass (characters), over the same depth

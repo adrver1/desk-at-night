@@ -111,7 +111,7 @@ renderer.setAnimationLoop((now) => {
   room.setDaylight(outdoor.light, now / 1000);
   room.setClock(outdoor.state.time);
   room.updateScreens(now / 1000, outdoor.cctv);
-  if (cctv) cctv.update(now / 1000, room.feedsShown());
+  if (cctv) cctv.update(now / 1000, room.feedsShown(), room.focusedFeed());
   controls.update();
   outdoor.render(renderer, camera, { reflect: scene });   // the vessel mirrored in the sea
   renderer.render(scene, camera);
