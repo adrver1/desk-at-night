@@ -16,6 +16,15 @@ belt, deck edge) with flat faces, like the helicopter's fuselage.
     python blender/supply_vessel.py                  # preview stills
     python blender/supply_vessel.py --only lineup    # one shot
     python blender/supply_vessel.py --glb            # also export the default
+    python blender/supply_vessel.py --web            # only write the game's files
+
+--web writes the scene's vessel (DESIGN, LIVERY) for web/src/vessel.js:
+
+    vessel.glb   the vessel in its own frame, parts named for the browser,
+                 lamps and lit windows at their night strength
+    vessel.json  its berth and the platform-to-room transform
+
+to web/public/control/.
 
 Everything is merged into one mesh per material and no textures are used.
 Origin is the waterline amidships, +X points to the bow and +Z up. Renders go
@@ -476,9 +485,33 @@ def export_glb(m, path, design=None, livery=None):
     bpy.ops.object.select_all(action="DESELECT")
     for o in coll.objects:
         o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=path, use_selection=True, export_apply=False, export_yup=True)
+    bpy.ops.export_scene.gltf(filepath=path, use_selection=True, export_apply=False, export_yup=True,
+                              export_texcoords=False, export_normals=True)
     print("wrote", path, flush=True)
     bpy.data.collections.remove(coll)
+
+
+def export_web(m, out):
+    """The scene's vessel and where it berths, for web/src/vessel.js. The
+    browser sails it in platform coordinates (metres, +Z up, the berth from
+    here) and maps them to the room's frame (three.js axes) with toRoom."""
+    import json
+    import control_room as cr
+    from mathutils import Matrix
+    os.makedirs(out, exist_ok=True)
+    set_night(m, True)
+    export_glb(m, os.path.join(out, "vessel.glb"))
+    yup = Matrix(((1, 0, 0, 0), (0, 0, 1, 0), (0, -1, 0, 0), (0, 0, 0, 1)))  # z-up to three.js y-up
+    M = yup @ cr.PLATFORM_TO_ROOM
+    info = {
+        "design": DESIGN, "livery": LIVERY, "length": DESIGNS[DESIGN]["length"],
+        "berth": [round(BERTH_LOC[0], 3), round(BERTH_LOC[1], 3), round(BERTH_YAW, 5)],
+        "crane": [getattr(op, "CRANE_X", 8.5), getattr(op, "CRANE_Y", -13.0)],
+        "toRoom": [round(M[r][c], 6) for c in range(4) for r in range(4)],  # column-major, as Matrix4.fromArray
+    }
+    with open(os.path.join(out, "vessel.json"), "w") as f:
+        json.dump(info, f, indent=1)
+    print("wrote", out, flush=True)
 
 
 def main():
@@ -489,10 +522,14 @@ def main():
     p.add_argument("--device", default="auto")
     p.add_argument("--only", default="", help="comma list of shots to render")
     p.add_argument("--glb", action="store_true", help="also export the default to supply_vessel.glb")
+    p.add_argument("--web", action="store_true", help="only write vessel.glb/json for the game")
     args = p.parse_args()
     os.makedirs(args.out, exist_ok=True)
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
+    if args.web:
+        export_web(materials(), os.path.join(b.ROOT, "web", "public", "control"))
+        return
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     scene.cycles.device = b.pick_device(args.device)

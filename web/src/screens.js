@@ -672,6 +672,7 @@ export const CONTENT = {
   log: ['Shift log', logbook],
   deckCam: ['Helideck camera', (ctx, w, h, t) => deckCamera(ctx, w, h, t, { feed: feeds.has('deckCam') })],
   flareCam: ['Flare camera', (ctx, w, h, t) => deckCamera(ctx, w, h, t, { name: 'CAM 11 · Flare boom', flare: true, feed: feeds.has('flareCam') })],
+  craneCam: ['Crane camera', (ctx, w, h, t) => deckCamera(ctx, w, h, t, { name: 'CAM 07 · Crane', feed: feeds.has('craneCam') })],
   weather: ['Weather & helideck', weather],
   overview: ['Platform overview', platformOverview],
   production: ['Production', production],
@@ -683,13 +684,14 @@ export const CONTENT = {
 
 // What each screen shows unless the player changes it on the room panel.
 // Desks left to right as seen from the chairs, then the wall band, then the
-// meeting table's video link and the TV beside the band, both on the call.
+// meeting table's video link on the call, and the TV beside the band on the
+// crane camera, which watches the supply vessel's berth.
 export const DEFAULT_LAYOUT = {
   ...Object.fromEntries(['wells', 'separator', 'levelTrend', 'compressor', 'alarms', 'assistant'].map((id, i) => [`Desk0Mon${i}Screen`, id])),
   ...Object.fromEntries(['power', 'esd', 'alarms', 'procedures', 'log', 'assistant'].map((id, i) => [`Desk1Mon${i}Screen`, id])),
   ...Object.fromEntries(['deckCam', 'weather', 'overview', 'production', 'alarmLoad', 'emissions', 'flareCam'].map((id, i) => [`Wall${i}Screen`, id])),
   LinkScreen: 'call',
-  TvScreen: 'call',
+  TvScreen: 'craneCam',
 };
 const layout = { ...DEFAULT_LAYOUT };
 
