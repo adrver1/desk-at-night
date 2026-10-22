@@ -13,6 +13,9 @@ import { Helicopter } from './helicopter.js';
 // Pixels across (16:9, shown pixelated) and pictures a second for all the
 // shown cameras together, taken in turn: ?cctv=256,3 sets both
 const [WIDTH, HZ] = (new URLSearchParams(location.search).get('cctv') ?? '256,3').split(',').map(Number);
+// The camera on a screen the player zooms in on: sharp and smooth, while
+// the screen fills the view and little else is drawn
+const FOCUS_WIDTH = 1024, FOCUS_HZ = 15;
 
 export class Cctv {
   // Resolves to null where the GPU can't render to a float texture
@@ -62,13 +65,34 @@ export class Cctv {
   }
 
   // Take the next camera's picture if one is due (t in seconds); `shown`
-  // is the ids some screen shows, so the others aren't drawn for nothing
-  update(t, shown = null) {
-    const cams = shown ? this.cams.filter((c) => shown.has(c.id)) : this.cams;
+  // is the ids some screen shows, so the others aren't drawn for nothing;
+  // `focus` the id of a camera the player has zoomed in on, or null
+  update(t, shown = null, focus = null) {
+    if (focus !== (this.focus?.id ?? null)) {
+      if (this.focus) this.resize(this.focus, WIDTH, THREE.NearestFilter);
+      this.focus = this.cams.find((c) => c.id === focus) ?? null;
+      if (this.focus) this.resize(this.focus, FOCUS_WIDTH, THREE.LinearFilter);
+      this.focusAt = -Infinity;
+    }
+    if (this.focus && t - this.focusAt >= 1 / FOCUS_HZ) {
+      this.focusAt = t;
+      this.draw(this.focus, t);
+      return;
+    }
+    const cams = (shown ? this.cams.filter((c) => shown.has(c.id)) : this.cams).filter((c) => c !== this.focus);
     if (!cams.length || t - this.at < 1 / HZ) return;
+    this.at = t;
+    this.draw(cams[this.next++ % cams.length], t);
+  }
+
+  resize(cam, width, filter) {
+    cam.target.texture.magFilter = filter;
+    cam.target.setSize(width, Math.round(width * 9 / 16));
+  }
+
+  draw(cam, t) {
     this.heli.update(this.prevT === undefined ? 0 : t - this.prevT);
     this.prevT = t;
-    this.at = t;
     const L = this.outdoor.light;
     this.hemi.color.copy(L.sky).multiplyScalar(Math.PI);
     this.hemi.groundColor.copy(L.sky).multiplyScalar(0.3);
@@ -80,7 +104,6 @@ export class Cctv {
     for (const [m, k] of this.glowing) m.emissiveIntensity = k * (0.05 + 0.95 * night);
     this.gain.value = THREE.MathUtils.clamp(0.35 / Math.max(lsky, 1e-4), 0.25, 5);
 
-    const cam = cams[this.next++ % cams.length];
     this.sun.position.copy(cam.camera.position).addScaledVector(L.sunDir, 200);
     this.sun.target.position.copy(cam.camera.position);
     const r = this.renderer, prev = r.getRenderTarget();

@@ -552,6 +552,11 @@ export async function loadControlRoom(renderer) {
       if (screens) for (const o of screens.overlays.values()) if (o.mesh.visible && o.mesh.material.uniforms.uFeed.value) shown.add(contentOf(o.name));
       return shown;
     },
+    // The camera on the screen shown sharp, if it shows one (for cctv.js)
+    focusedFeed() {
+      const id = screens?.focus && contentOf(screens.focus.name);
+      return id && isFeed(id) ? id : null;
+    },
     // Show one screen sharp and fully live (null for none)
     setFocus(name) {
       if (!screens) return;
