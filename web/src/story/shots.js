@@ -37,6 +37,7 @@ export class Shots {
   // Free mode takes the camera back
   release() {
     this.held = false;
+    this.game.chairs[0].obj.visible = true;
     this.game.camera.fov = 70;
     this.game.camera.updateProjectionMatrix();
   }
@@ -112,6 +113,8 @@ export class Shots {
       cam.rotateY(0.004 * Math.sin(this.t * 0.37));
       cam.rotateX(0.003 * Math.sin(this.t * 0.51 + 1));
     }
+    // Our own chair is behind our head: from the seat it only blocks the view back into the room
+    this.game.chairs[0].obj.visible = cam.position.distanceTo(this.seat) > 0.6;
     if (cam.fov !== this.pose.fov) { cam.fov = this.pose.fov; cam.updateProjectionMatrix(); }
     cam.updateMatrixWorld();
   }

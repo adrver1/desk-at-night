@@ -15,6 +15,7 @@ The parts the browser needs on their own are separate objects:
     SolaApron     everything static
     SolaPallet    the IBC pallet (hidden for the "it has gone" still)
     SolaSock      the windsock cone, pivoting at the pole top
+    SolaSign      SOLA HELIPORT over the hangar doors
     SolaFence*    the fence's mesh panels, made see-through in the browser
 """
 import argparse
@@ -63,7 +64,9 @@ def materials():
         "dark": f("SolaDark", srgb("#2a2c2e"), 0.6),
         "orange": f("SolaOrange", srgb("#e0571b"), 0.6),
         "red": f("SolaRed", srgb("#b0281f"), 0.5),
-        "tank": f("SolaTank", srgb("#e9e8df"), 0.35),   # the IBC's milky bottle
+        "tank": f("SolaTank", srgb("#e9e8df"), 0.35),   # the IBC's milky bottle (see-through in the browser)
+        "liquid": f("SolaLiquid", srgb("#c98a1e"), 0.3),   # the chemical inside, amber
+        "sheet": f("SolaSheet", srgb("#f4f4ef"), 0.6),     # the product label
         "cage": f("SolaCage", srgb("#b4b8ba"), 0.35),
         "pallet": f("SolaPalletBase", srgb("#1f2123"), 0.7),
         "label": f("SolaLabel", srgb("#f08a1c"), 0.5),
@@ -205,6 +208,32 @@ def build_hangar(g, m):
         ya, yb = y0 + 1 + i * (y1 - y0 - 2) / n, y0 + 1 + (i + 1) * (y1 - y0 - 2) / n
         g.span(m["door"], x1, x1 + 0.12 + 0.06 * (i % 2), ya + 0.05, yb - 0.05, 0, h - 1.5)
     g.span(m["band"], x1, x1 + 0.2, y0, y1, h - 1.4, h - 0.6)
+    # A wider band over the doors carries the name
+    g.span(m["band"], x1, x1 + 0.22, y0 + 4, y1 - 4, h - 1.45, h + 0.6)
+
+
+def build_sign(m, coll, text="SOLA HELIPORT"):
+    """White letters on the hangar's band over the doors, facing the apron."""
+    x0, x1, y0, y1 = HANGAR
+    cu = bpy.data.curves.new("SolaSignText", "FONT")
+    cu.body = text
+    cu.size = 1.6
+    cu.extrude = 0.03
+    cu.align_x, cu.align_y = "CENTER", "CENTER"
+    tmp = bpy.data.objects.new("SolaSignText", cu)
+    coll.objects.link(tmp)
+    # Text lies in XY facing +Z: stand it up facing +X (east)
+    tmp.rotation_euler = (math.radians(90), 0, math.radians(90))
+    tmp.location = (x1 + 0.26, (y0 + y1) / 2, 12.0 - 0.45)
+    dg = bpy.context.evaluated_depsgraph_get()
+    me = bpy.data.meshes.new_from_object(tmp.evaluated_get(dg))
+    o = bpy.data.objects.new("SolaSign", me)
+    o.matrix_world = tmp.matrix_world.copy()
+    me.materials.clear()
+    me.materials.append(m["paint"])
+    coll.objects.link(o)
+    bpy.data.objects.remove(tmp)
+    return o
 
 
 def build_masts(g, m):
@@ -252,6 +281,8 @@ def build_ibc(g, m, c, yaw=0.0):
     g.box(m["pallet"], P(0, 0, 0.075), (L, W, 0.15), yaw)
     # The bottle, a little inside the cage, filler cap on top, valve at the foot
     g.box(m["tank"], P(0, 0, 0.15 + (H - 0.17) / 2), (L - 0.08, W - 0.08, H - 0.2), yaw)
+    fill = (H - 0.24) * 0.8
+    g.box(m["liquid"], P(0, 0, 0.17 + fill / 2), (L - 0.14, W - 0.14, fill), yaw)
     g.prism(m["dark"], tuple(P(0, 0, 0))[:2], 0.11, 0.15 + H - 0.2, 0.15 + H - 0.12, 10)
     g.box(m["dark"], P(L / 2 - 0.02, 0, 0.27), (0.12, 0.12, 0.12), yaw)
     # The cage: posts at the corners and a grid of bars round the sides and top
@@ -269,11 +300,18 @@ def build_ibc(g, m, c, yaw=0.0):
     for i in range(1, 4):
         a, d = P(-L / 2 + i * L / 4, -W / 2, z1), P(-L / 2 + i * L / 4, W / 2, z1)
         g.beam(m["cage"], a, d, 0.018)
-    # A hazard diamond on the long side
-    s = 0.13
-    ctr = P(0, -W / 2 - 0.012, 0.15 + H * 0.55)
+    # A product label and a hazard diamond on the long side
+    side_ = rot @ Vector((1, 0, 0))
+    lc = P(-0.22, W / 2 + 0.014, 0.15 + H * 0.55)
+    g.add(m["sheet"], [lc - side_ * 0.2 - Vector((0, 0, 0.14)), lc + side_ * 0.2 - Vector((0, 0, 0.14)), lc + side_ * 0.2 + Vector((0, 0, 0.14)), lc - side_ * 0.2 + Vector((0, 0, 0.14))], [(0, 1, 2, 3), (3, 2, 1, 0)])
+    s = 0.16
+    ctr = P(0.25, W / 2 + 0.016, 0.15 + H * 0.55)
     side = rot @ Vector((1, 0, 0))
     g.add(m["label"], [ctr + side * s, ctr + Vector((0, 0, s)), ctr - side * s, ctr - Vector((0, 0, s))], [(0, 1, 2, 3), (3, 2, 1, 0)])
+    # and one on the end, for the shot along the row
+    ctr = P(L / 2 + 0.016, 0, 0.15 + H * 0.55)
+    across = rot @ Vector((0, 1, 0))
+    g.add(m["label"], [ctr + across * s, ctr + Vector((0, 0, s)), ctr - across * s, ctr - Vector((0, 0, s))], [(0, 1, 2, 3), (3, 2, 1, 0)])
 
 
 def build_pallet(m, coll):
@@ -312,6 +350,7 @@ def export(m, path):
     build_apron(m, coll)
     build_pallet(m, coll)
     build_sock(m, coll)
+    build_sign(m, coll)
     bpy.ops.object.select_all(action="DESELECT")
     for o in coll.objects:
         o.select_set(True)

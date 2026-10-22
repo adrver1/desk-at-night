@@ -44,10 +44,12 @@ export const SPEAKERS = {
 
 export const TITLE = 'A day in the life of EIGA';
 // TODO(Adriaen): credit wording and Brage's role
+// [role, name, who the camera turns to in the cabin, or 'descent' for the
+// outside camera as the helicopter comes down onto the deck]
 export const CREDITS = [
-  ['Story and engineering', 'Adriaen'],
-  ['With', 'Brage'],
-  ['Built with', 'Claude · GitHub Copilot'],
+  ['Story and engineering', 'Adriaen', 'bearded_operator'],
+  ['With', 'Brage', 'blazer_lead'],
+  ['Built with', 'Claude · GitHub Copilot', 'descent'],
 ];
 
 export const ACTS = {

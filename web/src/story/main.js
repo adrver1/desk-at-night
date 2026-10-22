@@ -25,6 +25,7 @@ import { Sola } from './sola.js';
 const game = window.__game;
 const q = new URLSearchParams(location.search);
 const PRIVATE = 'story/private/';
+const MUSIC = 'story/music/flight.mp3';   // optional: a free recording for the helicopter flight
 addStoryScreens();
 
 const host = document.getElementById('game');
@@ -361,6 +362,8 @@ function stopPrologue() {
   prologue.black?.remove();
   prologue.black = null;
   sola?.hide();
+  sound.rotor(0, 0.6);
+  sound.stopMusic(0.6);
   ui.credit(null);
   if (game.hooks) game.hooks.hidden = false;
 }
@@ -379,15 +382,40 @@ function prologueFrame() {
   const t = intro.t;
   if (prologue.black && t > 0.5) prologue.black.classList.remove('on');
   const cue = (name, at, fn) => { if (t >= at && !prologue.cues.has(name)) { prologue.cues.add(name); fn(); } };
-  // Title over the flight, then the credits one at a time, like a film
-  if (!sola?.done) {
+  // Title over the flight (unless the Sola opening had it). Our eyes follow
+  // the supply vessel first, then turn to each person as their name comes
+  // up; the AI credit runs over the outside camera on the descent
+  if (!sola?.open) {
     cue('title', 2, () => ui.title({ text: TITLE }));
     cue('title-off', 9, () => ui.title(null));
-    CREDITS.forEach((c, i) => {
-      cue(`credit${i}`, 11 + i * 6, () => ui.credit(c));
-      cue(`credit${i}-off`, 15.5 + i * 6, () => ui.credit(null));
-    });
   }
+  const headOf = (cast) => {
+    const p = intro.passengers.find((x) => x.userData.cast === cast);
+    return p && (() => (p.userData.bones.head ?? p).getWorldPosition(new THREE.Vector3()));
+  };
+  const vessel = intro.vessel && (() => intro.vessel.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 8, 0)));
+  cue('aim-vessel', 0, () => { intro.aim = vessel; });
+  CREDITS.forEach(([role, name, focus], i) => {
+    if (focus === 'descent') {
+      cue(`credit${i}`, intro.cut ? t : Infinity, () => ui.credit([role, name]));
+      cue(`credit${i}-off`, intro.T_LAND - 0.3, () => ui.credit(null));
+      return;
+    }
+    const at = 13 + i * 7;
+    cue(`aim${i}`, at - 1.2, () => { intro.aim = headOf(focus) ?? vessel; });
+    cue(`credit${i}`, at, () => ui.credit([role, name]));
+    cue(`credit${i}-off`, at + 5, () => ui.credit(null));
+  });
+  cue('aim-back', 13 + (CREDITS.length - 1) * 7, () => { intro.aim = vessel; });
+  cue('aim-free', 38, () => { intro.aim = null; });
+  // Rotor sound: a drone in the cabin, the thump outside on the descent,
+  // running down after touchdown
+  cue('rotor-in', 0, () => sound.rotor(0.09, 2, 'inside'));
+  // Music over the flight if the file is there (see story/README.md), out by the walk-off
+  cue('music', 0.5, () => sound.music(MUSIC));
+  cue('music-out', intro.T_LAND + 6, () => sound.stopMusic(4));
+  cue('rotor-out', intro.cut ? t : Infinity, () => sound.rotor(0.12, 1, 'outside'));
+  cue('rotor-down', intro.T_LAND + 0.5, () => sound.rotor(0, 9, 'outside'));
   cue('p1', 5, () => say('pro.pilot1', token));
   cue('p2', 31, () => say('pro.pilot2', token));
   if (intro.FLIGHT > 70) cue('p3', intro.FLIGHT - 32, () => say('pro.pilot3', token));

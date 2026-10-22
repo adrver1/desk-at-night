@@ -47,6 +47,14 @@ track for lip movement). `--only a1.sup1 a1.sup2` and `--force` help when
 iterating. A line with `"keep": true` is never re-rendered, for a recording
 dropped in by hand (for example a paid voice for a main character).
 
+## Music
+
+The flight plays `public/story/music/flight.mp3` if it is there, ducked
+under the pilot's lines and faded out after landing. Only a recording that
+is free to use belongs there. Wagner's music is in the public domain, but
+most recordings are not; recordings by US military bands (public domain as
+US government works) and CC0 ones from Musopen or Wikimedia Commons are.
+
 ## The private build
 
 The repo is public. Real initiative names, statuses, slides and tool
