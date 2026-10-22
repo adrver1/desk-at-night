@@ -8,6 +8,7 @@
 // characters/, the sky and sea from outdoor.js.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { Outdoor, WEATHER } from './outdoor.js';
 import { Helicopter } from './helicopter.js';
 
@@ -102,8 +103,8 @@ function load(name) {
   return loader.parseAsync(buf.buffer, '');
 }
 const info = window.INTRO_INFO ?? await fetch(BASE + 'intro.json').then((r) => r.json());
-const [platform, heliModel, ...people] = await Promise.all([
-  load('platform.glb'), load('heli.glb'), ...CAST.map((c) => load(`chars/${c}_${OUTFIT}.glb`).catch(() => load(`chars/${c}.glb`)).catch(() => null)),
+const [platform, heliModel, pilotModel, ...people] = await Promise.all([
+  load('platform.glb'), load('heli.glb'), load('chars/heli_pilot_flying_headset.glb').catch(() => null), ...CAST.map((c) => load(`chars/${c}_${OUTFIT}.glb`).catch(() => load(`chars/${c}.glb`)).catch(() => null)),
 ]);
 
 scene.add(platform.scene);
@@ -128,7 +129,7 @@ heliModel.scene.traverse((o) => {
   o.castShadow = o.receiveShadow = true;
   if (INSIDE.includes(o.material.name)) o.material.color.multiplyScalar(0.6);
   if (o.material.name === 'HeliClear') { o.castShadow = false; o.material.depthWrite = false; }
-  if (q.has('cutaway') && !['HeliFloor', 'HeliSeat'].includes(o.material.name)) o.visible = false;   // debug: see inside
+  if (q.has('cutaway') && !['HeliFloor', 'HeliSeat', 'HeliPanel', 'HeliMetal'].includes(o.material.name)) o.visible = false;   // debug: see inside
 });
 
 // Passengers, sat down: each character carries a seated_idle clip for a
@@ -166,6 +167,27 @@ people.forEach((gltf, i) => {
     state: 'seated', blinkAt: Math.random() * 4 });
   heliRoot.add(p);
   passengers.push(p);
+});
+
+// The cast pilots, flying: the clip's hands meet the cyclic and collective
+// helicopter.py builds at each pilot seat
+const pilots = (pilotModel ? info.pilots ?? [] : []).map((at, i) => {
+  const p = i ? SkeletonUtils.clone(pilotModel.scene) : pilotModel.scene;
+  p.rotation.y = -Math.PI / 2;
+  p.position.set(at[0], at[1] - 0.45, at[2]);
+  const mixer = new THREE.AnimationMixer(p);
+  const clip = (n) => THREE.AnimationClip.findByName(pilotModel.animations, n);
+  if (clip('flying')) mixer.clipAction(clip('flying')).play();
+  mixer.setTime(i * 1.7);
+  p.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = o.receiveShadow = true;
+    o.frustumCulled = false;
+    o.material = o.material.clone();
+    o.material.color.multiplyScalar(0.7);
+  });
+  heliRoot.add(p);
+  return mixer;
 });
 
 // Off the helicopter: in turn, nearest the door first, each passenger stands
@@ -618,6 +640,7 @@ function step(dt) {
     p.userData.mixer.update(dt);
     bend(p, dt);
   }
+  for (const m of pilots) m.update(dt);
 
   // On short final, the helideck camera picks it up and follows it down
   if (left < CUT_AT || q.get('view') === 'deck') cut = true;

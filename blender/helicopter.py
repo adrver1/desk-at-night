@@ -670,6 +670,17 @@ def pilot(g, m, x, y):
         g.beam(m["suit"], (x + 0.0, y + dy * 2, FLOOR + 1.05), (x + 0.42, y + dy * 1.2, FLOOR + 0.80), 0.10)  # arms
 
 
+def controls(g, m, x, y):
+    """Cyclic between the knees and collective low on the left, where the
+    cast pilot's flying pose holds them (seat centre x, y; the pilot faces +X)."""
+    g.beam(m["metal"], (x + 0.47, y - 0.03, FLOOR), (x + 0.41, y - 0.03, FLOOR + 0.70), 0.03)       # cyclic stick
+    g.box(m["panel"], (x + 0.41, y - 0.03, FLOOR + 0.77), (0.05, 0.05, 0.12))                       # grip
+    g.box(m["panel"], (x + 0.47, y - 0.03, FLOOR + 0.03), (0.16, 0.16, 0.06))                       # boot
+    g.box(m["panel"], (x - 0.05, y + 0.23, FLOOR + 0.30), (0.30, 0.08, 0.10))                       # collective housing
+    g.beam(m["metal"], (x - 0.10, y + 0.23, FLOOR + 0.33), (x + 0.22, y + 0.23, FLOOR + 0.50), 0.03)  # lever
+    g.box(m["panel"], (x + 0.27, y + 0.23, FLOOR + 0.52), (0.12, 0.05, 0.05))                       # grip
+
+
 def build_cabin_interior(g, m, pilots=True):
     """Lining, floor, seats and cockpit for the view from inside. The skin
     must be built glazed, with real window openings."""
@@ -717,6 +728,7 @@ def build_cabin_interior(g, m, pilots=True):
     g.box(m["panel"], (3.85, 0, ROOF - 0.12), (0.75, 0.45, 0.10))
     for y in (-PILOT_Y, PILOT_Y):
         seat(g, m, PILOT_X, y, 0.52)
+        controls(g, m, PILOT_X, y)
         if pilots:
             pilot(g, m, PILOT_X + 0.05, y)
     # Fold-down jump seat behind the pilots

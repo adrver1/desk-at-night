@@ -29,6 +29,9 @@ import offshore_platform as op  # noqa: E402
 bpy, Vector = b.bpy, b.Vector
 
 OUT = os.path.join(b.ROOT, "web", "public", "intro")
+# "cast": the intro seats the cast pilot (characters/heli_pilot) in the
+# cockpit; "standin": the helicopter's own block pilots
+PILOTS = "cast"
 
 
 def three(v):
@@ -54,7 +57,7 @@ def main():
     hm = heli.materials()
     coll = bpy.data.collections.new("Heli")
     bpy.context.scene.collection.children.link(coll)
-    root, parts, htris = heli.build_helicopter(hm, coll, interior=True)
+    root, parts, htris = heli.build_helicopter(hm, coll, interior=True, pilots=PILOTS == "standin")
     for o in parts.values():
         o.hide_render = False
     root.name = "Helicopter"
@@ -80,6 +83,7 @@ def main():
         "seats": seats,          # x, y, z of the seat pan, then +1 facing forward or -1 aft
         "door": {"x": [heli.DOOR[0], heli.DOOR[1]], "sill": heli.DOOR[2], "slide": heli.DOOR_SLIDE, "exit": heli.EXIT_X},
         "floor": heli.FLOOR,
+        "pilots": [three((heli.PILOT_X, y, heli.FLOOR + 0.50)) for y in (-heli.PILOT_Y, heli.PILOT_Y)] if PILOTS == "cast" else [],
     }
     with open(os.path.join(OUT, "intro.json"), "w") as f:
         json.dump(info, f, indent=1)

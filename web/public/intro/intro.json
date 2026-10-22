@@ -1,7 +1,7 @@
 {
  "triangles": {
   "platform": 9484,
-  "helicopter": 4714
+  "helicopter": 4498
  },
  "helideck": {
   "centre": [
@@ -145,5 +145,17 @@
   ],
   "exit": 0.95
  },
- "floor": 1.0
+ "floor": 1.0,
+ "pilots": [
+  [
+   3.75,
+   1.5,
+   0.55
+  ],
+  [
+   3.75,
+   1.5,
+   -0.55
+  ]
+ ]
 }
