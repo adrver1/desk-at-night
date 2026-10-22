@@ -9,6 +9,7 @@ as the photos without extra triangles:
                   louvres, cable trays and junction boxes
     quarters()    the quarters' light cladding with walkway bands, doors and
                   small kit; the cabin windows stay geometry
+    sign()        a yellow name board with its lettering, one image per board
 
 Each tile covers TILE metres square and is mapped by box projection in world
 space (offshore_platform.py), so the storeys line up across modules.
@@ -18,7 +19,7 @@ in blender/build/platform_tex/.
 import os
 import random
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "build", "platform_tex")
@@ -158,6 +159,30 @@ def quarters(seed=9):
     return clad_busy(seed, base=(214, 217, 219), name="quarters", stairs=False)
 
 
+def sign(lines, w, h, ppm=48):
+    """Yellow board w x h metres with black lines of text centred on it,
+    as large as fits, ppm pixels per metre."""
+    W, H = round(w * ppm), round(h * ppm)
+    im = Image.new("RGB", (W, H), (240, 178, 18))
+    d = ImageDraw.Draw(im)
+    font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+    size = H
+    while size > 6:
+        font = ImageFont.truetype(font_path, size)
+        boxes = [d.textbbox((0, 0), t, font=font) for t in lines]
+        lh = max(b[3] - b[1] for b in boxes)
+        if max(b[2] - b[0] for b in boxes) <= W * 0.88 and lh * len(lines) * 1.15 <= H * 0.84:
+            break
+        size -= 2
+    total = lh * len(lines) * 1.15
+    for i, (t, bb) in enumerate(zip(lines, boxes)):
+        y = (H - total) / 2 + i * lh * 1.15 - bb[1]
+        d.text(((W - (bb[2] - bb[0])) / 2 - bb[0], y), t, font=font, fill=(20, 20, 20))
+    d.rectangle((0, 0, W - 1, H - 1), outline=(30, 30, 30), width=max(1, ppm // 16))
+    name = "sign_" + "_".join(t.replace("/", "-").replace(" ", "") for t in lines) + f"_{W}x{H}"
+    return _save(im, name)
+
+
 def _save(im, name):
     os.makedirs(OUT, exist_ok=True)
     path = os.path.join(OUT, name + ".png")
@@ -168,3 +193,4 @@ def _save(im, name):
 if __name__ == "__main__":
     for f in (busy, clad_busy, quarters):
         print(f())
+    print(sign(("IVAR AASEN", "16/1-D", "AKER BP"), 10.0, 4.6))
