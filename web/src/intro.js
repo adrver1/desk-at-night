@@ -18,6 +18,7 @@ const CAST = ['blazer_lead', 'bearded_operator', 'crop_supervisor', 'curly_analy
 // left). Row 1 faces aft, at us; rows 2 and 3 sit back to back.
 const SEATING = [[0, 1], [0, 2], [0, 3], [1, 2], [2, 1], [2, 2], [3, 1]];
 const PLAYER_SEAT = [1, 0];
+const OUTFIT = q.get('outfit') ?? 'survival'; // offshore flights: immersion suit and lifejacket
 
 // The flight, in platform coordinates as Blender has them (x east, y north,
 // z up, metres): in from the south-east, round the platform clockwise so it
@@ -94,7 +95,7 @@ function load(name) {
 }
 const info = window.INTRO_INFO ?? await fetch(BASE + 'intro.json').then((r) => r.json());
 const [platform, heliModel, ...people] = await Promise.all([
-  load('platform.glb'), load('heli.glb'), ...CAST.map((c) => load(`chars/${c}.glb`).catch(() => null)),
+  load('platform.glb'), load('heli.glb'), ...CAST.map((c) => load(`chars/${c}_${OUTFIT}.glb`).catch(() => load(`chars/${c}.glb`)).catch(() => null)),
 ]);
 
 scene.add(platform.scene);
@@ -132,12 +133,12 @@ people.forEach((gltf, i) => {
   p.rotation.y = -face * Math.PI / 2;    // characters face -z, a seat faces +x (1) or -x (-1)
   p.position.set(s.x, s.y - 0.45, s.z);
   const mixer = new THREE.AnimationMixer(p);
-  const act = Object.fromEntries(['seated_idle', 'stand_up', 'walk'].map((n) => {
+  const act = Object.fromEntries(['seated_idle', 'stand_up', 'walk', 'step_down', 'blink'].map((n) => {
     const clip = THREE.AnimationClip.findByName(gltf.animations, n);
     return [n, clip && mixer.clipAction(clip)];
   }));
   act.seated_idle?.play();
-  if (act.stand_up) { act.stand_up.setLoop(THREE.LoopOnce); act.stand_up.clampWhenFinished = true; }
+  for (const k of ['stand_up', 'step_down', 'blink']) if (act[k]) { act[k].setLoop(THREE.LoopOnce); act[k].clampWhenFinished = k !== 'blink'; }
   mixer.setTime(Math.random() * 4);
   const mats = [];
   p.traverse((o) => {
@@ -149,7 +150,7 @@ people.forEach((gltf, i) => {
   });
   const shade = (k) => { for (const [m, c] of mats) m.color.copy(c).multiplyScalar(k); };
   shade(0.7);  // in the cabin the sky only reaches them through the windows
-  Object.assign(p.userData, { mixer, act, shade, seat: s.clone(), face, state: 'seated' });
+  Object.assign(p.userData, { mixer, act, shade, seat: s.clone(), face, state: 'seated', blinkAt: Math.random() * 4 });
   heliRoot.add(p);
   passengers.push(p);
 });
@@ -165,14 +166,17 @@ const stairs = B(47.5, -4, 72.5);  // top of the stairs from the helideck down i
 passengers.sort((a, b) => Math.abs(a.userData.seat.x - doorX) - Math.abs(b.userData.seat.x - doorX));
 passengers.forEach((p, i) => { p.userData.leaveAt = EXIT_AT + i * EXIT_GAP; });
 
+const STEP = 3;   // the route point at the door sill
+
 function route(p) {
   const { seat: st } = p.userData, side = Math.sign(st.z) || 1;
   const floor = info.floor;
   const aisle = new THREE.Vector3(st.x, floor, side * 0.05);
-  // Out through the door on their side, down onto the deck, then to the stairs
+  // Out through the door on their side to the sill, the step_down clip
+  // down onto the deck (1.0 m down, 0.6 m out), then across to the stairs
   const pts = [new THREE.Vector3(st.x, floor, st.z), aisle,
-    new THREE.Vector3(doorX, floor, side * 0.4), new THREE.Vector3(doorX, floor, side * 1.25),
-    new THREE.Vector3(doorX - 0.2, 0, side * 2.3), new THREE.Vector3(doorX - 2.5, 0, side * 4.5)];
+    new THREE.Vector3(doorX, floor, side * 0.4), new THREE.Vector3(doorX, floor, side * 1.15),
+    new THREE.Vector3(doorX, 0, side * 1.75), new THREE.Vector3(doorX - 2.5, 0, side * 4.5)];
   heliRoot.updateMatrixWorld(true);
   pts.push(heliRoot.worldToLocal(stairs.clone()));
   return pts;
@@ -193,7 +197,27 @@ function disembark(p, since, dt) {
     u.act.walk?.reset().play();
     if (u.act.walk) u.act.stand_up?.crossFadeTo(u.act.walk, 0.35, false);
   }
+  if (u.state === 'stepping') {
+    if (since < u.stepEnd) return;
+    // The clip ends 1.0 m down and 0.6 m out: move the root there and walk on
+    u.state = 'walking';
+    u.act.walk?.reset().play();
+    if (u.act.walk) u.act.step_down.crossFadeTo(u.act.walk, 0.2, false);
+    u.leg = STEP + 1;
+    u.along = 0;
+    p.position.copy(u.path[u.leg]);
+  }
   if (u.state !== 'walking') return;
+  if (u.leg === STEP && u.act.step_down) { // at the sill, facing out: step down
+    u.state = 'stepping';
+    u.stepEnd = since + u.act.step_down.getClip().duration;
+    p.position.copy(u.path[STEP]);
+    p.rotation.y = Math.atan2(0, -Math.sign(u.path[STEP].z));
+    u.act.step_down.reset().play();
+    u.act.walk?.crossFadeTo(u.act.step_down, 0.15, false);
+    u.shade(1);
+    return;
+  }
   const a = u.path[u.leg], b = u.path[u.leg + 1];
   if (!b) { u.state = 'gone'; p.visible = false; return; }
   const d = new THREE.Vector3().subVectors(b, a), len = d.length();
@@ -201,7 +225,7 @@ function disembark(p, since, dt) {
   if (u.along >= len) { u.along -= len; u.leg++; return disembark(p, since, 0); }
   p.position.copy(a).addScaledVector(d, u.along / len);
   const want = Math.atan2(-d.x, -d.z);
-  p.rotation.y = lerpAngle(p.rotation.y, want, Math.min(1, dt * 8 + (u.leg === 0 ? 0 : 0)));
+  p.rotation.y = lerpAngle(p.rotation.y, want, Math.min(1, dt * 8));
   if (u.leg >= 4) u.shade(1);
   // Fade out at the top of the stairs
   const left = u.path.slice(u.leg + 1).reduce((acc, q, k, arr) => acc + (k ? q.distanceTo(arr[k - 1]) : q.distanceTo(p.position)), 0);
@@ -389,6 +413,8 @@ function step(dt) {
   head.rotation.set(look.pitch + shake * Math.sin(t * 23.1), -Math.PI / 2 + look.yaw + shake * Math.sin(t * 17.3), 0);
   for (const p of passengers) {
     if (landed) disembark(p, t - T_LAND, dt);
+    const u = p.userData;
+    if (u.act.blink && t > u.blinkAt) { u.act.blink.reset().play(); u.blinkAt = t + 2.5 + Math.random() * 4; }
     p.userData.mixer.update(dt);
   }
 
