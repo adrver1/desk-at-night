@@ -29,7 +29,7 @@ const lampOff = new THREE.Color();
 // them a few times a second was too slow, so they are drawn once, as they
 // look STATIC_T seconds into the shift (phones get a half-size atlas), and
 // only screens showing LIVE content keep moving, each on its own small texture.
-const LIVE = ['assistant', 'deckCam', 'flareCam', 'craneCam', 'boomCam', 'weather']; // content that keeps moving wherever it is shown (the cameras and weather follow outdoor.js)
+export const LIVE = ['assistant', 'deckCam', 'flareCam', 'craneCam', 'boomCam', 'weather']; // content that keeps moving wherever it is shown (the cameras and weather follow outdoor.js)
 const isLive = (name) => LIVE.includes(contentOf(name));
 const STATIC_T = 600, SCREEN_HZ = 4, SCREEN_GAIN = 1.4;
 const ATLAS_EVERY = 3; // s between redraws of the static screens for the clock
