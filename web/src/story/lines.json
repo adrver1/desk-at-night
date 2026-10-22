@@ -1,0 +1,48 @@
+{
+  "_about": "Every spoken line in story mode, by id. web/scripts/voices.py renders each one to public/story/voice/<id>.mp3 with the free Kokoro voice of its speaker (see SPEAKERS in content.js and CAST in voices.py). Change a text, re-run the script, and only that line is rendered again. fx: radio (VHF/intercom band-pass), phone (narrow band). All placeholder dialogue, to be checked by Adriaen.",
+
+  "sola.crew1": { "who": "crew", "text": "Morning, all. Boarding now." },
+  "sola.crew2": { "who": "crew", "text": "Follow the yellow walkway to the door, please." },
+
+  "pro.pilot1": { "who": "pilot", "fx": "radio", "text": "Morning, everyone. That's the platform, dead ahead." },
+  "pro.pilot2": { "who": "pilot", "fx": "radio", "text": "Wind on the deck is twenty knots, south-west. Nice and steady." },
+  "pro.pilot3": { "who": "pilot", "fx": "radio", "text": "One turn round the platform, then we're in. Two minutes." },
+  "pro.pilot4": { "who": "pilot", "fx": "radio", "text": "Welcome on board. Wait for the rotors to stop, then follow the deck crew." },
+
+  "a1.sup1": { "who": "supervisor", "text": "We're two short today, so I'll take the crane for the boat myself. Haven't done that lift in a while." },
+  "a1.sup2": { "who": "supervisor", "text": "Where's the lifting procedure again? Give me a minute." },
+  "a1.sup3": { "who": "supervisor", "text": "Found it. Revision five, I think. Right, off to the crane." },
+  "a1.plan1": { "who": "planner", "fx": "phone", "text": "Hi, it's onshore planning. Bad news, I'm afraid. The chemical order missed the cut-off, so the containers are still at the supply base." },
+  "a1.plan2": { "who": "planner", "fx": "phone", "text": "Next boat is in three days." },
+  "a1.op1": { "who": "operator", "text": "Three days? We'll be short on scale inhibitor by then." },
+  "a1.tech1": { "who": "tech", "fx": "radio", "text": "Control, field. Booster pump A just tripped. Loud noise from the bearing end." },
+  "a1.op2": { "who": "operator", "text": "B has picked up the load. Suction pressure is swinging all over." },
+  "a1.op3": { "who": "operator", "text": "B's gone on low suction pressure. We've lost all water injection." },
+  "a1.tech2": { "who": "tech", "fx": "radio", "text": "Control, field, I've got alarms on every panel down here." },
+  "a1.tech3": { "who": "tech", "fx": "radio", "text": "Which one do you want me to look at first?" },
+  "a1.oim1": { "who": "oim", "text": "Was this a bad day?" },
+  "a1.sup4": { "who": "supervisor", "text": "No. A normal one." },
+
+  "a2.op1": { "who": "operator", "text": "Let me show you what I've been building." },
+  "a2.op2": { "who": "operator", "text": "This is yesterday's history for the injection pressure loop. It finds the stretches where the loop ran in manual and moved enough to learn from." },
+  "a2.op3": { "who": "operator", "text": "So we get a model without a new step test on the live plant. No lost barrels." },
+  "a2.op4": { "who": "operator", "text": "And this is a physics model of a slugging riser. Watch it fill with liquid, then blow through." },
+  "a2.op5": { "who": "operator", "text": "Now drag in an anti-slug controller, tuned on that model. The slugs flatten out." },
+  "a2.op6": { "who": "operator", "text": "Before any of it goes near the real system, the start, stop and fallback logic runs in the logic tester." },
+  "a2.op7": { "who": "operator", "text": "There. A missing interlock. Found on a laptop, not during commissioning." },
+  "a2.oim1": { "who": "oim", "text": "So could the AI have done this on its own?" },
+  "a2.op8": { "who": "operator", "text": "It wrote a lot of the code. It didn't know what a slug was, or when the logic was wrong." },
+
+  "a3.sup1": { "who": "supervisor", "text": "Morning, everyone. Quick round before the boat comes in." },
+  "a3.sup2": { "who": "supervisor", "text": "Three of us lead the agents today. Each one has a mandate: what it may do alone, what needs approval, and what it never touches." },
+  "a3.sup3": { "who": "supervisor", "text": "And this is what connects them." },
+  "a3.sup4": { "who": "supervisor", "text": "The chemicals are on the boat this time. Now, the lifting procedure for the supply boat, please." },
+  "a3.sup5": { "who": "supervisor", "text": "Good catch. From now on it answers, but the operator checks the citation for lifting and restart procedures." },
+  "a3.ana1": { "who": "analyst", "text": "The root cause analysis is back. Pump A's bearings were wearing for weeks, and the changeover logic couldn't absorb the step." },
+  "a3.ana2": { "who": "analyst", "text": "Vibration on pump A is creeping up again, so maintenance is planned for next week. Before it trips." },
+  "a3.eng1": { "who": "engineer", "text": "I've gone through the model and the test runs. The new changeover logic holds when one pump drops out. I'll co-sign." },
+  "a3.eng2": { "who": "engineer", "text": "No. That's a trip transmitter. We don't inhibit a safety function to quiet the alarms." },
+  "a3.eng3": { "who": "engineer", "text": "Send a work order to the instrument tech. They'll swap it on the next window." },
+  "a3.oim1": { "who": "oim", "text": "Right call." },
+  "a3.oim2": { "who": "oim", "text": "This part isn't ours to decide. It's yours." }
+}

@@ -1,0 +1,313 @@
+// Story mode's overlays: titles, credits, subtitles, the clipboard, the star
+// tracker, cards and votes, slides, paper logs, agent notifications, calls,
+// the alarm banner, the org chart with the knowledge graph, and labels
+// pinned to things in the room. Plain DOM, styled by story.css; main.js says
+// what to show.
+import { SPEAKERS, CLIPBOARD, STAR_DIMS, STARS, STAR_ROWS, SAFETY_LINE, CARDS, LEVELS, VOTES, VOTE_URL, SLIDES, LOGS, NOTICES, AGENTS, ORG, NEVER, PLAIN_CARDS, SEARCH } from './content.js';
+import { drawGraph } from './graph.js';
+
+const h = (tag, cls, html) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html !== undefined) e.innerHTML = html;
+  return e;
+};
+// Show with its CSS fade: a forced layout first, so the transition runs
+const fadeIn = (e) => { void e.offsetWidth; e.classList.add('on'); };
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+export class StoryUI {
+  constructor(parent, { privateBase }) {
+    this.privateBase = privateBase;
+    this.root = h('div', 'story-ui');
+    parent.append(h('div', 'tint'), h('div', 'vignette'), this.root);
+    const add = (cls, html) => { const e = h('div', cls, html); this.root.append(e); return e; };
+    this.el = {
+      title: add('title'), credit: add('credit'), subs: add('subs'), hud: add('hud'), clock: add('clockbadge'),
+      clipboard: add('clipboard'), stars: add('stars'), panel: add('panel'), slide: add('slide'), log: add('log'),
+      notices: add('notices'), call: add('call'), sign: add('signoff'), search: add('search'), banner: add('banner'),
+      org: add('org'), notes: add('notes'), boat: add('label3d'), debug: add('debug'),
+    };
+    this.el.notes.hidden = true;
+    this.el.debug.hidden = true;
+    this.overlayId = null;
+    this.voteState = null;
+    this.slideImages = {};
+    // The org chart and the graph behind it
+    this.graphCanvas = h('canvas', 'graph');
+    this.el.org.append(this.graphCanvas, this.orgChart(), h('div', 'graph-title', 'One knowledge base · many agentic experts'));
+  }
+
+  // ------------------------------------------------------------ titles
+
+  title(t) {
+    const e = this.el.title;
+    if (!t) { e.classList.remove('on'); return; }
+    e.className = `title ${t.solid ? 'solid' : ''}`;
+    e.innerHTML = `<div class="inner">${t.eyebrow ? `<div class="eyebrow">${esc(t.eyebrow)}</div>` : ''}<h1 class="${t.small ? 'small' : ''}">${esc(t.text)}</h1>${t.sub ? `<p>${esc(t.sub)}</p>` : ''}</div>`;
+    fadeIn(e);
+  }
+
+  credit(c) {
+    const e = this.el.credit;
+    if (!c) { e.classList.remove('on'); return; }
+    e.innerHTML = `<small>${esc(c[0])}</small><b>${esc(c[1])}</b>`;
+    fadeIn(e);
+  }
+
+  subs(who, text) {
+    const e = this.el.subs;
+    if (!text) { e.classList.remove('on'); return; }
+    e.innerHTML = `<span>${who ? `<b>${esc(SPEAKERS[who]?.name ?? who)}:</b> ` : ''}${esc(text)}</span>`;
+    e.classList.add('on');
+  }
+
+  hud(chapter, i, n, waiting) {
+    this.el.hud.innerHTML = `${chapter.key} · ${esc(chapter.name)} · ${i + 1}/${n} <span class="next ${waiting ? 'on' : ''}">  ▸ Space</span>`;
+  }
+
+  clock(text) {
+    this.el.clock.textContent = text ?? '';
+    this.el.clock.classList.toggle('on', Boolean(text));
+  }
+
+  notes(text, show) {
+    this.el.notes.hidden = !show;
+    if (show) this.el.notes.innerHTML = `<b>Presenter notes</b> · ${esc(text ?? '')}`;
+  }
+
+  // --------------------------------------------------------- clipboard
+
+  // Out of the way while a monitor or a slide fills the view; a tick then
+  // brings it in for a moment
+  clipAway(away) {
+    this.away = away;
+    this.el.clipboard.classList.toggle('away', away && !this.peek);
+  }
+
+  clipboard(state, fresh = -1) {
+    const e = this.el.clipboard;
+    if (fresh >= 0 && this.away) {
+      this.peek = true;
+      this.clipAway(true);
+      clearTimeout(this.peekTimer);
+      this.peekTimer = setTimeout(() => { this.peek = false; this.clipAway(this.away); }, 2600);
+    }
+    if (!state) { e.classList.remove('on'); return; }
+    const page = CLIPBOARD[state.page];
+    const key = JSON.stringify(state);
+    if (this.clipKey !== key) {
+      this.clipKey = key;
+      const items = page.tasks.map((task, i) => {
+        const t = state.ticks?.[i];
+        const cls = t === true ? 'done' : t === 'x' ? 'x' : t === 'late' ? 'late' : t ? 'agent done' : '';
+        const mark = t === true ? '✓' : t === 'x' ? '✗' : t === 'late' ? '~' : t ? '✓' : '';
+        return `<li class="${cls}"><div class="box"><span class="mark ${i === fresh ? 'tick-new' : ''}">${mark}</span></div><span>${esc(task)}</span>${typeof t === 'string' && t.length === 2 ? `<em class="initials">${t}</em>` : '<em></em>'}</li>`;
+      }).join('');
+      e.innerHTML = `<div class="board"><div class="clip"></div><div class="page ${page.hand ? 'hand' : ''}"><h3>${esc(page.title)}</h3><ul>${items}</ul></div></div>`;
+    }
+    e.classList.add('on');
+  }
+
+  // ------------------------------------------------------------- stars
+
+  stars(state) {
+    const e = this.el.stars;
+    if (!state) { e.classList.remove('on'); this.starKey = null; return; }
+    const key = JSON.stringify(state);
+    if (key === this.starKey) return;
+    this.starKey = key;
+    const row = (v) => (Array.isArray(v) ? v : STARS[v]);
+    const stars = (n, prev) => `<span class="s ${prev !== undefined && n < prev ? 'drop' : ''}">${'★'.repeat(n)}<i>${'★'.repeat(5 - n)}</i></span>`;
+    let html;
+    if (state.show === 'all') {
+      html = `<table><tr><th></th>${STAR_DIMS.map((d) => `<th>${d}</th>`).join('')}</tr>${STAR_ROWS.map(([name, k]) => `<tr><td>${name}</td>${STARS[k].map((n) => `<td>${stars(n)}</td>`).join('')}</tr>`).join('')}</table>`;
+    } else {
+      const v = row(state.row), prev = this.lastStars;
+      html = `<table>${STAR_DIMS.map((d, i) => `<tr><td>${d}</td><td>${stars(v[i], prev?.[i])}</td></tr>`).join('')}</table>`;
+      this.lastStars = v;
+    }
+    e.innerHTML = `${html}<div class="safety">${SAFETY_LINE}</div>`;
+    e.className = `stars ${state.show === 'mini' ? '' : 'card'} ${state.show === 'all' ? 'all' : ''}`;
+    fadeIn(e);
+  }
+
+  // --------------------------------------------------- the one overlay
+  // slide:<id>, card:<id>, vote:<id>, log:<id>, search, sign, and the calls
+
+  overlay(id, { cast, call } = {}) {
+    if (id === this.overlayId) return;
+    this.overlayId = id;
+    const [kind, arg] = (id ?? '').split(':');
+    for (const k of ['panel', 'slide', 'log', 'search', 'sign']) this.el[k].classList.remove('on');
+    call?.show(kind === 'call' || kind === 'phone' ? { who: arg, phone: kind === 'phone' } : null);
+    this.voteState = null;
+    if (kind === 'slide') this.showSlide(arg);
+    if (kind === 'card') this.showPlainCard(arg);
+    if (kind === 'vote') this.showVote(arg);
+    if (kind === 'log') this.showLog(arg);
+    if (kind === 'search') this.showSearch();
+    if (kind === 'sign') this.showSign();
+  }
+
+  showSlide(id) {
+    const s = SLIDES[id], e = this.el.slide;
+    const ids = Object.keys(SLIDES), n = ids.indexOf(id) + 1;
+    e.innerHTML = `<div class="num">${n} / ${ids.length}</div>`;
+    const img = this.slideImages[id];
+    if (img) e.append(img);
+    else e.insertAdjacentHTML('afterbegin', `<h2>${esc(s.title)}</h2><ul>${s.bullets.map((b) => `<li class="${b.startsWith('TODO') ? 'todo' : ''}">${esc(b)}</li>`).join('')}</ul>${s.placeholder ? '<div class="tag">Placeholder · Adriaen\'s slide goes here</div>' : '<div></div>'}`);
+    fadeIn(e);
+  }
+
+  // Look for slide images in the private folder (git-ignored)
+  findSlides() {
+    for (const id of Object.keys(SLIDES)) {
+      const img = new Image();
+      img.onload = () => { this.slideImages[id] = img; };
+      img.src = `${this.privateBase}slides/${id}.png`;
+    }
+  }
+
+  showPlainCard(id) {
+    const c = PLAIN_CARDS[id], e = this.el.panel;
+    e.innerHTML = `<div class="sheet"><div class="eyebrow">${id === 'never' ? 'No-go areas' : 'Act 3'}</div><h2>${esc(c.title)}</h2>${(c.body ?? []).map((p) => `<p>${p}</p>`).join('')}${c.list ? `<ul>${c.list.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}${c.foot ? `<div class="foot">${esc(c.foot)}</div>` : ''}</div>`;
+    fadeIn(e);
+  }
+
+  showVote(id) {
+    const v = VOTES[id], c = CARDS[v.card], e = this.el.panel;
+    const levels = Object.entries(LEVELS).map(([k, [name, what]]) => `<button type="button" class="clickable" data-level="${k}"><b>${name}</b><small>${what}</small><div class="bar"></div></button>`).join('');
+    const back = `<div class="sheet back"><div class="eyebrow">${esc(c.initiative)} · ${esc(c.status)}</div><h2>${esc(c.front)}</h2>
+      <dl><dt>How</dt><dd>${esc(c.how)}</dd><dt>Who</dt><dd>${esc(c.who)}</dd><dt>Why</dt><dd>${esc(c.why)}</dd></dl>
+      <div class="level-tag ${c.never ? 'never' : ''}">${LEVELS[c.level][0]} · ${esc(c.reason)}</div><div class="foot picked-line"></div></div>`;
+    const front = `<div class="sheet front"><div class="eyebrow">Vote · how much may the agent do?</div><h2>${esc(v.q)}</h2><div class="levels">${levels}</div>
+      <div class="vote-row"><div class="qr">${VOTE_URL ? 'QR' : 'QR code<br>(TODO poll)'}</div><div>Vote on your phone. ${VOTE_URL ? esc(VOTE_URL) : 'Until the poll is set up, the presenter clicks the room\'s answer.'}<br>Space reveals the answer.</div></div></div>`;
+    e.innerHTML = `<div class="flip"><div class="faces">${front}${back}</div></div>`;
+    this.voteState = { id, revealed: false, picked: null };
+    e.querySelectorAll('[data-level]').forEach((b) => b.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      this.voteState.picked = b.dataset.level;
+      e.querySelectorAll('[data-level]').forEach((o) => o.classList.toggle('picked', o === b));
+    }));
+    fadeIn(e);
+  }
+
+  // Space on an open vote: show the answer first, then turn the card
+  advanceVote() {
+    const s = this.voteState;
+    if (!s || s.revealed === 'turned') return false;
+    const e = this.el.panel, c = CARDS[VOTES[s.id].card];
+    if (!s.revealed) {
+      s.revealed = true;
+      e.querySelector(`[data-level="${c.level}"]`)?.classList.add('answer');
+      return true;
+    }
+    s.revealed = 'turned';
+    const line = e.querySelector('.picked-line');
+    if (line && s.picked) line.textContent = s.picked === c.level ? 'The room got it right.' : `The room said: ${LEVELS[s.picked][0]}.`;
+    e.querySelector('.flip')?.classList.add('turned');
+    return true;
+  }
+
+  showLog(id) {
+    const l = LOGS[id], e = this.el.log;
+    e.className = `log ${l.hand ? '' : 'typed'}`;
+    const lines = l.lines.map((t, i) => (l.edit && l.edit[0] === i ? `<li><del>${esc(t)}</del> <ins class="later" hidden>${esc(l.edit[1])}</ins></li>` : `<li>${esc(t)}</li>`)).join('');
+    e.innerHTML = `<h2>${esc(l.title)}</h2><ol>${lines}</ol><div class="sign" ${l.edit ? 'hidden' : ''}>${esc(l.sign)}</div>`;
+    if (l.edit) {
+      clearTimeout(this.logTimer);
+      this.logTimer = setTimeout(() => { e.querySelector('ins').hidden = false; }, 1800);
+      this.logTimer2 = setTimeout(() => { e.querySelector('.sign').hidden = false; }, 3200);
+    }
+    fadeIn(e);
+  }
+
+  showSearch() {
+    const e = this.el.search;
+    e.innerHTML = `<div class="q">Document system · search: "lifting procedure supply vessel"</div><ul></ul>`;
+    const ul = e.querySelector('ul');
+    let i = 0;
+    clearInterval(this.searchTimer);
+    this.searchTimer = setInterval(() => {
+      if (i >= SEARCH.length || this.overlayId !== 'search') { clearInterval(this.searchTimer); return; }
+      const t = SEARCH[i], li = h('li', /superseded/.test(t) ? 'dim' : i === SEARCH.length - 1 ? 'hit' : '', esc(t));
+      ul.append(li);
+      i++;
+    }, 1300);
+    fadeIn(e);
+  }
+
+  showSign() {
+    const e = this.el.sign;
+    e.innerHTML = '<div><b>✓</b>Lead operator</div><div><b>✓</b>Shift supervisor</div><div><b>✓</b>Control engineer (remote)</div><div class="title-line">Act 1\'s trip: avoided</div>';
+    fadeIn(e);
+  }
+
+  // --------------------------------------------------------- notices
+
+  notice(id) {
+    const [agent, text] = NOTICES[id] ?? [];
+    if (!agent) return;
+    const n = h('div', 'notice', `<div class="ico"></div><b>${esc(AGENTS[agent].label)}</b><div>${esc(text)}</div>`);
+    for (const old of this.el.notices.children) old.classList.add('old');
+    this.el.notices.append(n);
+    while (this.el.notices.children.length > 3) this.el.notices.firstChild.remove();
+  }
+  clearNotices() { this.el.notices.replaceChildren(); }
+
+  // ----------------------------------------------------------- banner
+
+  banner(state, now) {
+    const e = this.el.banner;
+    if (!state) { e.classList.remove('on', 'flash'); return; }
+    const n = Math.floor(state.count);
+    if (this.bannerN !== n) {
+      this.bannerN = n;
+      e.innerHTML = `<span class="count">⚠ ${n}</span><span>ALARMS</span><span class="ticker">29-PT-1043 Injection header pressure low · 29-XV-1201 Pump B trip · 29-FT-1310 Injection well flow low · 29-PDT-1122 Filter dP high …</span>`;
+    }
+    e.classList.add('on');
+    e.classList.toggle('flash', !state.frozen && n > 0);
+  }
+
+  // ------------------------------------------------------- org + graph
+
+  orgChart() {
+    const cols = ORG.map((c) => `<div class="person"><h3>${esc(SPEAKERS[c.who].name.split(',')[0])}<small>${esc(c.role)}</small></h3>${c.agents.map(([id, m]) => `<div class="agent" data-agent="${id}"><div class="ico"></div><b>${esc(AGENTS[id].label)}</b><small>${esc(m)}</small></div>`).join('')}</div>`).join('');
+    return h('div', 'chart', `<h2>Who leads which agent</h2><div class="cols">${cols}</div><div class="never"><b>Never touches</b>${NEVER.map(esc).join(' · ')}</div>`);
+  }
+
+  // Mandate changed on screen (after the caught citation)
+  mandate(agent, text) {
+    const a = this.el.org.querySelector(`[data-agent="${agent}"]`);
+    if (!a) return;
+    a.classList.add('changed');
+    a.querySelector('small').textContent = text;
+  }
+
+  org(mode, level, since, t) {
+    const e = this.el.org;
+    e.classList.toggle('on', Boolean(mode));
+    e.classList.toggle('graph', mode === 'chart+graph' || mode === 'graph');
+    e.classList.toggle('graphonly', mode === 'graph');
+    if (!mode || mode === 'chart') return;
+    const c = this.graphCanvas, dpr = Math.min(devicePixelRatio, 2);
+    const w = Math.round(c.clientWidth * dpr), hh = Math.round(c.clientHeight * dpr);
+    if (c.width !== w || c.height !== hh) { c.width = w; c.height = hh; }
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, w, hh);
+    ctx.fillStyle = 'rgba(6,10,16,0.82)';
+    ctx.fillRect(0, 0, w, hh);
+    drawGraph(ctx, w, hh, { level, since, t, bg: null });
+  }
+
+  // A label pinned over a point on screen (x, y in px), or hidden
+  boat(text, x, y, kind) {
+    const e = this.el.boat;
+    if (!text || x === undefined) { e.classList.remove('on'); return; }
+    if (e.textContent !== text) e.textContent = text;
+    e.className = `label3d on ${kind ?? ''}`;
+    e.style.left = `${x}px`;
+    e.style.top = `${y}px`;
+  }
+}

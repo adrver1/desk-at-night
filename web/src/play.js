@@ -684,12 +684,18 @@ function showFrameTime(frame) {
   perf.sum = perf.n = 0;
 }
 
+// Story mode (story.html) runs on top of this page: it adds per-frame steps
+// and render passes, and can hide the room while its prologue plays
+const hooks = { frame: [], render: [], hidden: false };
+
 let last = performance.now();
 renderer.setAnimationLoop((now) => {
   const frame = (now - last) / 1000, dt = Math.min(frame, 0.05);
   last = now;
   if (!room) return;
   update(dt);
+  for (const f of hooks.frame) f(dt, now);   // story mode (src/story/) steps here and may take the camera
+  if (hooks.hidden) return;                  // behind the story's prologue: nothing to draw yet
   controls.step(dt);
   for (const key of switchKeys) key.material.color.copy(key.userData.scene === controls.scene ? KEY_ON : KEY_OFF);
   outdoor.update(dt);
@@ -706,6 +712,7 @@ renderer.setAnimationLoop((now) => {
   if (controls.screens && cctv) cctv.update(now / 1000, room.feedsShown());
   outdoor.render(renderer, camera, { reflect: scene });   // the vessel mirrored in the sea
   renderer.render(scene, camera);
+  for (const f of hooks.render) f(renderer, camera); // the story's own lit pass (characters), over the same depth
   if (panelOpen) showFrameTime(frame);
 });
 
@@ -730,6 +737,22 @@ window.__game = {
   blocked: (bx, by) => blocked(bx, -by),
   set fullLight(k) { FULL_LIGHT = k; },
   outdoor(changes) { outdoor.set(changes); },
+  // For story mode (src/story/): the room and everything in it, and a way
+  // to hand the controls back to the player at a given spot
+  hooks, renderer, scene, camera, player, chairs, ready: null,
+  get room() { return room; }, get outdoor3() { return outdoor; }, get vessel() { return vessel; },
+  get playing() { return playing; },
+  free(pos, yaw, pitch) {
+    zoomEnd();
+    player.seat = null;
+    player.pos.set(pos.x, EYE, pos.z);
+    player.yaw = yaw; player.pitch = pitch;
+    clearSpawn();
+    start();
+  },
+  stop() { if (zoom) zoomEnd(); playing = false; keys.clear(); if (document.pointerLockElement) document.exitPointerLock(); },
+  sit, standUp, lookAt, toast,
 };
 
-load().catch((err) => { ui.intro.textContent = err.message; ui.go.textContent = 'Could not load'; console.error(err); });
+window.__game.ready = load();
+window.__game.ready.catch((err) => { ui.intro.textContent = err.message; ui.go.textContent = 'Could not load'; console.error(err); });
