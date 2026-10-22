@@ -726,11 +726,29 @@ def build_crane(g, m, base, ped_h, yaw, luff, boom_len, rest=None, slew=None):
     return tip
 
 
-def build_cranes(g, m, slew=None):
-    # The big crane between the laydown deck and the plant module, boom
-    # stowed horizontal over the process module on its rest
-    build_crane(g, m, (CRANE_X, CRANE_Y, CRANE_RING - 27.5), 27.5, math.radians(180), math.radians(-3.0), 58,
-                rest=(-49.5, CRANE_Y, PROC_TOP + 0.6), slew=slew)
+def build_cranes(g, m, slew=None, lift=None):
+    """The big crane between the laydown deck and the plant module. By
+    default its boom is stowed horizontal over the process module on its
+    rest. lift = (x, y, z) swings it out instead and lowers the hook to that
+    point with a container slung under it, as when unloading a supply vessel."""
+    base = (CRANE_X, CRANE_Y, CRANE_RING - 27.5)
+    if not lift:
+        build_crane(g, m, base, 27.5, math.radians(180), math.radians(-3.0), 58,
+                    rest=(-49.5, CRANE_Y, PROC_TOP + 0.6), slew=slew)
+        return
+    hx, hy, hz = lift
+    yaw = math.atan2(hy - CRANE_Y, hx - CRANE_X)
+    reach = math.hypot(hx - CRANE_X, hy - CRANE_Y) - 3.2       # from the boom foot
+    luff = math.acos(min(1.0, reach / 58))
+    tip = build_crane(g, m, base, 27.5, yaw, luff, 58, slew=slew)
+    hang = slew or g
+    hook = Vector((tip.x, tip.y, hz))
+    hang.beam(m["steel"], tip, hook + Vector((0, 0, 3.2)), 0.08)            # hoist wire
+    hang.box(m["orange"], hook + Vector((0, 0, 3.0)), (0.6, 0.6, 0.8))      # hook block
+    for dx, dy in ((-2.6, -1.1), (2.6, -1.1), (2.6, 1.1), (-2.6, 1.1)):     # four-leg sling
+        hang.beam(m["steel"], hook + Vector((0, 0, 2.6)), hook + Vector((dx, dy, 0.1)), 0.04)
+    hang.box(m["red"], hook - Vector((0, 0, 1.2)), (6.0, 2.4, 2.6))         # container
+    return hook
 
 
 def build_lights(g, m):
@@ -802,13 +820,14 @@ def build_jackup(g, m, z_cut):
 
 # ------------------------------------------------------------------ build
 
-def build_platform(m, collection=None, jackup=False, z_cut=-4.0, crane_slew=False):
+def build_platform(m, collection=None, jackup=False, z_cut=-4.0, crane_slew=False, crane_lift=None):
     """Build the platform into collection; returns (objects, triangles, flare tip).
     z_cut is where the jacket stops: just under the sea surface for a view
     from above the water, SEABED for a scale model. crane_slew=True builds
     the big crane's turning part as one more object, CRANE_SLEW, with its
     origin on the slewing ring (CRANE_X, CRANE_Y, CRANE_RING) so a viewer
-    can swing it; it is left out of the returned objects."""
+    can swing it; it is left out of the returned objects. crane_lift is a
+    hook point (see build_cranes) for the crane at work."""
     collection = collection or bpy.context.collection
     g = Mesh(caps=False)
     slew = Mesh(caps=False) if crane_slew else None
@@ -816,7 +835,7 @@ def build_platform(m, collection=None, jackup=False, z_cut=-4.0, crane_slew=Fals
     build_topsides(g, m)
     build_quarters(g, m)
     tip = build_flare(g, m)
-    build_cranes(g, m, slew)
+    build_cranes(g, m, slew, crane_lift)
     build_lights(g, m)
     if jackup:
         build_jackup(g, m, z_cut)

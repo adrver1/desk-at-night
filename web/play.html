@@ -40,6 +40,8 @@
   .go { justify-self: start; font: 600 15px/1 var(--body); color: var(--night); background: var(--paper);
     border: 0; border-radius: 999px; padding: 12px 22px; cursor: pointer; }
   .go:disabled { opacity: 0.5; cursor: progress; }
+  .start { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
+  .fly { font: 500 14px/1 var(--body); color: var(--paper); opacity: 0.8; }
   .tp { position: absolute; inset: 0; display: grid; place-items: center; padding: 16px; background: #0006; }
   .tp[hidden] { display: none; }
   .tp-screen { width: min(100%, 420px); max-height: 100%; overflow-y: auto; display: grid; gap: 18px; padding: 18px 20px 22px; border-radius: 18px;
@@ -145,7 +147,7 @@
     <div class="card">
       <p class="eyebrow">Work in progress · first person</p>
       <h1>Night Shift</h1>
-      <p id="intro">03:10 on the platform. The ceiling is dimmed, the screens are up. Walk around, take a seat, have some coffee. The lights, sound and temperature are on the touch panel at each desk; the switch by the door does the lights.</p>
+      <p id="intro">11:30 on the platform, half an hour after the helicopter landed. The supply vessel is alongside, the screens are up. Walk around, take a seat, have some coffee. The lights, sound and temperature are on the touch panel at each desk; the switch by the door does the lights.</p>
       <dl class="keys">
         <dt>W A S D</dt><dd>walk (Shift to hurry)</dd>
         <dt>Mouse</dt><dd>look around</dd>
@@ -160,7 +162,10 @@
         <dt>Drag</dt><dd>look around</dd>
         <dt>Tap</dt><dd>use what lights up in the middle, or zoom in on a screen</dd>
       </dl>
-      <button class="go" id="go" type="button" disabled>Loading…</button>
+      <div class="start">
+        <button class="go" id="go" type="button" disabled>Loading…</button>
+        <a class="fly" href="./intro.html">Fly in by helicopter first</a>
+      </div>
     </div>
   </div>
 </main>
