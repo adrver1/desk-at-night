@@ -6,6 +6,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { loadControlRoom } from './controlScene.js';
 import { Outdoor } from './outdoor.js';
 import { Cctv } from './cctv.js';
+import { addVessel } from './vessel.js';
 import { outdoorControls } from './outdoorControls.js';
 
 const $ = (id) => document.getElementById(id);
@@ -34,7 +35,7 @@ controls.minDistance = 0.3;
 controls.maxDistance = 9;
 const home = { position: new THREE.Vector3(), target: new THREE.Vector3() };
 
-let room, outdoor, cctv, last = 0, userEv = 0;
+let room, outdoor, cctv, vessel, last = 0, userEv = 0;
 
 async function load() {
   room = await loadControlRoom(renderer);
@@ -42,9 +43,13 @@ async function load() {
   outdoor = new Outdoor(room.seaLevel);
   outdoor.setWindow(room.window.lo, room.window.hi);
   // The deck cameras' live pictures; without them the screens draw their own
-  Cctv.load(renderer, outdoor).then((c) => { cctv = c; if (c) room.setFeeds(c.feeds, c.gain); }).catch((e) => console.warn('cctv', e));
+  const cctvReady = Cctv.load(renderer, outdoor);
+  cctvReady.then((c) => { cctv = c; if (c) room.setFeeds(c.feeds, c.gain); }).catch((e) => console.warn('cctv', e));
   scene.add(outdoor.room);
   outdoorControls(document.getElementById('outdoor'), outdoor);
+  // The supply vessel: through the window, on the crane camera, and its row on the panel
+  addVessel({ renderer, scene, room, outdoor, cctv: cctvReady, panel: document.getElementById('outdoor') })
+    .then((v) => { vessel = v; }).catch((e) => console.warn('vessel', e));
   const pick = Number(new URLSearchParams(location.search).get('cam')) || 0; // ?cam=2 for the operator's view
   const cam = room.cameras[Math.min(pick, room.cameras.length - 1)];
   cam.getWorldPosition(home.position);
@@ -97,6 +102,7 @@ renderer.setAnimationLoop((now) => {
   last = now;
   if (!room) return;
   outdoor.update(dt);
+  if (vessel) vessel.update(dt, outdoor);
   renderer.toneMappingExposure = 2 ** userEv * outdoor.light.exposure;
   room.setLights(state.ceiling, state.screens, state.mode);
   room.setDaylight(outdoor.light, now / 1000);
