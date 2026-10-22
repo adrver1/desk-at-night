@@ -96,7 +96,7 @@ def sleeves():
     right = base.Mesh().tube(rings, origin=base.SHOULDER, axes=base.frame(base.arm_dir(1)),
                              angles=base.HEX6, angle_offset=30, offset=SLEEVE_OFF,
                              colors={"sleeve": HIVIS, "band": TAPE, "cuff": NAVY},
-                             cap_start=False, cap_end=False)
+                             cap_start=True, cap_end=False)
     return right.extend(right.mirrored())
 
 
@@ -273,7 +273,7 @@ def survival_suit():
     right = base.Mesh().tube(arm, origin=base.SHOULDER, axes=base.frame(base.arm_dir(1)),
                              angles=base.HEX6, angle_offset=30, offset=0.016,
                              colors={"sleeve": SUIT, "band": TAPE, "seal": SEAL},
-                             cap_start=False, cap_end=False)
+                             cap_start=True, cap_end=False)
     x = base.LEG_X
     right.tube([(0.30, 0.068, 0.072, -0.004, "band"), (0.345, 0.067, 0.071, -0.003, "band")],
                origin=(x, 0, 0), swatch=TAPE, angles=base.HEX6, angle_offset=30, offset=0.008,

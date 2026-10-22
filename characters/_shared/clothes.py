@@ -58,7 +58,7 @@ def sleeves(color, length=0.47, offset=0.012, cuff=None, region="sleeve"):
     rings[-1] = (t, ru + 0.006, rv + 0.006, d, reg)
     right = base.Mesh().tube(rings, origin=base.SHOULDER, axes=base.frame(base.arm_dir(1)),
                              angles=base.HEX6, angle_offset=30, offset=offset,
-                             colors={region: color, "cuff": cuff or color}, cap_start=False, cap_end=False)
+                             colors={region: color, "cuff": cuff or color}, cap_start=True, cap_end=False)
     return _both_arms(right)
 
 

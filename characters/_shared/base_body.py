@@ -330,8 +330,10 @@ def body(skin="skin_3", colors=None, hide=(), brow=None, ears=True, ear_scale=1.
     shoe = [Vector((LEG_X + sx * SHOE_HALF_W, y, z)) for sx in (-1, 1) for y, z in SHOE]
     right.hull(shoe, cols["shoe"], "shoe")
     arm = frame(arm_dir(1))
+    # the arm's top is closed: it shows from above where the shoulder
+    # sticks out of the torso
     right.tube(ARM, origin=SHOULDER, axes=arm, colors=cols, angles=HEX6, angle_offset=30,
-               cap_start=False, cap_end=False)
+               cap_start=True, cap_end=False)
     right.tube(MITTEN, origin=SHOULDER, axes=arm, colors=cols, angles=HEX6, angle_offset=30,
                cap_start=False)
     u, v, w = arm
