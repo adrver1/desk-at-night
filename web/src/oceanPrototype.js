@@ -108,9 +108,10 @@ function buildSea(p, heading) {
   const mss = 0.003 + 0.00512 * p.wind;
   const listMss = comps.slice(0, n).reduce((s, c) => s + (c.k * c.a) ** 2 / 2, 0);
   J.sort((a, b) => a - b);
-  // Waves break in groups, so the shader keeps about half the candidate crests
-  // (a patchy mask): ask the Jacobian for twice the cover
-  const foamJ = W > 1e-5 ? J[Math.min(J.length - 1, Math.floor(Math.min(2 * W, 0.6) * J.length))] : -10;
+  // Waves break in groups and only along a short stretch of each crest, so
+  // the shader keeps about a fifth of the candidate crest (patchy masks):
+  // ask the Jacobian for five times the cover
+  const foamJ = W > 1e-5 ? J[Math.min(J.length - 1, Math.floor(Math.min(5 * W, 0.7) * J.length))] : -10;
   const swell = { hs: p.swellHs, tp: p.swellPeriod };
   return { hs, tp: 2 * Math.PI / wp, lp: (2 * Math.PI * G) / (wp * wp), W, foamJ, swell, mss, ripple: Math.sqrt(Math.max(mss - listMss, 0.0005)) };
 }
@@ -500,7 +501,10 @@ const oceanFragment = (reflect) => /* glsl */ `
     vec2 aw = vec2(dot(vFlat, uWindDir), dot(vFlat, vec2(-uWindDir.y, uWindDir.x)));
     float breakup = tn(vFlat / 7.0 + uWindDir * uTime * 0.02).r;
     float groups = smoothstep(0.42, 0.62, tn(vFlat / 90.0 - uWindDir * uTime * 0.004).g);   // where waves break together
-    float cap = smoothstep(uFoamJ + 0.06, uFoamJ - 0.1, jac + (breakup - 0.5) * 0.3) * groups;
+    // A crest breaks over a few metres to a few tens, not along its whole
+    // length: a mask fine across the wind (along the crest) cuts it short
+    float pieces = smoothstep(0.5, 0.68, tn(aw / vec2(45.0, 11.0) + vec2(uTime * 0.01, 0.0)).b);
+    float cap = smoothstep(uFoamJ + 0.06, uFoamJ - 0.1, jac + (breakup - 0.5) * 0.3) * groups * pieces;
     vec2 aww = aw + (tn(aw / 260.0).rg - 0.5) * vec2(40.0, 14.0);   // streaks wander
     float streak = mix(0.2, 0.5, smoothstep(17.0, 25.0, uWindSpeed)) * smoothstep(13.0, 18.0, uWindSpeed)
                  * smoothstep(0.58, 0.8, tn(aww / vec2(220.0, 14.0)).g * 0.75 + tn(aww / vec2(60.0, 5.0)).b * 0.25);
