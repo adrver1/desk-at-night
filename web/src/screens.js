@@ -28,11 +28,11 @@ const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
 
 // ---------------------------------------------------------------- the made-up process
 
-const SHIFT_START = (2 * 60 + 10) * 60; // the night shift picks up at 02:10
+const SHIFT_START = (11 * 60 + 30) * 60; // the game starts at 11:30, on the day shift
 
 // The weather and time outside, from outdoor.js (its `cctv` summary), and the
-// shift time t at which it was last set. Without it the screens show a calm
-// night, as before.
+// shift time t at which it was last set. Without it the clock runs from
+// SHIFT_START and the CCTV shows a calm night, as before.
 let outside = null, outsideAt = 0;
 export function setOutside(o, t) { outside = o; outsideAt = t; }
 
@@ -332,13 +332,13 @@ function utilities(ctx, w, h, t) {
 // Sources: the log lines are static; the clock and cursor follow the shift
 // time.
 function logbook(ctx, w, h, t) {
-  const s = S(w), top = header(ctx, w, 'Shift log · night', t);
+  const s = S(w), top = header(ctx, w, 'Shift log · day', t);
   const lines = [
-    ['02:10', 'Handover from day shift. Train 1 at 18.2 kSm³/d.'],
-    ['02:24', 'Separator level cycling, under observation.'],
-    ['02:41', 'GT-C on standby after filter change.'],
-    ['03:02', 'Compressor DE bearing trending up, vib normal.'],
-    ['03:15', 'Supply vessel ETA 06:30, swell 2.6 m.'],
+    ['07:00', 'Handover from night shift. Train 1 at 18.2 kSm³/d.'],
+    ['08:45', 'Separator level cycling, under observation.'],
+    ['09:40', 'GT-C on standby after filter change.'],
+    ['11:00', 'Crew change flight landed, 7 passengers.'],
+    ['11:10', 'Supply vessel alongside, swell 2.6 m, lifting.'],
   ];
   lines.forEach(([tm, l], i) => {
     const y = top + 34 * s + i * 34 * s;
@@ -639,7 +639,7 @@ function emissions(ctx, w, h, t) {
 function videoCall(ctx, w, h, t) {
   const s = w / 1024;
   rect(ctx, 0, 0, w, h, '#16191d');
-  const people = [['Onshore support centre', 'Process engineer'], ['Onshore support centre', 'Rotating equipment'], ['Supply base', 'Logistics'], ['Night OIM', 'On board']];
+  const people = [['Onshore support centre', 'Process engineer'], ['Onshore support centre', 'Rotating equipment'], ['Supply base', 'Logistics'], ['OIM', 'On board']];
   people.forEach(([where, role], i) => {
     const x = (16 + (i % 2) * 500) * s, y = (16 + Math.floor(i / 2) * 280) * s, tw = 492 * s, th = 268 * s;
     rect(ctx, x, y, tw, th, ['#2a3138', '#2d2f36', '#29302c', '#33302b'][i]);

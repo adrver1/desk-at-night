@@ -370,9 +370,9 @@ function spin(c, dir = Math.random() < 0.5 ? -1 : 1) {
 }
 
 const LINES = [
-  'Ahh. Strong enough to see you through to the morning handover.',
+  'Ahh. Strong enough to see you through to the evening handover.',
   'Lukewarm, but it does the job.',
-  'Someone made this at midnight. You can tell.',
+  'Someone made this at six this morning. You can tell.',
   'Still better than the machine on the lower deck.',
   'Last sip.',
 ];
