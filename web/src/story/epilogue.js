@@ -1,12 +1,14 @@
 // The epilogue: the camera pulls back from your chair, out through the
 // window, to the whole platform at night, the knowledge graph glowing on the
-// band inside. The platform is the intro's model (blender/intro_export.py),
+// band inside. A clear, starry, windless night, so the lit platform and the
+// supply vessel alongside it lie mirrored in a glassy sea. The platform is the intro's model (blender/intro_export.py),
 // set into the room's frame with the same matrix the supply vessel uses.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { reflectable } from '../outdoor.js';
 
 const FLIGHT = 16;   // s from the chair to the last frame
-const FLOOD = new THREE.Color(0xffd9a0).multiplyScalar(1.3), FLOOD_LOW = new THREE.Color(0xffd9a0).multiplyScalar(0.5);   // the platform's own floodlights
+const FLOOD = new THREE.Color(0xffd9a0).multiplyScalar(0.55), FLOOD_LOW = new THREE.Color(0xffd9a0).multiplyScalar(0.18);   // the platform's own floodlights
 
 export class Epilogue {
   constructor(game) {
@@ -52,13 +54,16 @@ export class Epilogue {
       });
       this.scene.add(root);
       root.updateMatrixWorld(true);
+      reflectable(this.scene);   // the platform and its lights, in the sea's mirror
       this.root = root;
-      this.centre = new THREE.Vector3(-4, -16, -38);   // the middle of the topsides, in the room's frame
+      this.centre = new THREE.Vector3(-4, -24, -38);   // the middle of the topsides, in the room's frame
       const out = new THREE.Vector3(-1, 0, 0);   // the window looks out along -x
       const seat = new THREE.Vector3(-1.13, 1.18, -1.27);
       this.path = new THREE.CatmullRomCurve3([
         seat, new THREE.Vector3(-3.6, 1.5, -0.2), new THREE.Vector3(-5.4, 1.6, 0.1),
-        new THREE.Vector3(-12, 2.5, 0.5), new THREE.Vector3(-45, 10, 10), new THREE.Vector3(-120, 40, 30), new THREE.Vector3(-200, 70, 40),
+        // then out and down, to end low over the water: from up high a calm sea
+        // reflects only a few percent, at a glancing angle most of the light
+        new THREE.Vector3(-12, 2.0, 0.5), new THREE.Vector3(-45, -2, 10), new THREE.Vector3(-120, -22, 25), new THREE.Vector3(-215, -36, 30),
       ], false, 'centripetal');
       this.windowAt = new THREE.Vector3(-5.4, 1.4, 0.1).addScaledVector(out, 60);
     })();
@@ -68,10 +73,26 @@ export class Epilogue {
   show() {
     if (this.on) return;   // the OIM's line plays over the flight that is already running
     this.on = true;
+    // Calm and clear: no cloud, fog, rain, wind or swell; the vessel alongside, lit
+    const o = this.game.outdoor3, v = this.game.vessel;
+    this.was = { weather: { ...o.state }, vessel: v?.mode };
+    o.set({ clouds: 0, fog: 0, rain: 0, wind: -3 / 22, swellHs: 0 });   // wind 0 m/s (3 + 22 w)
+    if (v) v.mode = 'alongside';
+    if (!this.game.hooks.reflect.includes(this.scene)) this.game.hooks.reflect.push(this.scene);
     this.t0 = performance.now();
   }
 
-  hide() { this.on = false; }
+  hide() {
+    if (!this.on) return;
+    this.on = false;
+    const r = this.game.hooks.reflect, i = r.indexOf(this.scene);
+    if (i >= 0) r.splice(i, 1);
+    if (this.was) {
+      const { clouds, fog, rain, wind, swellHs } = this.was.weather;
+      this.game.outdoor3.set({ clouds, fog, rain, wind, swellHs });
+      if (this.game.vessel && this.was.vessel) this.game.vessel.mode = this.was.vessel;
+    }
+  }
 
   // The camera's pose at time t of the flight: level through the window,
   // then turning round and down onto the whole platform as it climbs away
@@ -93,6 +114,6 @@ export class Epilogue {
     this.sun.color.copy(L.sun);
     this.sun.position.copy(this.centre).addScaledVector(L.sunDir, 100);
     this.sun.target.position.copy(this.centre);
-    for (const m of this.glow) m.emissiveIntensity = 1.8;   // deck lights on at night
+    for (const m of this.glow) m.emissiveIntensity = 2.6;   // deck lights on at night
   }
 }

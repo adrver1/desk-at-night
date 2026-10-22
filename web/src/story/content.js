@@ -377,7 +377,7 @@ export const CHAPTERS = [
   },
   {
     key: 9, id: 'epilogue', name: 'Epilogue · The zoom out',
-    base: { act: 4, time: 21.0, shot: 'desk', ...DESK, graph: 5, graphOn: 'band', clipboard: null, stars: null, screens: { Wall0Screen: 'graph', Wall1Screen: 'graph', Wall2Screen: 'graph', Wall3Screen: 'graph', Wall4Screen: 'graph', Wall5Screen: 'graph', Wall6Screen: 'graph' } },
+    base: { act: 4, time: 22.0, shot: 'desk', ...DESK, graph: 5, graphOn: 'band', clipboard: null, stars: null, screens: { Wall0Screen: 'graph', Wall1Screen: 'graph', Wall2Screen: 'graph', Wall3Screen: 'graph', Wall4Screen: 'graph', Wall5Screen: 'graph', Wall6Screen: 'graph' } },
     beats: [
       { id: 'ep.zoom', set: { shot: 'epilogue' }, notes: 'The camera pulls back through the window to the platform at night, the graph glowing inside. Switch to PowerPoint from here.' },
       { id: 'ep.line', do: [{ say: 'a3.oim2' }], notes: 'Optional: the OIM\'s fourth-wall line, or say it yourself as the bridge into the mandate sheet.' },

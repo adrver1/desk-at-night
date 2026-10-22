@@ -514,6 +514,6 @@ window.__story = {
   start, next, back, enter: (key, i = 0, o) => enter(CHAPTERS.findIndex((ch) => ch.key === key), i, o),
   get state() { return { chapter: CHAPTERS[chapter].id, beat: CHAPTERS[chapter].beats[beat]?.id, running, waiting, free, s: state }; },
   beats: (key) => CHAPTERS.find((ch) => ch.key === key)?.beats.length ?? 0,
-  sola: () => sola,
+  sola: () => sola, epilogue: () => epilogue,
   ui, cast: () => cast, shots: () => shots, S, sound, toggleFree, SPEAKERS,
 };
