@@ -71,7 +71,8 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, "cctv.glb"), export_format="GLB", export_cameras=False,
                               export_lights=False, export_materials="EXPORT", export_normals=True,
-                              export_texcoords=False, export_apply=True, export_yup=True)
+                              export_texcoords=True, export_image_format="JPEG", export_jpeg_quality=80,
+                              export_apply=True, export_yup=True)
     cams = {k: {"name": name, "position": room_frame(loc), "aim": room_frame(aim),
                 "fov": round(math.degrees(2 * math.atan(36 * 9 / 16 / 2 / lens)), 2)}
             for k, (name, loc, aim, lens) in CAMS.items()}

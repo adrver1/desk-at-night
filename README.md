@@ -111,8 +111,12 @@ open-framed process block, a laydown deck over the wellbay, a pedestal crane,
 the plant module and the living quarters with the lifeboats on the end face,
 the helideck on a deep truss, a steep flare boom and the yellow name boards.
 Heights follow the photos (deck underside 22 m, quarters roof 53 m, flare
-tip about 115 m). It has one mesh per material and no textures, and
-emissive deck lights and windows for night. `build_platform()` builds it
+tip about 115 m). It has one mesh per material, and emissive deck lights
+and windows for night. Three small tileable textures drawn by
+`platform_textures.py` (pipes and walkways inside the open modules,
+walkways, stairs and doors on the clad walls and the quarters) make it look
+as busy as the photos; they are box-mapped in world metres, and
+`materials(textured=False)` gives the flat colours the room's bake uses. `build_platform()` builds it
 into any scene: cut at the waterline for a view from the control room, or
 down to the seabed for a scale model on a table. The control room uses it as
 the view out of its window: the room sits on the top floor of the quarters,

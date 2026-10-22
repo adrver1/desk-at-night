@@ -556,7 +556,7 @@ def build_outside(m):
     sits, then cut down to the faces some point in front of the window can
     see. Its lamps, cabin windows, obstruction lights and the flare use the
     room's emissive groups so the viewer can drive them."""
-    pm = op.materials()
+    pm = op.materials(textured=False)
     pm.update(lamp=m["platform_light"], flare=m["flare"], window=m["platform_window"], red=m["platform_red"])
     objs, tris, _ = op.build_platform(pm, z_cut=-1.0)
     for o in objs:

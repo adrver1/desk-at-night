@@ -46,6 +46,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build as b  # noqa: E402  (imports bpy)
+import platform_textures as tex  # noqa: E402
 
 bpy, Vector = b.bpy, b.Vector
 from mathutils import Matrix  # noqa: E402
@@ -183,6 +184,8 @@ class Mesh:
             me.from_pydata([tuple(v) for v in vs], [], fs)
             me.validate()
             me.materials.append(mat)
+            if mat.get("tile"):
+                _box_uvs(me, mat["tile"])
             o = bpy.data.objects.new(me.name, me)
             collection.objects.link(o)
             out.append(o)
@@ -205,7 +208,11 @@ def _frame(a, c):
 
 # -------------------------------------------------------------- materials
 
-def materials():
+def materials(textured=True):
+    """The platform's palette. textured=True paints the busy clutter of the
+    photos onto the open-module interiors, the clad walls and the quarters
+    (platform_textures.py, box-mapped in world metres); False keeps flat
+    colours, as the control room's bake uses them."""
     def emit(name, color, strength, base=None):
         m, _, bsdf = b._new_mat(name)
         bsdf.inputs["Base Color"].default_value = (*(base or color), 1)
@@ -213,7 +220,7 @@ def materials():
         bsdf.inputs["Emission Strength"].default_value = strength
         return m
 
-    return {
+    m = {
         "jacket": b.mat_flat("PlatJacket", (0.78, 0.31, 0.01), 0.6),     # orange-yellow steel
         "crane": b.mat_flat("PlatCrane", (0.80, 0.42, 0.01), 0.5),
         "steel": b.mat_flat("PlatSteel", (0.50, 0.51, 0.52), 0.6),        # deck plates, flare boom
@@ -235,6 +242,37 @@ def materials():
         "red": emit("PlatRed", (1.0, 0.05, 0.02), 0.0),                     # obstruction lights
         "flare": emit("PlatFlare", (1.0, 0.45, 0.10), 0.0),
     }
+    if textured:
+        for key, draw in (("interior", tex.busy), ("module", tex.clad_busy), ("lq", tex.quarters)):
+            _texture(m[key], draw())
+    return m
+
+
+def _texture(mat, path):
+    """Base colour from a tileable image instead of the flat colour; the
+    mesh gets matching UVs in Mesh.objects (see _box_uvs)."""
+    nt = mat.node_tree
+    img = nt.nodes.new("ShaderNodeTexImage")
+    img.image = bpy.data.images.load(path, check_existing=True)
+    nt.links.new(img.outputs["Color"], nt.nodes["Principled BSDF"].inputs["Base Color"])
+    mat["tile"] = tex.TILE
+
+
+def _box_uvs(me, tile):
+    """World-space box mapping, tile metres per repeat: walls take (along,
+    up) read from outside, floors and roofs (x, y)."""
+    uv = me.uv_layers.new(name="UVMap")
+    for p in me.polygons:
+        n = p.normal
+        for li in p.loop_indices:
+            co = me.vertices[me.loops[li].vertex_index].co
+            if abs(n.z) >= max(abs(n.x), abs(n.y)):
+                u, v = co.x, co.y
+            elif abs(n.x) > abs(n.y):
+                u, v = co.y * (1 if n.x > 0 else -1), co.z
+            else:
+                u, v = co.x * (-1 if n.y > 0 else 1), co.z
+            uv.data[li].uv = (u / tile, v / tile)
 
 
 def set_night(m, on):
@@ -428,10 +466,13 @@ def build_topsides(g, m):
     g.span(mod, x0, x1, -TOP_Y + 0.1, TOP_Y - 0.1, CELLAR + 0.05, UTIL_TOP)
     facade(g, m, ("y", -TOP_Y), -1, x0, x0 + 34, CELLAR, UTIL_TOP - 2, 2, 2, "X/KX")
     facade(g, m, ("y", TOP_Y), 1, x0 + 3, x1, CELLAR, UTIL_TOP - 2, 3, 2, "X\\XK/X")
-    name_board(g, m, ("y", -TOP_Y + 0.5), -1, 20.25, 35.9, 9.5, 4.8)  # on the plant module
-    name_board(g, m, ("y", TOP_Y), 1, -22.0, 48.0, 8.0, 4.6)          # far side, top of the process module
-    name_board(g, m, ("y", TOP_Y), 1, -49.5, 31.5, 4.0, 5.0)          # far side, flare-end corner
-    name_board(g, m, ("y", -TOP_Y), -1, -51.0, 29.0, 3.4, 6.0)        # crane side, flare-end corner
+    name_board(g, m, ("y", -TOP_Y + 0.5), -1, 25.0, 36.9, 10.0, 4.6)  # on the plant module
+    # Far side: on posts along the process module's roof edge
+    name_board(g, m, ("y", TOP_Y), 1, -22.5, PROC_TOP + 3.4, 9.5, 5.0)
+    for xx in (-26.5, -18.5):
+        g.beam(m["steel"], (xx, TOP_Y + 0.6, PROC_TOP + 0.6), (xx, TOP_Y + 0.6, PROC_TOP + 5.6), 0.3)
+    name_board(g, m, ("y", TOP_Y), 1, -48.5, 30.0, 4.4, 5.4)          # far side, flare-end corner
+    name_board(g, m, ("y", -TOP_Y), -1, -52.0, 26.8, 2.6, 6.6)        # crane side, flare-end corner
     # Escape tunnel: a white clad corridor along the bottom of the far side,
     # from the quarters to the process end, panel seams every few metres
     tx0, tx1, ty, tz0, tz1 = -26.0, 42.0, TOP_Y + 2.8, DECK_BOT - 0.3, 27.6
@@ -473,11 +514,12 @@ def lettering(g, mat, lines, plane, out, uc, zc, h, w, off=0.85):
     g.add(mat, ws, [tuple(reversed(f)) for f in fs] if flip else fs)
 
 
-def name_board(g, m, plane, out, uc, zc, w, h):
-    """Yellow board with the platform's name, licence block and operator."""
+def name_board(g, m, plane, out, uc, zc, w, h, lines=("IVAR AASEN", "16/1-D", "AKER BP")):
+    """Yellow board with the platform's name, licence block and operator,
+    standing proud of the facade bracing."""
     u0, u1 = uc - w / 2, uc + w / 2
     rect(g, m["mark"], plane, out, u0, u1, zc - h / 2, zc + h / 2, 0.8)
-    lettering(g, m["ink"], ("IVAR AASEN", "16/1-D", "AKER BP"), plane, out, uc, zc, h * 0.8, w * 0.88)
+    lettering(g, m["ink"], lines, plane, out, uc, zc, h * 0.8, w * 0.88)
 
 
 def build_quarters(g, m):
@@ -492,7 +534,7 @@ def build_quarters(g, m):
     g.span(m["lq"], x0, x1, -y, y, UTIL_TOP, LQ_TOP)
     # End tower: full height, from under the deck to the roof
     g.span(m["lq"], END_X0, TOP_X + 0.3, -TOP_Y - 0.25, TOP_Y + 0.25, DECK_BOT - 2, LQ_TOP + 1)
-    name_board(g, m, ("x", TOP_X + 0.3), 1, 0.0, 36.8, 10.0, 4.4)  # over the lifeboats
+    name_board(g, m, ("x", TOP_X + 0.3), 1, 0.0, 36.5, 11.6, 2.6, ("IVAR AASEN", "16/1-D AKER BP"))  # over the lifeboats
     # Two free-fall lifeboats side by side on the end face, on skids sloping out
     for yy in (-3.3, 3.3):
         g.beam(m["white"], (TOP_X + 0.3, yy, 31.0), (TOP_X + 7.0, yy, 24.5), 0.5)
