@@ -343,7 +343,7 @@ def build_cabin_details(g, m, liv, door=False):
     # Sponsons with the main gear under the door sill, and a step
     sp = m[liv["sponson"]]
     for s in (1, -1):
-        g.box(sp, (-0.575, s * 1.40, 0.785), (2.25, 0.40, 0.67))   # ends short of the door's front, where people step out
+        g.box(sp, (-1.0, s * 1.40, 0.785), (2.0, 0.40, 0.67))   # under the door's rear half and aft, as on the real one
         g.box(m["metal"], (0.95, s * 1.45, 0.47), (0.60, 0.30, 0.06))   # step, half way down to the deck
         g.box(m["metal"], (2.6, s * 1.30, 0.62), (0.5, 0.18, 0.05))
     # Engine cowling: a low hump over the cabin roof with two exhausts aft
@@ -546,8 +546,8 @@ def build_cabin_interior(g, m, pilots=True):
 # Retracting swings each leg forward about Y, nose wheels into the nose,
 # main wheels into the sponsons.
 GEAR = [("NoseGear", Vector((4.55, 0, 1.15)), 0.30, ((0.17, 0.30, 0.22), (-0.17, 0.30, 0.22))),
-        ("MainGearL", Vector((-0.30, 1.43, 0.80)), 0.34, ((0.0, 0.34, 0.26),)),
-        ("MainGearR", Vector((-0.30, -1.43, 0.80)), 0.34, ((0.0, 0.34, 0.26),))]
+        ("MainGearL", Vector((-0.90, 1.43, 0.80)), 0.34, ((0.0, 0.34, 0.26),)),
+        ("MainGearR", Vector((-0.90, -1.43, 0.80)), 0.34, ((0.0, 0.34, 0.26),))]
 GEAR_SWING = math.radians(-90)  # gear up: legs point forward
 
 
