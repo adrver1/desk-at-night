@@ -66,6 +66,7 @@ export class Epilogue {
   }
 
   show() {
+    if (this.on) return;   // the OIM's line plays over the flight that is already running
     this.on = true;
     this.t0 = performance.now();
   }
