@@ -64,13 +64,13 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x000000, 0);
 const outdoor = new Outdoor(0);
-outdoor.set({ clouds: 0.3, wind: 0.3, fog: 0.03, rain: 0, ...WEATHER[q.get('weather')], time: Number(q.get('time') ?? 9.0), speed: 0 });
+outdoor.set({ clouds: 0.3, wind: 0.3, fog: 0.03, rain: 0, ...WEATHER[q.get('weather')], time: Number(q.get('time') ?? 11.0), speed: 0 });
 scene.add(outdoor.room);
 const hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
 const sun = new THREE.DirectionalLight(0xffffff, Math.PI);
 sun.castShadow = true;
-sun.shadow.mapSize.set(1024, 1024);
-Object.assign(sun.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 60 });
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -14, right: 14, top: 14, bottom: -14, near: 1, far: 60 });
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.03;
 scene.add(hemi, sun, sun.target);
@@ -111,6 +111,7 @@ scene.add(platform.scene);
 const glowing = [];
 platform.scene.traverse((o) => {
   if (!o.isMesh) return;
+  o.receiveShadow = true;    // the helicopter's and the crew's shadows on the helideck
   if (o.material.name === 'PlatGlass') { o.material.transparent = true; o.material.opacity = 0.5; }
   if (o.material.emissive?.getHex()) glowing.push(o.material);
 });
@@ -128,6 +129,7 @@ heliModel.scene.traverse((o) => {
   if (!o.isMesh) return;
   o.castShadow = o.receiveShadow = true;
   if (INSIDE.includes(o.material.name)) o.material.color.multiplyScalar(0.6);
+  if (/Disc/.test(o.name + o.parent?.name)) o.castShadow = false;   // the blur discs are see-through
   if (o.material.name === 'HeliClear') { o.castShadow = false; o.material.depthWrite = false; }
   if (q.has('cutaway') && !['HeliFloor', 'HeliSeat', 'HeliPanel', 'HeliMetal'].includes(o.material.name)) o.visible = false;   // debug: see inside
 });
@@ -266,13 +268,18 @@ function arms(p) {
   p.getWorldQuaternion(_q);
   _f.set(0, 0, -1).applyQuaternion(_q);   // the way they face
   _r.set(1, 0, 0).applyQuaternion(_q);    // their right
-  aimBone(b.upper_armL, new THREE.Vector3(0, -1, 0).addScaledVector(_f, 0.35).addScaledVector(_r, -0.15), w);
-  aimBone(b.upper_armR, new THREE.Vector3(0, -1, 0).addScaledVector(_f, 0.35).addScaledVector(_r, 0.15), w * (1 - u.grabbed));
-  if (u.grabbed > 0.01 && b.upper_armR) {   // reach for the post, elbow a little bent
-    heliRoot.localToWorld(_post.set(info.door.x[1] + 0.04, info.floor + 1.15, EXIT_SIDE * 1.2));
-    b.upper_armR.getWorldPosition(_sh);
-    aimBone(b.upper_armR, _post.clone().sub(_sh).addScaledVector(_r, 0.1), u.grabbed);
-    if (b.forearmR) b.forearmR.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.35), u.grabbed);
+  // The hand on the post's side does the grabbing: the right one on the way
+  // out, the left one on the way in
+  heliRoot.localToWorld(_post.set(info.door.x[1] + 0.04, info.floor + 1.15, EXIT_SIDE * 1.2));
+  p.getWorldPosition(_sh);
+  const R = _post.clone().sub(_sh).dot(_r) > 0, g = u.grabbed > 0.01;
+  aimBone(b.upper_armL, new THREE.Vector3(0, -1, 0).addScaledVector(_f, 0.35).addScaledVector(_r, -0.15), w * (R ? 1 : 1 - u.grabbed));
+  aimBone(b.upper_armR, new THREE.Vector3(0, -1, 0).addScaledVector(_f, 0.35).addScaledVector(_r, 0.15), w * (R ? 1 - u.grabbed : 1));
+  const arm = R ? b.upper_armR : b.upper_armL, fore = R ? b.forearmR : b.forearmL;
+  if (g && arm) {   // reach for the post, elbow a little bent
+    arm.getWorldPosition(_sh);
+    aimBone(arm, _post.clone().sub(_sh).addScaledVector(_r, R ? 0.1 : -0.1), u.grabbed);
+    if (fore) fore.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.35), u.grabbed);
   }
 }
 function bend(p, dt) {
@@ -568,14 +575,14 @@ const ui = {
   clock: document.querySelector('.clock'),
   end: document.querySelector('.end'),
 };
-let t = q.get('scene') === 'board' ? FLIGHT + DESCENT + 3 : Number(q.get('t') ?? 0);
+let t = BOARD ? FLIGHT + DESCENT + 3 : Number(q.get('t') ?? 0);
 const paused = q.has('pause');
 // One button: skip to the landing in flight, then to the walk-off
 const WALKOUT = () => T_LAND + EXIT_AT - 0.8;
-ui.skip?.addEventListener('click', () => { t = t < FLIGHT - 8 ? FLIGHT - 7 : Math.max(t, WALKOUT()); });
+ui.skip?.addEventListener('click', () => { t = t < FLIGHT - 8 ? FLIGHT - 7 : t < WALKOUT() - 0.5 ? WALKOUT() : T_END + 0.1; });
 
 const CAPTIONS = [
-  [0, '09:00, crew change day. The platform is dead ahead.'],
+  [0, '11:00, crew change day. The platform is dead ahead.'],
   [8, 'Drag to look around.'],
   [16, ''],
   [T_LAND + 1, 'On the deck. Rotors running down.'],
@@ -697,7 +704,7 @@ function step(dt) {
     ui.caption.classList.toggle('on', !!c[1]);
   }
   if (ui.skip) {
-    ui.skip.hidden = BOARD || t > WALKOUT() - 0.5;
+    ui.skip.hidden = BOARD || t > T_END;
   }
   ui.end?.classList.toggle('on', t > T_END && !BOARD);
 
