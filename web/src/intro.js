@@ -103,8 +103,8 @@ function load(name) {
   return loader.parseAsync(buf.buffer, '');
 }
 const info = window.INTRO_INFO ?? await fetch(BASE + 'intro.json').then((r) => r.json());
-const [platform, heliModel, pilotModel, ...people] = await Promise.all([
-  load('platform.glb'), load('heli.glb'), load('chars/heli_pilot_flying_headset.glb').catch(() => null), ...CAST.map((c) => load(`chars/${c}_${OUTFIT}.glb`).catch(() => load(`chars/${c}.glb`)).catch(() => null)),
+const [platform, vessel, heliModel, pilotModel, ...people] = await Promise.all([
+  load('platform.glb'), load('vessel.glb').catch(() => null), load('heli.glb'), load('chars/heli_pilot_flying_headset.glb').catch(() => null), ...CAST.map((c) => load(`chars/${c}_${OUTFIT}.glb`).catch(() => load(`chars/${c}.glb`)).catch(() => null)),
 ]);
 
 scene.add(platform.scene);
@@ -115,6 +115,16 @@ platform.scene.traverse((o) => {
   if (o.material.name === 'PlatGlass') { o.material.transparent = true; o.material.opacity = 0.5; }
   if (o.material.emissive?.getHex()) glowing.push(o.material);
 });
+
+// The supply vessel alongside, its radars turning (intro_export.py VESSEL)
+const radars = [];
+if (vessel) {
+  scene.add(vessel.scene);
+  vessel.scene.traverse((o) => {
+    if (o.isMesh) o.castShadow = o.receiveShadow = true;
+    if (/^PsvRadar/.test(o.name)) radars.push(o);
+  });
+}
 
 // The helicopter: root moves along the route; the camera rides in it
 const heliRoot = new THREE.Group();
@@ -202,7 +212,7 @@ const EXIT_AT = 3;          // s after touchdown the first one stands up
 const EXIT_GAP = 1.4;       // s between passengers
 const STAND = 1.5;          // s the stand_up clip takes
 const doorX = info.door.exit;   // clear of the sponson, over the step
-const stairs = B(47.5, -4, 72.5);  // top of the stairs from the helideck down into the quarters
+const stairs = B(46.5, -4, 54.5);  // top of the stairs from the helideck down into the quarters
 const parked = new THREE.Object3D();   // where the helicopter sits once down
 parked.position.fromArray(info.park.position);
 parked.rotation.y = info.park.yaw;
@@ -495,7 +505,7 @@ const T_LAND = FLIGHT + DESCENT;
 const T_END = T_LAND + 24;   // fade out as the last ones walk to the stairs
 
 const park = new THREE.Vector3().fromArray(info.park.position);
-const deckEdge = B(56, 15.5, 75.2);   // camera on a lamp post at the helideck's north-west rim
+const deckEdge = B(45, 15.5, 57.2);   // camera on a lamp post at the helideck's north-west rim
 deckCam.position.copy(deckEdge);
 
 // Pose of the helicopter at time t
@@ -648,6 +658,7 @@ function step(dt) {
     bend(p, dt);
   }
   for (const m of pilots) m.update(dt);
+  radars.forEach((r, i) => { r.rotation.y -= dt * (i ? 2.6 : 2.1); });
 
   // On short final, the helideck camera picks it up and follows it down
   if (left < CUT_AT || q.get('view') === 'deck') cut = true;
@@ -659,7 +670,14 @@ function step(dt) {
     deckCam.fov = 40;
     deckCam.updateProjectionMatrix();
   }
-  if (cut && !q.has('off')) {
+  if (q.has('world')) { // debug: a fixed camera at ?world=x,y,z in platform (Blender) axes, aimed at ?at=x,y,z
+    camera = deckCam;
+    deckCam.position.copy(B(...q.get('world').split(',').map(Number)));
+    deckCam.lookAt(B(...(q.get('at') ?? '0,0,30').split(',').map(Number)));
+    deckCam.fov = 40;
+    deckCam.updateProjectionMatrix();
+  }
+  if (cut && !q.has('off') && !q.has('world')) {
     const close = t - T_LAND > EXIT_AT - 0.5;
     if (close && !deckCam.userData.close) {   // cut to a camera close to the door as they get up
       deckCam.userData.close = true;

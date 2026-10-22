@@ -25,6 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build as b  # noqa: E402  (imports bpy)
 import helicopter as heli  # noqa: E402
 import offshore_platform as op  # noqa: E402
+import supply_vessel as sv  # noqa: E402
 
 bpy, Vector = b.bpy, b.Vector
 
@@ -32,6 +33,10 @@ OUT = os.path.join(b.ROOT, "web", "public", "intro")
 # "cast": the intro seats the cast pilot (characters/heli_pilot) in the
 # cockpit; "standin": the helicopter's own block pilots
 PILOTS = "cast"
+# The supply vessel alongside on the crane side, the crane lifting a
+# container off its cargo deck (None: no vessel, crane stowed)
+VESSEL = True
+LIFT = (sv.BERTH_LOC[0] + 10.0, sv.BERTH_LOC[1], 11.0)
 
 
 def three(v):
@@ -66,16 +71,23 @@ def main():
     print(f"helicopter with cabin: {htris} triangles", flush=True)
 
     m = op.materials()
-    objs, tris, _ = op.build_platform(m, z_cut=-1.0)
+    objs, tris, _ = op.build_platform(m, z_cut=-1.0, crane_lift=LIFT if VESSEL else None)
     op.set_night(m, False)
     m["flare"].node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = 120
     export(os.path.join(OUT, "platform.glb"), [o for o in objs if o.data.polygons])
     print(f"platform: {tris} triangles", flush=True)
+    vtris = 0
+    if VESSEL:
+        vc = bpy.data.collections.new("Vessel")
+        bpy.context.scene.collection.children.link(vc)
+        _, _, vtris = sv.build_vessel(sv.materials(), vc, sv.BERTH_LOC, sv.BERTH_YAW)
+        export(os.path.join(OUT, "vessel.glb"), vc.objects)
+        print(f"supply vessel: {vtris} triangles", flush=True)
 
     seats = [three((x, y, heli.FLOOR + 0.50)) + [face] for x, face in zip(heli.SEAT_ROWS, heli.SEAT_FACE)
              for y in heli.SEAT_Y]
     info = {
-        "triangles": {"platform": tris, "helicopter": htris},
+        "triangles": {"platform": tris, "helicopter": htris, "vessel": vtris},
         "helideck": {"centre": three((op.HELI_X, 0, op.HELI_Z)), "radius": op.HELI_R},
         "park": {"position": three(heli.DECK_LOC), "yaw": heli.DECK_YAW},
         "quarters": {"x": [op.LQ_X0, op.LQ_X1], "z": [-op.LQ_Y, op.LQ_Y], "roof": op.LQ_TOP},
