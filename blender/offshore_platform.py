@@ -78,6 +78,9 @@ HELI_Z, HELI_R, HELI_X = 54.5, 11.5, 57.5
 FLARE_ROOT_TOP, FLARE_ROOT_BOT = Vector((-TOP_X, 0, 52.0)), Vector((-TOP_X + 3, 0, 25.0))
 FLARE_TIP = Vector((-96.0, 0, 115.0))
 
+# The crane pedestal, between the laydown deck and the plant module
+CRANE_X, CRANE_Y = 8.5, -13.0
+
 # Wellbay under the laydown deck, inside the jacket
 WELL_X0, WELL_X1, WELL_Y0, WELL_Y1 = -15.0, -3.0, -5.0, 5.0
 
@@ -211,22 +214,22 @@ def materials():
         return m
 
     return {
-        "jacket": b.mat_flat("PlatJacket", (0.30, 0.31, 0.02), 0.6),     # yellow-green steel
-        "crane": b.mat_flat("PlatCrane", (0.72, 0.62, 0.01), 0.5),
-        "steel": b.mat_flat("PlatSteel", (0.42, 0.43, 0.44), 0.6),        # deck plates, flare boom
-        "module": b.mat_flat("PlatModule", (0.46, 0.47, 0.48), 0.7),      # clad module walls
-        "interior": b.mat_flat("PlatInterior", (0.14, 0.145, 0.15), 0.8),  # inside the open-framed modules
+        "jacket": b.mat_flat("PlatJacket", (0.78, 0.31, 0.01), 0.6),     # orange-yellow steel
+        "crane": b.mat_flat("PlatCrane", (0.80, 0.42, 0.01), 0.5),
+        "steel": b.mat_flat("PlatSteel", (0.50, 0.51, 0.52), 0.6),        # deck plates, flare boom
+        "module": b.mat_flat("PlatModule", (0.56, 0.57, 0.58), 0.7),      # clad module walls
+        "interior": b.mat_flat("PlatInterior", (0.20, 0.205, 0.21), 0.8),  # inside the open-framed modules
         "dark": b.mat_flat("PlatDark", (0.24, 0.25, 0.26), 0.6),          # stair tower, cab glass
         "brown": b.mat_flat("PlatBrown", (0.30, 0.13, 0.08), 0.6),        # exhaust duct, containers
-        "lq": b.mat_flat("PlatQuarters", (0.64, 0.65, 0.66), 0.6),
+        "lq": b.mat_flat("PlatQuarters", (0.70, 0.71, 0.72), 0.6),
         "boat": b.mat_flat("PlatBoat", (0.80, 0.33, 0.06), 0.5),          # free-fall lifeboat
         "glass": b.mat_flat("PlatGlass", (0.04, 0.05, 0.06), 0.2),
         "equip": b.mat_flat("PlatEquip", (0.30, 0.38, 0.42), 0.5),        # vessels, pipework
         "heli": b.mat_flat("PlatHelideck", (0.25, 0.26, 0.27), 0.8),
-        "mark": b.mat_flat("PlatMarking", (0.85, 0.75, 0.10), 0.7),
+        "mark": b.mat_flat("PlatMarking", (0.88, 0.50, 0.01), 0.7),
         "ink": b.mat_flat("PlatInk", (0.02, 0.02, 0.02), 0.8),             # lettering on the name board
         "white": b.mat_flat("PlatWhite", (0.80, 0.80, 0.80), 0.7),
-        "orange": b.mat_flat("PlatOrange", (0.75, 0.06, 0.04), 0.5),      # lifeboats, crane boom bands
+        "orange": b.mat_flat("PlatOrange", (0.60, 0.04, 0.03), 0.5),      # lifeboats, crane boom bands
         "lamp": emit("PlatLamp", (1.0, 0.78, 0.45), 0.0),                   # deck lights, off by day
         "window": emit("PlatWindow", (1.0, 0.85, 0.6), 0.0, base=(0.04, 0.05, 0.06)),
         "red": emit("PlatRed", (1.0, 0.05, 0.02), 0.0),                     # obstruction lights
@@ -428,6 +431,15 @@ def build_topsides(g, m):
     name_board(g, m, ("y", -TOP_Y + 0.5), -1, 20.25, 35.9, 9.5, 4.8)  # on the plant module
     name_board(g, m, ("y", TOP_Y), 1, -22.0, 48.0, 8.0, 4.6)          # far side, top of the process module
     name_board(g, m, ("y", TOP_Y), 1, -49.5, 31.5, 4.0, 5.0)          # far side, flare-end corner
+    name_board(g, m, ("y", -TOP_Y), -1, -51.0, 29.0, 3.4, 6.0)        # crane side, flare-end corner
+    # Escape tunnel: a white clad corridor along the bottom of the far side,
+    # from the quarters to the process end, panel seams every few metres
+    tx0, tx1, ty, tz0, tz1 = -26.0, 42.0, TOP_Y + 2.8, DECK_BOT - 0.3, 27.6
+    g.span(m["white"], tx0, tx1, TOP_Y, ty, tz0, tz1)
+    for i in range(int((tx1 - tx0) / 3.4) + 1):
+        xx = tx0 + i * 3.4
+        g.box(m["steel"], (xx, ty + 0.05, (tz0 + tz1) / 2), (0.15, 0.1, tz1 - tz0))
+    g.box(m["steel"], ((tx0 + tx1) / 2, ty + 0.05, tz1 - 0.6), (tx1 - tx0, 0.1, 0.12))
     # Ledge at the foot of the quarters, sticking out on the -Y side
     g.span(m["white"], x0 + 0.05, END_X0 - 0.05, -TOP_Y - 1.5, TOP_Y + 0.25, UTIL_TOP - 0.6, UTIL_TOP + 0.08)
 
@@ -480,6 +492,7 @@ def build_quarters(g, m):
     g.span(m["lq"], x0, x1, -y, y, UTIL_TOP, LQ_TOP)
     # End tower: full height, from under the deck to the roof
     g.span(m["lq"], END_X0, TOP_X + 0.3, -TOP_Y - 0.25, TOP_Y + 0.25, DECK_BOT - 2, LQ_TOP + 1)
+    name_board(g, m, ("x", TOP_X + 0.3), 1, 0.0, 36.8, 10.0, 4.4)  # over the lifeboats
     # Two free-fall lifeboats side by side on the end face, on skids sloping out
     for yy in (-3.3, 3.3):
         g.beam(m["white"], (TOP_X + 0.3, yy, 31.0), (TOP_X + 7.0, yy, 24.5), 0.5)
@@ -585,42 +598,64 @@ def build_flare(g, m):
     return tip
 
 
-def build_crane(g, m, base, ped_h, yaw, luff, boom_len, bands=True):
-    """Pedestal crane after the reference: tall yellow column with a collar,
-    slewing house, a single tall gantry mast, and a white lattice boom with
-    two red bands. yaw is the boom direction in plan, luff its angle above
-    horizontal (negative dips toward the tip)."""
+def build_crane(g, m, base, ped_h, yaw, luff, boom_len, rest=None):
+    """Pedestal crane after the photos: a tall yellow column wound with a
+    spiral stair, a slewing deck with the machinery house and cab, a tall
+    yellow lattice A-frame, and a long red lattice boom hung from it on
+    pendants. yaw is the boom direction in plan, luff its angle above
+    horizontal (negative dips toward the tip). rest = (x, y, z0) puts a boom
+    rest under the tip, standing on z0."""
     x, y, z = base
     cr = m["crane"]
     zt = z + ped_h
-    g.prism(cr, (x, y), 2.3, z, zt - 6, 10)
-    g.prism(cr, (x, y), 3.9, zt - 6, zt - 4.8, 10)          # collar
-    g.prism(cr, (x, y), 1.9, zt - 4.8, zt, 10)
+    g.prism(cr, (x, y), 2.1, z, zt, 12)
+    # Spiral stair round the column, with two landings
+    turns, steps, r = 3.0, 54, 2.9
+    pts = [Vector((x + r * math.cos(2 * math.pi * turns * i / steps), y + r * math.sin(2 * math.pi * turns * i / steps),
+                   z + 1.0 + (ped_h - 2.0) * i / steps)) for i in range(steps + 1)]
+    for p0, p1 in zip(pts, pts[1:]):
+        g.beam(m["white"], p0, p1, 0.7, 0.15)
+        g.beam(m["white"], p0 + Vector((0, 0, 1.0)), p1 + Vector((0, 0, 1.0)), 0.08)  # handrail
+    for zz in (z + ped_h * 0.45, zt - 0.6):
+        g.ring(m["white"], (x, y), 2.1, 3.6, zz, 16)
+    g.prism(cr, (x, y), 3.6, zt - 0.6, zt, 16)                  # slewing ring
     fwd = Vector((math.cos(yaw), math.sin(yaw), 0))
     side = Vector((-fwd.y, fwd.x, 0))
-    g.box(cr, Vector((x, y, zt + 2.2)) - fwd * 1.0, (8, 6, 4.4), yaw)
-    g.box(cr, Vector((x, y, zt + 2.6)) + fwd * 3.4 + side * 3.0, (3.0, 2.0, 2.8), yaw)  # cab
-    g.box(m["dark"], Vector((x, y, zt + 2.8)) + fwd * 4.95 + side * 3.0, (0.1, 1.8, 1.6), yaw)  # cab glass
-    mast_top = Vector((x, y, zt + 16)) - fwd * 1.5
-    g.beam(cr, Vector((x, y, zt + 4.4)) - fwd * 1.5, mast_top, 1.1)
-    g.beam(cr, Vector((x, y, zt + 4.4)) - fwd * 4.5, mast_top, 0.6)  # back stay
-    foot = Vector((x, y, zt + 2.5)) + fwd * 3.0
-    dirv = fwd * math.cos(luff) + Vector((0, 0, math.sin(luff)))
+    up = Vector((0, 0, 1))
+    c0 = Vector((x, y, zt))
+    g.box(cr, c0 - fwd * 1.2 + up * 2.4, (8.5, 6.0, 4.8), yaw)  # machinery house
+    g.box(m["module"], c0 - fwd * 5.0 + up * 1.4, (2.0, 5.0, 2.6), yaw)  # counterweight
+    g.box(cr, c0 + fwd * 3.6 + side * 3.2 + up * 2.0, (3.2, 2.2, 3.0), yaw)  # cab
+    g.box(m["glass"], c0 + fwd * 5.25 + side * 3.2 + up * 2.3, (0.1, 2.0, 1.8), yaw)
+    # A-frame: a tall tapering lattice mast, leaning a little back
+    m0, m1 = c0 + up * 4.8 - fwd * 1.0, c0 + up * 19.0 - fwd * 2.6
+    g.lattice(cr, m0, m1, 2.6, 1.0, 2.4, 0.3)
+    for sgn in (-1, 1):
+        g.beam(cr, c0 + up * 4.8 - fwd * 4.0 + side * sgn * 2.2, m1 - up * 3.0, 0.4)  # back legs
+    g.box(cr, m1 + up * 0.4, (1.6, 1.6, 0.8), yaw)
+    # Boom: red lattice from the house front, hung on pendants from the A-frame
+    foot = c0 + fwd * 3.2 + up * 1.2
+    dirv = fwd * math.cos(luff) + up * math.sin(luff)
     tip = foot + dirv * boom_len
-    g.lattice(m["white"], foot, tip, 3.2, 1.2, 4.2, 0.3, roll=math.pi / 4)
-    if bands:  # red sections as on the reference boom
-        for t0, t1 in ((0.19, 0.37), (0.64, 0.82)):
-            g.lattice(m["orange"], foot + dirv * boom_len * t0, foot + dirv * boom_len * t1,
-                      3.2 - 2.0 * t0 + 0.12, 3.2 - 2.0 * t1 + 0.12, 3.0, 0.34, roll=math.pi / 4)
-    g.beam(m["steel"], mast_top, tip, 0.12)                  # luffing wire
-    g.beam(m["steel"], mast_top, foot + dirv * boom_len * 0.55, 0.1)
-    g.prism(m["red"], (mast_top.x, mast_top.y), 0.3, mast_top.z, mast_top.z + 0.6, 6)
+    g.lattice(m["orange"], foot, tip, 3.0, 1.2, 4.0, 0.32, roll=math.pi / 4)
+    g.box(m["orange"], tip + dirv * 1.0, (2.0, 1.4, 1.6), yaw)  # boom head and sheaves
+    for t in (1.0, 0.55):
+        g.beam(m["steel"], m1, foot + dirv * boom_len * t + up * 1.0, 0.12)
+    g.prism(m["red"], (m1.x, m1.y), 0.3, m1.z + 0.8, m1.z + 1.4, 6)
+    if rest:
+        rx, ry, rz = rest
+        top = tip - dirv * 3.0 - up * 1.4
+        for sgn in (-1, 1):
+            g.beam(m["white"], Vector((rx, ry, rz)) + side * sgn * 2.0, top + side * sgn * 0.8, 0.35)
+        g.beam(m["white"], top - side * 1.2, top + side * 1.2, 0.4)
     return tip
 
 
 def build_cranes(g, m):
-    # The big crane on the stair tower, boom swung out over the process end
-    build_crane(g, m, ((STAIR_X0 + STAIR_X1) / 2, -14, NOTCH_TOP), 17.5, math.radians(180), math.radians(2), 52)
+    # The big crane between the laydown deck and the plant module, boom
+    # stowed horizontal over the process module on its rest
+    build_crane(g, m, (CRANE_X, CRANE_Y, UTIL_TOP + 0.1), 27.5, math.radians(180), math.radians(-3.0), 58,
+                rest=(-49.5, CRANE_Y, PROC_TOP + 0.6))
 
 
 def build_lights(g, m):
@@ -685,7 +720,7 @@ def build_jackup(g, m, z_cut):
     fc = Vector((cx, wy, hz1 + 9))
     g.lattice(m["white"], fc, fc + Vector((0, 0, 52)), 12, 3.5, 6.5, 0.45)
     g.prism(m["red"], (fc.x, fc.y), 0.5, fc.z + 52, fc.z + 53, 6)
-    build_crane(g, m, (cx + 32, cy - 22, hz1), 6, math.radians(150), math.radians(25), 34, bands=False)
+    build_crane(g, m, (cx + 32, cy - 22, hz1), 6, math.radians(150), math.radians(25), 34)
     for x, y in hull:
         g.box(m["lamp"], (cx + x * 1.01, cy + y * 1.01, hz1 + 1), (0.6, 0.6, 0.4))
 
