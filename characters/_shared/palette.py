@@ -29,7 +29,7 @@ ROWS = [
     # 2 face details
     [("eye", "#1b1d22"), ("eye_white", "#f2f0ea"), ("lip", "#a8584e"), ("lip_dark", "#6e3a33"),
      ("teeth", "#f4f1e8"), ("blush", "#d98a7a"),
-     ("stubble", "#b39580"), ("stubble_dark", "#8f7563")],
+     ("stubble", "#b39580"), ("stubble_dark", "#8f7563"), ("mouth_inside", "#2e1716")],
     # 3 workwear: offshore coveralls, hi-vis and reflective tape
     [("coverall_orange", "#e2632a"), ("coverall_red", "#b8322a"), ("coverall_navy", "#1f2e4a"),
      ("hivis_yellow", "#ece53a"), ("hivis_orange", "#f08a24"), ("reflective", "#c9cdd0"),

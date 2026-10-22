@@ -430,8 +430,39 @@ def body(skin="skin_3", colors=None, hide=(), brow=None, ears=True, ear_scale=1.
     for s in (1, -1):
         m.decal(bvh, s * 0.040, 1.615, 0.020, 0.028, cols["eye"], "eye")
         m.decal(bvh, s * 0.042, 1.652, 0.040, 0.010, cols["brow"], "brow", tilt=-s * 6)
-    m.decal(bvh, 0, 1.522, 0.044, 0.009, cols["mouth"], "mouth")
+    mouth(m, bvh, cols["mouth"])
     return m.drop(set(hide))
+
+
+# Mouth: a dark lens on the face with the lower lip under it, its corners
+# on the mouth.R/L bones, its upper edge on the head and its lower edge and
+# lip on the jaw bone, so the jaw opens it and the corners smile or frown.
+# MOUTH_STYLE picks what shows inside as it opens: "line" (just the dark of
+# the mouth) or "teeth" (a row of upper teeth that slides into view).
+MOUTH_Z, MOUTH_W, MOUTH_H = 1.522, 0.048, 0.005
+MOUTH_STYLE = "teeth"
+
+
+def mouth(m, bvh, color, style=None, width=MOUTH_W, up=0.0, drop=0.0, teeth_show=0.0):
+    """The rigged mouth. A rest expression is built in: `up` raises the
+    corners (a smile), `drop` opens the lower edge, `teeth_show` how much
+    of the teeth shows at rest; talking and expressions add to it."""
+    style = style or MOUTH_STYLE
+    w, h, z = width / 2, MOUTH_H / 2, MOUTH_Z
+    lo = z - h - drop
+    m.decal_poly(bvh, [(w, z + up), (w * 0.45, z + h), (-w * 0.45, z + h), (-w, z + up), (-w * 0.45, lo),
+                       (w * 0.45, lo)], "mouth_inside", "mouth", lift=0.0015)
+    for pts in ([(w, z + up), (w * 0.45, lo), (w * 0.4, lo - 0.004)],   # the lower lip, corner to corner
+                [(w * 0.45, lo), (-w * 0.45, lo), (-w * 0.4, lo - 0.004), (w * 0.4, lo - 0.004)],
+                [(-w * 0.45, lo), (-w, z + up), (-w * 0.4, lo - 0.004)]):
+        m.decal_poly(bvh, pts, color, "lip_low", lift=0.0016)
+    if style == "teeth":
+        # rests as a hairline under the upper edge (or shows teeth_show of
+        # it in a grin); the jaw pulls it open
+        t0, t1 = z + h * 0.7, z + h * 0.55 - teeth_show
+        m.decal_poly(bvh, [(w * 0.5, t0), (-w * 0.5, t0), (-w * 0.5, t1), (w * 0.5, t1)], "teeth", "teeth",
+                     lift=0.0022)
+    return m
 
 
 # ---------------------------------------------------------------- material
@@ -568,7 +599,20 @@ HEAD_REGIONS, HEAD_LOCK_Z = {"head", "ear", "nose", "mouth"}, 1.47
 # Face bones: eyes squash for a blink, brows move for expressions. Each
 # points up from the feature's centre, so its local Y is world up.
 FACE_BONES = {"eye.R": (0.040, 0.118, 1.615), "eye.L": (-0.040, 0.118, 1.615),
-              "brow.R": (0.042, 0.118, 1.652), "brow.L": (-0.042, 0.118, 1.652)}
+              "brow.R": (0.042, 0.118, 1.652), "brow.L": (-0.042, 0.118, 1.652),
+              "jaw": (0.0, 0.112, 1.522), "mouth.R": (0.022, 0.112, 1.522), "mouth.L": (-0.022, 0.112, 1.522)}
+MOUTH_REGIONS = {"mouth", "lip_low", "teeth", "smile"}
+
+
+def _mouth_weights(co, region):
+    """Mouth corners follow their corner bone, the lower edge the jaw, the
+    upper edge the head; the teeth's lower edge follows the jaw part way,
+    so they show under the lip as the mouth opens."""
+    if abs(co.x) > MOUTH_W * 0.4:
+        return {"mouth.R" if co.x > 0 else "mouth.L": 1.0}
+    if region == "teeth":
+        return {"head": 1.0} if co.z > MOUTH_Z + MOUTH_H * 0.65 else {"jaw": 0.45, "head": 0.55}
+    return {"head": 1.0} if co.z > MOUTH_Z else {"jaw": 1.0}
 
 
 def _hinge_limbs(ob):
@@ -596,6 +640,8 @@ def _hinge_limbs(ob):
             w = {f"eye.{tag}": 1.0}
         elif "brow" in regs:
             w = {f"brow.{tag}": 1.0}
+        elif regs & MOUTH_REGIONS:
+            w = _mouth_weights(co, next(iter(regs & MOUTH_REGIONS)))
         elif regs & HEAD_REGIONS:
             # one rigid head: blended weights let the face slide under the
             # eyes and brows when the head turns
@@ -665,6 +711,12 @@ def skin_to(body_ob, arm_ob, extras=(), rigid=None):
             vg = ob.vertex_groups.get(bone) or ob.vertex_groups.new(name=bone)
             vg.add([vi], 1.0, "REPLACE")
         _fill_from_surface(body_ob, ob, [v for v in ob.data.vertices if v.index not in stiff])
+        # mouth overlays (a grin, teeth) move with the mouth bones too
+        for poly in ob.data.polygons:
+            reg = regions[attr[poly.index].value]
+            if reg in MOUTH_REGIONS:
+                for vi in poly.vertices:
+                    _set_weights(ob, vi, _mouth_weights(ob.data.vertices[vi].co, reg))
     for ob in (body_ob, *extras):
         bpy.ops.object.select_all(action="DESELECT")
         ob.select_set(True)

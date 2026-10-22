@@ -121,14 +121,12 @@ def moustache(color, offset=0.010, region="beard"):
 
 
 def smile(body, teeth=True, width=0.054):
-    """A wide smile on top of the base mouth with the corners turned up:
-    open, dark lips round a row of teeth, or closed (teeth=False)."""
+    """A wide smile as the character's resting mouth: the rigged mouth
+    rebuilt wider with its corners up, open over a row of teeth or closed
+    (teeth=False). It replaces the body's own mouth, so it still talks."""
+    body.drop({"mouth", "lip_low", "teeth"})
     m = base.Mesh()
     bvh = body.bvh()
-    lip = "lip_dark" if teeth else "lip"
-    m.decal(bvh, 0, 1.521, width, 0.016 if teeth else 0.008, lip, "smile", lift=0.0025)
     if teeth:
-        m.decal(bvh, 0, 1.524, width - 0.012, 0.007, "teeth", "smile", lift=0.0035)
-    for s in (1, -1):
-        m.decal(bvh, s * width * 0.5, 1.526, 0.010, 0.006, lip, "smile", tilt=s * 30, lift=0.0028)
-    return m
+        return base.mouth(m, bvh, "lip", width=width, up=0.004, drop=0.005, teeth_show=0.004)
+    return base.mouth(m, bvh, "lip", width=width, up=0.004, drop=0.0)

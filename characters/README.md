@@ -66,9 +66,15 @@ to also write a contact sheet next to the reference into a private folder.
   `seated_idle` (0.45 m seat), `stand_up`, `typing` (0.74 m desk) and
   `point`, plus `step_down` (two 0.5 m steps down from a 1 m helicopter
   cabin floor, ending 1 m lower and 0.6 m ahead). One clip set plays on
-  every character and outfit. Face clips
-  `blink`, `brows_raise` and `brows_frown` move only the eye and brow
-  bones, so they play on top of a body clip.
+  every character and outfit. Face clips move only the face bones, so they
+  play on top of a body clip: `blink`, `brows_raise`, `brows_frown`, the
+  expressions `happy`, `sad`, `surprised`, `angry` and `worried`, and
+  `talk`, a 2 s speech-rhythm loop on the jaw alone that plays over an
+  expression. The mouth is rigged (jaw bone for the lower edge, lip and
+  teeth; mouth.R/L for the corners); a character's grin (`faces.smile`)
+  is the same mouth with its corners up, so it talks too.
+  `base_body.MOUTH_STYLE` picks "teeth" (upper teeth slide into view as
+  the jaw opens) or "line" (a plain dark opening).
 - Renders use a neutral white studio light (`STUDIO_LIGHT`) so colours
   stay true to the palette; Blender's built-in ones are tinted.
 - `pose_check.png` shows reach, seated and crouch poses, grounded with the

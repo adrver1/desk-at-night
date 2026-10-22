@@ -149,6 +149,11 @@
   "col": 7,
   "hex": "#8f7563"
  },
+ "mouth_inside": {
+  "row": 2,
+  "col": 8,
+  "hex": "#2e1716"
+ },
  "coverall_orange": {
   "row": 3,
   "col": 0,

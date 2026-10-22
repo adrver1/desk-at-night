@@ -228,21 +228,50 @@ def stepping_down(rise=0.5, run=0.3):
     return keys
 
 
-def face(brow_up=0.0, brow_tilt=0.0, eye_open=1.0):
+def face(brow_up=0.0, brow_tilt=0.0, eye_open=1.0, jaw=0.0, smile=0.0, wide=0.0):
     """Face pose: brows moved up (metres, negative down) and tilted with the
-    inner ends down (degrees), eyes scaled in height (1 open, ~0.1 shut)."""
-    r = {}
+    inner ends down (degrees), eyes scaled in height (1 open, ~0.1 shut),
+    the jaw dropped (metres, opens the mouth), the mouth corners raised
+    (smile, negative frowns) and pulled out (wide, negative purses)."""
+    r = {"jaw": {"loc": (0, 0, -jaw)}}
     for s, tag in ((1, "R"), (-1, "L")):
         r[f"brow.{tag}"] = {"loc": (0, 0, brow_up), "rot": (Y, -s * brow_tilt)}
         r[f"eye.{tag}"] = {"scale": eye_open}
+        r[f"mouth.{tag}"] = {"loc": (s * wide, 0, smile)}
     return r
 
 
+# Expressions: (brow_up, brow_tilt, eye_open, jaw, smile, wide)
+EXPRESSIONS = {"happy": (0.003, -4, 0.7, 0.003, 0.008, 0.005),
+               "sad": (0.001, -16, 0.85, 0.0, -0.007, -0.002),
+               "surprised": (0.011, 0, 1.3, 0.013, 0.0, -0.008),
+               "angry": (-0.006, 18, 0.7, 0.001, -0.004, 0.004),
+               "worried": (0.005, -14, 1.05, 0.002, -0.003, -0.004)}
+EYES, BROWS = {"eye.R", "eye.L"}, {"brow.R", "brow.L"}
+MOUTH = {"mouth.R", "mouth.L"}
+
+
+def _talk():
+    """Two seconds of speech rhythm: the jaw opens by different amounts
+    every few frames, with a pause, so a loop doesn't read as chewing."""
+    opens = [0, 6, 2, 8, 3, 0, 5, 9, 4, 1, 7, 2, 0, 0, 6, 3, 0]
+    return [(k * 3, face(jaw=0.0011 * o)) for k, o in enumerate(opens)]
+
+
 def face_clips():
+    """Face clips and the bones each one moves: a blink touches only the
+    eyes and talking only the jaw, so either plays over an expression."""
     rest = face()
-    return {"blink": [(0, rest), (2, face(eye_open=0.1)), (4, face(eye_open=0.1)), (7, rest)],
-            "brows_raise": [(0, rest), (5, face(0.009, 0, 1.15)), (30, face(0.009, 0, 1.15)), (36, rest)],
-            "brows_frown": [(0, rest), (5, face(-0.004, 14, 0.75)), (30, face(-0.004, 14, 0.75)), (36, rest)]}
+    clips = {"blink": ([(0, rest), (2, face(eye_open=0.1)), (4, face(eye_open=0.1)), (7, rest)], EYES),
+             "brows_raise": ([(0, rest), (5, face(0.009, 0, 1.15)), (30, face(0.009, 0, 1.15)), (36, rest)],
+                             EYES | BROWS),
+             "brows_frown": ([(0, rest), (5, face(-0.004, 14, 0.75)), (30, face(-0.004, 14, 0.75)), (36, rest)],
+                             EYES | BROWS),
+             "talk": (_talk(), {"jaw"})}
+    for name, p in EXPRESSIONS.items():
+        bones = EYES | BROWS | MOUTH | ({"jaw"} if p[3] else set())
+        clips[name] = ([(0, rest), (6, face(*p)), (54, face(*p)), (62, rest)], bones)
+    return clips
 
 
 # ------------------------------------------------------------------ keying
@@ -309,7 +338,7 @@ def add_clips(arm_ob):
                     pb.keyframe_insert("rotation_quaternion", frame=frame, group=pb.name)
             arm_ob.pose.bones["hips"].keyframe_insert("location", frame=frame, group="hips")
         _track(ad, name, act)
-    for name, keys in face_clips().items():
+    for name, (keys, _) in face_clips().items():
         act = bpy.data.actions.new(name)
         ad.action = act
         for frame, pose in keys:
@@ -333,11 +362,13 @@ def split_channels(glb_path):
     gltf = json.loads(data[20:20 + n])
     rest = data[20 + n:]
     nodes = gltf["nodes"]
-    face_clips_ = set(face_clips())
+    face_bones = {name: bones for name, (_, bones) in face_clips().items()}
     for anim in gltf.get("animations", []):
-        on_face = anim["name"] in face_clips_
-        anim["channels"] = [c for c in anim["channels"]
-                            if (nodes[c["target"]["node"]].get("name") in base.FACE_BONES) == on_face]
+        keep = face_bones.get(anim["name"])
+        def wanted(c):
+            bone = nodes[c["target"]["node"]].get("name")
+            return bone in keep if keep is not None else bone not in base.FACE_BONES
+        anim["channels"] = [c for c in anim["channels"] if wanted(c)]
         used = sorted({c["sampler"] for c in anim["channels"]})
         remap = {old: new for new, old in enumerate(used)}
         anim["samplers"] = [anim["samplers"][i] for i in used]
