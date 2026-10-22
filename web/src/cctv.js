@@ -48,11 +48,14 @@ export class Cctv {
     model.traverse((o) => {
       if (o.isMesh && o.material.emissive?.getHex()) this.glowing.push([o.material, o.material.emissiveIntensity]);
     });
+    model.updateMatrixWorld(true);
     this.cams = Object.entries(info.cameras).map(([id, c]) => {
       const camera = new THREE.PerspectiveCamera(c.fov, 16 / 9, 0.5, 4000);
       camera.position.fromArray(c.position);
       camera.lookAt(new THREE.Vector3().fromArray(c.aim));
       camera.updateMatrixWorld();
+      // A camera on a moving part (the crane boom's) rides along with it
+      model.getObjectByName(c.parent ?? '')?.attach(camera);
       const target = new THREE.WebGLRenderTarget(WIDTH, Math.round(WIDTH * 9 / 16), { type: THREE.HalfFloatType, magFilter: THREE.NearestFilter });
       return { id, camera, target };
     });

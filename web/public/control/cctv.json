@@ -1,5 +1,5 @@
 {
- "triangles": 4652,
+ "triangles": 6202,
  "cameras": {
   "deckCam": {
    "name": "CAM 04 · Helideck",
@@ -30,7 +30,7 @@
    "fov": 45.75
   },
   "craneCam": {
-   "name": "CAM 07 · Crane",
+   "name": "CAM 07 · Supply vessel berth",
    "position": [
     -4.4,
     5.3,
@@ -42,6 +42,21 @@
     -26.9
    ],
    "fov": 49.43
+  },
+  "boomCam": {
+   "name": "CAM 08 · Crane boom",
+   "position": [
+    0.1,
+    8.3,
+    -96.6
+   ],
+   "aim": [
+    0.1,
+    -51.1,
+    -99.6
+   ],
+   "fov": 64.65,
+   "parent": "CraneSlew"
   }
  }
 }
