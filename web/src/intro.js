@@ -336,13 +336,21 @@ const lerpAngle = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) 
 // ---------------------------------------------------------------- input
 
 let drag = null, touched = -Infinity; // when we last turned our head ourselves
+// On the deck camera a drag only nudges the view a little, so the
+// helicopter stays in the picture; it eases back when let go
+const DECK_YAW = [-0.18, 0.18], DECK_PITCH = [-0.08, 0.08];
+const deckLook = { yaw: 0, pitch: 0, toYaw: 0, toPitch: 0 };
+function turn(dyaw, dpitch) {
+  const [l, a, b] = cut ? [deckLook, DECK_YAW, DECK_PITCH] : [look, YAW, PITCH];
+  l.toYaw = THREE.MathUtils.clamp(l.toYaw + dyaw * (cut ? 0.4 : 1), ...a);
+  l.toPitch = THREE.MathUtils.clamp(l.toPitch + dpitch * (cut ? 0.4 : 1), ...b);
+}
 canvas.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); touched = t; });
 canvas.addEventListener('pointermove', (e) => {
   if (!drag) return;
   touched = t;
   const k = 2.4 / Math.max(innerWidth, innerHeight);
-  look.toYaw = THREE.MathUtils.clamp(look.toYaw + (e.clientX - drag.x) * k, ...YAW);
-  look.toPitch = THREE.MathUtils.clamp(look.toPitch + (e.clientY - drag.y) * k, ...PITCH);
+  turn((e.clientX - drag.x) * k, (e.clientY - drag.y) * k);
   drag = { x: e.clientX, y: e.clientY };
 });
 canvas.addEventListener('pointerup', () => { drag = null; });
@@ -350,8 +358,7 @@ addEventListener('keydown', (e) => {
   const step = { ArrowLeft: [0.15, 0], ArrowRight: [-0.15, 0], ArrowUp: [0, 0.1], ArrowDown: [0, -0.1] }[e.key];
   if (step) {
     touched = t;
-    look.toYaw = THREE.MathUtils.clamp(look.toYaw + step[0], ...YAW);
-    look.toPitch = THREE.MathUtils.clamp(look.toPitch + step[1], ...PITCH);
+    turn(...step);
   }
 });
 
@@ -443,9 +450,14 @@ function step(dt) {
   if (cut && !q.has('off')) {
     aimTo.copy(heliRoot.position).add(new THREE.Vector3(0, 2.0, 0));
     // Once they're off, pan with the passengers toward the quarters
-    aimTo.lerp(stairs, 0.35 * THREE.MathUtils.smoothstep(t - T_LAND, EXIT_AT + 2, EXIT_AT + 11));
+    aimTo.lerp(stairs, 0.15 * THREE.MathUtils.smoothstep(t - T_LAND, EXIT_AT + 2, EXIT_AT + 11));
     aim.lengthSq() ? aim.lerp(aimTo, Math.min(1, dt * 4)) : aim.copy(aimTo);
     deckCam.lookAt(aim);
+    if (t - touched > 3 && !drag) { deckLook.toYaw *= 1 - Math.min(1, dt * 0.8); deckLook.toPitch *= 1 - Math.min(1, dt * 0.8); }
+    deckLook.yaw += (deckLook.toYaw - deckLook.yaw) * Math.min(1, dt * 6);
+    deckLook.pitch += (deckLook.toPitch - deckLook.pitch) * Math.min(1, dt * 6);
+    deckCam.rotateY(deckLook.yaw);
+    deckCam.rotateX(deckLook.pitch);
     deckCam.fov = THREE.MathUtils.clamp(2 * THREE.MathUtils.radToDeg(Math.atan(14 / deckCam.position.distanceTo(aim))), 28, 55);
     deckCam.updateProjectionMatrix();
   }
