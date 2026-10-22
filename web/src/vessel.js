@@ -11,7 +11,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // Game-clock hours: start of the approach, alongside, start of the departure, gone
-export const SCHEDULE = [6.75, 7.0, 10.0, 10.25];
+export const SCHEDULE = [9.75, 10.0, 13.0, 13.25];   // alongside from 10:00 to 13:00, so the crew-change flight (11:00) and the game (11:30) find it there
 // Called in on demand: seconds for the approach, alongside, the departure
 const ON_DEMAND = [120, 300, 75];
 const CRAB = 0.25;     // share of the approach spent crabbing in sideways (and of the departure crabbing out)

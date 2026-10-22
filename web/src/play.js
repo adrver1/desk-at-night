@@ -46,6 +46,11 @@ const controls = new RoomControls({
   volume: $('tpVolume'), volumeOut: $('tpVolumeOut'), setpoint: $('tpSetpoint'), temp: $('tpTemp'),
   warmer: $('tpWarmer'), cooler: $('tpCooler'),
 });
+// The game picks up at 11:30, half an hour after the crew-change flight
+// (intro.html) lands: daylight, ceiling at full
+const START_TIME = 11.5;
+controls.setScene('full');
+controls.ceiling = controls.light / 100;
 const coarse = matchMedia('(pointer: coarse)').matches;
 if (coarse) ui.game.classList.add('coarse');
 
@@ -87,6 +92,7 @@ async function load() {
   scene.add(room.root);
   outdoor = new Outdoor(room.seaLevel);
   outdoor.setWindow(room.window.lo, room.window.hi);
+  outdoor.set({ time: START_TIME });   // ?time= on the URL still wins (outdoorControls)
   // The deck cameras' live pictures; without them the screens draw their own
   const cctvReady = Cctv.load(renderer, outdoor);
   cctvReady.then((c) => { cctv = c; if (c) room.setFeeds(c.feeds, c.gain); }).catch((e) => console.warn('cctv', e));
