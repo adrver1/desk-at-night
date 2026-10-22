@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { loadControlRoom } from './controlScene.js';
 import { Outdoor } from './outdoor.js';
 import { Cctv } from './cctv.js';
+import { addVessel } from './vessel.js';
 import { outdoorControls } from './outdoorControls.js';
 import { RoomControls } from './roomControls.js';
 import { CONTENT, DEFAULT_LAYOUT, contentOf, screenLabel } from './screens.js';
@@ -66,7 +67,7 @@ const player = {
 };
 const keys = new Set();
 const touch = { move: new THREE.Vector2() };
-let room, outdoor, cctv, layout, playing = false, panelOpen = false;
+let room, outdoor, cctv, vessel, layout, playing = false, panelOpen = false;
 const lamps = {}; // the rest corner's lamps: name -> { on, w (eased brightness) }
 const chairs = [], mugs = [], pickables = [], items = [];
 const raycaster = new THREE.Raycaster();
@@ -87,9 +88,13 @@ async function load() {
   outdoor = new Outdoor(room.seaLevel);
   outdoor.setWindow(room.window.lo, room.window.hi);
   // The deck cameras' live pictures; without them the screens draw their own
-  Cctv.load(renderer, outdoor).then((c) => { cctv = c; if (c) room.setFeeds(c.feeds, c.gain); }).catch((e) => console.warn('cctv', e));
+  const cctvReady = Cctv.load(renderer, outdoor);
+  cctvReady.then((c) => { cctv = c; if (c) room.setFeeds(c.feeds, c.gain); }).catch((e) => console.warn('cctv', e));
   scene.add(outdoor.room);
   outdoorControls($('tpOutdoor'), outdoor);
+  // The supply vessel: through the window, on the crane camera, and its row on the panel
+  addVessel({ renderer, scene, room, outdoor, cctv: cctvReady, panel: $('tpOutdoor') })
+    .then((v) => { vessel = v; }).catch((e) => console.warn('vessel', e));
   const root = room.root;
   for (const name of room.meta.movable ?? []) {
     const obj = root.getObjectByName(name);
@@ -679,6 +684,7 @@ renderer.setAnimationLoop((now) => {
   controls.step(dt);
   for (const key of switchKeys) key.material.color.copy(key.userData.scene === controls.scene ? KEY_ON : KEY_OFF);
   outdoor.update(dt);
+  if (vessel) vessel.update(dt, outdoor);
   renderer.toneMappingExposure = outdoor.light.exposure;
   room.setLights(controls.ceiling * FULL_LIGHT, controls.screens ? 1 : 0);
   for (const [name, l] of Object.entries(lamps)) {

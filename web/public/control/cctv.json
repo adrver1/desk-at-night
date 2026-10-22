@@ -1,5 +1,5 @@
 {
- "triangles": 3912,
+ "triangles": 4218,
  "cameras": {
   "deckCam": {
    "name": "CAM 04 · Helideck",
@@ -28,6 +28,20 @@
     -131.4
    ],
    "fov": 45.75
+  },
+  "craneCam": {
+   "name": "CAM 07 · Crane",
+   "position": [
+    -4.4,
+    8.3,
+    -27.9
+   ],
+   "aim": [
+    -31.9,
+    -47.7,
+    -31.9
+   ],
+   "fov": 49.43
   }
  }
 }

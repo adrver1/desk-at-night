@@ -245,3 +245,6 @@ h2 { margin: 0; font: 600 22px/1.2 var(--display); }
 }
 
 .eyebrow a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+
+/* The supply vessel's row on the outdoor panel: what it is doing, and a button */
+.vessel-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

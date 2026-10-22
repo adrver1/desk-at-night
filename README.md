@@ -92,7 +92,7 @@ rain, noise and the caption drawn over it. The model comes from
 .venv/bin/python blender/cctv_platform.py   # web/public/control/cctv.glb + cctv.json, seconds, no bake
 ```
 
-which cuts the platform down to what the two cameras see (~2.3k triangles),
+which cuts the platform down to what the three cameras see (~2.3k triangles),
 parks the helicopter on the helideck and holds the cameras' positions. Add
 `?heli=running` to the page URL to see its rotors turning. Where the GPU can't render to a float texture the
 screens draw their old 2D camera instead.
@@ -140,6 +140,28 @@ with their pivots: both rotors, the three gear legs (they swing forward into
 the nose and the sponsons) and a blur disc per rotor. In the browser,
 `web/src/helicopter.js` spools the rotors up and down, fading the blades into
 the discs at speed, and retracts the gear.
+
+## Supply vessel
+
+```bash
+.venv/bin/python blender/supply_vessel.py           # stills in blender/build/supply_vessel/
+.venv/bin/python blender/supply_vessel.py --web     # web/public/control/vessel.glb + vessel.json
+```
+
+A medium-detail platform supply vessel, about 3,000 triangles and no
+textures: hull lofted through five lines (keel, bilge, waterline, fender
+belt, deck edge), superstructure with lit cabin windows and a glass bridge,
+a mast with two turning radars, crash rails and deck cargo. `DESIGNS` keeps
+three hulls (`modern` 88 m with a conventional bow, the default; `xbow`, an
+inverted bow; `classic`, an older 70 m vessel) and `LIVERIES` three paint
+schemes; `DESIGN` and `LIVERY` pick the scene's. It berths on the crane side
+under the big crane (`BERTH_LOC`). In the browser, `web/src/vessel.js` sails
+it in once a game day (approach from 06:45, alongside 07:00 to 10:00), crabs
+it onto the berth, holds it there with small dynamic-positioning drifts and
+the swell, and swings the crane's boom out over its deck on the CCTV. The
+outdoor panel has a button to call it in (or send it away); the URL takes
+`?vessel=call`, `?vessel=alongside` or `?vessel=off`. The crane camera
+(`craneCam` in `cctv_platform.py`) shows its deck on the TV beside the band.
 
 ## Run the viewer
 
