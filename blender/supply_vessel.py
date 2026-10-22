@@ -470,10 +470,12 @@ def build_vessel(m, collection=None, loc=(0, 0, 0), yaw=0.0, design=None, livery
     return root, parts, sum(g.tris for g in meshes.values())
 
 
-# Where it holds station: alongside the crane side (-Y) of the platform, bow
-# toward the flare end, under the crane (op.CRANE_X when it exists)
-BERTH_LOC = (getattr(op, "CRANE_X", 8.5) - 4.0, -45.0, 0.0)
-BERTH_YAW = math.pi
+# Where it holds station: alongside the crane side (-Y, true bearing 330°)
+# of the platform, the crane over its cargo deck and its bridge under the
+# control room window, bow toward the helideck end (+X, 240°): it comes in
+# from the north-east along the platform and crabs sideways onto the berth
+BERTH_LOC = (12.0, -45.0, 0.0)
+BERTH_YAW = 0.0
 
 
 # ---------------------------------------------------------------- previews

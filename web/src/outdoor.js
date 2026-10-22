@@ -10,9 +10,16 @@
 // the platform's legs that sit under the water.
 import * as THREE from 'three';
 
-// Where on Earth: the northern North Sea. +x is east, -z is north (Blender's
-// +Y), so the control room window (-x) looks west, into the sunset.
+// Where on Earth: the northern North Sea. Which way is north depends on the
+// frame a page draws in: `heading` (new Outdoor) is the true bearing of its
+// -z axis. The platform's long axis runs 060°-240° (flare end to the
+// north-east, helideck end to the south-west) and its crane side faces 330°:
+// in the control room's frame -z points along the platform to the flare,
+// 060° (ROOM_HEADING), so the window (-x) looks out north-north-west; in the
+// platform's own frame (Blender's axes) -z is its +Y, 150° (PLATFORM_HEADING).
 const LATITUDE = 58.8;
+export const ROOM_HEADING = 60;
+export const PLATFORM_HEADING = 150;
 const CLOUD_HEIGHT = 1500;  // m above the sea
 const OCEAN_SIZE = 80000;   // m across; the horizon from 70 m up is ~30 km away
 
@@ -33,8 +40,8 @@ const KEYS = [
 ];
 const MOONLIGHT = [0.03, 0.038, 0.055];
 // The moon's angle east of the sun: just past first quarter, so on an evening
-// shift it hangs low in the west-south-west, in view of the window, and sets
-// soon after midnight
+// shift it hangs low in the west-south-west (to the left of the control
+// room's north-north-west window) and sets soon after midnight
 const MOON_ELONGATION = THREE.MathUtils.degToRad(100);
 const MOON_RADIUS = 0.009; // rad, a little larger than life so it reads on a phone
 export const REAL_TIME = 1 / 3600;
@@ -354,19 +361,22 @@ function interp(e, slot) {
 }
 
 // Unit vector toward a body at the given declination and hour angle (radians)
-// seen from LATITUDE, in three's axes (x east, y up, -z north)
-function toward(decl, hourAngle) {
+// seen from LATITUDE, in three's axes with -z at true bearing `heading` (rad)
+function toward(decl, hourAngle, heading = 0) {
   const lat = THREE.MathUtils.degToRad(LATITUDE);
   const east = -Math.cos(decl) * Math.sin(hourAngle);
   const north = Math.sin(decl) * Math.cos(lat) - Math.cos(decl) * Math.sin(lat) * Math.cos(hourAngle);
   const up = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(hourAngle);
-  return new THREE.Vector3(east, up, -north).normalize();
+  const c = Math.cos(heading), s = Math.sin(heading);
+  return new THREE.Vector3(east * c - north * s, up, -(north * c + east * s)).normalize();
 }
 
 export class Outdoor {
-  // seaLevel: the sea's height in the room's coordinates (m, negative)
-  constructor(seaLevel) {
+  // seaLevel: the sea's height in the frame (m); heading: the true bearing of
+  // the frame's -z axis in degrees (ROOM_HEADING, PLATFORM_HEADING)
+  constructor(seaLevel, { heading = 0 } = {}) {
     this.seaLevel = seaLevel;
+    this.heading = THREE.MathUtils.degToRad(heading);
     // time in hours (local solar time), day of year, weather 0..1
     // speed: hours per second; the clock runs in real time unless sped up
     this.state = { time: 22.5, day: 294, clouds: 0.3, wind: 0.35, fog: 0.1, rain: 0, speed: REAL_TIME };
@@ -452,8 +462,8 @@ export class Outdoor {
     if (s.speed) s.time = (s.time + s.speed * dt + 24) % 24;
     const decl = THREE.MathUtils.degToRad(-23.44 * Math.cos((2 * Math.PI / 365) * (s.day + 10)));
     const hour = THREE.MathUtils.degToRad(15 * (s.time - 12));
-    const sun = toward(decl, hour);
-    const moon = toward(-decl * Math.cos(MOON_ELONGATION), hour - MOON_ELONGATION);
+    const sun = toward(decl, hour, this.heading);
+    const moon = toward(-decl * Math.cos(MOON_ELONGATION), hour - MOON_ELONGATION, this.heading);
     const e = THREE.MathUtils.radToDeg(Math.asin(sun.y));
     const c = s.clouds;
 

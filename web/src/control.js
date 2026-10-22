@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { loadControlRoom } from './controlScene.js';
-import { Outdoor } from './outdoor.js';
+import { Outdoor, ROOM_HEADING } from './outdoor.js';
 import { Cctv } from './cctv.js';
 import { addVessel } from './vessel.js';
 import { outdoorControls } from './outdoorControls.js';
@@ -40,7 +40,7 @@ let room, outdoor, cctv, vessel, last = 0, userEv = 0;
 async function load() {
   room = await loadControlRoom(renderer);
   scene.add(room.root);
-  outdoor = new Outdoor(room.seaLevel);
+  outdoor = new Outdoor(room.seaLevel, { heading: ROOM_HEADING });
   outdoor.setWindow(room.window.lo, room.window.hi);
   // The deck cameras' live pictures; without them the screens draw their own
   const cctvReady = Cctv.load(renderer, outdoor);
