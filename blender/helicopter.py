@@ -77,13 +77,22 @@ PROFILE = [(0.0, 0.0), (0.82, 0.03), (1.0, 0.20), (1.0, 0.36), (1.0, 0.43),
            (1.0, 0.455), (1.0, 0.50), (0.95, 0.88), (0.0, 1.0)]
 SHOULDER = (0.70, 0.977)  # extra point between the window top and the roof line
 
-# Sections along the fuselage: (x, keel z, roof z, half width). The nose is
-# at +6.7, the main rotor mast at 0, the tail rotor hub at -8.85.
-SECTIONS = [
-    (6.70, 1.08, 1.40, 0.12),
-    (6.45, 0.86, 1.78, 0.55),
-    (5.85, 0.70, 2.18, 0.95),
-    (5.05, 0.62, 2.56, 1.15),
+# Sections along the fuselage: (x, keel z, roof z, half width), the main
+# rotor mast at 0, the tail rotor hub at -8.85. The nose comes in two shapes
+# (NOSE picks): "pointed", the long nose cone of the real aircraft, its top
+# rising to the windscreen so the windscreen's side pane is a triangle with
+# glass above WINDSCREEN_Z; and "blunt", the first one, glass to the tip.
+NOSES = {
+    "pointed": {"sections": [(7.50, 1.00, 1.22, 0.10), (7.30, 0.85, 1.40, 0.40), (6.80, 0.68, 1.56, 0.70),
+                             (6.00, 0.62, 1.70, 0.98), (5.30, 0.60, 1.90, 1.12), (4.75, 0.60, 2.36, 1.20)],
+                "post": (5.62, 1.76)},
+    "blunt": {"sections": [(6.70, 1.08, 1.40, 0.12), (6.45, 0.86, 1.78, 0.55), (5.85, 0.70, 2.18, 0.95),
+                           (5.05, 0.62, 2.56, 1.15)],
+              "post": (6.42, 1.80)},
+}
+NOSE = "pointed"
+WINDSCREEN_Z = 1.74
+SECTIONS = NOSES[NOSE]["sections"] + [
     (4.25, 0.60, 2.76, 1.22),
     (3.00, 0.58, 2.80, 1.25),
     (-1.10, 0.58, 2.80, 1.25),
@@ -97,7 +106,7 @@ SECTIONS = [
 COWL = [(3.30, 0.04, 0.40), (2.60, 0.50, 0.70), (1.20, 0.68, 0.80), (-1.30, 0.66, 0.80),
         (-2.30, 0.40, 0.55), (-2.80, 0.10, 0.35)]
 CABIN_END = -2.05     # sections behind this take the "boom" paint
-WINDSCREEN = (4.25, 6.45)
+WINDSCREEN = (4.25, SECTIONS[1][0])
 ROOF = 2.80
 MAST_X, HUB_Z = 0.0, 4.25
 ROTOR_R, TAIL_R = 7.3, 1.45
@@ -225,31 +234,57 @@ def cut_quad(g, mat, a, c, d, e, holes, flip=False):
         g.add(mat, vs[::-1] if flip else vs, [(0, 1, 2, 3)])
 
 
+def split_z(g, below, above, vs, z, flip=False):
+    """Split polygon vs (in order) at height z: the part under it in below,
+    the part over it in above (either may be None to leave it out)."""
+    for mat, keep in ((below, lambda v: v.z <= z), (above, lambda v: v.z >= z)):
+        if mat is None:
+            continue
+        out = []
+        for i, p in enumerate(vs):
+            q = vs[(i + 1) % len(vs)]
+            if keep(p):
+                out.append(p)
+            if keep(p) != keep(q) and abs(q.z - p.z) > 1e-9:
+                out.append(p.lerp(q, (z - p.z) / (q.z - p.z)))
+        if len(out) >= 3:
+            g.add(mat, out[::-1] if flip else out, [tuple(range(len(out)))])
+
+
 def build_fuselage(g, m, liv, glazed=False):
     """glazed: real window openings in the skin (for the cabin view); else
     the windows are painted on."""
     rings = [_ring(*sec) for sec in SECTIONS]
 
-    def paint(i, k):
-        x0, x1 = SECTIONS[i][0], SECTIONS[i + 1][0]
-        band = _band(k)
-        if WINDSCREEN[0] <= x1 and x0 <= WINDSCREEN[1] + 0.01 and band >= 5:
-            return m["glass"]           # windscreen and the eyebrow panes
-        return m[(liv["boom"] if x1 < CABIN_END - 0.01 else liv["cabin"])[band]]
+    pointed = NOSE == "pointed"
 
-    if not glazed:
-        loft(g, rings, paint, caps=False)
-    else:
-        n = len(rings[0])
-        for i in range(len(rings) - 1):
-            for k in range(n):
-                a, c = rings[i][k], rings[i][(k + 1) % n]
-                d, e = rings[i + 1][(k + 1) % n], rings[i + 1][k]
+    def screen(i, k):  # a face of the windscreen and the eyebrow panes
+        x0, x1 = SECTIONS[i][0], SECTIONS[i + 1][0]
+        return WINDSCREEN[0] <= x1 and x0 <= WINDSCREEN[1] + 0.01 and _band(k) >= 5
+
+    def paint(i, k):
+        if screen(i, k) and not pointed:
+            return m["glass"]
+        return m[(liv["boom"] if SECTIONS[i + 1][0] < CABIN_END - 0.01 else liv["cabin"])[_band(k)]]
+
+    n = len(rings[0])
+    for i in range(len(rings) - 1):
+        for k in range(n):
+            a, c = rings[i][k], rings[i][(k + 1) % n]
+            d, e = rings[i + 1][(k + 1) % n], rings[i + 1][k]
+            if pointed and screen(i, k):    # paint under the line, glass over it
+                split_z(g, paint(i, k), m["glass"], [e, d, c, a], WINDSCREEN_Z)
+            elif glazed:
                 cut_quad(g, paint(i, k), a, c, d, e, _holes(_band(k)))
+            else:
+                g.add(paint(i, k), [a, c, d, e], [(3, 2, 1, 0)])
     g.add(m[liv["cabin"][4]], rings[0], [tuple(range(len(rings[0])))])               # nose cap
     g.add(m[liv["boom"][4]], rings[-1], [tuple(reversed(range(len(rings[-1]))))])    # boom end
     # Centre post and frame of the windscreen
-    g.beam(m[liv["cabin"][5]], (4.25, 0, ROOF + 0.02), (6.42, 0, 1.80), 0.12)
+    px, pz = NOSES[NOSE]["post"]
+    pts = [(x, zt + 0.02) for x, _, zt, _ in reversed(SECTIONS) if WINDSCREEN[0] <= x < px] + [(px, pz)]
+    for (xa, za), (xb, zb) in zip(pts, pts[1:]):   # along the roof line, section to section
+        g.beam(m[liv["cabin"][5]], (xa, 0, za), (xb, 0, zb), 0.12)
 
 
 def side_quad(g, mat, x0, x1, z0, z1, y):
@@ -501,10 +536,14 @@ def build_cabin_interior(g, m, pilots=True):
         x0, x1 = secs[i][0], secs[i + 1][0]
         for k in range(n):
             band = _band(k)
-            if band == 0 or (WINDSCREEN[0] <= x1 and band >= 5):
-                continue    # under the floor, or windscreen (as build_fuselage paints it)
             a, c = rings[i][k], rings[i][(k + 1) % n]
             d, e = rings[i + 1][(k + 1) % n], rings[i + 1][k]
+            if band == 0:
+                continue    # under the floor
+            if WINDSCREEN[0] <= x1 and band >= 5:   # windscreen (as build_fuselage paints it)
+                if NOSE == "pointed":
+                    split_z(g, m["cabin"], None, [e, d, c, a], WINDSCREEN_Z, flip=True)
+                continue
             cut_quad(g, m["cabin"], a, c, d, e, _holes(band), flip=True)
     g.add(m["cabin"], rings[-1], [tuple(range(n))])                       # rear bulkhead
     # Window reveals: close the gap between the skin and the lining round each opening
