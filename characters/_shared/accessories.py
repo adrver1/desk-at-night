@@ -96,23 +96,30 @@ def headset(swatch="plastic_black", clear=0.015):
                     a = math.radians(30 + 60 * i)
                     pts.append(Vector((s * x, cy + k * r * math.cos(a), cz + k * r * math.sin(a))))
             m.hull(pts, swatch, region)
-    # band: from the top of each cup up the side of the head and over
+    headband(m, swatch, region, clear, cy)
+    # cable from under the left cup to the collar
+    m.bar((-0.142, cy + 0.01, cz - 0.034), (-0.09, 0.07, 1.47), 0.0022, swatch, region)
+    return m
+
+
+def headband(m, swatch, region, clear=0.015, cy=-0.012, end=(0.152, 1.636), width=0.011, thick=0.007):
+    """A band over the top of the head from one cup to the other, `clear`
+    above the scalp, through the plane y = cy."""
     path = []
     for z in (1.635, 1.68, 1.72, 1.745):
         p = base.head_point(0, z, clear)
         path.append((p.x, z))
     path.append((0.0, base.HEAD[-1][0] + clear * 0.9))
     pts = [(x, z) for x, z in path] + [(-x, z) for x, z in reversed(path[:-1])]
-    pts = [(0.152, 1.636)] + pts + [(-0.152, 1.636)]
+    pts = [end] + pts + [(-end[0], end[1])]
+
     def out(x, z, k):
         # push a band point outward from the middle of the head
         n = Vector((x, 0, z - 1.62)).normalized() * k
         return x + n.x, z + n.z
     for (x0, z0), (x1, z1) in zip(pts, pts[1:]):
-        m.hull([Vector((px, cy + dy, pz)) for x, z in ((x0, z0), (x1, z1)) for k in (0.0, 0.007)
-                for px, pz in (out(x, z, k),) for dy in (-0.011, 0.011)], swatch, region)
-    # cable from under the left cup to the collar
-    m.bar((-0.142, cy + 0.01, cz - 0.034), (-0.09, 0.07, 1.47), 0.0022, swatch, region)
+        m.hull([Vector((px, cy + dy, pz)) for x, z in ((x0, z0), (x1, z1)) for k in (0.0, thick)
+                for px, pz in (out(x, z, k),) for dy in (-width, width)], swatch, region)
     return m
 
 

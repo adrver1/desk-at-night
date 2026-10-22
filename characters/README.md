@@ -42,7 +42,8 @@ to also write a contact sheet next to the reference into a private folder.
   helmet's side slots, wraparound safety glasses drawn as frame and clear
   side shields, gloves) and `survival` for the helicopter ride: an orange
   immersion suit with neck and wrist seals, the hood rolled behind the
-  neck, reflective tape, boots and a yellow lifejacket.
+  neck, reflective tape, boots, a yellow lifejacket and headband ear
+  defenders.
   Logos are flat polygons projected onto the shell (`Mesh.decal_poly`). A character script builds every outfit by default
   (`--outfit office|ppe|ppe_deck|all`); each one writes its own
   `<name>_<outfit>.glb` on the same rig, plus suffixed renders.

@@ -20,7 +20,8 @@ the logo sticker, blue ear defenders, safety glasses and gloves.
 For the helicopter ride out, `survival` is a North Sea immersion suit: an
 orange one-piece with black neoprene neck and wrist seals, the hood rolled
 up behind the neck, reflective tape on the shoulders and arms, integral
-boots, and a yellow lifejacket vest over the chest with a black waist strap.
+boots, a yellow lifejacket vest over the chest with a black waist strap, and
+headband ear defenders.
 """
 import math
 
@@ -142,20 +143,38 @@ def helmet():
     return m
 
 
-def ear_defender(m, s):
-    """Helmet-mounted ear defender on side s: a black clip plugged into the
-    slot on the helmet's side, an arm down from it, a wire yoke round the
-    cup to two pivots, and the blue cup on a black cushion over the ear."""
-    cy, cz = -0.012, 1.594          # cup centre (over the ear)
-    # Cushion against the head and the blue shell outside it, both oval
+CUP_Y, CUP_Z = -0.012, 1.594      # ear defender cup centre (over the ear)
+
+
+def _cup(m, s):
+    """Cushion against the head and the blue shell outside it, both oval."""
     for x0, x1, ru, rv, sw in ((0.128, 0.146, 0.068, 0.054, RUBBER), (0.146, 0.180, 0.066, 0.052, CUP)):
         shrink = 0.82 if sw == CUP else 1.0
         pts = []
         for x, k in ((x0, 1.0), (x1, shrink)):
             for i in range(8):
                 a = math.radians(22.5 + 45 * i)
-                pts.append(Vector((s * x, cy + k * rv * math.cos(a), cz + k * ru * math.sin(a))))
+                pts.append(Vector((s * x, CUP_Y + k * rv * math.cos(a), CUP_Z + k * ru * math.sin(a))))
         m.hull(pts, sw, "ear_cup")
+
+
+def ear_muffs():
+    """Headband ear defenders, as worn by helicopter passengers: the same
+    blue cups as the helmet's, on a black band over the head."""
+    import accessories
+    m = base.Mesh()
+    for s in (1, -1):
+        _cup(m, s)
+    return accessories.headband(m, CLIP, "ear_cup", clear=0.022, cy=CUP_Y, end=(0.166, 1.650),
+                                width=0.013, thick=0.008)
+
+
+def ear_defender(m, s):
+    """Helmet-mounted ear defender on side s: a black clip plugged into the
+    slot on the helmet's side, an arm down from it, a wire yoke round the
+    cup to two pivots, and the blue cup on a black cushion over the ear."""
+    cy, cz = CUP_Y, CUP_Z
+    _cup(m, s)
     # Clip in the helmet's side slot, just above the rim
     m.hull([Vector((s * x, cy + dy, z)) for x in (0.146, 0.172) for dy in (-0.016, 0.016)
             for z in (1.664, 1.692)], CLIP, "ear_cup")
@@ -280,11 +299,12 @@ def lifejacket():
 
 
 def survival():
-    """Helicopter travel: immersion suit and lifejacket, no helmet."""
+    """Helicopter travel: immersion suit, lifejacket and headband ear
+    defenders (always on in the helicopter), no helmet."""
     return {"colors": {"hips": SUIT, "thigh": SUIT, "shin": SUIT, "shoe": RUBBER},
             "hide": {"belly", "chest", "upper_arm", "forearm"},
-            "parts": {"suit": survival_suit(), "lifejacket": lifejacket()},
-            "rigid": {}}
+            "parts": {"suit": survival_suit(), "lifejacket": lifejacket(), "ear_muffs": ear_muffs()},
+            "rigid": {"ear_cup": "head"}}
 
 
 OUTFITS = {"ppe": ppe, "ppe_deck": ppe_deck, "survival": survival}
