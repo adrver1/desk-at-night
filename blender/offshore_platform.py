@@ -444,7 +444,7 @@ def build_topsides(g, m):
     g.span(m["white"], x0 + 0.05, END_X0 - 0.05, -TOP_Y - 1.5, TOP_Y + 0.25, UTIL_TOP - 0.6, UTIL_TOP + 0.08)
 
 
-def lettering(g, mat, lines, plane, out, uc, zc, h, w, off=0.65):
+def lettering(g, mat, lines, plane, out, uc, zc, h, w, off=0.85):
     """Flat text on a vertical face (see rect), centred on (uc, zc) and
     fitted into w x h metres, reading left to right from outside."""
     cu = bpy.data.curves.new("Lettering", "FONT")
@@ -476,7 +476,7 @@ def lettering(g, mat, lines, plane, out, uc, zc, h, w, off=0.65):
 def name_board(g, m, plane, out, uc, zc, w, h):
     """Yellow board with the platform's name, licence block and operator."""
     u0, u1 = uc - w / 2, uc + w / 2
-    rect(g, m["mark"], plane, out, u0, u1, zc - h / 2, zc + h / 2, 0.6)
+    rect(g, m["mark"], plane, out, u0, u1, zc - h / 2, zc + h / 2, 0.8)
     lettering(g, m["ink"], ("IVAR AASEN", "16/1-D", "AKER BP"), plane, out, uc, zc, h * 0.8, w * 0.88)
 
 
