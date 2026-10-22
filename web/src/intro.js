@@ -416,7 +416,9 @@ const ui = {
 };
 let t = Number(q.get('t') ?? 0);
 const paused = q.has('pause');
-ui.skip?.addEventListener('click', () => { if (t < FLIGHT - 7) t = FLIGHT - 7; });
+// One button: skip to the landing in flight, then to the walk-off
+const WALKOUT = () => T_LAND + EXIT_AT - 0.8;
+ui.skip?.addEventListener('click', () => { t = t < FLIGHT - 8 ? FLIGHT - 7 : Math.max(t, WALKOUT()); });
 
 const CAPTIONS = [
   [0, '09:00, crew change day. The platform is dead ahead.'],
@@ -538,7 +540,9 @@ function step(dt) {
     if (ui.caption.dataset.text !== c[1]) { ui.caption.dataset.text = c[1]; ui.caption.textContent = c[1]; }
     ui.caption.classList.toggle('on', !!c[1]);
   }
-  if (ui.skip) ui.skip.hidden = t > FLIGHT - 8;
+  if (ui.skip) {
+    ui.skip.hidden = t > WALKOUT() - 0.5 || (t > FLIGHT - 8 && t < FLIGHT - 7 + 3);   // a beat between the two
+  }
   ui.end?.classList.toggle('on', t > T_END);
 
 }
