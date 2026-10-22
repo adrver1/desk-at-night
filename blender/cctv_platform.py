@@ -8,7 +8,9 @@ can see (~2k triangles), parks the helicopter (helicopter.py, ~1.6k) on the
 helideck, moves it all into the room's frame and writes
 
     cctv.glb   the platform, one mesh per material, lamps and windows at
-               their night strength (the browser dims them by day)
+               their night strength (the browser dims them by day); the big
+               crane's turning part is one more object, CraneSlew, with its
+               origin on the slewing ring, so the browser can swing it
     cctv.json  each camera's position, aim and vertical field of view,
                in the room's frame (three.js axes)
 
@@ -27,7 +29,6 @@ import helicopter as heli  # noqa: E402
 import offshore_platform as op  # noqa: E402
 
 bpy, Vector = b.bpy, b.Vector
-from mathutils import Matrix  # noqa: E402
 
 OUT = os.path.join(b.ROOT, "web", "public", "control")
 
@@ -35,22 +36,26 @@ OUT = os.path.join(b.ROOT, "web", "public", "control")
 # the picture, location, aim, lens (mm on a 36 mm wide sensor, 16:9)
 CAMS = {
     # On a mast at the corner of the quarters roof, looking down over the helideck
-    "deckCam": ("CAM 04 · Helideck", (44.0, -16.0, 86.0), (68.0, 2.0, 73.0), 20),
-    # On the corner shaft at the flare end, looking out along the boom to the tip
-    "flareCam": ("CAM 11 · Flare boom", (-50.0, 15.0, 63.0), (-106.0, 0.0, 74.0), 26),
+    "deckCam": ("CAM 04 · Helideck", (46.0, -16.0, 62.0), (57.5, 2.0, 54.5), 20),
+    # On the plant module roof, looking over the process module along the boom to the tip
+    "flareCam": ("CAM 11 · Flare boom", (12.0, 17.5, 63.0), (-95.0, 0.0, 85.0), 24),
 }
 
 
 def room_frame(v):
     """Platform coordinates to the room's, in three.js axes (y up, -z north)."""
-    p = Vector(v) - cr.PLATFORM_OFFSET
+    p = cr.PLATFORM_TO_ROOM @ Vector(v)
     return [round(p.x, 3), round(p.z, 3), round(-p.y, 3)]
 
 
 def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     m = op.materials()
-    objs, tris, _ = op.build_platform(m, z_cut=-1.0)
+    objs, tris, _ = op.build_platform(m, z_cut=-1.0, crane_slew=True)
+    # The crane's turning part stays whole (the browser swings it) and out
+    # of the way while the rest is culled
+    slew = bpy.data.objects[op.CRANE_SLEW]
+    bpy.context.scene.collection.objects.unlink(slew)
     # A few eyes around each lens, so faces a hair off the exact ray stay
     eyes = [Vector(loc) + Vector(j) for _, loc, _, _ in CAMS.values()
             for j in ((0, 0, 0), (0.5, 0, 0), (0, 0.5, 0), (0, 0, 0.5))]
@@ -59,20 +64,27 @@ def main():
         if not o.data.polygons:
             bpy.data.objects.remove(o)
             continue
-        o.data.transform(Matrix.Translation(-cr.PLATFORM_OFFSET))
-    print(f"platform for the cameras: {tris} -> {left} triangles", flush=True)
+        o.data.transform(cr.PLATFORM_TO_ROOM)
+    bpy.context.scene.collection.objects.link(slew)
+    bpy.context.view_layer.update()  # matrix_world catches up with the location set at build
+    slew.matrix_world = cr.PLATFORM_TO_ROOM @ slew.matrix_world
+    stris = sum(len(p.vertices) - 2 for p in slew.data.polygons)
+    left += stris
+    print(f"platform for the cameras: {tris} -> {left} triangles ({stris} in {op.CRANE_SLEW})", flush=True)
     # The helicopter parked on the helideck, whole (its rotors and gear move,
     # so it isn't culled); web/src/helicopter.js animates its parts
     hm = heli.materials()
     root, _, htris = heli.build_helicopter(hm, bpy.context.scene.collection, heli.DECK_LOC, heli.DECK_YAW)
-    root.location -= cr.PLATFORM_OFFSET
+    bpy.context.view_layer.update()
+    root.matrix_world = cr.PLATFORM_TO_ROOM @ root.matrix_world
     print(f"helicopter: {htris} triangles", flush=True)
     op.set_night(m, True)
     heli.set_night(hm, True)
     os.makedirs(OUT, exist_ok=True)
     bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, "cctv.glb"), export_format="GLB", export_cameras=False,
                               export_lights=False, export_materials="EXPORT", export_normals=True,
-                              export_texcoords=False, export_apply=True, export_yup=True)
+                              export_texcoords=True, export_image_format="JPEG", export_jpeg_quality=80,
+                              export_apply=True, export_yup=True)
     cams = {k: {"name": name, "position": room_frame(loc), "aim": room_frame(aim),
                 "fov": round(math.degrees(2 * math.atan(36 * 9 / 16 / 2 / lens)), 2)}
             for k, (name, loc, aim, lens) in CAMS.items()}

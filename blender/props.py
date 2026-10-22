@@ -153,14 +153,17 @@ class Builder:
 
     def tube(self, points, radius, mat, segs=12, caps=True, normal=Vector((1, 0, 0))):
         """A round tube along a polyline of Vectors that lies roughly in the
-        plane with the given normal (which keeps the rings from twisting)."""
+        plane with the given normal (which keeps the rings from twisting).
+        `radius` is one number, or one per point for a tapering tube."""
         def make():
             rings, n = [], len(points)
+            radii = radius if isinstance(radius, (list, tuple)) else [radius] * n
             for i, p in enumerate(points):
+                r = radii[i]
                 t = (points[min(i + 1, n - 1)] - points[max(i - 1, 0)]).normalized()
                 u = normal.cross(t).normalized()
                 v = t.cross(u)
-                rings.append([self.bm.verts.new(p + radius * (math.cos(2 * math.pi * k / segs) * u +
+                rings.append([self.bm.verts.new(p + r * (math.cos(2 * math.pi * k / segs) * u +
                                                               math.sin(2 * math.pi * k / segs) * v))
                               for k in range(segs)])
             for i in range(n - 1):
@@ -650,6 +653,14 @@ def _room_mats(m):
         "cabinet": flat("PropCabinet", (0.80, 0.81, 0.80), 0.5),
         "lamp_red": flat("PropLampRed", (0.70, 0.06, 0.04), 0.3),
         "lamp_green": flat("PropLampGreen", (0.10, 0.60, 0.20), 0.3),
+        "button_blue": flat("PropButtonBlue", (0.04, 0.08, 0.30), 0.4),
+        "mag_blue": flat("PropMagBlue", (0.10, 0.25, 0.55), 0.3),
+        "mag_red": flat("PropMagRed", (0.65, 0.12, 0.10), 0.3),
+        "mag_yellow": flat("PropMagYellow", (0.85, 0.70, 0.15), 0.3),
+        "apple": flat("PropApple", (0.55, 0.05, 0.04), 0.35),
+        "apple_green": flat("PropAppleGreen", (0.40, 0.60, 0.12), 0.35),
+        "orange": flat("PropOrange", (0.85, 0.38, 0.04), 0.5),
+        "banana": flat("PropBanana", (0.85, 0.70, 0.15), 0.5),
         "fg_red": flat("PropFireRed", (0.62, 0.10, 0.05), 0.5),
         "shelf": flat("PropShelfGrey", (0.36, 0.37, 0.38), 0.6),
         "sofa": flat("PropSofa", (0.42, 0.13, 0.28), 0.95),       # the lounge's magenta upholstery
@@ -668,11 +679,12 @@ def _room_mats(m):
 
 
 def make_esd_panel(m, name="EsdPanel", face=None, size=(1.6, 2.0)):
-    """Hardwired ESD matrix panel: a tall white steel cabinet whose front is
-    a printed mimic (the child <name>Face, so the bake can give it its own
-    texture, like a whiteboard), with key switches and square lamp buttons
-    standing out of it, and door handles. Stands on the floor against a
-    wall; the front faces -Y. Positions of the lamps match boards.esd_panel."""
+    """Fire & gas / ESD CAP cabinet: a tall grey steel cabinet whose front
+    is printed (the child <name>Face, so the bake can give it its own
+    texture, like a whiteboard), with lit push buttons and key switches
+    standing out of it at boards.ESD_PARTS, and two door handles on the
+    left. Stands on the floor against a wall; the front faces -Y."""
+    from boards import ESD_PARTS
     rm = _room_mats(m)
     w, h = size
     d, z0 = 0.45, 0.10  # depth, plinth
@@ -683,18 +695,19 @@ def make_esd_panel(m, name="EsdPanel", face=None, size=(1.6, 2.0)):
     c = Builder(name)
     c.box((w + 0.06, d, h + 0.06), Vector((0, -d / 2, z0 + h / 2)), rm["cabinet"])
     c.box((w + 0.02, d - 0.04, z0), Vector((0, -d / 2, z0 / 2)), m["black"])  # plinth
-    c.box((0.04, 0.02, 0.20), Vector((-w / 2 + 0.04, -d - 0.02, z0 + h * 0.55)), m["steel"])  # handles
-    c.box((0.04, 0.02, 0.20), Vector((w / 2 - 0.04, -d - 0.02, z0 + h * 0.55)), m["steel"])
     top = z0 + h  # the texture's y runs down from here, in metres
-    for k in range(5):  # left column: a key switch and a lamp per function
-        zz = top - (0.20 + 0.14 * k) - 0.05
-        c.cyl(0.022, 0.022, 0.03, Vector((-w / 2 + 0.38, -d - 0.015, zz)), m["black"], segs=16, orient=_rot(x=math.pi / 2))
-        c.box((0.012, 0.03, 0.035), Vector((-w / 2 + 0.38, -d - 0.04, zz)), m["steel"])
-        c.box((0.06, 0.02, 0.06), Vector((-w / 2 + 0.48, -d - 0.01, zz)), rm["lamp_red"] if k % 2 else rm["lamp_green"])
-    for row in (1.24, 1.38, 1.50, 1.78, 1.90):  # rows of lamp buttons under the label strips
-        for i in range(7):
-            x = -w / 2 + 0.16 + i * 0.205
-            c.box((0.05, 0.018, 0.05), Vector((x, -d - 0.009, top - row)), rm["lamp_red"] if (i + int(row * 10)) % 3 else rm["lamp_green"])
+    for zz in (0.42, 1.12):  # door handles on the left edge
+        c.box((0.025, 0.035, 0.13), Vector((-w / 2 + 0.015, -d - 0.02, top - zz)), m["steel"])
+    face_y = -d - 0.004
+    for x, y, kind in ESD_PARTS:
+        at = Vector((-w / 2 + x, face_y, top - y))
+        if kind == "key":
+            c.cyl(0.016, 0.016, 0.012, at + Vector((0, -0.006, 0)), m["black"], segs=12, orient=_rot(x=math.pi / 2))
+            c.box((0.008, 0.016, 0.026), at + Vector((0, -0.018, 0)), m["steel"])
+            continue
+        mat = {"red": rm["lamp_red"], "grey": m["key_grey"], "lamp": rm["cabinet"],
+               "black": m["black"], "blue": rm["button_blue"]}[kind]
+        c.box((0.030, 0.012, 0.030), at + Vector((0, -0.006, 0)), mat)
     frame = c.done()
     surface.parent = frame
     return frame
@@ -802,8 +815,28 @@ def make_coffee_table(m, name="CoffeeTable", size=(1.1, 0.55), height=0.42):
     for x in (-w / 2 + 0.05, w / 2 - 0.05):
         for y in (-d / 2 + 0.05, d / 2 - 0.05):
             t.cyl(0.015, 0.015, height - 0.03, Vector((x, y, (height - 0.03) / 2)), m["steel"], segs=10)
-    t.box((0.30, 0.22, 0.03), Vector((0.15, 0.02, height + 0.015)), m["paper"])  # magazines
-    t.cyl(0.13, 0.07, 0.08, Vector((-0.25, 0.0, height + 0.04)), m["ceramic"], segs=24)  # fruit bowl
+    top = height
+    # A loose stack of magazines, each a little turned, with coloured covers
+    covers = [rm["mag_blue"], rm["mag_red"], m["paper"], rm["mag_yellow"]]
+    for k, (dx, dy, yaw) in enumerate([(0.0, 0.0, 0.05), (0.02, -0.01, -0.12), (-0.015, 0.012, 0.20), (0.01, 0.0, -0.04)]):
+        c = Vector((0.18 + dx, 0.02 + dy, top + 0.004 + k * 0.008))
+        t.box((0.21, 0.28, 0.006), c, m["paper"], orient=_rot(z=yaw))  # pages
+        t.box((0.21, 0.28, 0.0015), c + Vector((0, 0, 0.0035)), covers[k], orient=_rot(z=yaw))  # cover
+        if k == 3:  # the top one shows a masthead and a picture block
+            t.box((0.17, 0.035, 0.0005), c + _rot(z=yaw) @ Vector((0, 0.11, 0.0045)), m["black"], orient=_rot(z=yaw))
+            t.box((0.15, 0.12, 0.0005), c + _rot(z=yaw) @ Vector((0, -0.03, 0.0045)), rm["mag_blue"], orient=_rot(z=yaw))
+    # A fruit bowl, the right way up, with apples, oranges and a banana
+    bx, by = -0.25, 0.0
+    t.lathe([(0.0, 0.0), (0.055, 0.0), (0.06, 0.008), (0.11, 0.045), (0.135, 0.085), (0.128, 0.087),
+             (0.103, 0.050), (0.052, 0.014), (0.0, 0.012)], m["ceramic"], segs=32, center=Vector((bx, by, top)))
+    def fruit(x, y, z, r, mat):
+        prof = [(r * math.sin(a * math.pi / 10), z - r * math.cos(a * math.pi / 10)) for a in range(11)]
+        t.lathe(prof, mat, segs=16, center=Vector((bx + x, by + y, top)))
+    fruit(-0.04, -0.03, 0.050, 0.037, rm["apple"])
+    fruit(0.045, -0.02, 0.052, 0.040, rm["orange"])
+    fruit(0.0, 0.045, 0.050, 0.038, rm["orange"])
+    fruit(0.01, 0.0, 0.098, 0.036, rm["apple_green"])
+    t.tube(*_banana(Vector((bx, by + 0.02, top + 0.082)), 0.3), rm["banana"], segs=8, normal=Vector((0, 0, 1)))
     return t.done()
 
 
@@ -1095,6 +1128,83 @@ def make_thermos(m, name="Thermos"):
     return k.done()
 
 
+def _banana(at, yaw, length=0.17, bend=0.035):
+    """Points and radii of a banana lying on its side at `at` (its middle),
+    curving in the horizontal plane: thick in the middle, tapering to a
+    short dark stalk at one end and a blunt tip at the other."""
+    pts, radii, n = [], [], 13
+    turn = _rot(z=yaw)
+    for i in range(n):
+        u = i / (n - 1) * 2 - 1  # -1 stalk end .. 1 tip
+        p = Vector((u * length / 2, bend * (1 - u * u), 0.004 * u * u))
+        pts.append(at + turn @ p)
+        radii.append(0.0055 if u < -0.8 else 0.016 * (1 - u * u) ** 0.35 + 0.003)
+    return pts, radii
+
+
+def make_floor_lamp(m, glow=None, shade=None, name="FloorLamp", height=1.55, split=False):
+    """Floor lamp: a round black base, a thin pole and a fabric drum shade
+    with diffusers across its top and bottom. Returns the lamp and its two
+    glowing parts (the shade in `shade`, the diffusers in `glow`), separate
+    objects so the bake can switch them as a light of their own (with
+    split; otherwise they are parented to the lamp). Origin on the floor
+    under the pole."""
+    rm = _room_mats(m)
+    glow = glow or b.mat_flat("PropLampGlow", (1.0, 0.9, 0.75), 0.5)
+    shade = shade or b.mat_flat("PropLampShade", (0.92, 0.88, 0.80), 0.8)
+    sz0, sz1, r0, r1 = height - 0.30, height, 0.23, 0.20  # the shade: bottom, top, radii
+    lamp = Builder(name)
+    lamp.lathe([(0.0, 0.0), (0.15, 0.0), (0.15, 0.012), (0.12, 0.028), (0.0, 0.030)], m["black"], segs=32)
+    lamp.cyl(0.011, 0.011, sz0 + 0.12, Vector((0, 0, (sz0 + 0.12) / 2)), m["steel"], segs=12)
+    lamp.cyl(0.02, 0.02, 0.05, Vector((0, 0, sz0 + 0.10)), m["black"], segs=12)  # bulb holder
+    for a in range(3):  # spider arms from the holder to the shade's top ring
+        t = a * 2 * math.pi / 3
+        lamp.tube([Vector((0, 0, sz0 + 0.12)), Vector((r1 * math.cos(t), r1 * math.sin(t), sz1 - 0.01))], 0.003, m["steel"], segs=6)
+    lamp.ring(r0 - 0.003, r0 + 0.003, 0.006, Vector((0, 0, sz0)), m["steel"], segs=48)
+    lamp.ring(r1 - 0.003, r1 + 0.003, 0.006, Vector((0, 0, sz1)), m["steel"], segs=48)
+    s = Builder(name + "Shade")
+    s.lathe([(r0, sz0), (r1, sz1)], shade, segs=48)
+    g = Builder(name + "Glow")
+    g.lathe([(0.0, sz0 + 0.02), (r0 - 0.005, sz0 + 0.02)], glow, segs=48)
+    g.lathe([(0.0, sz1 - 0.02), (r1 - 0.005, sz1 - 0.02)], glow, segs=48)
+    del rm
+    return _lamp_parts(lamp.done(), [s.done(), g.done()], split)
+
+
+def _lamp_parts(lamp, glowing, split):
+    if split:
+        return (lamp, *glowing)
+    for o in glowing:
+        o.parent = lamp
+    return lamp
+
+
+def make_desk_lamp(m, glow=None, name="DeskLamp", split=False):
+    """The desk lamp from the study (see build.py): a brass base and stem,
+    an arm reaching forward, a green enamel cone shade open at the bottom,
+    and a diffuser across its mouth, the glowing part, returned as its own
+    object (with split). Not in the room for now: tried on the rest
+    corner's counter, it didn't fit there. Origin under the stem; the arm
+    reaches toward -Y."""
+    glow = glow or b.mat_flat("PropLampGlow", (1.0, 0.9, 0.75), 0.5)
+    enamel = bpy.data.materials.get("PropLampEnamel") or b.mat_flat("PropLampEnamel", (0.04, 0.16, 0.10), 0.35)
+    brass = bpy.data.materials.get("PropLampBrass") or b.mat_flat("PropLampBrass", (0.45, 0.33, 0.12), 0.35)
+    reach, top = 0.22, 0.41
+    lamp = Builder(name)
+    lamp.cyl(0.08, 0.08, 0.02, Vector((0, 0, 0.01)), brass, segs=32)
+    lamp.cyl(0.012, 0.012, top - 0.01, Vector((0, 0, (top + 0.01) / 2)), brass, segs=16)
+    lamp.tube([Vector((0, 0, top)), Vector((0, -reach, top))], 0.01, brass, segs=12)
+    # The shade, a hollow cone (wide end down) with a little thickness
+    sz = top - 0.03
+    lamp.lathe([(0.035, sz + 0.07), (0.11, sz - 0.07), (0.106, sz - 0.07), (0.031, sz + 0.07)], enamel, segs=48,
+               center=Vector((0, -reach, 0)))
+    lamp.cyl(0.035, 0.035, 0.004, Vector((0, -reach, sz + 0.07)), enamel, segs=24)  # closes the top
+    g = Builder(name + "Glow")
+    g.lathe([(0.0, sz - 0.055), (0.10, sz - 0.055)], glow, segs=48, center=Vector((0, -reach, 0)))
+    del m
+    return _lamp_parts(lamp.done(), [g.done()], split)
+
+
 def make_kettle(m, name="Kettle"):
     """The cordless electric kettle on its power base (CC0, OpenGameArt; see
     blender/assets/README.md), with its flat colour swatches mapped onto our
@@ -1126,4 +1236,5 @@ ALL = [make_keyboard, make_mouse, make_mousepad, make_mug, make_mic, make_notepa
        make_chair, make_videobar, make_touchpanel, make_lightpanel, make_deskphone, make_ptz_camera,
        make_ceiling_tv, make_whiteboard, make_ceiling_mic, make_esd_panel, make_fg_panel, make_shelving,
        make_link_stand, make_pillar, make_sofa, make_coffee_table, make_kitchenette, make_plant,
-       make_coffee_machine, make_thermos, make_kettle, make_fern, make_wall_clock]
+       make_coffee_machine, make_thermos, make_kettle, make_fern, make_wall_clock,
+       make_floor_lamp, make_desk_lamp]

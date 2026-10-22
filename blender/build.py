@@ -547,12 +547,16 @@ def denoise(image):
     return result
 
 
-def save_light(light, path):
+def save_light(light, path, percentile=99.8):
     """HDR irradiance -> 8-bit PNG. Stored = (L / scale)^(1/3), so the
     shader decodes with pow(texel, 3) * scale. Cube-root encoding spends
-    more of the 256 levels on dark values, where banding is most visible."""
-    scale = float(np.percentile(light.max(axis=2), 99.8)) or 1.0
-    enc = np.clip(light / scale, 0, 1) ** (1 / 3)
+    more of the 256 levels on dark values, where banding is most visible.
+    The brightest texels (above `percentile`) are dimmed as a whole rather
+    than clipped per channel, which would shift their colour."""
+    peak = light.max(axis=2)
+    scale = float(np.percentile(peak, percentile)) or 1.0
+    over = np.maximum(peak / scale, 1.0)[..., None]
+    enc = np.clip(light / scale / over, 0, 1) ** (1 / 3)
     Image.fromarray((enc * 255 + 0.5).astype(np.uint8)).save(path, optimize=True)
     return scale
 

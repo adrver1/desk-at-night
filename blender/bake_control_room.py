@@ -11,6 +11,8 @@ Same scheme as build.py, with three light groups instead of moon and lamp:
     light_screens.png  irradiance from the desk monitors and the video wall
     light_sky.png      irradiance from a plain white sky (radiance 1), which
                        the browser tints with the live sky (outdoor.js)
+    light_<lamp>.png   irradiance from each of the rest corner's lamps (LAMPS),
+                       which the player switches on and off
     board_*.png        what is pinned and written on the whiteboards, drawn
                        by boards.py; too fine for the atlas, so each board
                        surface has a second UV set onto its own image
@@ -44,7 +46,11 @@ GROUPS = {
     "Screen": "screens", "ScreenCam": "screens", "ExitSign": "screens",  # the exit sign never goes off
     "LedPanel": "ceiling", "Clock": "ceiling", "PlatformLight": "ceiling", "Flare": "ceiling",
     "PlatformWindow": "ceiling", "PlatformRed": "ceiling",
+    "FloorLampShade": "floorlamp", "FloorLampGlow": "floorlamp",
 }
+# Lamps the player switches one by one, each with a light map of its own,
+# and the object that is the lamp itself (to aim at)
+LAMPS = {"floorlamp": "FloorLamp"}
 
 
 def texel_weight(name):
@@ -178,7 +184,7 @@ def main():
     # A vertex group per object survives the join and finds them again.
     movable = {}
     for o in scene.objects:
-        if o.name.startswith("Chair") or o.name.endswith(("Mug", "TouchPanel", "LightPanel", "Hand")):
+        if o.name.startswith("Chair") or o.name.endswith(("Mug", "TouchPanel", "LightPanel", "Hand", "Lamp")):
             movable[o.name] = (o.matrix_world.translation.copy(), o.matrix_world.to_euler().z)
             o.vertex_groups.new(name=o.name).add(range(len(o.data.vertices)), 1.0, "REPLACE")
             if o.name.endswith("Mug"):  # the coffee drops as it's drunk, so it moves on its own
@@ -209,7 +215,7 @@ def main():
     print(f"room: {len(room.data.polygons)} faces, {len(glowing)} emissive meshes", flush=True)
 
     imgs = {k: bpy.data.images.new(k, args.res, args.res, float_buffer=True, alpha=False)
-            for k in ("albedo", "ceiling", "screens", "sky")}
+            for k in ("albedo", "ceiling", "screens", "sky", *LAMPS)}
     mats = {mat.name: mat for o in glowing for mat in o.data.materials}
     full = {name: strength(mat).default_value for name, mat in mats.items()}
     sky_full = sky["Strength"].default_value
@@ -229,6 +235,9 @@ def main():
     b.bake(room, imgs["screens"], {"DIRECT", "INDIRECT"}, "screens")
     only("sky")
     b.bake(room, imgs["sky"], {"DIRECT", "INDIRECT"}, "sky")
+    for lamp in LAMPS:
+        only(lamp)
+        b.bake(room, imgs[lamp], {"DIRECT", "INDIRECT"}, lamp)
     only(None)
     bpy.data.objects.remove(sea)
 
@@ -242,6 +251,10 @@ def main():
         "resolution": args.res,
         "samples": args.samples,
         "emitters": {},
+        "lamps": {lamp: {"map": f"light_{lamp}.png", "body": body,
+                         "scale": b.save_light(b.pixels(b.denoise(imgs[lamp])), os.path.join(OUT, f"light_{lamp}.png"),
+                                                    percentile=99.98)}  # lit only in its corner of the atlas
+                  for lamp, body in LAMPS.items()},
     }
 
     # Split the movable objects back out, each with its origin where it stands

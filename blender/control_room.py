@@ -62,6 +62,7 @@ TV_A = -(WALL_N - 1) / 2 * (WALL_W + 0.03) / WALL_R - (WALL_W / 2 + 0.15 + TV_W 
 ROOM_X, ROOM_Y0, ROOM_Y1, ROOM_Z = 5.4, -3.6, 4.6, 2.9
 WIN_Y0, WIN_Y1, WIN_Z0, WIN_Z1 = -2.4, 2.6, 0.85, 2.45  # window in the left (-X) wall
 NOOK_X0, NOOK_Y0 = 0.4, -5.6           # rest corner: x from here to ROOM_X, y from here to ROOM_Y0
+FLOOR_LAMP = (NOOK_X0 + 2.62, NOOK_Y0 + 0.30)  # at the sofa's right end, Blender x, y
 NOOK_DOOR = (3.55, 4.55)               # opening in the rear wall into it (x range)
 DOOR_Y, DOOR_W, DOOR_H = ROOM_Y0 + 1.1, 0.95, 2.10  # door in the right wall, near the rear
 GLASS_X0 = 2.0                         # behind the display band: dark wall left of this, glass to the right
@@ -120,6 +121,9 @@ def materials():
     m["platform_window"] = emissive("PlatformWindow", (1.0, 0.85, 0.6), 2.5)  # lit cabins in the quarters
     m["platform_red"] = emissive("PlatformRed", (1.0, 0.05, 0.02), 60.0)      # obstruction lights
     m["exit_sign"] = emissive("ExitSign", (0.10, 1.0, 0.30), 4.0)
+    # The rest corner's floor lamp, a light the player can switch
+    m["floor_lamp_shade"] = emissive("FloorLampShade", (1.0, 0.78, 0.52), 1.2)
+    m["floor_lamp_glow"] = emissive("FloorLampGlow", (1.0, 0.74, 0.46), 4.0)
     m["door"] = mat_flat("Door", (0.50, 0.52, 0.53), 0.5)
     return m
 
@@ -504,6 +508,10 @@ def build_lounge(m):
     for o in props.make_wall_clock(pm, "WallClock", CLOCK_STYLE, live=True):  # the hands follow the game's clock
         props.place(o, kx + 0.1, NY, 1.95, math.pi)
     props.place(props.make_plant(pm, "PlantNook", 1.2, light=LIGHT_PLANTS), NX + 0.30, ROOM_Y0 - 0.30, 0.0)
+    # A floor lamp at the sofa's right end, which the player switches
+    fx, fy = FLOOR_LAMP
+    for o in props.make_floor_lamp(pm, m["floor_lamp_glow"], m["floor_lamp_shade"], "FloorLamp", split=True):
+        props.place(o, fx, fy, 0.0)
 
 
 # Floor-plan obstacles beyond the desks, band and table, for the walk:
@@ -522,6 +530,7 @@ def obstacles():
         (ROOM_X - 0.9, NOOK_Y0 + 0.30, 0.9, 0.30, 0.0),    # counter
         (-4.85, ROOM_Y0 + 0.35, 0.22, 0.22, 0.0),          # plants
         (NOOK_X0 + 0.30, ROOM_Y0 - 0.30, 0.22, 0.22, 0.0),
+        (*FLOOR_LAMP, 0.16, 0.16, 0.0),                    # floor lamp
     ]
     for name in ("Shift", "Notes"):
         (x, y, _), yaw = BOARDS[name][2], BOARDS[name][3]
@@ -530,36 +539,40 @@ def obstacles():
 
 
 # Where the room sits in the platform (offshore_platform.py coordinates): on
-# the top floor of the quarters, its window in the quarters' end wall facing
-# the flare, high enough to look out over the stepped plant blocks below.
-PLATFORM_OFFSET = Vector((op.LQ_X0 + ROOM_X, 6.0, 69.2))  # platform point at the room origin
+# the top floor of the quarters, turned a quarter so its window (the room's
+# -X wall) is in the quarters' long crane-side facade (-Y), looking out to
+# open sea. The plant module next door is taller than the quarters, so a
+# window facing the flare would only see its wall.
+PLATFORM_OFFSET = Vector((op.LQ_X0 + ROOM_X, -op.LQ_Y + ROOM_X, op.LQ_TOP - 3.3))  # platform point at the room origin
+PLATFORM_YAW = math.pi / 2  # room +X -> platform +Y, so the window faces -Y
+ROOM_TO_PLATFORM = Matrix.Translation(PLATFORM_OFFSET) @ Matrix.Rotation(PLATFORM_YAW, 4, "Z")
+PLATFORM_TO_ROOM = ROOM_TO_PLATFORM.inverted()
 
 
 def build_outside(m):
-    """The platform around the room, seen through the window: the process
-    end, the crane and the flare boom with its pilot burning. Built from
-    offshore_platform.py, carved where the room sits, then cut down to the
-    faces some point in front of the window can see (~9k -> a few thousand
-    triangles). Its lamps, cabin windows, obstruction lights and the flare
-    use the room's emissive groups so the viewer can drive them."""
-    pm = op.materials()
+    """The platform around the room, seen through the window: the quarters'
+    facade, the deck and boats below, with the sea beyond. Built from
+    offshore_platform.py, moved into the room's frame, carved where the room
+    sits, then cut down to the faces some point in front of the window can
+    see. Its lamps, cabin windows, obstruction lights and the flare use the
+    room's emissive groups so the viewer can drive them."""
+    pm = op.materials(textured=False)
     pm.update(lamp=m["platform_light"], flare=m["flare"], window=m["platform_window"], red=m["platform_red"])
     objs, tris, _ = op.build_platform(pm, z_cut=-1.0)
-    off = PLATFORM_OFFSET
-    op.carve(objs, off + Vector((-ROOM_X - 0.15, ROOM_Y0 - 0.15, -0.15)), off + Vector((ROOM_X + 0.15, ROOM_Y1 + 0.15, ROOM_Z + 0.15)))
+    for o in objs:
+        o.data.transform(PLATFORM_TO_ROOM)
+    op.carve(objs, Vector((-ROOM_X - 0.15, NOOK_Y0 - 0.15, -0.15)), Vector((ROOM_X + 0.15, ROOM_Y1 + 0.15, ROOM_Z + 0.15)))
     # Eyes where a player can stand or sit in front of the window
-    eyes = [off + Vector((x, y, z)) for x in (-4.8, -3.0, 0.0) for y in (WIN_Y0 + 0.4, (WIN_Y0 + WIN_Y1) / 2, WIN_Y1 - 0.4)
+    eyes = [Vector((x, y, z)) for x in (-4.8, -3.0, 0.0) for y in (WIN_Y0 + 0.4, (WIN_Y0 + WIN_Y1) / 2, WIN_Y1 - 0.4)
             for z in (1.2, 1.7)]
-    portal = (off.x - ROOM_X, off.y + WIN_Y0, off.y + WIN_Y1, off.z + WIN_Z0, off.z + WIN_Z1)
+    portal = (-ROOM_X, WIN_Y0, WIN_Y1, WIN_Z0, WIN_Z1)
     left = op.cull_to_view(objs, eyes, portal=portal)
     for o in objs:
         if not o.data.polygons:  # a material with nothing left in view (the bake can't unwrap an empty mesh)
             bpy.data.objects.remove(o)
-            continue
-        o.data.transform(Matrix.Translation(-off))
     print(f"platform outside the window: {tris} -> {left} triangles", flush=True)
-    sea = 2000.0
-    b.quad("Sea", [(-sea, -sea, -off.z), (sea, -sea, -off.z), (sea, sea, -off.z), (-sea, sea, -off.z)], m["sea"], (0, 0, 0))
+    sea, z = 2000.0, -PLATFORM_OFFSET.z
+    b.quad("Sea", [(-sea, -sea, z), (sea, -sea, z), (sea, sea, z), (-sea, sea, z)], m["sea"], (0, 0, 0))
 
 
 # ------------------------------------------------------------------- render
@@ -582,7 +595,7 @@ def cameras():
     right, ahead = Vector((math.cos(st), -math.sin(st), 0)), Vector((math.sin(st), math.cos(st), 0))
     station = cam("Station", edge - right * 0.85 - ahead * 0.45 + Vector((0, 0, 1.40)),  # over the left shoulder
                   edge + right * 0.10 + ahead * 0.25 + Vector((0, 0, DESK_Z)), 22)
-    window = cam("Window", (-3.6, 0.1, 1.5), (-20.0, 0.5, -0.5), 20)  # out over the process end to the flare
+    window = cam("Window", (-3.6, 0.1, 1.5), (-20.0, 0.5, -0.5), 20)  # out to sea over the crane side
     plan_d = bpy.data.cameras.new("Plan")
     plan_d.type = "ORTHO"
     plan_d.ortho_scale = 11.6
