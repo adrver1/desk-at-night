@@ -168,8 +168,8 @@ def disc_material():
 def clear_glass():
     """See-through window glass, slightly tinted, for the cabin view."""
     mat, nt, bsdf = b._new_mat("HeliClear")
-    bsdf.inputs["Base Color"].default_value = (0.20, 0.24, 0.26, 1)
-    bsdf.inputs["Alpha"].default_value = 0.12
+    bsdf.inputs["Base Color"].default_value = (0.10, 0.13, 0.15, 1)
+    bsdf.inputs["Alpha"].default_value = 0.35
     bsdf.inputs["Roughness"].default_value = 0.05
     return mat
 
