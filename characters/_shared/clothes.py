@@ -68,7 +68,7 @@ def shirt_collar(color, region="collar", spread=1.0, under=False):
     sweater's neck."""
     m = base.Mesh()
     band = []
-    for a in range(200, 341, 35):
+    for a in range(180, 361, 30):   # round to the sides, under the points
         a = math.radians(a)
         for r, z in ((0.068, 1.395), (0.072, 1.465), (0.078, 1.40)):
             band.append(Vector((r * math.cos(a), -0.008 + r * math.sin(a), z)))

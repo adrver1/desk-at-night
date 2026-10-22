@@ -21,6 +21,7 @@ CROWN = base.HEAD[-1][0]
 FULL = {20: 1.635, 55: 1.708, 125: 1.708, 160: 1.635, 200: 1.600, 235: 1.578, 305: 1.578, 340: 1.600}
 RECEDING = {20: 1.680, 55: 1.735, 125: 1.735, 160: 1.680, 200: 1.600, 235: 1.578, 305: 1.578, 340: 1.600}
 HELMET_RIM = 1.655
+FADE_DARK = "hair_fade_dark"
 
 
 def hairline_at(hairline, angle):
@@ -53,16 +54,18 @@ def blend_ring(hairline, offset, lift=0.0):
 
 
 def cap(color, hairline=FULL, offsets=(0.008, 0.012, 0.016), lifts=(0.0, 0.008, 0.02), region="hair",
-        crown=True, fs=(0.0, 0.3, 0.55, 0.8, 1.0)):
+        crown=True, fs=(0.0, 0.3, 0.55, 0.8, 1.0), row_colors=None):
     """Close-cropped shell from the hairline to the crown: rows of the
     head's eight facets at fractions fs of the way up, plus a flat crown.
     offsets and lifts are given at the hairline, half way and the crown.
-    crown=False leaves the top open (a bald crown)."""
+    crown=False leaves the top open (a bald crown). row_colors: a swatch per band
+    of rows from the bottom up, for a fade that darkens towards the top."""
     m = base.Mesh()
 
     def at(vals, f):
         return vals[0] + (vals[1] - vals[0]) * f / 0.55 if f <= 0.55 else \
             vals[1] + (vals[2] - vals[1]) * (f - 0.55) / 0.45
+    shades = list(row_colors or []) + [color] * len(fs)
     rows = []
     for f in fs:
         rows.append([base.head_point(a, z + (CROWN - z) * f, at(offsets, f)) + Vector((0, 0, at(lifts, f)))
@@ -71,9 +74,9 @@ def cap(color, hairline=FULL, offsets=(0.008, 0.012, 0.016), lifts=(0.0, 0.008, 
     for k in range(len(rows) - 1):
         for i in range(n):
             j = (i + 1) % n
-            m.face([rows[k][i], rows[k][j], rows[k + 1][j], rows[k + 1][i]], color, region)
+            m.face([rows[k][i], rows[k][j], rows[k + 1][j], rows[k + 1][i]], shades[k], region)
     if crown:
-        m.face(rows[-1], color, region)
+        m.face(rows[-1], shades[-1], region)
     return m
 
 
@@ -123,7 +126,10 @@ def quiff(color, hairline=FULL, helmet=False):
 def curly_top(color, fade, hairline=FULL, helmet=False, height=1.0):
     """Skin fade: the sides are a tight cap in the fade colour, the top is a
     block of curls, highest at the front. height < 1 crops the top shorter."""
-    m = cap(fade, hairline, offsets=(0.004, 0.007, 0.012), lifts=(0.0, 0.004, 0.01))
+    # the fade darkens in steps up to the curls: light at the ears, a
+    # darker band, then the hair colour under the block
+    m = cap(fade, hairline, offsets=(0.004, 0.007, 0.012), lifts=(0.0, 0.004, 0.01),
+            fs=(0.0, 0.22, 0.42, 0.6, 0.8, 1.0), row_colors=(fade, FADE_DARK, color, color, color))
     if helmet:
         return m
     h = hairline

@@ -104,6 +104,11 @@
   "col": 12,
   "hex": "#7a6a5e"
  },
+ "hair_fade_dark": {
+  "row": 1,
+  "col": 13,
+  "hex": "#594a40"
+ },
  "eye": {
   "row": 2,
   "col": 0,

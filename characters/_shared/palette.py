@@ -25,7 +25,7 @@ ROWS = [
      ("hair_light_brown", "#8a6446"), ("hair_blond", "#d2b071"), ("hair_ginger", "#b45a2c"),
      ("hair_grey", "#8d8a86"), ("hair_white", "#dcdad4"), ("hair_auburn", "#9a4b24"),
      ("hair_strawberry", "#c4804e"), ("hair_dark_blond", "#9c7a4c"), ("hair_salt_pepper", "#7b756e"),
-     ("hair_fade", "#7a6a5e")],
+     ("hair_fade", "#7a6a5e"), ("hair_fade_dark", "#594a40")],
     # 2 face details
     [("eye", "#1b1d22"), ("eye_white", "#f2f0ea"), ("lip", "#a8584e"), ("lip_dark", "#6e3a33"),
      ("teeth", "#f4f1e8"), ("blush", "#d98a7a"),
