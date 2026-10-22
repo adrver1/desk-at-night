@@ -544,7 +544,7 @@ const VARIANTS = {
   now: { label: 'Today', cost: 'what the game draws now' },
   a: { label: 'A · Polish', cost: 'no extra passes' },
   b: { label: 'B · Reflections', cost: '+1 quarter-res render' },
-  c: { label: 'C · Cinematic', cost: 'B + moving surface + 3D clouds' },
+  c: { label: 'C · Cinematic', cost: 'B + moving sea surface' },
 };
 // Cameras in the platform's Blender frame: [eye, target]
 const VIEWS = {
@@ -619,9 +619,13 @@ const skyOpts = { side: THREE.BackSide, depthWrite: false, depthTest: false };
 const MATERIALS = {
   a: { sky: mat(skyVertex, skyFragment(false), skyOpts), ocean: mat(oceanVertex(false), oceanFragment(false)) },
   b: { sky: null, ocean: mat(oceanVertex(false), oceanFragment(true)) },
-  c: { sky: mat(skyVertex, skyFragment(true), skyOpts), ocean: mat(oceanVertex(true), oceanFragment(true), { side: THREE.DoubleSide }) },
+  c: { sky: null, ocean: mat(oceanVertex(true), oceanFragment(true), { side: THREE.DoubleSide }) },
 };
-MATERIALS.b.sky = MATERIALS.a.sky;
+// Adriaen preferred B's clouds to the raymarched 3D ones (2026-10-22): C is
+// now B's sky over C's moving sea. The 3D clouds stay here, unused, with
+// their half-resolution drawing (clouds3d, drawClouds) in case they return.
+const clouds3dSky = mat(skyVertex, skyFragment(true), skyOpts);
+MATERIALS.b.sky = MATERIALS.c.sky = MATERIALS.a.sky;
 const rings = ringGrid();
 
 let sea = null;
@@ -646,9 +650,36 @@ function applyWeather() {
   U.uCloudBase.value = THREE.MathUtils.lerp(1100, 600, st) - 250 * s.rain;
   U.uCloudTop.value = U.uCloudBase.value + THREE.MathUtils.lerp(1400, 500, st) + 2500 * s.rain;
 }
+// The 3D clouds cost the most and change slowly: they're drawn into a
+// smaller target (half the screen's resolution or less), every other frame
+// unless the view turns, and the sky shows that picture scaled up
+const cloudTarget = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
+const skyComposite = new THREE.ShaderMaterial({
+  vertexShader: skyVertex,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D uSkyTex;
+    uniform vec2 uScreen;
+    void main() {
+      gl_FragColor = vec4(texture2D(uSkyTex, gl_FragCoord.xy / uScreen).rgb, 1.0);
+      #include <tonemapping_fragment>
+      #include <colorspace_fragment>
+    }`,
+  uniforms: { uSkyTex: { value: cloudTarget.texture }, uScreen: { value: new THREE.Vector2(1, 1) } },
+  ...skyOpts,
+});
+
+// Quality steps for C on a slow or hot GPU, tried in order (see govern())
+const LEVELS = [
+  { name: 'C', variant: 'c', clouds: 0, res: 1 },
+  { name: 'C, screen ¾', variant: 'c', clouds: 0, res: 0.75 },
+  { name: 'B, screen ¾', variant: 'b', clouds: 0, res: 0.75 },
+];
+const quality = { level: 0, auto: true };
+const level = () => (state.variant === 'c' ? LEVELS[quality.level] : { variant: state.variant, clouds: 0, res: 1 });
+
 function applyVariant() {
-  const v = state.variant;
-  outdoor.sky.material = v === 'now' ? stock.sky : MATERIALS[v].sky;
+  const v = level().variant;
+  outdoor.sky.material = v === 'now' ? stock.sky : v === 'c' && level().clouds ? skyComposite : MATERIALS[v].sky;
   outdoor.ocean.material = v === 'now' ? stock.ocean : MATERIALS[v].ocean;
   outdoor.ocean.geometry = v === 'c' ? rings : stock.geometry;
   U.uMirrorOn.value = v === 'b' || v === 'c' ? 1 : 0;
@@ -777,10 +808,49 @@ canvas.addEventListener('pointerup', () => { drag = null; });
 // system capping the page (it doesn't: Low Power Mode, heat, an idle iframe)
 const probe = { scale: 1, paused: false, start: performance.now(), drops: [], frames: [], work: [], low: 0 };
 const basePixelRatio = renderer.getPixelRatio();
-const probeRow = group('Probe', [['1', 'Full res'], ['0.5', 'Half res'], ['0.25', 'Quarter res'], ['pause', 'Pause drawing']], 'probe', (k) => {
+const setPixelRatio = () => { renderer.setPixelRatio(basePixelRatio * probe.scale * level().res); resize(); };
+const probeRow = group('Probe', [['auto', 'Auto quality'], ['1', 'Full res'], ['0.5', 'Half res'], ['0.25', 'Quarter res'], ['pause', 'Pause drawing']], 'probe', (k) => {
   if (k === 'pause') probe.paused = !probe.paused;
-  else { probe.scale = Number(k); renderer.setPixelRatio(basePixelRatio * probe.scale); resize(); }
+  else if (k === 'auto') { quality.auto = !quality.auto; if (!quality.auto) setLevel(0, performance.now()); }
+  else { probe.scale = Number(k); setPixelRatio(); }
 });
+
+// The fallback switch. Frames that stay slow for two seconds step quality
+// down one level; if that doesn't speed them up, it wasn't the GPU but a
+// frame cap (Low Power Mode, a throttled page), so it steps back and leaves
+// quality alone for a while. After 20 s of smooth frames it tries one level
+// up again, waiting twice as long each time that fails.
+const gov = { pending: null, holdUntil: 0, upAfter: 20000, upAt: 0, steppedUpAt: -1e9, changedAt: 0 };
+function setLevel(i, now) {
+  if (i === quality.level) return;
+  quality.level = i;
+  gov.changedAt = now;
+  probe.frames.length = probe.work.length = 0;   // measure afresh
+  applyVariant();
+  setPixelRatio();
+}
+function govern(now, span) {
+  if (!quality.auto || state.variant !== 'c' || probe.paused || document.hidden) return;
+  if (gov.pending) {
+    if (now - gov.pending.at < 2500) return;
+    if (span > gov.pending.span * 0.85) {   // no faster: a cap, not the GPU
+      setLevel(gov.pending.from, now);
+      gov.holdUntil = now + 30000;
+      probe.drops.push(`${mmss(now - probe.start)} capped, not GPU`);
+    }
+    gov.pending = null;
+    return;
+  }
+  if (now < gov.holdUntil || now - gov.changedAt < 2000) return;
+  if (span > 20 && quality.level < LEVELS.length - 1) {
+    if (now - gov.steppedUpAt < 6000) gov.upAfter *= 2;   // the last step up didn't hold
+    gov.pending = { from: quality.level, at: now, span };
+    setLevel(quality.level + 1, now);
+  } else if (span < 17.5 && quality.level > 0 && now - gov.changedAt > gov.upAfter) {
+    gov.steppedUpAt = now;
+    setLevel(quality.level - 1, now);
+  }
+}
 const probeLine = document.createElement('div');
 probeLine.id = 'probe';
 document.querySelector('#dock').appendChild(probeLine);
@@ -794,9 +864,15 @@ function probeTick(now, work) {
   // A drop: under 45 fps for a full second; noted once with what was on
   probe.low = fps < 45 ? probe.low + 1 : 0;
   if (probe.low === 60) probe.drops.push(`${mmss(now - probe.start)} drop: ${state.variant}, ${state.view}, ${state.preset ?? 'sliders'}, ${probe.paused ? 'paused' : `res ×${probe.scale}`}`);
+  govern(now, span);
+  if (probe.frames.length < 60) return;
   const sorted = [...probe.work].sort((a, b) => a - b);
-  for (const b of probeRow.querySelectorAll('button')) b.classList.toggle('on', b.dataset.value === 'pause' ? probe.paused : Number(b.dataset.value) === probe.scale);
-  probeLine.textContent = `${span.toFixed(1)} ms/frame · page work ${sorted[30].toFixed(1)} ms (worst ${sorted[59].toFixed(1)}) · ${renderer.info.render.calls} draws · up ${mmss(now - probe.start)}`
+  for (const b of probeRow.querySelectorAll('button')) {
+    const k = b.dataset.value;
+    b.classList.toggle('on', k === 'pause' ? probe.paused : k === 'auto' ? quality.auto : Number(k) === probe.scale);
+  }
+  const lv = state.variant === 'c' ? `${LEVELS[quality.level].name}${quality.auto ? ' (auto)' : ''} · ` : '';
+  probeLine.textContent = `${lv}${span.toFixed(1)} ms/frame · page work ${sorted[30].toFixed(1)} ms (worst ${sorted[59].toFixed(1)}) · ${renderer.info.render.calls} draws · up ${mmss(now - probe.start)}`
     + (probe.drops.length ? ` · ${probe.drops.slice(-3).join(' · ')}` : '');
 }
 
@@ -808,12 +884,31 @@ function resize() {
   camera.updateProjectionMatrix();
   const pr = renderer.getPixelRatio();
   mirrorTarget.setSize(Math.ceil(w * pr / 4), Math.ceil(h * pr / 4));   // quarter resolution
+  const k = Math.max(level().clouds, 0.1);
+  cloudTarget.setSize(Math.ceil(w * pr * k), Math.ceil(h * pr * k));
+  skyComposite.uniforms.uScreen.value.set(w * pr, h * pr);
 }
 addEventListener('resize', resize);
 resize();
 
-let last = performance.now();
+let last = performance.now(), frameNo = 0;
+const lastLook = new THREE.Quaternion();
+function drawClouds() {
+  // Every other frame, or at once when the view turns
+  const turned = lastLook.angleTo(camera.quaternion) > 1e-4;
+  if (frameNo % 2 && !turned) return;
+  lastLook.copy(camera.quaternion);
+  outdoor.sky.material = clouds3dSky;
+  outdoor.ocean.visible = false;
+  renderer.setRenderTarget(cloudTarget);
+  outdoor.render(renderer, camera);
+  renderer.setRenderTarget(null);
+  outdoor.ocean.visible = true;
+  outdoor.sky.material = skyComposite;
+}
 function frame(now) {
+  frameNo++;
+  if (Math.abs(renderer.getPixelRatio() - basePixelRatio * probe.scale * level().res) > 1e-3) setPixelRatio();
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   camera.quaternion.copy(base)
@@ -833,6 +928,7 @@ function frame(now) {
   U.uCamHeight.value = camera.position.y;
   if (!probe.paused) {
     if (U.uMirrorOn.value) renderMirror();
+    if (level().variant === 'c' && level().clouds) drawClouds();
     outdoor.render(renderer, camera);
     renderer.render(scene, camera);
   }
