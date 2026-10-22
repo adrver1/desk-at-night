@@ -9,6 +9,8 @@ as the photos without extra triangles:
                   louvres, cable trays and junction boxes
     quarters()    the quarters' light cladding with walkway bands, doors and
                   small kit; the cabin windows stay geometry
+    truss()       one face of the helideck's deep truss: white chords and
+                  bracing against the dark underside, mapped once per face
     sign()        a yellow name board with its lettering, one image per board
 
 Each tile covers TILE metres square and is mapped by box projection in world
@@ -159,6 +161,26 @@ def quarters(seed=9):
     return clad_busy(seed, base=(214, 217, 219), name="quarters", stairs=False)
 
 
+def truss():
+    """One face of the helideck truss, u along the face, v up: top and
+    bottom chords, posts at the ends and a W of diagonals, white on the
+    shadowed steel behind."""
+    W, H = 512, 128
+    im = Image.new("RGB", (W, H), (54, 58, 62))
+    d = ImageDraw.Draw(im)
+    for x in range(0, W, 24):  # the grating and pipework seen through it
+        d.line((x, 0, x, H), fill=(64, 68, 72), width=2)
+    white, w = (226, 228, 228), 10
+    d.line((0, 6, W, 6), fill=white, width=w + 2)
+    d.line((0, H - 6, W, H - 6), fill=white, width=w + 2)
+    for x in (5, W // 2, W - 5):
+        d.line((x, 0, x, H), fill=white, width=w)
+    for x0, x1 in ((0, W // 4), (W // 4, W // 2), (W // 2, 3 * W // 4), (3 * W // 4, W)):
+        up = (x0 // (W // 4)) % 2 == 0
+        d.line((x0, H - 6 if up else 6, x1, 6 if up else H - 6), fill=white, width=w - 2)
+    return _save(im, "truss")
+
+
 def sign(lines, w, h, ppm=48):
     """Yellow board w x h metres with black lines of text centred on it,
     as large as fits, ppm pixels per metre."""
@@ -191,6 +213,6 @@ def _save(im, name):
 
 
 if __name__ == "__main__":
-    for f in (busy, clad_busy, quarters):
+    for f in (busy, clad_busy, quarters, truss):
         print(f())
     print(sign(("IVAR AASEN", "16/1-D", "AKER BP"), 10.0, 4.6))
