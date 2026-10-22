@@ -23,7 +23,7 @@ const PLAYER_SEAT = [1, 0];
 // z up, metres): in from the south-east, round the platform clockwise so it
 // stays in our right-hand window, then a right turn onto the helideck from the east
 const ROUTE = [
-  [2600, -1500, 320], [1500, -850, 300], [700, -450, 270],
+  [1250, -720, 290], [700, -450, 270],
   ...[-70, -115, -160, -205, -250, -295, -340].map((a) => {
     const r = THREE.MathUtils.degToRad(a);
     return [-15 + 330 * Math.cos(r), 330 * Math.sin(r), 250];
@@ -31,11 +31,11 @@ const ROUTE = [
   [330, -20, 175], [280, -95, 140], [190, -85, 112], [120, -30, 90],
 ];
 const HOVER = 6;            // m over the deck where the descent starts
-const CRUISE = [62, 46];    // m/s on the way out and round the platform
-const BRAKE = 1.4;          // m/s² slowing down for the deck
-const DESCENT = 7;          // s from the hover to the deck
-const CUT_AT = 380;         // m from the deck: cut to the helideck camera
-const GEAR_AT = 600;        // m from the deck: gear down
+const CRUISE = [60, 52];    // m/s on the way out and round the platform
+const BRAKE = 2.2;          // m/s² slowing down for the deck
+const DESCENT = 4;          // s from the hover to the deck
+const CUT_AT = 260;         // m from the deck: cut to the helideck camera
+const GEAR_AT = 170;        // m from the deck: gear down, in view of the helideck camera
 
 const B = (x, y, z) => new THREE.Vector3(x, z, -y); // Blender to three.js axes
 
@@ -158,8 +158,8 @@ people.forEach((gltf, i) => {
 // up, walks to the open door on their side, steps down to the deck and walks
 // across the helideck to the stairs down into the quarters
 const WALK = 1.25;          // m/s, the walk clip's pace
-const EXIT_AT = 7;          // s after touchdown the first one stands up
-const EXIT_GAP = 1.6;       // s between passengers
+const EXIT_AT = 3;          // s after touchdown the first one stands up
+const EXIT_GAP = 1.0;       // s between passengers
 const doorX = (info.door.x[0] + info.door.x[1]) / 2 + 0.3;
 const stairs = B(47.5, -4, 72.5);  // top of the stairs from the helideck down into the quarters
 passengers.sort((a, b) => Math.abs(a.userData.seat.x - doorX) - Math.abs(b.userData.seat.x - doorX));
@@ -253,6 +253,7 @@ const sAt = (t) => { // arc length at flight time t
   return (lo + THREE.MathUtils.clamp(f, 0, 1)) / N * LENGTH;
 };
 const T_LAND = FLIGHT + DESCENT;
+const T_END = T_LAND + 21;   // fade out as the last ones reach the stairs
 
 const park = new THREE.Vector3().fromArray(info.park.position);
 const deckEdge = B(56, 15.5, 75.2);   // camera on a lamp post at the helideck's north-west rim
@@ -326,15 +327,14 @@ const ui = {
 };
 let t = Number(q.get('t') ?? 0);
 const paused = q.has('pause');
-ui.skip?.addEventListener('click', () => { if (t < T_LAND - 12) t = FLIGHT - 9; });
+ui.skip?.addEventListener('click', () => { if (t < FLIGHT - 7) t = FLIGHT - 7; });
 
 const CAPTIONS = [
   [0, '09:00, crew change day. The platform is dead ahead.'],
   [8, 'Drag to look around.'],
   [16, ''],
-  [T_LAND + 3, 'On the deck. Rotors running down.'],
-  [T_LAND + 9, ''],
-  [T_LAND + 34, 'Next: into the quarters and down to the control room.'],
+  [T_LAND + 1, 'On the deck. Rotors running down.'],
+  [T_LAND + 6, ''],
 ];
 
 // ---------------------------------------------------------------- frame
@@ -368,7 +368,7 @@ function step(dt) {
   const left = poseAt(t, dt || 0.016);
   if (left < GEAR_AT) heli.setGear(true);
   if (!landed && t >= T_LAND) { landed = true; heli.stop(); }
-  heli.setDoors(t >= T_LAND + 3.5);
+  heli.setDoors(t >= T_LAND + 1);
   heli.update(dt);
 
   // Left alone for a while, our eyes drift to the platform (when it's in reach)
@@ -405,7 +405,7 @@ function step(dt) {
   if (cut && !q.has('off')) {
     aimTo.copy(heliRoot.position).add(new THREE.Vector3(0, 2.0, 0));
     // Once they're off, pan with the passengers toward the quarters
-    aimTo.lerp(stairs, 0.35 * THREE.MathUtils.smoothstep(t - T_LAND, EXIT_AT + 3, EXIT_AT + 14));
+    aimTo.lerp(stairs, 0.35 * THREE.MathUtils.smoothstep(t - T_LAND, EXIT_AT + 2, EXIT_AT + 11));
     aim.lengthSq() ? aim.lerp(aimTo, Math.min(1, dt * 4)) : aim.copy(aimTo);
     deckCam.lookAt(aim);
     deckCam.fov = THREE.MathUtils.clamp(2 * THREE.MathUtils.radToDeg(Math.atan(14 / deckCam.position.distanceTo(aim))), 28, 55);
@@ -424,14 +424,14 @@ function step(dt) {
   sun.position.copy(heliRoot.position).addScaledVector(L.sunDir, 30);
   for (const m of glowing) if (m.name !== 'PlatFlare') m.emissiveIntensity = 0.05;
 
-  if (ui.clock) ui.clock.textContent = `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')} / ${Math.floor(T_LAND / 60)}:${String(Math.floor(T_LAND % 60)).padStart(2, '0')}`;
+  if (ui.clock) ui.clock.textContent = `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')} / ${Math.floor(T_END / 60)}:${String(Math.floor(T_END % 60)).padStart(2, '0')}`;
   if (ui.caption) {
     const c = CAPTIONS.filter(([at]) => t >= at).pop();
     if (ui.caption.dataset.text !== c[1]) { ui.caption.dataset.text = c[1]; ui.caption.textContent = c[1]; }
     ui.caption.classList.toggle('on', !!c[1]);
   }
-  if (ui.skip) ui.skip.hidden = t > FLIGHT - 10;
-  ui.end?.classList.toggle('on', t > T_LAND + 36);
+  if (ui.skip) ui.skip.hidden = t > FLIGHT - 8;
+  ui.end?.classList.toggle('on', t > T_END);
 
 }
 document.body.classList.add('ready');
@@ -441,4 +441,4 @@ window.intro = { advance(sec) { for (let k = 0; k < sec * 30; k++) step(1 / 30);
     poseAt(tt, 0.016); heliRoot.updateMatrixWorld(true);
     const v = heliRoot.worldToLocal(new THREE.Vector3(0, 40, 0)).sub(head.position);
     return [Math.round(THREE.MathUtils.radToDeg(Math.atan2(-v.z, v.x))), Math.round(THREE.MathUtils.radToDeg(Math.atan2(v.y, Math.hypot(v.x, v.z)))), Math.round(THREE.MathUtils.radToDeg(heliRoot.rotation.y)), heliRoot.position.toArray().map(Math.round).join(",")];
-  }, get t() { return t; }, set t(v) { t = v; }, FLIGHT, T_LAND, LENGTH, look, curve, passengers };
+  }, get t() { return t; }, set t(v) { t = v; }, FLIGHT, T_LAND, T_END, LENGTH, look, curve, passengers };
