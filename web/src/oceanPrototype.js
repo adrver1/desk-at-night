@@ -632,6 +632,43 @@ const clouds3dSky = mat(skyVertex, skyFragment(true), skyOpts);
 MATERIALS.b.sky = MATERIALS.c.sky = MATERIALS.a.sky;
 const rings = ringGrid();
 
+// Rain round the camera, wherever it is: outdoor.js fills a fixed box
+// outside the control room window. The drops are anchored to the world
+// (the box only decides which ones are drawn), so they don't slide when the
+// view moves; the control room can still clip its box to the outside.
+const RAIN_SIZE = [90, 50, 90];
+{
+  const n = outdoor.rain.geometry.getAttribute('seed').count / 2, seeds = new Float32Array(n * 8);
+  for (let i = 0; i < n; i++) {
+    const x = Math.random(), z = Math.random(), y = Math.random();
+    seeds.set([x, z, y, 0, x, z, y, 1], i * 8);
+  }
+  outdoor.rain.geometry.setAttribute('seed', new THREE.BufferAttribute(seeds, 4));
+  const ru = outdoor.rain.material.uniforms;
+  outdoor.rain.material = new THREE.ShaderMaterial({
+    vertexShader: /* glsl */ `
+      attribute vec4 seed;   // x, z, height (0..1), and 0/1 for the streak's top/bottom
+      uniform float uTime;
+      uniform vec3 uFall, uCenter;
+      varying float vFade;
+      const vec3 SIZE = vec3(${RAIN_SIZE.map((v) => v.toFixed(1)).join(', ')});
+      void main() {
+        vec3 lo = uCenter - SIZE * 0.5;
+        // where this drop is now: falling and blown, wrapped into the box
+        vec3 p = vec3(seed.x, seed.z, seed.y) * SIZE * 7.31 + uFall * uTime;
+        p = lo + mod(p - lo, SIZE);
+        p -= uFall * 0.07 * seed.w;   // the streak the eye sees while it falls
+        vec3 d = abs(p - uCenter) / (SIZE * 0.5);
+        vFade = 1.0 - smoothstep(0.7, 1.0, max(d.x, max(d.y, d.z)));
+        vFade *= smoothstep(1.0, 4.0, length(p - uCenter));   // not right in the eye
+        gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
+      }`,
+    fragmentShader: outdoor.rain.material.fragmentShader,
+    uniforms: { ...ru, uCenter: { value: new THREE.Vector3() } },
+    transparent: true, depthWrite: false,
+  });
+}
+
 let sea = null;
 function applyWeather() {
   const s = state;
@@ -963,6 +1000,7 @@ function frame(now) {
   scene.fog.color.copy(L.fog);
   scene.fog.density = Math.LN2 / L.fogDistance;
   U.uCamHeight.value = camera.position.y;
+  outdoor.rain.material.uniforms.uCenter.value.copy(camera.position);
   if (!probe.paused) {
     if (U.uMirrorOn.value) renderMirror();
     if (level().variant === 'c' && level().clouds) drawClouds();
