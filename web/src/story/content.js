@@ -44,10 +44,14 @@ export const SPEAKERS = {
 
 export const TITLE = 'A day in the life of EIGA';
 // TODO(Adriaen): credit wording and Brage's role
+// [role, name, who the camera turns to in the cabin, or 'descent' for the
+// outside camera as the helicopter comes down onto the deck]
 export const CREDITS = [
-  ['Story and engineering', 'Adriaen'],
-  ['With', 'Brage'],
-  ['Built with', 'Claude · GitHub Copilot'],
+  ['Story and engineering', 'Adriaen', 'bearded_operator'],
+  ['With', 'Brage', 'blazer_lead'],
+  // CC BY 3.0 asks for this line wherever the recording plays (see story/README.md)
+  ['Music · Wagner, Ride of the Valkyries', 'Philip Milman · CC BY 3.0', 'vessel'],
+  ['Built with', 'Claude · GitHub Copilot', 'descent'],
 ];
 
 export const ACTS = {
@@ -375,7 +379,7 @@ export const CHAPTERS = [
   },
   {
     key: 9, id: 'epilogue', name: 'Epilogue · The zoom out',
-    base: { act: 4, time: 21.0, shot: 'desk', ...DESK, graph: 5, graphOn: 'band', clipboard: null, stars: null, screens: { Wall0Screen: 'graph', Wall1Screen: 'graph', Wall2Screen: 'graph', Wall3Screen: 'graph', Wall4Screen: 'graph', Wall5Screen: 'graph', Wall6Screen: 'graph' } },
+    base: { act: 4, time: 22.0, shot: 'desk', ...DESK, graph: 5, graphOn: 'band', clipboard: null, stars: null, screens: { Wall0Screen: 'graph', Wall1Screen: 'graph', Wall2Screen: 'graph', Wall3Screen: 'graph', Wall4Screen: 'graph', Wall5Screen: 'graph', Wall6Screen: 'graph' } },
     beats: [
       { id: 'ep.zoom', set: { shot: 'epilogue' }, notes: 'The camera pulls back through the window to the platform at night, the graph glowing inside. Switch to PowerPoint from here.' },
       { id: 'ep.line', do: [{ say: 'a3.oim2' }], notes: 'Optional: the OIM\'s fourth-wall line, or say it yourself as the bridge into the mandate sheet.' },

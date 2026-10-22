@@ -956,7 +956,7 @@ export class Outdoor {
   // the scene. The renderer must have autoClear off. To the screen they are
   // drawn at half resolution in the current look (C or B); into a render
   // target (the CCTV pictures) at full resolution in B. `reflect`: a scene
-  // whose reflectable() objects the sea mirrors.
+  // (or a list of scenes) whose reflectable() objects the sea mirrors.
   render(renderer, camera, { reflect = null } = {}) {
     const out = renderer.getRenderTarget(), main = out === null;
     if (main) this.govern(performance.now());
@@ -1017,7 +1017,7 @@ export class Outdoor {
     renderer.shadowMap.autoUpdate = false;   // the main pass's shadows do
     renderer.setRenderTarget(target);
     renderer.clear();
-    renderer.render(scene, m);
+    for (const sc of [].concat(scene)) renderer.render(sc, m);   // one scene, or several (story mode's epilogue adds its own)
     renderer.setRenderTarget(out);
     renderer.clippingPlanes = planes;
     renderer.shadowMap.autoUpdate = shadows;

@@ -41,7 +41,9 @@ export class Sound {
     const dur = this.index[id]?.dur;
     const buf = this.ctx ? await this.buffer(id) : null;
     if (!buf) { await new Promise((r) => setTimeout(r, (dur ?? 3) * 1000)); return; }
-    return this.play(buf, gain);
+    this.duck(true);
+    await this.play(buf, gain);
+    this.duck(false);
   }
 
   play(buf, gain = 1) {
@@ -139,9 +141,10 @@ export class Sound {
     this.alarm = null;
   }
 
-  // A helicopter idling on the apron (Sola): low noise beating at the blade
-  // pass rate, fading to `level` over `fade` s; 0 stops it
-  rotor(level, fade = 1.5) {
+  // A helicopter's rotors: low noise beating at the blade pass rate. Heard
+  // from outside it thumps; inside the cabin it is a duller drone with the
+  // turbines' whine on top. Fades to `level` over `fade` s; 0 stops it
+  rotor(level, fade = 1.5, tone = 'outside') {
     if (!this.ctx) return;
     const ctx = this.ctx, t = ctx.currentTime;
     if (!this.rot && level > 0) {
@@ -150,26 +153,69 @@ export class Sound {
       const src = ctx.createBufferSource();
       src.buffer = buf; src.loop = true;
       const lp = ctx.createBiquadFilter();
-      lp.type = 'lowpass'; lp.frequency.value = 520;
+      lp.type = 'lowpass';
       const beat = ctx.createGain(), lfo = ctx.createOscillator(), depth = ctx.createGain();
-      beat.gain.value = 0.55; lfo.frequency.value = 22; depth.gain.value = 0.45;   // 5 blades at ~265 rpm
+      beat.gain.value = 0.55; lfo.frequency.value = 22;   // 5 blades at ~265 rpm
       lfo.connect(depth).connect(beat.gain);
+      const whine = ctx.createOscillator(), whineGain = ctx.createGain();
+      whine.frequency.value = 1180; whineGain.gain.value = 0;
+      whine.connect(whineGain);
       const bus = ctx.createGain();
       bus.gain.value = 0;
-      src.connect(lp).connect(beat).connect(bus).connect(this.out);
-      src.start(); lfo.start();
-      this.rot = { src, lfo, bus };
+      src.connect(lp).connect(beat).connect(bus);
+      whineGain.connect(bus);
+      bus.connect(this.out);
+      src.start(); lfo.start(); whine.start();
+      this.rot = { src, lfo, whine, lp, depth, whineGain, bus };
     }
     if (!this.rot) return;
-    const g = this.rot.bus.gain;
-    g.cancelScheduledValues(t);
-    g.setValueAtTime(g.value, t);
-    g.linearRampToValueAtTime(level, t + fade);
+    const r = this.rot, ramp = (param, v) => { param.cancelScheduledValues(t); param.setValueAtTime(param.value, t); param.linearRampToValueAtTime(v, t + fade); };
+    const inside = tone === 'inside';
+    ramp(r.lp.frequency, inside ? 340 : 900);
+    ramp(r.depth.gain, inside ? 0.2 : 0.5);
+    ramp(r.whineGain.gain, inside ? 0.012 : 0.004);
+    ramp(r.bus.gain, level);
     if (level <= 0) {
-      const r = this.rot;
       this.rot = null;
-      setTimeout(() => { try { r.src.stop(); r.lfo.stop(); } catch { /* gone */ } r.bus.disconnect(); }, fade * 1000 + 100);
+      setTimeout(() => { try { r.src.stop(); r.lfo.stop(); r.whine.stop(); } catch { /* gone */ } r.bus.disconnect(); }, fade * 1000 + 100);
     }
+  }
+
+  // Music under a scene (the flight's): a file that may not be there yet,
+  // in which case nothing plays. Ducks under the spoken lines (line())
+  async music(url, level = 0.35) {
+    if (!this.ctx) return;
+    this.stopMusic();
+    const my = this.musicToken = (this.musicToken ?? 0) + 1;
+    const buf = await fetch(url).then((r) => (r.ok ? r.arrayBuffer() : null)).then((b) => b && this.ctx.decodeAudioData(b)).catch(() => null);
+    if (!buf || my !== this.musicToken) return;
+    const src = this.ctx.createBufferSource(), g = this.ctx.createGain();
+    src.buffer = buf;
+    g.gain.setValueAtTime(0, this.ctx.currentTime);
+    g.gain.linearRampToValueAtTime(level, this.ctx.currentTime + 2);
+    src.connect(g).connect(this.out);
+    src.start();
+    this.mus = { src, g, level };
+  }
+
+  duck(on) {
+    if (!this.mus) return;
+    const t = this.ctx.currentTime, gn = this.mus.g.gain;
+    gn.cancelScheduledValues(t);
+    gn.setValueAtTime(gn.value, t);
+    gn.linearRampToValueAtTime(this.mus.level * (on ? 0.35 : 1), t + 0.4);
+  }
+
+  stopMusic(fade = 1.5) {
+    this.musicToken = (this.musicToken ?? 0) + 1;
+    const m = this.mus;
+    if (!m) return;
+    this.mus = null;
+    const t = this.ctx.currentTime;
+    m.g.gain.cancelScheduledValues(t);
+    m.g.gain.setValueAtTime(m.g.gain.value, t);
+    m.g.gain.linearRampToValueAtTime(0, t + fade);
+    setTimeout(() => { try { m.src.stop(); } catch { /* gone */ } }, fade * 1000 + 100);
   }
 
   // Everything off at once: the hard cut to silence, or leaving a beat

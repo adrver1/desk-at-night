@@ -234,7 +234,7 @@ people.forEach((gltf, i) => {
   shade(0.7);  // in the cabin the sky only reaches them through the windows
   const bones = {};
   p.traverse((o) => { if (o.isBone) bones[o.name] = o; });
-  Object.assign(p.userData, { mixer, act, shade, seat: s.clone(), face, bones, duck: 0, ducked: 0, grab: false, grabbed: 0,
+  Object.assign(p.userData, { cast: CAST[i], mixer, act, shade, seat: s.clone(), face, bones, duck: 0, ducked: 0, grab: false, grabbed: 0,
     hipsUp: bones.hips ? bones.hips.position.clone().normalize() : new THREE.Vector3(0, 1, 0),
     state: 'seated', blinkAt: Math.random() * 4 });
   heliRoot.add(p);
@@ -693,8 +693,16 @@ function step(dt) {
   heli.setDoors(t >= T_LAND + 1);
   heli.update(dt);
 
-  // Left alone for a while, our eyes drift to the platform (when it's in reach)
-  if (!cut && t - touched > 5) {
+  // Story mode can steer our eyes (window.intro.aim: a function giving a
+  // world point, or null); they turn there slowly, so focus changes glide
+  const steer = !cut && t - touched > 2 && window.intro?.aim?.();
+  if (steer) {
+    heliRoot.updateMatrixWorld(true);
+    const v = heliRoot.worldToLocal(steer.clone()).sub(head.position);
+    const k = Math.min(1, dt * 1.6);
+    look.toYaw += (THREE.MathUtils.clamp(Math.atan2(-v.z, v.x), ...YAW) - look.toYaw) * k;
+    look.toPitch += (THREE.MathUtils.clamp(Math.atan2(v.y, Math.hypot(v.x, v.z)), ...PITCH) - look.toPitch) * k;
+  } else if (!cut && t - touched > 5) {   // left alone for a while, our eyes drift to the platform (when it's in reach)
     heliRoot.updateMatrixWorld(true);
     const v = heliRoot.worldToLocal(PLATFORM_EYE.clone()).sub(head.position);
     const yaw = Math.atan2(-v.z, v.x), pitch = Math.atan2(v.y, Math.hypot(v.x, v.z));
@@ -799,4 +807,5 @@ window.intro = { advance(sec) { for (let k = 0; k < sec * 30; k++) step(1 / 30);
     poseAt(tt, 0.016); heliRoot.updateMatrixWorld(true);
     const v = heliRoot.worldToLocal(new THREE.Vector3(0, 40, 0)).sub(head.position);
     return [Math.round(THREE.MathUtils.radToDeg(Math.atan2(-v.z, v.x))), Math.round(THREE.MathUtils.radToDeg(Math.atan2(v.y, Math.hypot(v.x, v.z)))), Math.round(THREE.MathUtils.radToDeg(heliRoot.rotation.y)), heliRoot.position.toArray().map(Math.round).join(",")];
-  }, get t() { return t; }, set t(v) { t = v; }, FLIGHT, T_LAND, T_END, LENGTH, heli: heliRoot, look, curve, passengers };
+  }, get t() { return t; }, set t(v) { t = v; }, get cut() { return cut; }, FLIGHT, T_LAND, T_END, LENGTH, heli: heliRoot, look, curve, passengers,
+  pilots: pilots.map((m) => m.getRoot()), vessel: vessel?.scene ?? null, aim: null };
