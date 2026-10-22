@@ -1,8 +1,8 @@
 {
-  "scaleCeiling": 1.5456974506378174,
-  "scaleScreens": 0.2806808650493622,
-  "scaleSky": 0.5598432421684265,
-  "seaLevel": -49.7,
+  "scaleCeiling": 1.5458691120147705,
+  "scaleScreens": 0.2781735956668854,
+  "scaleSky": 0.5612779855728149,
+  "seaLevel": -52.7,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
   "samples": 128,
@@ -75,7 +75,7 @@
     "floorlamp": {
       "map": "light_floorlamp.png",
       "body": "FloorLamp",
-      "scale": 2.0836944580078125
+      "scale": 2.2771620750427246
     }
   },
   "boards": {

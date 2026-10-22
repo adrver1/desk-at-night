@@ -57,7 +57,7 @@ DECK_BOT, CELLAR = 22.0, 24.5          # underside and top of the cellar deck pl
 MEZZ, LOWER_TOP = 31.5, 39.5           # open storeys of the process block
 PROC_TOP = 52.5                         # process module roof
 NOTCH_TOP = LOWER_TOP + 0.5             # laydown deck over the lower block, also the crane's footing
-UTIL_TOP, LQ_TOP = 32.0, 53.0           # utility module roof = quarters floor; quarters roof
+UTIL_TOP, LQ_TOP = 32.0, 56.0           # utility module roof = quarters floor; quarters roof
 PLANT_TOP = 57.0                        # clad plant module between the crane and the quarters
 TOP_X, TOP_Y = 54.0, 19.0               # topsides half extents: 108 x 38 m
 
@@ -68,20 +68,29 @@ LQ_X0, LQ_X1, LQ_Y = 31.0, 49.0, 18.5   # quarters block
 END_X0 = 49.0                           # end tower, full height
 
 # Jacket: centred toward the flare end, four sturdy legs with a slight batter
-JACKET_X = -7.0
-LEG_TOP, LEG_BASE, LEG_R = (20.5, 16.0), (25.0, 21.0), 1.5
+JACKET_X = -4.5
+LEG_TOP, LEG_BASE, LEG_R = (19.5, 16.0), (24.0, 21.0), 1.5
 JACKET_LEVELS = (20.5, 16.0, 6.0, -14.0, -38.0, -62.0, -87.0, SEABED)  # horizontal frames
 
+# Which quarters end goes in the scene, kept as a library:
+#   "terraced"  lower storeys stepped out with a terrace, an open steel end
+#               frame between two corner columns, the helideck on a real truss
+#   "box"       the same massing as before with the end frame and the
+#               helideck truss painted on (fewer triangles)
+#   "v5"        the plain block of PR #43
+QUARTERS = "terraced"
+
 # Helideck: octagon on a deep truss, overhanging the quarters end at roof height
-HELI_Z, HELI_R, HELI_X = 54.5, 11.5, 57.5
+HELI_Z, HELI_R, HELI_X = 57.5, 11.5, 65.5
 
 # Flare boom: two Warren trusses, deep at the root, meeting at the tip
 FLARE_ROOT_TOP, FLARE_ROOT_BOT = Vector((-TOP_X, 0, 52.0)), Vector((-TOP_X + 3, 0, 25.0))
 FLARE_TIP = Vector((-96.0, 0, 115.0))
 
 # The crane pedestal, between the laydown deck and the plant module
-CRANE_X, CRANE_Y = 8.5, -13.0
-CRANE_RING = UTIL_TOP + 27.6            # top of its slewing ring: the pivot of the part that turns
+CRANE_X, CRANE_Y = 5.0, -13.0           # on the stair tower
+CRANE_RING = 61.6                       # top of its slewing ring: the pivot of the part that turns
+CRANE_BOOM = 61.0                       # boom length, level when stowed
 CRANE_SLEW = "CraneSlew"                # that part's object name with build_platform(crane_slew=True)
 
 # Wellbay under the laydown deck, inside the jacket
@@ -281,7 +290,7 @@ def materials(textured=True):
         "dark": b.mat_flat("PlatDark", (0.24, 0.25, 0.26), 0.6),          # stair tower, cab glass
         "brown": b.mat_flat("PlatBrown", (0.30, 0.13, 0.08), 0.6),        # exhaust duct, containers
         "lq": b.mat_flat("PlatQuarters", (0.70, 0.71, 0.72), 0.6),
-        "boat": b.mat_flat("PlatBoat", (0.80, 0.33, 0.06), 0.5),          # free-fall lifeboat
+        "boat": b.mat_flat("PlatBoat", (0.90, 0.22, 0.02), 0.5),          # free-fall lifeboat
         "glass": b.mat_flat("PlatGlass", (0.04, 0.05, 0.06), 0.2),
         "equip": b.mat_flat("PlatEquip", (0.30, 0.38, 0.42), 0.5),        # vessels, pipework
         "heli": b.mat_flat("PlatHelideck", (0.25, 0.26, 0.27), 0.8),
@@ -561,6 +570,34 @@ def build_quarters(g, m):
     g.span(m["module"], px0, x0 - 0.1, -TOP_Y + 0.5, TOP_Y - 0.5, UTIL_TOP + 0.08, PLANT_TOP)
     for s, yy in ((-1, -TOP_Y + 0.5), (1, TOP_Y - 0.5)):
         facade(g, m, ("y", yy), s, px0 + 0.5, x0 - 0.6, UTIL_TOP + 0.08, PLANT_TOP, 6, 3, "|", w=0.35)
+    if QUARTERS == "v5":
+        _quarters_v5(g, m)
+    else:
+        _quarters(g, m, QUARTERS == "terraced")
+    # Plant on the roofs: a grey mass over the plant module and the back of
+    # the quarters, two exhaust stacks, a radome on each end corner
+    g.span(m["module"], px0 + 3, x0 + 8, 0, TOP_Y - 2, PLANT_TOP, PLANT_TOP + 4)
+    g.span(m["module"], x0 + 1, x0 + 9, -14, -8, LQ_TOP, LQ_TOP + 2.5)
+    for xx in (19.0, 23.0):
+        g.tube(m["steel"], (xx, -6, PLANT_TOP), (xx, -6, PLANT_TOP + 5.7), 1.3, 10)
+    for yy in (-16.5, 16.5):
+        g.tube(m["white"], (TOP_X - 1.5, yy, LQ_TOP + 1), (TOP_X - 1.5, yy, LQ_TOP + 3.4), 1.6, 8, r1=1.0)
+    # Exhaust: a white lattice tower with a dark stack, the highest point but the flare
+    g.lattice(m["white"], (28.5, 10, PLANT_TOP + 4), (28.5, 10, 72.0), 3.6, 3.0, 3.4, 0.25)
+    g.tube(m["dark"], (28.5, 10, 70.0), (28.5, 10, 74.0), 0.9, 8)
+    g.tube(m["brown"], (22, 6, PLANT_TOP + 4), (27, 9.5, PLANT_TOP + 6), 0.9, 8)
+    g.prism(m["red"], (28.5, 10), 0.4, 74.0, 74.8, 6)
+    g.prism(m["red"], (TOP_X - 1, -TOP_Y + 1), 0.4, LQ_TOP + 1.2, LQ_TOP + 1.9, 6)
+
+    if QUARTERS == "v5":
+        _helideck_v5(g, m)
+    else:
+        _helideck(g, m, QUARTERS == "terraced")
+
+
+def _quarters_v5(g, m):
+    """The quarters as one plain block with a full-width end tower (PR #43)."""
+    x0, x1, y = LQ_X0, LQ_X1, LQ_Y
     # Quarters: the full width of the topsides, roof level with the process roof
     g.span(m["lq"], x0, x1, -y, y, UTIL_TOP, LQ_TOP)
     # End tower: full height, from under the deck to the roof
@@ -591,22 +628,10 @@ def build_quarters(g, m):
             rect(g, m["window" if rng.random() < 0.4 else "glass"], ("y", y), 1, wx, wx + 1.3, z, z + 1.8)
     # Rescue boat in its davit on the -Y face
     g.box(m["orange"], (x0 + 6, -TOP_Y - 0.9, UTIL_TOP + 3.0), (5.0, 2.0, 1.6))
-    # Plant on the roofs: a grey mass over the plant module and the back of
-    # the quarters, two exhaust stacks, a radome on each end corner
-    g.span(m["module"], px0 + 3, x0 + 8, 0, TOP_Y - 2, PLANT_TOP, PLANT_TOP + 4)
-    g.span(m["module"], x0 + 1, x0 + 9, -14, -8, LQ_TOP, LQ_TOP + 2.5)
-    for xx in (19.0, 23.0):
-        g.tube(m["steel"], (xx, -6, PLANT_TOP), (xx, -6, PLANT_TOP + 5.7), 1.3, 10)
-    for yy in (-16.5, 16.5):
-        g.tube(m["white"], (TOP_X - 1.5, yy, LQ_TOP + 1), (TOP_X - 1.5, yy, LQ_TOP + 3.4), 1.6, 8, r1=1.0)
-    # Exhaust: a white lattice tower with a dark stack, the highest point but the flare
-    g.lattice(m["white"], (28.5, 10, PLANT_TOP + 4), (28.5, 10, 72.0), 3.6, 3.0, 3.4, 0.25)
-    g.tube(m["dark"], (28.5, 10, 70.0), (28.5, 10, 74.0), 0.9, 8)
-    g.tube(m["brown"], (22, 6, PLANT_TOP + 4), (27, 9.5, PLANT_TOP + 6), 0.9, 8)
-    g.prism(m["red"], (28.5, 10), 0.4, 74.0, 74.8, 6)
-    g.prism(m["red"], (TOP_X - 1, -TOP_Y + 1), 0.4, LQ_TOP + 1.2, LQ_TOP + 1.9, 6)
 
-    # Helideck: grey octagon just above the roof, overhanging the end on a deep truss
+
+def _helideck_v5(g, m):
+    """The smaller helideck of PR #43 on its two raking struts."""
     hz, hx, r = HELI_Z, HELI_X, HELI_R
     g.prism(m["heli"], (hx, 0), r, hz - 1.2, hz, 8, math.pi / 8)
     g.prism(m["steel"], (hx, 0), r + 1.3, hz - 1.6, hz - 1.3, 8, math.pi / 8)  # safety net shelf
@@ -625,6 +650,175 @@ def build_quarters(g, m):
     for i in range(8):
         a = math.pi / 8 + 2 * math.pi * i / 8
         g.prism(m["lamp"], (hx + (r - 0.3) * math.cos(a), (r - 0.3) * math.sin(a)), 0.25, hz, hz + 0.3, 6)
+
+
+def _image_mat(m, key, name, path):
+    """A material showing one image through the mesh's own UVs (Mesh.add uv=),
+    made once per key, like the name boards'."""
+    if key not in m:
+        mat, _, bsdf = b._new_mat(name)
+        img = mat.node_tree.nodes.new("ShaderNodeTexImage")
+        img.image = bpy.data.images.load(path, check_existing=True)
+        mat.node_tree.links.new(img.outputs["Color"], bsdf.inputs["Base Color"])
+        bsdf.inputs["Roughness"].default_value = 0.7
+        m[key] = mat
+    return m[key]
+
+
+def _boat(g, m, a, c, r, mat=None, canopy=None):
+    """A lifeboat or rescue boat from stern a to bow c: a tapering hull with
+    a canopy along the top (all orange on a free-fall lifeboat)."""
+    a, c = Vector(a), Vector(c)
+    mat = mat or m["boat"]
+    g.tube(mat, a, c, r, 8, caps=True, r1=r * 0.55)
+    up = (c - a).normalized().cross(Vector((0, 1, 0))).normalized() * -r * 0.75
+    if up.z < 0:
+        up = -up
+    g.tube(canopy or mat, a.lerp(c, 0.1) + up, a.lerp(c, 0.75) + up, r * 0.55, 6, caps=True, r1=r * 0.4)
+
+
+def _quarters(g, m, terraced):
+    """The quarters as on the photos and the top view: a clad block with
+    small paired cabin windows, two white corner columns at the end carrying
+    the helideck's struts and the radio dishes, and between them the end bay
+    with the two free-fall lifeboats under the name board. terraced builds
+    the two lowest storeys out over the -Y edge with a terrace on top, and
+    the end bay as open steel framing with a walkway every storey; otherwise
+    the end bay is clad and the same reads from the texture."""
+    x0, x1, y = LQ_X0, LQ_X1, LQ_Y
+    storey = (LQ_TOP - UTIL_TOP) / 7
+    ex = TOP_X + 0.3                    # outer face of the end columns
+    cw = 6.0                            # corner column width
+    g.span(m["lq"], x0, x1, -y, y, UTIL_TOP, LQ_TOP)
+    for s in (-1, 1):
+        g.span(m["lq"], END_X0, ex, *sorted((s * (TOP_Y + 0.25), s * (TOP_Y - cw))), DECK_BOT - 2, LQ_TOP - 0.2)
+        for zz in (40.0, 48.0):  # radio dishes on the columns' outer face
+            g.tube(m["white"], (ex - 2.5, s * (TOP_Y + 0.25), zz), (ex - 2.5, s * (TOP_Y + 1.1), zz), 1.3, 10)
+    bay = TOP_Y - cw                    # the end bay spans y -bay..bay
+    face_y = -y                         # where the -Y cabin windows sit, storey by storey
+    if terraced:
+        # The two lowest storeys come out to the edge; a terrace on top with
+        # a rail and a row of containers
+        ty = -TOP_Y - 2.0
+        tz = UTIL_TOP + 2 * storey
+        g.span(m["lq"], x0, END_X0, ty, -y, UTIL_TOP, tz)
+        g.beam(m["white"], (x0, ty + 0.1, tz + 1.1), (END_X0, ty + 0.1, tz + 1.1), 0.12)
+        for xx in (x0 + 0.2, END_X0 - 0.2):
+            g.beam(m["white"], (xx, ty + 0.1, tz), (xx, ty + 0.1, tz + 1.1), 0.12)
+        for xx, mat in ((x0 + 4.0, "orange"), (x0 + 10.4, "orange"), (x0 + 16.8, "equip")):
+            g.box(m[mat], (xx, -y - 1.6, tz + 1.3), (6.0, 2.4, 2.6), sides="-x+x-y+z")
+        # End bay: open framing in front of the clad end wall, a walkway
+        # plate every storey
+        facade(g, m, ("x", ex), 1, -bay, bay, DECK_BOT, LQ_TOP - 0.2, 4, 7, "|X|K", w=0.45)
+        for k in range(1, 8):
+            zz = UTIL_TOP + (k - 4) * storey
+            if zz > DECK_BOT + 1:
+                g.span(m["steel"], END_X0, ex, -bay, bay, zz - 0.2, zz)
+                g.beam(m["white"], (ex - 0.2, -bay, zz + 1.1), (ex - 0.2, bay, zz + 1.1), 0.1)
+    else:
+        g.span(m["lq"], END_X0, ex - 0.6, -bay, bay, DECK_BOT - 2, LQ_TOP - 0.2)
+    name_board(g, m, ("x", ex), 1, 0.0, 39.3, 11.6, 2.6, ("IVAR AASEN", "16/1-D AKER BP"))  # over the lifeboats
+    # Two free-fall lifeboats side by side in a white frame, sloping steeply
+    # out of the end bay under the name board
+    for yy in (-5.4, 0.0, 5.4):
+        g.beam(m["white"], (ex + 0.4, yy, DECK_BOT), (ex + 0.4, yy, 37.2), 0.5)
+    g.beam(m["white"], (ex + 0.4, -5.4, 37.2), (ex + 0.4, 5.4, 37.2), 0.6)
+    d = Vector((math.cos(math.radians(45)), 0, -math.sin(math.radians(45))))
+    n = Vector((-d.z, 0, d.x))
+    for yy in (-2.7, 2.7):
+        a = Vector((TOP_X - 4.0, yy, 33.0))
+        g.beam(m["white"], a, a + d * 11.5, 0.4, caps=True)
+        _boat(g, m, a + n * 1.9, a + n * 1.9 + d * 10.5, 1.75)
+    # Cabin windows: small, in pairs, every storey above the terrace on -Y;
+    # fewer on +Y beside the escape stair
+    rng = random.Random(7)  # which cabins have the light on at night
+    pairs = [x0 + 1.5 + i * 4.2 for i in range(4)]
+    for f in range(7):
+        z = UTIL_TOP + f * storey + 1.0
+        fy = (-TOP_Y - 2.0) if terraced and f < 2 else face_y
+        for px in pairs:
+            for wx in (px, px + 1.6):
+                rect(g, m["window" if rng.random() < 0.4 else "glass"], ("y", fy), -1, wx, wx + 1.0, z, z + 1.2)
+        for wx in (x0 + 13, x0 + 14.6):
+            rect(g, m["window" if rng.random() < 0.4 else "glass"], ("y", y), 1, wx, wx + 1.0, z, z + 1.2)
+    # +Y face: plain, with the white cage of the external escape stair
+    facade(g, m, ("y", y), 1, x0 + 1, x0 + 12, UTIL_TOP, LQ_TOP, 3, 6, "|", w=0.4)
+    # Rescue boat hanging in its davit on the -Y face, below the terrace
+    by = (-TOP_Y - 2.0 if terraced else -TOP_Y) - 1.4
+    g.beam(m["white"], (x0 + 3.0, by + 1.2, UTIL_TOP + 4.5), (x0 + 3.0, by, UTIL_TOP + 4.5), 0.3)
+    g.beam(m["white"], (x0 + 9.0, by + 1.2, UTIL_TOP + 4.5), (x0 + 9.0, by, UTIL_TOP + 4.5), 0.3)
+    _boat(g, m, (x0 + 3.0, by, UTIL_TOP + 2.5), (x0 + 9.0, by, UTIL_TOP + 2.5), 1.0, m["orange"], m["white"])
+
+
+def _helideck(g, m, beams):
+    """Helideck as on the top view: an octagon out past the end, its deck
+    running on level back over the quarters' roof, on a deep truss with two pairs of raking struts down to the corner
+    columns. beams builds the truss from members; otherwise it is a solid
+    octagonal frustum with the bracing painted on (platform_textures.truss)."""
+    hz, hx, r = HELI_Z, HELI_X, HELI_R
+    rot = math.pi / 8
+    # The deck: the octagon's outer five sides, then on level back over the
+    # quarters' roof as wide as it is across the flats; the safety net shelf
+    # follows the same outline 1.3 m out
+    x0 = LQ_X1 + 1.5
+
+    def outline(rr, z0, z1, mat):
+        ring = [(x0, -rr * math.cos(rot))]
+        for k in range(-3, 3):
+            a = rot + k * math.pi / 4
+            ring.append((hx + rr * math.cos(a), rr * math.sin(a)))
+        ring.append((x0, rr * math.cos(rot)))
+        n = len(ring)
+        vs = [Vector((x, y, z0)) for x, y in ring] + [Vector((x, y, z1)) for x, y in ring]
+        fs = [(i, (i + 1) % n, n + (i + 1) % n, n + i) for i in range(n)]
+        g.add(mat, vs, fs + [tuple(reversed(range(n))), tuple(range(n, 2 * n))])
+
+    outline(r, hz - 1.0, hz, m["heli"])
+    outline(r + 1.3, hz - 1.4, hz - 1.1, m["steel"])
+    half = r * math.cos(rot)
+    for s in (-1, 1):
+        g.beam(m["white"], (TOP_X + 0.3, s * (half - 0.3), hz - 4.5), (x0, s * (half - 0.3), hz - 1.0), 0.4)
+    g.ring(m["mark"], (hx, 0), r * 0.42, r * 0.50, hz + 0.03, 20)
+    for c, s in (((hx, -1.6, hz + 0.04), (4.0, 0.7, 0.04)), ((hx, 1.6, hz + 0.04), (4.0, 0.7, 0.04)),
+                 ((hx, 0, hz + 0.04), (0.7, 3.2, 0.04))):
+        g.box(m["white"], c, s)
+    g.box(m["dark"], (hx + r * 0.8, 0, hz + 0.04), (1.0, 5, 0.06))  # name panel
+    lamps = [(hx + (r - 0.3) * math.cos(rot + k * math.pi / 4), (r - 0.3) * math.sin(rot + k * math.pi / 4)) for k in range(-3, 3)]
+    for c in lamps + [(x0 + 0.3, -half + 0.3), (x0 + 0.3, half - 0.3)]:
+        g.prism(m["lamp"], c, 0.25, hz, hz + 0.3, 6)
+    # The truss under it: top ring under the deck, a smaller ring 3.5 m lower
+    zt, zb, rb = hz - 1.0, hz - 4.5, r * 0.8
+    top = [Vector((hx + r * math.cos(rot + 2 * math.pi * i / 8), r * math.sin(rot + 2 * math.pi * i / 8), zt)) for i in range(8)]
+    bot = [Vector((hx + rb * math.cos(rot + 2 * math.pi * i / 8), rb * math.sin(rot + 2 * math.pi * i / 8), zb)) for i in range(8)]
+    out = [i for i in range(8) if (top[i].x + top[(i + 1) % 8].x) / 2 > TOP_X + 1]  # faces not inside the quarters
+    if beams:
+        for i in out:
+            j = (i + 1) % 8
+            g.beam(m["white"], bot[i], bot[j], 0.45)
+            g.beam(m["white"], top[i], bot[i], 0.35)
+            g.beam(m["white"], top[j], bot[j], 0.35)
+            g.beam(m["white"], top[i], bot[j], 0.3)
+            g.beam(m["white"], bot[i], top[i].lerp(top[j], 0.5), 0.3)
+        for i in (out[0], out[len(out) // 2], out[-1]):  # cross beams under the deck
+            g.beam(m["white"], bot[i], Vector((hx, 0, zb)), 0.45)
+    else:
+        mat = _image_mat(m, ("truss",), "PlatTruss", tex.truss())
+        vs, fs, uv = [], [], []
+        for i in out:
+            j = (i + 1) % 8
+            k = len(vs)
+            vs += [bot[i], bot[j], top[j], top[i]]
+            uv += [(0, 0), (1, 0), (1, 1), (0, 1)]
+            fs.append((k, k + 1, k + 2, k + 3))
+        g.add(mat, vs, fs, uv=uv)
+        g.add(m["dark"], bot, [tuple(reversed(range(8)))])
+    # Raking struts: from the corner columns a few storeys down, out to the
+    # truss's lower ring, a pair on each side
+    for s in (-1, 1):
+        foot = Vector((TOP_X + 0.3, s * (TOP_Y - 3.0), hz - 15.0))
+        g.beam(m["white"], foot, Vector((hx + r * 0.45, s * r * 0.55, zb)), 0.9)
+        g.beam(m["white"], foot, Vector((TOP_X + 4.0, s * (TOP_Y - 4.5), zb)), 0.7)
+        g.beam(m["white"], Vector((TOP_X + 0.3, s * (TOP_Y - 3.0), zb)), Vector((hx + r * 0.45, s * r * 0.55, zb)), 0.6)
 
 
 def truss_plane(g, mat, top0, top1, bot0, bot1, n, w):
@@ -677,7 +871,7 @@ def build_crane(g, m, base, ped_h, yaw, luff, boom_len, rest=None, slew=None):
     yellow lattice A-frame, and a long red lattice boom hung from it on
     pendants. yaw is the boom direction in plan, luff its angle above
     horizontal (negative dips toward the tip). rest = (x, y, z0) puts a boom
-    rest under the tip, standing on z0. slew is a separate Mesh for what
+    rest under the boom at (x, y), standing on z0. slew is a separate Mesh for what
     turns on the slewing ring (house, cab, A-frame, boom), so it can be
     exported as its own object; by default it all goes into g."""
     x, y, z = base
@@ -719,7 +913,7 @@ def build_crane(g, m, base, ped_h, yaw, luff, boom_len, rest=None, slew=None):
     g.prism(m["red"], (m1.x, m1.y), 0.3, m1.z + 0.8, m1.z + 1.4, 6)
     if rest:
         rx, ry, rz = rest
-        top = tip - dirv * 3.0 - up * 1.4
+        top = foot + dirv * (Vector((rx, ry, rz)) - foot).dot(dirv) - up * 1.4  # under the boom, over the feet
         for sgn in (-1, 1):
             fixed.beam(m["white"], Vector((rx, ry, rz)) + side * sgn * 2.0, top + side * sgn * 0.8, 0.35)
         fixed.beam(m["white"], top - side * 1.2, top + side * 1.2, 0.4)
@@ -732,17 +926,18 @@ def build_cranes(g, m, slew=None, lift=None):
     rest. lift = (x, y, z) swings it out instead and lowers the hook to that
     point with a container slung under it, as when unloading a supply vessel;
     (x, y, z, False) leaves the hook empty, waiting for one."""
-    base = (CRANE_X, CRANE_Y, CRANE_RING - 27.5)
+    base = (CRANE_X, CRANE_Y, NOTCH_TOP)
+    ped_h = CRANE_RING - NOTCH_TOP
     if not lift:
-        build_crane(g, m, base, 27.5, math.radians(180), math.radians(-3.0), 58,
-                    rest=(-49.5, CRANE_Y, PROC_TOP + 0.6), slew=slew)
+        build_crane(g, m, base, ped_h, math.radians(180), 0.0, CRANE_BOOM,
+                    rest=(-42.5, CRANE_Y, PROC_TOP + 0.6), slew=slew)
         return
     hx, hy, hz = lift[:3]
     load = lift[3] if len(lift) > 3 else True
     yaw = math.atan2(hy - CRANE_Y, hx - CRANE_X)
     reach = math.hypot(hx - CRANE_X, hy - CRANE_Y) - 3.2       # from the boom foot
-    luff = math.acos(min(1.0, reach / 58))
-    tip = build_crane(g, m, base, 27.5, yaw, luff, 58, slew=slew)
+    luff = math.acos(min(1.0, reach / CRANE_BOOM))
+    tip = build_crane(g, m, base, ped_h, yaw, luff, CRANE_BOOM, slew=slew)
     hang = slew or g
     hook = Vector((tip.x, tip.y, hz))
     hang.beam(m["steel"], tip, hook + Vector((0, 0, 3.2)), 0.08)            # hoist wire
