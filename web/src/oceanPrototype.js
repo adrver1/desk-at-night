@@ -173,7 +173,7 @@ const common = /* glsl */ `
   uniform vec3 uZenith, uHorizon, uSunColor, uSunDir, uMoonDir, uMoonColor, uFogColor;
   uniform float uClouds, uFog, uStars, uTime, uMoonShow, uMoonPhase, uCamHeight, uRainRate, uWindSpeed;
   uniform float uCloudBase, uCloudTop, uStratus, uMss, uRipple;
-  uniform vec2 uNoiseSlope;
+  uniform vec2 uNoiseSlope, uFoamStyle;
   uniform vec2 uCloudShift, uWindDir;
   uniform sampler2D uNoise;
   uniform vec4 uWave[${NW}];
@@ -503,10 +503,11 @@ const oceanFragment = (reflect) => /* glsl */ `
     float groups = smoothstep(0.42, 0.62, tn(vFlat / 90.0 - uWindDir * uTime * 0.004).g);   // where waves break together
     // A crest breaks over a few metres to a few tens, not along its whole
     // length: a mask fine across the wind (along the crest) cuts it short
-    float pieces = smoothstep(0.5, 0.68, tn(aw / vec2(45.0, 11.0) + vec2(uTime * 0.01, 0.0)).b);
+    // uFoamStyle.x: how far a break runs along the crest (0 short, 1 long)
+    float pieces = smoothstep(mix(0.5, 0.4, uFoamStyle.x), 0.68, tn(aw / vec2(45.0, mix(11.0, 40.0, uFoamStyle.x)) + vec2(uTime * 0.01, 0.0)).b);
     float cap = smoothstep(uFoamJ + 0.06, uFoamJ - 0.1, jac + (breakup - 0.5) * 0.3) * groups * pieces;
     vec2 aww = aw + (tn(aw / 260.0).rg - 0.5) * vec2(40.0, 14.0);   // streaks wander
-    float streak = mix(0.2, 0.5, smoothstep(17.0, 25.0, uWindSpeed)) * smoothstep(13.0, 18.0, uWindSpeed)
+    float streak = uFoamStyle.y * mix(0.2, 0.5, smoothstep(17.0, 25.0, uWindSpeed)) * smoothstep(13.0, 18.0, uWindSpeed)
                  * smoothstep(0.58, 0.8, tn(aww / vec2(220.0, 14.0)).g * 0.75 + tn(aww / vec2(60.0, 5.0)).b * 0.25);
     float near = 1.0 - smoothstep(2.0, 15.0, footprint);
     float foam = max(cap, streak) * near * (0.75 + 0.25 * tn(vFlat / 1.7).b);
@@ -588,6 +589,7 @@ const state = {
   windFrom: Number(q.get('windFrom') ?? 225), swellFrom: Number(q.get('swellFrom') ?? 330), swellPeriod: 10,
   ...PRESETS[preset],
   frozen: q.has('t'),
+  foam: q.get('foam') ?? 'crests',
 };
 for (const k of ['wind', 'clouds', 'fog', 'rain', 'swellHs']) if (q.has(k)) state[k] = Number(q.get(k));
 
@@ -614,6 +616,7 @@ Object.assign(U, {
   uNoise: { value: noiseTexture() }, uCamHeight: { value: 0 }, uSeaLevel: { value: 0 },
   uMirror: { value: null }, uMirrorMatrix: { value: new THREE.Matrix4() }, uMirrorOn: { value: 0 },
   uWave: { value: waveU }, uWaveQ: { value: waveQ }, uFoamJ: { value: -10 }, uWhitecaps: { value: 0 },
+  uFoamStyle: { value: new THREE.Vector2(1, 0.35) },
   uMss: { value: 0.05 }, uRipple: { value: 0.1 }, uNoiseSlope: { value: noiseSlope },
   uRainRate: { value: 0 }, uWindSpeed: { value: 10 }, uCloudBase: { value: 1500 }, uCloudTop: { value: 2500 }, uStratus: { value: 0 },
 });
@@ -679,6 +682,7 @@ function applyWeather() {
   if (s.variant !== 'now') U.uWindDir.value.copy(bearingDir((s.windFrom + 180) % 360, PLATFORM_HEADING));
   else U.uWindDir.value.set(0.8, -0.6).normalize();
   U.uWindSpeed.value = s.wind;
+  U.uFoamStyle.value.set(...FOAM[s.foam]);
   U.uFoamJ.value = sea.foamJ;
   U.uWhitecaps.value = sea.W;
   U.uMss.value = sea.mss;
@@ -794,6 +798,11 @@ function group(name, options, key, onPick) {
 }
 group('Look', Object.entries(VARIANTS).map(([k, v]) => [k, v.label]), 'variant');
 group('View', Object.entries(VIEWS).map(([k, v]) => [k, v.label]), 'view', (k) => { state.view = k; placeCamera(); });
+// Which white lines dominate a storm: long crest foam across the wind with
+// faint streaks (crests), crest foam only (plain), or short crest patches
+// with the Beaufort scale's streaks along the wind (streaks)
+const FOAM = { crests: [1, 0.35], plain: [1, 0], streaks: [0, 1] };
+group('Foam', [['crests', 'Crests, faint streaks'], ['plain', 'Crests only'], ['streaks', 'Streaks along wind']], 'foam');
 const weatherRow = group('Weather', Object.keys(PRESETS).map((k) => [k, k]), 'preset', (k) => { state.preset = k; Object.assign(state, PRESETS[k]); });
 const toggle = document.createElement('button');
 toggle.textContent = 'Sliders';
@@ -933,6 +942,18 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
+// A wind arrow, turned to the view: up the screen is straight ahead
+const windArrow = document.createElement('div');
+windArrow.id = 'wind';
+windArrow.innerHTML = '<svg viewBox="-20 -20 40 40" width="44" height="44" aria-hidden="true"><circle r="18" /><path d="M0 -13 L6 3 L1.5 1 L1.5 13 L-1.5 13 L-1.5 1 L-6 3 Z" /></svg><span></span>';
+document.body.appendChild(windArrow);
+function pointWind() {
+  const f = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+  const ahead = Math.atan2(f.x, -f.z), wind = Math.atan2(U.uWindDir.value.x, -U.uWindDir.value.y);
+  windArrow.querySelector('svg').style.transform = `rotate(${THREE.MathUtils.radToDeg(wind - ahead)}deg)`;
+  windArrow.querySelector('span').textContent = `wind ${state.wind.toFixed(0)} m/s`;
+}
+
 let last = performance.now(), frameNo = 0;
 const lastLook = new THREE.Quaternion();
 function drawClouds() {
@@ -1001,6 +1022,7 @@ function frame(now) {
   scene.fog.density = Math.LN2 / L.fogDistance;
   U.uCamHeight.value = camera.position.y;
   outdoor.rain.material.uniforms.uCenter.value.copy(camera.position);
+  pointWind();
   if (!probe.paused) {
     if (U.uMirrorOn.value) renderMirror();
     if (level().variant === 'c' && level().clouds) drawClouds();

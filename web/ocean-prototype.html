@@ -32,6 +32,10 @@
   .slider input { width: 100%; min-width: 0; accent-color: var(--on); }
   .slider output { font: 400 11px/1 var(--mono); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
   #probe { font: 400 10.5px/1.4 var(--mono); color: var(--on); font-variant-numeric: tabular-nums; }
+  #wind { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); top: max(12px, env(safe-area-inset-top, 0px)); display: grid; justify-items: center; gap: 2px; pointer-events: none; }
+  #wind circle { fill: var(--panel); stroke: var(--line); }
+  #wind path { fill: var(--on); }
+  #wind span { font: 500 10px/1 var(--mono); color: var(--ink); text-shadow: 0 1px 3px #000; }
   #status { position: fixed; inset: 0; display: grid; place-items: center; font: 500 13px var(--mono); color: var(--dim); }
   #status[hidden] { display: none; }
 </style>
