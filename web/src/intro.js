@@ -14,7 +14,7 @@ import { Helicopter } from './helicopter.js';
 
 const q = new URLSearchParams(location.search);
 const BASE = 'intro/';
-const CAST = ['blazer_lead', 'bearded_operator', 'crop_supervisor', 'curly_analyst', 'curly_fade_tech', 'glasses_engineer', 'grey_beard_lead'];
+const CAST = ['blazer_lead', 'bearded_operator', 'crop_supervisor', 'curly_analyst', 'curly_fade_tech', 'glasses_engineer', 'grey_beard_lead'];   // as intro_export.py CAST
 // Who sits where: seat [row, place] (rows front to back, places right to
 // left). Row 1 faces aft, at us; rows 2 and 3 sit back to back.
 const SEATING = [[0, 1], [0, 2], [0, 3], [1, 2], [2, 1], [2, 2], [3, 1]];

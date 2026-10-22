@@ -19,6 +19,7 @@ Seconds to run; no bake needed.
 """
 import json
 import os
+import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -36,6 +37,11 @@ PILOTS = "cast"
 # The supply vessel alongside on the crane side, the crane lifting a
 # container off its cargo deck (None: no vessel, crane stowed)
 VESSEL = True
+# The passengers (in their survival suits) and the pilot, copied from the
+# character kit (characters/, built by its own scripts) for the page
+CAST = ["blazer_lead", "bearded_operator", "crop_supervisor", "curly_analyst", "curly_fade_tech",
+        "glasses_engineer", "grey_beard_lead"]
+CHARS = [f"{c}/{c}_survival.glb" for c in CAST] + ["heli_pilot/heli_pilot_flying_headset.glb"]
 LIFT = (sv.BERTH_LOC[0] + 10.0, sv.BERTH_LOC[1], 11.0)
 
 
@@ -97,6 +103,9 @@ def main():
         "floor": heli.FLOOR,
         "pilots": [three((heli.PILOT_X, y, heli.FLOOR + 0.50)) for y in (-heli.PILOT_Y, heli.PILOT_Y)] if PILOTS == "cast" else [],
     }
+    os.makedirs(os.path.join(OUT, "chars"), exist_ok=True)
+    for c in CHARS:
+        shutil.copy(os.path.join(b.ROOT, "characters", c), os.path.join(OUT, "chars", os.path.basename(c)))
     with open(os.path.join(OUT, "intro.json"), "w") as f:
         json.dump(info, f, indent=1)
     print("wrote", OUT, flush=True)

@@ -141,6 +141,24 @@ the nose and the sponsons) and a blur disc per rotor. In the browser,
 `web/src/helicopter.js` spools the rotors up and down, fading the blades into
 the discs at speed, and retracts the gear.
 
+### Helicopter intro
+
+```bash
+.venv/bin/python blender/intro_export.py           # web/public/intro/: heli, platform, vessel, cast, intro.json
+```
+
+`intro.html` is the game's opening, also reached from the start card of
+`play.html`: a crew-change flight seen from a passenger window seat, a circle
+round the platform with the supply vessel alongside and the crane unloading
+it, the landing from the helideck camera, and the crew walking off to the
+stairs, then on to the control room. The cabin interior (seats, lining,
+cockpit with cyclic and collective) is built with `build_helicopter(interior=True)`;
+the passengers and the pilot are the character kit's models, copied by the
+export. Skip jumps to the landing, the walkout, then the end.
+`intro.html#board` plays the crew boarding instead. Debug: `?pause&t=40`,
+`&off=x,y,z&at=x,y,z` (camera in the helicopter's frame), `&world=x,y,z`
+(in the platform's), `&cutaway`.
+
 ## Supply vessel
 
 ```bash
