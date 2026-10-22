@@ -257,3 +257,54 @@
   .clipboard { width: 46vw; }
   .levels { grid-template-columns: 1fr 1fr; }
 }
+
+/* ------------------------------------------------------------ navigator */
+.storynav { position: absolute; left: calc(1.4 * var(--u)); right: calc(1.4 * var(--u)); bottom: calc(1 * var(--u)); z-index: 30;
+  display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "prev track next" "info info info"; align-items: center; gap: 4px calc(0.8 * var(--u));
+  font: 500 max(10px, calc(0.95 * var(--u)))/1.3 var(--mono); color: #fffa; text-shadow: 0 1px 6px #000; opacity: 0.35; transition: opacity 0.5s; }
+.storynav.awake, .storynav:hover { opacity: 1; }
+.storynav button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.storynav .nav-step { grid-area: auto; font-size: max(16px, calc(1.8 * var(--u))); line-height: 1; padding: 2px 8px; border-radius: 6px; }
+.storynav .nav-step:first-child { grid-area: prev; }
+.storynav .nav-step:nth-child(3) { grid-area: next; }
+.storynav .nav-step:hover { background: #fff2; }
+.nav-track { grid-area: track; display: flex; gap: calc(0.6 * var(--u)); min-width: 0; }
+.nav-group { display: grid; gap: 3px; min-width: 0; flex-basis: 0; }
+.nav-row { display: flex; gap: 2px; min-width: 0; }
+.nav-ch { position: relative; flex-basis: 0; min-width: 0; }
+.nav-act { font-size: 0.85em; letter-spacing: 0.12em; text-transform: uppercase; color: #fff8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-info { grid-area: info; display: flex; gap: 1.2em; justify-content: center; }
+.nav-info .next { color: var(--paper); opacity: 0; transition: opacity 0.4s; }
+.nav-info .next.on { opacity: 1; animation: blink 1.6s ease-in-out infinite; }
+
+/* a: one thin track */
+.nav-a .nav-ch { height: 6px; background: #ffffff2a; border-radius: 3px; overflow: hidden; }
+.nav-a .nav-ch:hover { background: #ffffff55; }
+.nav-a .nav-fill { position: absolute; inset: 0 auto 0 0; background: var(--paper); transition: width 0.4s; }
+.nav-a .nav-ch.now { box-shadow: 0 0 0 1px var(--paper); }
+
+/* b: tabs under their acts */
+.nav-b .nav-ch { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 1px 6px; align-items: center; text-align: left;
+  padding: 4px 6px; border-radius: 6px; background: #0007; border-top: 2px solid #ffffff22; }
+.nav-b .nav-ch:hover { background: #fff2; }
+.nav-b .nav-ch.done { border-top-color: #ffffff77; }
+.nav-b .nav-ch.now { border-top-color: var(--tungsten); background: #000a; color: #fff; }
+.nav-b .nav-key { font-weight: 600; color: var(--tungsten); }
+.nav-b .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-b .nav-dots { grid-column: 1 / -1; display: flex; gap: 3px; flex-wrap: wrap; }
+.nav-b .nav-dot { width: 7px; height: 7px; border-radius: 50%; background: #ffffff40; }
+.nav-b .nav-dot.done { background: #ffffffaa; }
+.nav-b .nav-dot.now { background: var(--tungsten); }
+
+/* c: act bands with a playhead */
+.nav-c .nav-group { border-left: 1px solid #ffffff44; padding-left: 4px; }
+.nav-c .nav-ch { height: 10px; background: #ffffff20; }
+.nav-c .nav-row .nav-ch:first-child { border-radius: 5px 0 0 5px; }
+.nav-c .nav-row .nav-ch:last-child { border-radius: 0 5px 5px 0; }
+.nav-c .nav-ch:hover { background: #ffffff50; }
+.nav-c .nav-fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #ffffff66, var(--tungsten)); transition: width 0.4s; }
+.nav-c .nav-ch.done .nav-fill { background: #ffffff66; }
+.nav-c .nav-ch.now .nav-fill::after { content: ''; position: absolute; right: -6px; top: -3px; width: 12px; height: 16px; border-radius: 4px; background: var(--paper); box-shadow: 0 0 10px #000; }
+.nav-c .nav-tip { position: absolute; bottom: 160%; left: 50%; transform: translateX(-50%); white-space: nowrap; background: #000c; padding: 2px 6px; border-radius: 4px; opacity: 0; transition: opacity 0.2s; }
+.nav-c .nav-ch:hover .nav-tip, .nav-c .nav-ch.now .nav-tip { opacity: 1; }
+.story-ui:has(.storynav) .subs { bottom: calc(7.5 * var(--u)); }   /* subtitles clear the navigator */

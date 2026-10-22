@@ -66,6 +66,82 @@ export class StoryUI {
     this.el.hud.innerHTML = `${chapter.key} · ${esc(chapter.name)} · ${i + 1}/${n} <span class="next ${waiting ? 'on' : ''}">  ▸ Space</span>`;
   }
 
+  // --------------------------------------------------------- navigator
+  // A bar along the bottom: where we are in the whole story, and a click
+  // jumps to any chapter (or any beat of the current one). Three looks,
+  // kept side by side (?nav=a|b|c, NAV in main.js):
+  //   a  one thin track, a segment per chapter sized by its beats
+  //   b  chapter tabs grouped under their acts, dots for the beats
+  //   c  the three acts as bands with a playhead, names on hover
+  // It dims when the mouse is still, so it stays out of the picture.
+  nav(chapters, style, jump) {
+    const e = this.el.nav = h('nav', `storynav nav-${style}`);
+    this.navStyle = style;
+    this.root.append(e);
+    this.el.hud.hidden = true;
+    const groups = [];
+    chapters.forEach((ch, c) => {
+      const [group, label = group] = ch.name.split(' · ');
+      const g = groups.at(-1)?.name === group ? groups.at(-1) : (groups.push({ name: group, chs: [] }), groups.at(-1));
+      g.chs.push({ ch, c, label });
+    });
+    const total = chapters.reduce((n, ch) => n + ch.beats.length, 0);
+    const btn = (cls, text, title, fn) => { const b = h('button', `clickable ${cls}`, text); b.type = 'button'; b.title = title; b.onclick = (ev) => { ev.stopPropagation(); fn(); }; return b; };
+    const prev = btn('nav-step', '‹', 'Back (←)', () => jump('back'));
+    const next = btn('nav-step', '›', 'Next (Space)', () => jump('next'));
+    const track = h('div', 'nav-track');
+    this.navParts = [];
+    for (const g of groups) {
+      const ge = h('div', 'nav-group');
+      ge.style.flexGrow = style === 'b' ? g.chs.length : g.chs.reduce((n, x) => n + x.ch.beats.length, 0);   // b: equal tabs
+      if (style !== 'a') ge.append(h('div', 'nav-act', esc(g.name)));
+      const row = h('div', 'nav-row');
+      for (const { ch, c, label } of g.chs) {
+        const part = btn('nav-ch', '', `${ch.key} · ${ch.name}`, () => jump(c, 0));
+        part.style.flexGrow = style === 'b' ? 1 : ch.beats.length;
+        part.innerHTML = style === 'b' ? `<span class="nav-key">${ch.key}</span><span class="nav-label">${esc(label)}</span><span class="nav-dots"></span>`
+          : `<span class="nav-fill"></span>${style === 'c' ? `<span class="nav-tip">${ch.key} · ${esc(label)}</span>` : ''}`;
+        row.append(part);
+        this.navParts.push(part);
+      }
+      ge.append(row);
+      track.append(ge);
+    }
+    this.navInfo = h('div', 'nav-info');
+    e.append(prev, track, next, this.navInfo);
+    this.navTotal = total;
+    this.navChapters = chapters;
+    this.navJump = jump;
+    // Wake on mouse movement, dim after a few still seconds
+    let idle;
+    const wake = () => { e.classList.add('awake'); clearTimeout(idle); idle = setTimeout(() => e.classList.remove('awake'), 2500); };
+    addEventListener('pointermove', wake);
+    wake();
+  }
+
+  navUpdate(c, i, waiting) {
+    if (!this.el.nav) return;
+    const chapters = this.navChapters;
+    this.navParts.forEach((p, k) => {
+      const n = chapters[k].beats.length;
+      p.classList.toggle('done', k < c);
+      p.classList.toggle('now', k === c);
+      const fill = p.querySelector('.nav-fill');
+      if (fill) fill.style.width = k < c ? '100%' : k > c ? '0%' : `${((i + 1) / n) * 100}%`;
+      const dots = p.querySelector('.nav-dots');
+      if (dots) {
+        dots.replaceChildren(...(k === c ? chapters[k].beats.map((_, j) => {
+          const d = h('button', `clickable nav-dot ${j < i ? 'done' : j === i ? 'now' : ''}`);
+          d.type = 'button'; d.title = `${chapters[k].key}.${j + 1}`;
+          d.onclick = (ev) => { ev.stopPropagation(); this.navJump(k, j); };
+          return d;
+        }) : []));
+      }
+    });
+    const ch = chapters[c];
+    this.navInfo.innerHTML = `<span>${ch.key} · ${esc(ch.name)} · ${i + 1}/${ch.beats.length}</span><span class="next ${waiting ? 'on' : ''}">▸ Space</span>`;
+  }
+
   clock(text) {
     this.el.clock.textContent = text ?? '';
     this.el.clock.classList.toggle('on', Boolean(text));
