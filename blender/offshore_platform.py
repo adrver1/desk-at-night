@@ -80,6 +80,12 @@ JACKET_LEVELS = (20.5, 16.0, 6.0, -14.0, -38.0, -62.0, -87.0, SEABED)  # horizon
 #   "v5"        the plain block of PR #43
 QUARTERS = "terraced"
 
+# Night lighting, kept as a library:
+#   "dense"   fittings every ~4.5 m on every storey, under the deck, roof
+#             edges and stair landings, as on the night and fog photos
+#   "sparse"  every ~9 m on three storeys (until 2026-10-22)
+LIGHTS = "dense"
+
 # Helideck: octagon on a deep truss, overhanging the quarters end at roof height
 HELI_Z, HELI_R, HELI_X = 57.5, 11.5, 65.5
 
@@ -297,7 +303,8 @@ def materials(textured=True):
         "mark": b.mat_flat("PlatMarking", (0.88, 0.50, 0.01), 0.7),
         "white": b.mat_flat("PlatWhite", (0.80, 0.80, 0.80), 0.7),
         "orange": b.mat_flat("PlatOrange", (0.60, 0.04, 0.03), 0.5),      # lifeboats, crane boom bands
-        "lamp": emit("PlatLamp", (1.0, 0.78, 0.45), 0.0),                   # deck lights, off by day
+        "lamp": emit("PlatLamp", (1.0, 0.78, 0.45), 0.0),                   # floodlights, off by day
+        "lampw": emit("PlatLampWhite", (0.85, 0.92, 1.0), 0.0),             # white LED deck fittings
         "window": emit("PlatWindow", (1.0, 0.85, 0.6), 0.0, base=(0.04, 0.05, 0.06)),
         "red": emit("PlatRed", (1.0, 0.05, 0.02), 0.0),                     # obstruction lights
         "flare": emit("PlatFlare", (1.0, 0.45, 0.10), 0.0),
@@ -336,7 +343,7 @@ def _box_uvs(me, tile):
 
 
 def set_night(m, on):
-    for k, s in (("lamp", 40), ("window", 2.5), ("red", 60), ("flare", 120)):
+    for k, s in (("lamp", 40), ("lampw", 40), ("window", 2.5), ("red", 60), ("flare", 120)):
         m[k].node_tree.nodes["Principled BSDF"].inputs["Emission Strength"].default_value = s if on else 0.0
 
 
@@ -951,6 +958,13 @@ def build_cranes(g, m, slew=None, lift=None):
 
 
 def build_lights(g, m):
+    if LIGHTS == "sparse":
+        _lights_sparse(g, m)
+    else:
+        _lights_dense(g, m)
+
+
+def _lights_sparse(g, m):
     """Deck lights every ~9 m along the edges of each storey, the night look."""
     for z in (CELLAR, MEZZ, LOWER_TOP):
         for i in range(12):
@@ -961,6 +975,53 @@ def build_lights(g, m):
                 g.box(m["lamp"], (x, y, z + 2.4), (0.5, 0.3, 0.3), sides=out + "-z")
         for y in (-12, 0, 12):
             g.box(m["lamp"], (-TOP_X - 0.8, y, z + 2.4), (0.3, 0.5, 0.3), sides="-x-z")
+    _floodlights(g, m)
+
+
+def _lights_dense(g, m):
+    """As the night photos show it: white fittings every ~4.5 m along every
+    storey of the open modules, a row under the cellar deck lighting the
+    jacket top, dots along the roof edges, and warm floodlights on the roofs."""
+    lw = m["lampw"]
+    def row(x0, x1, z, y, out, step=4.5):
+        for i in range(int((x1 - x0) / step) + 1):
+            g.box(lw, (x0 + i * step, y, z), (0.45, 0.25, 0.25), sides=out + "-z")
+    def end_row(z, step=4.0):
+        for i in range(int((2 * TOP_Y - 4) / step) + 1):
+            g.box(lw, (-TOP_X - 0.8, -TOP_Y + 2 + i * step, z), (0.25, 0.45, 0.25), sides="-x-z")
+    # Under the cellar deck, all along both sides and the flare end
+    for y, out in ((-TOP_Y + 0.6, "-y"), (TOP_Y - 0.6, "+y")):
+        row(-TOP_X + 2, TOP_X - 2, DECK_BOT - 0.35, y, out)
+    end_row(DECK_BOT - 0.35)
+    # Every storey of the process block; the far side's lowest one sits on the escape tunnel
+    store = [CELLAR, MEZZ, LOWER_TOP] + [LOWER_TOP + k * (PROC_TOP - LOWER_TOP) / 3 for k in (1, 2)]
+    for z in store:
+        x1 = STAIR_X0 - 1 if z < LOWER_TOP else PROC_X1 - 1
+        row(-TOP_X + 2, x1, z + 2.4, -TOP_Y - 0.8, "-y")
+        row(-TOP_X + 2, x1, z + 2.4 + (1.0 if z == CELLAR else 0), TOP_Y + (3.0 if z == CELLAR else 0.8), "+y")
+        end_row(z + 2.4)
+    # The clad utility module and the plant module: a row each at the top
+    for z, x0, x1 in ((CELLAR + 2.4, STAIR_X1 + 1, END_X0 - 1), (UTIL_TOP - 1.2, STAIR_X1 + 1, LQ_X0 - 1),
+                      (PLANT_TOP - 1.2, STAIR_X1 + 4, LQ_X0 - 1)):
+        row(x0, x1, z, -TOP_Y - 0.8 + (0.3 if z > UTIL_TOP else 0), "-y", 6.0)
+    # Dots along the process roof edge and the laydown deck's rail
+    for y in (-TOP_Y - 0.4, TOP_Y + 0.4):
+        for i in range(int((PROC_X1 + TOP_X) / 6) + 1):
+            g.box(lw, (-TOP_X + i * 6, y, PROC_TOP + 1.0), (0.35, 0.35, 0.35))
+        for i in range(4):
+            g.box(lw, (PROC_X1 + 2 + i * 5, y, NOTCH_TOP + 1.1), (0.35, 0.35, 0.35))
+    # Up the stair tower, a fitting on each landing
+    for z in range(int(DECK_BOT) + 3, int(NOTCH_TOP), 4):
+        g.box(lw, (STAIR_X1 + 0.3, -TOP_Y - 0.5, z), (0.25, 0.25, 0.25), sides="-y+x-z")
+    _floodlights(g, m)
+    # More floodlights on the laydown deck and plant roof corners
+    for x, y, z in ((PROC_X1 + 1, -TOP_Y + 1, NOTCH_TOP + 6), (PROC_X1 + 1, TOP_Y - 1, NOTCH_TOP + 6),
+                    (STAIR_X1 + 4, -TOP_Y + 1.5, PLANT_TOP + 1.0), (LQ_X0 - 1, TOP_Y - 1.5, PLANT_TOP + 1.0),
+                    (-TOP_X + 1, TOP_Y - 1, PROC_TOP + 2.0)):
+        g.box(m["lamp"], (x, y, z), (1.2, 1.2, 0.6))
+
+
+def _floodlights(g, m):
     for x, y, z in ((-40, 6, PROC_TOP + 1), (-14, 0, NOTCH_TOP + 5), (-8, 8, NOTCH_TOP + 1)):
         g.box(m["lamp"], (x, y, z), (1.0, 1.0, 0.5))  # floodlights
     # Floodlights over the roofs and the laydown deck: on the corner shaft,

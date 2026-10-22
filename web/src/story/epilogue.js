@@ -8,7 +8,37 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { reflectable } from '../outdoor.js';
 
 const FLIGHT = 16;   // s from the chair to the last frame
-const FLOOD = new THREE.Color(0xffd9a0).multiplyScalar(0.55), FLOOD_LOW = new THREE.Color(0xffd9a0).multiplyScalar(0.18);   // the platform's own floodlights
+const FLOOD = new THREE.Color(0xffd9a0).multiplyScalar(0.22), FLOOD_LOW = new THREE.Color(0xffd9a0).multiplyScalar(0.08);   // the platform's lights, overall
+// The glb carries the night materials with their emission off (the intro is
+// by day), so they are lit here by name: colour, strength, halo colour
+const NIGHT = {
+  PlatLampWhite: [0xdde9ff, 6, 0xcfe0ff], PlatLamp: [0xffd49a, 6, 0xffc070],
+  PlatWindow: [0xffd9a0, 1.4], PlatRed: [0xff2010, 4, 0xff3018],
+};
+const SPOTS = 8;   // point lights at the floodlights, so the decks around them are lit, the rest dark
+
+// A soft round glow, for the halo round each fitting
+function haloTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d'), r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.15, 'rgba(255,255,255,0.6)');
+  r.addColorStop(0.45, 'rgba(255,255,255,0.12)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+
+// Centres of the little boxes in a mesh: its vertices bunched on a 1.5 m grid
+function fittings(mesh) {
+  const pos = mesh.geometry.attributes.position, v = new THREE.Vector3(), cells = new Map();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld);
+    const k = `${Math.round(v.x / 1.5)},${Math.round(v.y / 1.5)},${Math.round(v.z / 1.5)}`;
+    const c = cells.get(k) ?? cells.set(k, { p: new THREE.Vector3(), n: 0 }).get(k);
+    c.p.add(v); c.n++;
+  }
+  return [...cells.values()].map((c) => c.p.divideScalar(c.n));
+}
 
 export class Epilogue {
   constructor(game) {
@@ -39,12 +69,24 @@ export class Epilogue {
       const sea = new THREE.Plane(new THREE.Vector3(0, 1, 0), -this.game.room.seaLevel);
       this.game.renderer.localClippingEnabled = true;
       this.glow = [];
+      root.updateMatrixWorld(true);
+      const halos = {}, floods = [];
       root.traverse((o) => {
         if (!o.isMesh) return;
         o.material = o.material.clone();
+        const night = NIGHT[o.material.name];
+        if (night) {
+          o.material.emissive.set(night[0]);
+          o.material.emissiveIntensity = night[1];
+          if (night[2]) {
+            const at = fittings(o).filter((p) => p.y > this.game.room.seaLevel + 1);
+            (halos[night[2]] ??= []).push(...at);
+            if (o.material.name === 'PlatLamp') floods.push(...at);
+          }
+        }
         o.material.clippingPlanes = [sea];
         o.material.side = THREE.DoubleSide;
-        if (o.material.emissive?.getHex()) this.glow.push(o.material);
+        if (o.material.name === 'PlatFlare') this.glow.push(o.material);
         o.material.onBeforeCompile = (sh) => {
           sh.vertexShader = sh.vertexShader.replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\nvWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
             .replace('void main() {', 'varying vec3 vWorldPos;\nvoid main() {');
@@ -53,7 +95,28 @@ export class Epilogue {
         };
       });
       this.scene.add(root);
-      root.updateMatrixWorld(true);
+      // A halo round every fitting, so the lights read from far off and in the sea
+      const tex = haloTexture();
+      for (const [color, at] of Object.entries(halos)) {
+        const geo = new THREE.BufferGeometry().setFromPoints(at);
+        const size = color == 0xff3018 ? 4 : 3.2, mat = new THREE.PointsMaterial({
+          map: tex, color: Number(color), size, sizeAttenuation: true,
+          transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        });
+        const pts = new THREE.Points(geo, mat);
+        // Point sizes go by the canvas height, so in the sea's smaller mirror
+        // target they would come out too big: scale them down to match
+        pts.onBeforeRender = (r) => { const rt = r.getRenderTarget(); mat.size = rt ? size * rt.height / r.domElement.height : size; };
+        this.scene.add(pts);
+      }
+      // Light pools round the biggest floodlights, a few metres out from the steel
+      const picked = [];
+      for (const p of floods.sort((a, b) => b.y - a.y)) if (picked.length < SPOTS && picked.every((q) => q.distanceTo(p) > 18)) picked.push(p);
+      for (const p of picked) {
+        const l = new THREE.PointLight(0xffd8a8, 350, 40, 1.6);
+        l.position.copy(p);
+        this.scene.add(l);
+      }
       reflectable(this.scene);   // the platform and its lights, in the sea's mirror
       this.root = root;
       this.centre = new THREE.Vector3(-4, -24, -38);   // the middle of the topsides, in the room's frame
@@ -114,6 +177,6 @@ export class Epilogue {
     this.sun.color.copy(L.sun);
     this.sun.position.copy(this.centre).addScaledVector(L.sunDir, 100);
     this.sun.target.position.copy(this.centre);
-    for (const m of this.glow) m.emissiveIntensity = 2.6;   // deck lights on at night
+    for (const m of this.glow) m.emissiveIntensity = 2.6;   // the flare
   }
 }
