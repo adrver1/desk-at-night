@@ -49,7 +49,7 @@ LOOK = crew.Look(
     top={"belly": SHIRT, "chest": SHIRT, "upper_arm": BLAZER, "forearm": BLAZER},
     office=office,
     face=lambda body: {"smile": faces.smile(body)},
-    glasses="round_thick", ears=1.5, extra={"casual": casual} if EXTRA_LOOKS else None,
+    glasses="round_thick", ears=1.2, ear_flare=0.03, extra={"casual": casual} if EXTRA_LOOKS else None,
     notes=["Lower body is not in the references: charcoal trousers and black shoes."])
 
 if __name__ == "__main__":

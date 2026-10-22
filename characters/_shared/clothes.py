@@ -162,6 +162,7 @@ def blazer(color, lapel, shirt, buttons="charcoal"):
     """Open blazer: a shell to the hips and full sleeves, with a V of
     shirt showing down the front between two notched lapels."""
     m = torso_shell(color, hem=0.80, offset=0.024, flare=0.012, region="blazer")
+    _open_lid(m, shirt)
     bvh = m.bvh()
     zs = [1.13 + k * 0.03 for k in range(10)] + [1.43]
     m.decal_band(bvh, zs, lambda z: -_lerp_table(V_EDGE, z), lambda z: _lerp_table(V_EDGE, z), shirt, "shirt_v")
@@ -169,10 +170,22 @@ def blazer(color, lapel, shirt, buttons="charcoal"):
         m.decal_band(bvh, zs[:-1], lambda z, s=s: s * _lerp_table(V_EDGE, z), lambda z, s=s: s * _lerp_table(LAPEL_EDGE, z),
                      lapel, "lapel", lift=0.004)
     m.decal(bvh, 0.0, 1.085, 0.012, 0.012, buttons, "button", lift=0.004)
-    # the shirt's neck covers the shell's lid round the base of the neck
-    m.extend(base.Mesh().tube([(1.408, 0.106, 0.104, 0.004, "shirt_neck"), (1.45, 0.072, 0.068, -0.006, "shirt_neck")],
-                              swatch=shirt, angles=base.HEX6, angle_offset=30, cap_start=False, cap_end=False))
     return m.extend(sleeves(color, offset=0.018, region="blazer_sleeve"))
+
+
+def _open_lid(m, shirt):
+    """Split a fresh torso shell's flat lid so the strip in front of the
+    neck, above the V, is shirt instead of jacket. Four convex pieces, as
+    seen from above: shirt front, jacket right, left and back."""
+    ids, sw, reg = m.faces.pop(m.faces.index(next(f for f in m.faces if len(f[0]) == len(base.BOXY8))))
+    p = dict(zip(base.BOXY8, ids))
+    z = m.verts[ids[0]].z
+    qr = m._v((m.verts[p[55]].x, -0.01, z))
+    ql = m._v((m.verts[p[125]].x, -0.01, z))
+    m.faces += [([p[55], p[125], ql, qr], shirt, "shirt_v"),
+                ([p[340], p[20], p[55], qr], sw, reg),
+                ([ql, p[125], p[160], p[200]], sw, reg),
+                ([p[200], p[235], p[305], p[340], qr, ql], sw, reg)]
 
 
 V_NECK = [(1.25, 0.0), (1.42, 0.07)]

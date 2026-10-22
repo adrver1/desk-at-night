@@ -306,7 +306,7 @@ class Mesh:
 
 
 # --------------------------------------------------------------- base body
-def body(skin="skin_3", colors=None, hide=(), brow=None, ears=True, ear_scale=1.0):
+def body(skin="skin_3", colors=None, hide=(), brow=None, ears=True, ear_scale=1.0, ear_flare=0.0):
     """The shared base body as a Mesh. `colors` maps regions to swatches
     (e.g. {"chest": "coverall_orange"}); `hide` drops regions a clothing
     shell covers completely, to stay within the triangle budget."""
@@ -341,7 +341,9 @@ def body(skin="skin_3", colors=None, hide=(), brow=None, ears=True, ear_scale=1.
                axes=frame(tdir, u), angles=QUAD4, colors=cols, cap_start=False)
     if ears:
         k = 1 + (ear_scale - 1) * 0.6  # ear_scale sets how far they stick out, height grows less
-        ear = [Vector((0.113 + dx * ear_scale, -0.012 + dy * k, 1.60 + dz * k))
+        # ear_flare swings the back edge out, hinged at the front: ears that
+        # stand away from the head
+        ear = [Vector((0.113 + dx * ear_scale + (ear_flare if dy < 0 else 0), -0.012 + dy * k, 1.60 + dz * k))
                for dx in (0, 0.022) for dy in (-0.02, 0.018) for dz in (-0.035, 0.03)]
         right.hull(ear, cols["ear"], "ear")
     m.extend(right).extend(right.mirrored())
@@ -401,6 +403,8 @@ def bones():
         b += [(f"thigh.{tag}", (x, 0, 0.90), (x, 0.008, 0.47), "hips"),
               (f"shin.{tag}", (x, 0.008, 0.47), (x, 0, 0.09), f"thigh.{tag}"),
               (f"foot.{tag}", (x, 0, 0.09), (x, 0.15, 0.03), f"shin.{tag}")]
+    for bn, (x, y, z) in FACE_BONES.items():
+        b.append((bn, (x, y, z), (x, y, z + 0.02), "head"))
     return b
 
 
@@ -421,6 +425,31 @@ def armature(name="Armature"):
     bpy.ops.object.mode_set(mode="OBJECT")
     arm.display_type = "STICK"
     return ob
+
+
+def _fill_from_surface(body_ob, ob, verts):
+    """Weights for each vertex blended from the corners of the nearest body
+    face (by inverse distance), so a detail lying on the skin, such as a
+    placket, moves with the surface instead of with one corner of it."""
+    from mathutils.bvhtree import BVHTree
+    me = body_ob.data
+    bvh = BVHTree.FromPolygons([v.co for v in me.vertices], [p.vertices for p in me.polygons])
+    # extras never ride the eyes or brows (glasses would blink)
+    names = {g.index: "head" if g.name in FACE_BONES else g.name for g in body_ob.vertex_groups}
+    for v in verts:
+        hit = bvh.find_nearest(v.co)
+        if hit[2] is None:
+            continue
+        loc, poly = hit[0], me.polygons[hit[2]]
+        ws = {vi: 1.0 / max((me.vertices[vi].co - loc).length, 1e-5) for vi in poly.vertices}
+        total = sum(ws.values())
+        acc = {}
+        for vi, w in ws.items():
+            for g in me.vertices[vi].groups:
+                acc[names[g.group]] = acc.get(names[g.group], 0.0) + g.weight * w / total
+        for name, w in acc.items():
+            if w > 0.002:
+                (ob.vertex_groups.get(name) or ob.vertex_groups.new(name=name)).add([v.index], w, "REPLACE")
 
 
 def _fill_from(kd, src_verts, ob, verts, groups):
@@ -462,6 +491,11 @@ def _set_weights(ob, vi, weights):
 # below the lower one, and only the ring itself is shared half and half.
 KNEE_Z, ELBOW_T, HIPS_TOP = 0.47, UPPER_ARM, 0.95
 SPINE_BONES = {"hips", "spine", "chest", "neck", "head"}
+HEAD_REGIONS, HEAD_LOCK_Z = {"head", "ear", "nose", "mouth"}, 1.47
+# Face bones: eyes squash for a blink, brows move for expressions. Each
+# points up from the feature's centre, so its local Y is world up.
+FACE_BONES = {"eye.R": (0.040, 0.118, 1.615), "eye.L": (-0.040, 0.118, 1.615),
+              "brow.R": (0.042, 0.118, 1.652), "brow.L": (-0.042, 0.118, 1.652)}
 
 
 def _hinge_limbs(ob):
@@ -485,6 +519,16 @@ def _hinge_limbs(ob):
             d = (co - s).dot(arm_dir(side)) - ELBOW_T
             w = {f"upper_arm.{tag}": 1.0} if d < -0.02 else {f"forearm.{tag}": 1.0} if d > 0.02 else \
                 {f"upper_arm.{tag}": 0.5, f"forearm.{tag}": 0.5}
+        elif "eye" in regs:
+            w = {f"eye.{tag}": 1.0}
+        elif "brow" in regs:
+            w = {f"brow.{tag}": 1.0}
+        elif regs & HEAD_REGIONS:
+            # one rigid head: blended weights let the face slide under the
+            # eyes and brows when the head turns
+            w = {"head": 1.0} if co.z > HEAD_LOCK_Z else None
+            if w is None:
+                continue
         elif "hand" in regs:
             w = {f"hand.{tag}": 1.0}
         elif "shoe" in regs:
@@ -506,8 +550,8 @@ def skin_to(body_ob, arm_ob, extras=(), rigid=None):
     """Automatic (bone heat) weights on the base body, as the style guide
     asks. Bone heat needs a clean surface, so it runs on the body only:
     extra parts (hair, clothing shells, accessories) either follow one bone
-    (`rigid` maps region -> bone) or copy the weights of the nearest body
-    vertex, which makes a shell deform exactly like the skin under it."""
+    (`rigid` maps region -> bone) or blend the weights of the nearest body
+    face, which makes a shell deform like the skin under it."""
     bpy.ops.object.select_all(action="DESELECT")
     body_ob.select_set(True)
     arm_ob.select_set(True)
@@ -529,7 +573,6 @@ def skin_to(body_ob, arm_ob, extras=(), rigid=None):
     _fill_from(_kd(done), done, body_ob, [v for v in vs if not v.groups], groups)
     _hinge_limbs(body_ob)
 
-    kd = _kd(done)
     rigid = rigid or {}
     for ob in extras:
         regions = ob.data["regions"]
@@ -543,7 +586,7 @@ def skin_to(body_ob, arm_ob, extras=(), rigid=None):
         for vi, bone in stiff.items():
             vg = ob.vertex_groups.get(bone) or ob.vertex_groups.new(name=bone)
             vg.add([vi], 1.0, "REPLACE")
-        _fill_from(kd, done, ob, [v for v in ob.data.vertices if v.index not in stiff], groups)
+        _fill_from_surface(body_ob, ob, [v for v in ob.data.vertices if v.index not in stiff])
     for ob in (body_ob, *extras):
         bpy.ops.object.select_all(action="DESELECT")
         ob.select_set(True)
@@ -879,6 +922,7 @@ def finish(name, meshes, out_dir, title=None, notes=(), rigid=None, reference=No
     bpy.ops.export_scene.gltf(filepath=os.path.join(out_dir, f"{name}{sfx}.glb"), export_format="GLB",
                               use_selection=True, export_apply=False, export_animations=True,
                               export_animation_mode="NLA_TRACKS", export_frame_range=False)
+    anims.split_channels(os.path.join(out_dir, f"{name}{sfx}.glb"))
     print(f"{name}{sfx}: {tris} triangles -> {out_dir}")
     return tris, turn
 

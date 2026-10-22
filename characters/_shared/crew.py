@@ -18,7 +18,8 @@ glasses) instead of the clear safety specs.
 `extra` adds a character's own outfits ({name: function returning an
 outfit dict}). Such a dict may also say "covered": True (a hat: keep only
 the hair below its rim) and "glasses": False (goggles instead).
-`ears` scales how far the ears stick out (1.0 is the base body).
+`ears` scales how far the ears stick out (1.0 is the base body) and
+`ear_flare` swings their back edges away from the head (metres).
 """
 import argparse
 import sys
@@ -32,24 +33,24 @@ HEAD_PARTS = ("hair", "stubble", "beard", "smile", "glasses", "headset", "beanie
 
 class Look:
     def __init__(self, name, skin, brow, trousers, shoes, hair, top, office, face=None, glasses=None,
-                 headset=False, notes=(), extra=None, ears=1.0):
+                 headset=False, notes=(), extra=None, ears=1.0, ear_flare=0.0):
         self.name, self.skin, self.brow, self.top = name, skin, brow, top
         self.trousers, self.shoes = trousers, shoes
         self.hair, self.office, self.face = hair, office, face or (lambda body: {})
         self.glasses, self.headset, self.notes = glasses, headset, list(notes)
         self.extra = extra or {}
-        self.ears = ears
+        self.ears, self.ear_flare = ears, ear_flare
 
 
 def build(look, outfit, out, reference=None, private_dir=None):
     base.reset()
     legs = {"hips": look.trousers, "thigh": look.trousers, "shin": look.trousers, "shoe": look.shoes}
     if outfit == "office":
-        body = base.body(skin=look.skin, brow=look.brow, colors={**legs, **look.top}, ear_scale=look.ears)
+        body = base.body(skin=look.skin, brow=look.brow, colors={**legs, **look.top}, ear_scale=look.ears, ear_flare=look.ear_flare)
         o = look.office(body)        # details that sit on the body (plackets, buttons) need it
     else:
         o = (look.extra.get(outfit) or outfits.OUTFITS[outfit])()
-        body = base.body(skin=look.skin, brow=look.brow, colors={**legs, **o["colors"]}, ear_scale=look.ears)
+        body = base.body(skin=look.skin, brow=look.brow, colors={**legs, **o["colors"]}, ear_scale=look.ears, ear_flare=look.ear_flare)
     helmet = "helmet" in o["parts"] or o.get("covered", False)
     parts = {"body": body, "hair": look.hair(helmet=helmet), **look.face(body)}
     if look.glasses and o.get("glasses", True):

@@ -9,12 +9,21 @@ into every character's .glb as named glTF animations:
     typing       seated, hands on a desk at 0.74 m            (loop, 2 s)
     point        standing, points at something ahead          (2 s)
 
+Face clips move only the eye and brow bones, so they play on top of any
+body clip (body clips never touch the face bones):
+
+    blink        eyes squash shut and open                    (0.3 s)
+    brows_raise  surprised: brows up, eyes a little wider     (1.5 s)
+    brows_frown  brows down and in, eyes narrowed             (1.5 s)
+
 A pose is {bone: rotation} with the rotation as (axis, degrees) or a list
 of them applied in order, axes in the rest pose's armature space (see
 base_body.pose). "hips_offset" moves the hips (and everything on them)
 by a world-space vector. Clips loop by repeating their first pose.
 """
+import json
 import math
+import struct
 
 import bpy
 from mathutils import Matrix, Vector
@@ -157,6 +166,23 @@ def clips():
     return c
 
 
+def face(brow_up=0.0, brow_tilt=0.0, eye_open=1.0):
+    """Face pose: brows moved up (metres, negative down) and tilted with the
+    inner ends down (degrees), eyes scaled in height (1 open, ~0.1 shut)."""
+    r = {}
+    for s, tag in ((1, "R"), (-1, "L")):
+        r[f"brow.{tag}"] = {"loc": (0, 0, brow_up), "rot": (Y, -s * brow_tilt)}
+        r[f"eye.{tag}"] = {"scale": eye_open}
+    return r
+
+
+def face_clips():
+    rest = face()
+    return {"blink": [(0, rest), (2, face(eye_open=0.1)), (4, face(eye_open=0.1)), (7, rest)],
+            "brows_raise": [(0, rest), (5, face(0.009, 0, 1.15)), (30, face(0.009, 0, 1.15)), (36, rest)],
+            "brows_frown": [(0, rest), (5, face(-0.004, 14, 0.75)), (30, face(-0.004, 14, 0.75)), (36, rest)]}
+
+
 # ------------------------------------------------------------------ keying
 def _rotation(arm_ob, bone, spec):
     if isinstance(spec, tuple):
@@ -181,6 +207,28 @@ def apply(arm_ob, pose):
             arm_ob.pose.bones[bone].rotation_quaternion = _rotation(arm_ob, bone, spec)
 
 
+def apply_face(arm_ob, pose):
+    for bn in base.FACE_BONES:
+        pb = arm_ob.pose.bones[bn]
+        pb.rotation_mode = "QUATERNION"
+        spec = pose.get(bn, {})
+        m = arm_ob.data.bones[bn].matrix_local.to_3x3()
+        pb.location = m.inverted() @ Vector(spec.get("loc", (0, 0, 0)))
+        pb.rotation_quaternion = _rotation(arm_ob, bn, spec["rot"]) if "rot" in spec else (1, 0, 0, 0)
+        pb.scale = (1, spec.get("scale", 1.0), 1)   # local Y is up
+
+
+def _track(ad, name, act):
+    slot = ad.action_slot
+    ad.action = None
+    track = ad.nla_tracks.new()
+    track.name = name
+    strip = track.strips.new(name, 0, act)
+    if slot is not None and hasattr(strip, "action_slot"):
+        strip.action_slot = slot
+    track.mute = True
+
+
 def add_clips(arm_ob):
     """Key every clip as its own action, each on a muted NLA track so the
     glTF exporter writes one animation per clip. Leaves the rest pose."""
@@ -192,15 +240,46 @@ def add_clips(arm_ob):
         for frame, pose in keys:
             apply(arm_ob, pose)
             for pb in arm_ob.pose.bones:
-                pb.keyframe_insert("rotation_quaternion", frame=frame, group=pb.name)
+                if pb.name not in base.FACE_BONES:
+                    pb.keyframe_insert("rotation_quaternion", frame=frame, group=pb.name)
             arm_ob.pose.bones["hips"].keyframe_insert("location", frame=frame, group="hips")
-        slot = ad.action_slot
-        ad.action = None
-        track = ad.nla_tracks.new()
-        track.name = name
-        strip = track.strips.new(name, 0, act)
-        if slot is not None and hasattr(strip, "action_slot"):
-            strip.action_slot = slot
-        track.mute = True
+        _track(ad, name, act)
+    for name, keys in face_clips().items():
+        act = bpy.data.actions.new(name)
+        ad.action = act
+        for frame, pose in keys:
+            apply_face(arm_ob, pose)
+            for bn in base.FACE_BONES:
+                for path in ("location", "rotation_quaternion", "scale"):
+                    arm_ob.pose.bones[bn].keyframe_insert(path, frame=frame, group=bn)
+        _track(ad, name, act)
     apply(arm_ob, {})
+    apply_face(arm_ob, {})
     bpy.context.view_layer.update()
+
+
+def split_channels(glb_path):
+    """The exporter samples every bone into every clip. Strip the face bones
+    out of body clips and everything but the face bones out of face clips,
+    so a blink can play on top of a walk without freezing the body."""
+    with open(glb_path, "rb") as f:
+        data = f.read()
+    n = struct.unpack("<I", data[12:16])[0]
+    gltf = json.loads(data[20:20 + n])
+    rest = data[20 + n:]
+    nodes = gltf["nodes"]
+    face_clips_ = set(face_clips())
+    for anim in gltf.get("animations", []):
+        on_face = anim["name"] in face_clips_
+        anim["channels"] = [c for c in anim["channels"]
+                            if (nodes[c["target"]["node"]].get("name") in base.FACE_BONES) == on_face]
+        used = sorted({c["sampler"] for c in anim["channels"]})
+        remap = {old: new for new, old in enumerate(used)}
+        anim["samplers"] = [anim["samplers"][i] for i in used]
+        for c in anim["channels"]:
+            c["sampler"] = remap[c["sampler"]]
+    js = json.dumps(gltf, separators=(",", ":")).encode()
+    js += b" " * (-len(js) % 4)
+    total = 12 + 8 + len(js) + len(rest)
+    with open(glb_path, "wb") as f:
+        f.write(data[:8] + struct.pack("<I", total) + struct.pack("<I", len(js)) + b"JSON" + js + rest)
