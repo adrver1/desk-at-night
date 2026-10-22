@@ -87,7 +87,8 @@ def jacket():
 
 def sleeves():
     """Hi-vis upper sleeves and navy forearms, each with a reflective band."""
-    pts = sorted({r[0] for r in base.ARM} | {0.10, 0.14, 0.34, 0.38})
+    # the band ring at 0.10 takes over from the arm's 0.06 ring
+    pts = sorted({r[0] for r in base.ARM if r[0] != 0.06} | {0.10, 0.14, 0.34, 0.38})
     rings = []
     for t in pts:
         reg = "band" if t in (0.10, 0.34) else "cuff" if t >= 0.25 else "sleeve"
@@ -147,15 +148,20 @@ CUP_Y, CUP_Z = -0.012, 1.594      # ear defender cup centre (over the ear)
 
 
 def _cup(m, s):
-    """Cushion against the head and the blue shell outside it, both oval."""
-    for x0, x1, ru, rv, sw in ((0.128, 0.146, 0.068, 0.054, RUBBER), (0.146, 0.180, 0.066, 0.052, CUP)):
-        shrink = 0.82 if sw == CUP else 1.0
-        pts = []
-        for x, k in ((x0, 1.0), (x1, shrink)):
-            for i in range(8):
-                a = math.radians(22.5 + 45 * i)
-                pts.append(Vector((s * x, CUP_Y + k * rv * math.cos(a), CUP_Z + k * ru * math.sin(a))))
-        m.hull(pts, sw, "ear_cup")
+    """Black cushion against the head and the blue shell outside it: one
+    oval hexagonal tube, open where it meets the head, capped outside."""
+    # a right-handed frame on either side, so the faces point outward;
+    # the oval is 0.054 front to back and 0.068 tall
+    if s > 0:
+        axes, ru, rv = (Vector((0, 1, 0)), Vector((0, 0, 1)), Vector((1, 0, 0))), 0.054, 0.068
+    else:
+        axes, ru, rv = (Vector((0, 0, 1)), Vector((0, 1, 0)), Vector((-1, 0, 0))), 0.068, 0.054
+    sub = base.Mesh().tube([(0.128, ru, rv, 0, "cushion"), (0.146, ru, rv, 0, "shell"),
+                            (0.180, ru * 0.82, rv * 0.82, 0, "shell")],
+                           origin=(0, CUP_Y, CUP_Z), axes=axes, angles=base.HEX6,
+                           colors={"cushion": RUBBER, "shell": CUP}, cap_start=False)
+    for ids, sw, _ in sub.faces:
+        m.face([sub.verts[i] for i in ids], sw, "ear_cup")
 
 
 def ear_muffs():
@@ -172,7 +178,7 @@ def ear_muffs():
 def ear_defender(m, s):
     """Helmet-mounted ear defender on side s: a black clip plugged into the
     slot on the helmet's side, an arm down from it, a wire yoke round the
-    cup to two pivots, and the blue cup on a black cushion over the ear."""
+    cup's front and back, and the blue cup on a black cushion over the ear."""
     cy, cz = CUP_Y, CUP_Z
     _cup(m, s)
     # Clip in the helmet's side slot, just above the rim
@@ -181,11 +187,9 @@ def ear_defender(m, s):
     # Arm from the clip down past the rim to the top of the yoke
     top = (s * 0.180, cy, 1.660)
     m.bar((s * 0.176, cy, 1.676), top, 0.006, CLIP, "ear_cup")
-    # Yoke: two wires from the arm out to pivots at the cup's front and back
+    # Yoke: two wires from the arm down to the cup's front and back
     for dy in (0.058, -0.058):
-        m.bar(top, (s * 0.180, cy + dy, cz), 0.0035, CLIP, "ear_cup")
-        m.hull([Vector((s * x, cy + dy * 0.98 + ddy, cz + dz)) for x in (0.160, 0.186)
-                for ddy in (-0.008, 0.008) for dz in (-0.008, 0.008)], CLIP, "ear_cup")
+        m.bar(top, (s * 0.165, cy + dy * 0.84, cz), 0.0035, CLIP, "ear_cup")
 
 
 def glasses():
@@ -197,26 +201,21 @@ def glasses():
     top0, top1 = 1.634, 1.645       # brow bar
     # The brow bar follows the face from temple to temple
     angles = (36, 63, 90, 117, 144)
-    for a0, a1 in zip(angles, angles[1:]):
-        pts = []
-        for a in (a0, a1):
-            for z in (top0, top1):
-                pts += [base.head_point(a, z, off - 0.003), base.head_point(a, z, off + 0.003)]
-        m.hull(pts, FRAME, "glasses")
+    # bars are bent bands open on the side that faces the skin
+
+    def section(a, z0, z1, d0=-0.003, d1=0.003):
+        return [base.head_point(a, z0, off + d0), base.head_point(a, z0, off + d1),
+                base.head_point(a, z1, off + d1), base.head_point(a, z1, off + d0)]
+    m.loft([section(a, top0, top1) for a in angles], FRAME, "glasses", closed=False)
     for s in (1, -1):
         def ang(a):
             return a if s == 1 else 180 - a
         # Lower rim: from the bridge it dips under the eye and climbs to the shield
         rim = ((84, 1.606), (66, 1.593), (44, 1.604))
-        for (a0, z0), (a1, z1) in zip(rim, rim[1:]):
-            pts = []
-            for a, z in ((ang(a0), z0), (ang(a1), z1)):
-                for dz in (0.0, 0.005):
-                    pts += [base.head_point(a, z + dz, off - 0.003), base.head_point(a, z + dz, off + 0.002)]
-            m.hull(pts, FRAME, "glasses")
+        m.loft([section(ang(a), z, z + 0.005, d1=0.002) for a, z in rim], FRAME, "glasses", closed=False)
         # Nose pad: from the brow bar down to the rim beside the nose
-        m.hull([base.head_point(ang(a), z, off + d) for a in (84, 89) for z in (1.606, top0)
-                for d in (-0.003, 0.002)], FRAME, "glasses")
+        m.loft([[base.head_point(ang(a), z, off + d) for a, d in ((84, -0.003), (84, 0.002), (89, 0.002), (89, -0.003))]
+                for z in (1.606, top0)], FRAME, "glasses", closed=False, caps=False)
         # Side shield: a clear wedge from the brow bar to the rim at the temple
         m.hull([base.head_point(ang(a), z, off + d) for a, z in ((36, top1), (44, top0), (44, 1.604), (34, 1.612))
                 for d in (-0.003, 0.002)], SHIELD, "glasses")
@@ -264,7 +263,7 @@ def survival_suit():
         for r, z in ((0.080, 1.425), (0.112, 1.445), (0.104, 1.505), (0.076, 1.50)):
             roll.append(Vector((r * 1.05 * math.cos(a), -0.008 + r * math.sin(a), z)))
     m.hull(roll, SUIT, "hood")
-    pts = sorted({r[0] for r in base.ARM} | {0.07, 0.11, 0.42, 0.45})
+    pts = sorted({r[0] for r in base.ARM if r[0] != 0.06} | {0.07, 0.11, 0.42, 0.45})
     arm = []
     for t in pts:
         reg = "band" if t == 0.07 else "seal" if t >= 0.42 else "sleeve"

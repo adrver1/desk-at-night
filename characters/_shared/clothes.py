@@ -193,7 +193,8 @@ def blazer(color, lapel, shirt, buttons="charcoal"):
     m = torso_shell(color, hem=0.80, offset=0.024, flare=0.012, region="blazer")
     _open_lid(m, shirt)
     bvh = m.bvh()
-    zs = [1.13 + k * 0.03 for k in range(10)] + [1.43]
+    # rows only where an edge bends or the body's surface folds (1.35)
+    zs = [1.13, 1.19, 1.31, 1.325, 1.35, 1.40, 1.43]
     m.decal_band(bvh, zs, lambda z: -_lerp_table(V_EDGE, z), lambda z: _lerp_table(V_EDGE, z), shirt, "shirt_v")
     for s in (1, -1):
         m.decal_band(bvh, zs[:-1], lambda z, s=s: s * _lerp_table(V_EDGE, z), lambda z, s=s: s * _lerp_table(LAPEL_EDGE, z),

@@ -245,12 +245,15 @@ def curly_top(color, fade, hairline=FULL, helmet=False, height=1.0):
     mass += [Vector((x, y, up(z))) for x, y, z in ((0.06, 0.10, 1.80), (-0.06, 0.10, 1.80), (0.0, 0.115, 1.81),
                                                    (0.065, 0.01, 1.81), (-0.065, 0.01, 1.81),
                                                    (0.02, 0.06, 1.835), (-0.03, 0.0, 1.835))]
+    n_cap = len(m.faces)
     m.hull(mass, color, "hair")
+    block = range(n_cap, len(m.faces))
     # lumps half sunk into the block break up its outline into curls
     for x, y, z in ((0.055, 0.09, 1.815), (-0.045, 0.095, 1.82), (0.005, 0.06, 1.84), (0.075, 0.02, 1.81),
                     (-0.07, 0.03, 1.815), (0.03, -0.03, 1.83), (-0.03, -0.035, 1.825)):
         m.hull(lump(x, y, up(z) - 0.006 * (1 - height), 0.024 * (0.6 + 0.4 * height)), color, "hair")
-    return m
+    # the cap under the block and the sunk halves of the curls never show
+    return m.cull_inside(block, [*range(n_cap), *range(block.stop, len(m.faces))])
 
 
 def lump(x, y, z, r):
@@ -313,7 +316,9 @@ def curly_mullet(color, hairline=RECEDING, helmet=False):
                                  (0.125, -0.04, 1.53), (-0.125, -0.04, 1.53))]
     if helmet:
         back = [p for p in back if p.z < HELMET_RIM + 0.01]
+    n_cap = len(m.faces)
     m.hull(back, color, "hair")
+    block = range(n_cap, len(m.faces))
     curls = [Vector(p) for p in ((0.128, -0.035, 1.64), (-0.128, -0.035, 1.64), (0.13, -0.05, 1.555),
                                  (-0.13, -0.05, 1.555), (0.11, -0.08, 1.585), (-0.11, -0.08, 1.585),
                                  (0.075, -0.11, 1.49), (-0.075, -0.11, 1.49), (0.0, -0.13, 1.46),
@@ -325,7 +330,8 @@ def curly_mullet(color, hairline=RECEDING, helmet=False):
         if helmet and c.z > HELMET_RIM:
             continue
         m.hull(lump(c.x, c.y, c.z, 0.024), color, "hair")
-    return m
+    # cap and curl faces buried in the back block never show
+    return m.cull_inside(block, [*range(n_cap), *range(block.stop, len(m.faces))])
 
 
 def crop_top_hull(color, temples, hairline=FULL, helmet=False):

@@ -74,13 +74,11 @@ ARM = [(-0.03, 0.064, 0.066, 0.0, "upper_arm"),
        (0.06, 0.066, 0.068, 0.0, "upper_arm"),
        (0.20, 0.055, 0.058, 0.0, "upper_arm"),
        (0.25, 0.052, 0.055, 0.0, "forearm"),
-       (0.30, 0.053, 0.056, 0.0, "forearm"),
        (0.42, 0.047, 0.050, 0.0, "forearm"),
        (0.48, 0.040, 0.043, 0.0, "forearm")]
 # Mitten: flat in the plane of the arm and the forward axis, palm facing in
 MITTEN = [(0.47, 0.034, 0.040, 0.0, "hand"),
           (0.53, 0.027, 0.056, 0.0, "hand"),
-          (0.61, 0.025, 0.054, 0.0, "hand"),
           (0.65, 0.018, 0.042, 0.0, "hand")]
 # Wedge shoe profile in the YZ plane (heel, toe, toe top, instep, heel top)
 SHOE = [(-0.075, 0.0), (0.18, 0.0), (0.18, 0.05), (0.05, 0.115), (-0.075, 0.12)]
@@ -187,13 +185,38 @@ class Mesh:
         return self
 
     def bar(self, a, b, w, swatch, region):
-        """A thin square bar from a to b, w thick each way: wires, arms, frames."""
+        """A thin bar from a to b, about w thick each way: wires, arms,
+        frames. Three-sided, as a wire this thin reads the same with eight
+        triangles as with twelve."""
         a, b = Vector(a), Vector(b)
         d = (b - a).normalized()
         u = d.cross(Z if abs(d.z) < 0.9 else X).normalized()
         v = d.cross(u)
-        return self.hull([p + u * su * w + v * sv * w for p in (a, b) for su in (-1, 1) for sv in (-1, 1)],
-                         swatch, region)
+        corners = [u * (w * 1.2 * math.cos(math.radians(t))) + v * (w * 1.2 * math.sin(math.radians(t)))
+                   for t in (90, 210, 330)]
+        return self.loft([[p + c for c in corners] for p in (a, b)], swatch, region)
+
+    def loft(self, sections, swatch, region, closed=True, caps=True):
+        """Faces joining cross-sections (equal-length lists of points) along
+        a path: a bent bar or band in one piece instead of a hull per step.
+        closed=False leaves the side from the last point back to the first
+        open (the side against the skin); caps close both ends."""
+        n = len(sections[0])
+        mid = [sum(sec, Vector()) / n for sec in sections]
+
+        def add(pts, outward):
+            # wind each face so its normal points away from the path
+            nrm = (pts[1] - pts[0]).cross(pts[2] - pts[0])
+            self.face(pts if nrm.dot(outward) >= 0 else pts[::-1], swatch, region)
+        for k, (s0, s1) in enumerate(zip(sections, sections[1:])):
+            for i in range(n if closed else n - 1):
+                j = (i + 1) % n
+                pts = [s0[i], s0[j], s1[j], s1[i]]
+                add(pts, sum(pts, Vector()) / 4 - (mid[k] + mid[k + 1]) / 2)
+        if caps:
+            add(list(sections[0]), mid[0] - mid[1])
+            add(list(sections[-1]), mid[-1] - mid[-2])
+        return self
 
     def mirrored(self):
         """Copy mirrored across X (the character's right to left)."""
@@ -210,6 +233,27 @@ class Mesh:
 
     def drop(self, regions):
         self.faces = [f for f in self.faces if f[2] not in regions]
+        return self
+
+    def cull_inside(self, hull, faces, margin=0.001):
+        """Delete faces (a range of face indices) that lie wholly inside the
+        convex part made of the faces in range `hull`: hidden geometry,
+        such as the bottom of a curl sunk into a block of hair."""
+        planes = []
+        for ids, _, _ in self.faces[hull.start:hull.stop]:
+            a, b, c = (self.verts[i] for i in ids[:3])
+            n = (b - a).cross(c - a)
+            if n.length > 1e-12:
+                planes.append((n.normalized(), a))
+        centre = sum((self.verts[i] for ids, _, _ in self.faces[hull.start:hull.stop] for i in ids), Vector())
+        centre /= sum(len(ids) for ids, _, _ in self.faces[hull.start:hull.stop])
+        # face normals of a hull may point either way: orient them outward
+        planes = [(n if n.dot(a - centre) > 0 else -n, a) for n, a in planes]
+
+        def inside(p):
+            return all(n.dot(p - a) < -margin for n, a in planes)
+        drop = {k for k in faces if all(inside(self.verts[i]) for i in self.faces[k][0])}
+        self.faces = [f for k, f in enumerate(self.faces) if k not in drop]
         return self
 
     def recolor(self, colors):
@@ -313,6 +357,8 @@ class Mesh:
         bm = bmesh.new()
         bm.from_mesh(me)
         bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-5)
+        # no loose vertices left over from dropped or culled faces
+        bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context="VERTS")
         bm.to_mesh(me)
         bm.free()
         uvl = me.uv_layers.new(name="UVMap")

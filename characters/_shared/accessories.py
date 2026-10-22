@@ -106,7 +106,7 @@ def headband(m, swatch, region, clear=0.015, cy=-0.012, end=(0.152, 1.636), widt
     """A band over the top of the head from one cup to the other, `clear`
     above the scalp, through the plane y = cy."""
     path = []
-    for z in (1.635, 1.68, 1.72, 1.745):
+    for z in (1.635, 1.70, 1.745):
         p = base.head_point(0, z, clear)
         path.append((p.x, z))
     path.append((0.0, base.HEAD[-1][0] + clear * 0.9))
@@ -117,10 +117,9 @@ def headband(m, swatch, region, clear=0.015, cy=-0.012, end=(0.152, 1.636), widt
         # push a band point outward from the middle of the head
         n = Vector((x, 0, z - 1.62)).normalized() * k
         return x + n.x, z + n.z
-    for (x0, z0), (x1, z1) in zip(pts, pts[1:]):
-        m.hull([Vector((px, cy + dy, pz)) for x, z in ((x0, z0), (x1, z1)) for k in (0.0, thick)
-                for px, pz in (out(x, z, k),) for dy in (-width, width)], swatch, region)
-    return m
+    # one bent band: a four-sided section at each point of the path
+    return m.loft([[Vector((px, cy + dy, pz)) for k, dy in ((0.0, -width), (thick, -width), (thick, width), (0.0, width))
+                    for px, pz in (out(x, z, k),)] for x, z in pts], swatch, region)
 
 
 def beanie(color, cuff=None, region="beanie"):
