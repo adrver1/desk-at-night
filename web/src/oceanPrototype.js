@@ -772,6 +772,34 @@ canvas.addEventListener('pointermove', (e) => {
 });
 canvas.addEventListener('pointerup', () => { drag = null; });
 
+// Probe for the 60-to-30 fps drop on phones: draw at a lower resolution, or
+// not at all, to tell a GPU that ran out of time (fps comes back) from the
+// system capping the page (it doesn't: Low Power Mode, heat, an idle iframe)
+const probe = { scale: 1, paused: false, start: performance.now(), drops: [], frames: [], work: [], low: 0 };
+const basePixelRatio = renderer.getPixelRatio();
+const probeRow = group('Probe', [['1', 'Full res'], ['0.5', 'Half res'], ['0.25', 'Quarter res'], ['pause', 'Pause drawing']], 'probe', (k) => {
+  if (k === 'pause') probe.paused = !probe.paused;
+  else { probe.scale = Number(k); renderer.setPixelRatio(basePixelRatio * probe.scale); resize(); }
+});
+const probeLine = document.createElement('div');
+probeLine.id = 'probe';
+document.querySelector('#dock').appendChild(probeLine);
+const mmss = (ms) => { const t = Math.round(ms / 1000); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+document.addEventListener('visibilitychange', () => probe.drops.push(`${mmss(performance.now() - probe.start)} ${document.visibilityState}`));
+function probeTick(now, work) {
+  probe.frames.push(now); probe.work.push(work);
+  while (probe.frames.length > 60) { probe.frames.shift(); probe.work.shift(); }
+  if (probe.frames.length < 60) return;
+  const span = (probe.frames[59] - probe.frames[0]) / 59, fps = 1000 / span;
+  // A drop: under 45 fps for a full second; noted once with what was on
+  probe.low = fps < 45 ? probe.low + 1 : 0;
+  if (probe.low === 60) probe.drops.push(`${mmss(now - probe.start)} drop: ${state.variant}, ${state.view}, ${state.preset ?? 'sliders'}, ${probe.paused ? 'paused' : `res ×${probe.scale}`}`);
+  const sorted = [...probe.work].sort((a, b) => a - b);
+  for (const b of probeRow.querySelectorAll('button')) b.classList.toggle('on', b.dataset.value === 'pause' ? probe.paused : Number(b.dataset.value) === probe.scale);
+  probeLine.textContent = `${span.toFixed(1)} ms/frame · page work ${sorted[30].toFixed(1)} ms (worst ${sorted[59].toFixed(1)}) · ${renderer.info.render.calls} draws · up ${mmss(now - probe.start)}`
+    + (probe.drops.length ? ` · ${probe.drops.slice(-3).join(' · ')}` : '');
+}
+
 function resize() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false);
@@ -803,9 +831,12 @@ function frame(now) {
   scene.fog.color.copy(L.fog);
   scene.fog.density = Math.LN2 / L.fogDistance;
   U.uCamHeight.value = camera.position.y;
-  if (U.uMirrorOn.value) renderMirror();
-  outdoor.render(renderer, camera);
-  renderer.render(scene, camera);
+  if (!probe.paused) {
+    if (U.uMirrorOn.value) renderMirror();
+    outdoor.render(renderer, camera);
+    renderer.render(scene, camera);
+  }
+  probeTick(now, performance.now() - now);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
