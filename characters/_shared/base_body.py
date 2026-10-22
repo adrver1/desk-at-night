@@ -567,6 +567,11 @@ def skin_to(body_ob, arm_ob, extras=(), rigid=None):
             n = groups[g.group].name
             if side and n[-2:] in (".L", ".R") and n[-1] != side:
                 groups[g.group].remove([v.index])
+    # Bone heat also lets the face bones pull on the jaw and cheeks: only the
+    # eye and brow decals follow them (set in _hinge_limbs)
+    for name in FACE_BONES:
+        if name in groups:
+            groups[name].remove([v.index for v in vs])
     # Bone heat skips small floating islands (eyes, brows, ears): they take
     # the weights of the nearest weighted vertex and ride along with it.
     done = [v for v in vs if v.groups]
