@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sea and Sky Lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* Full-screen view; a compact dock of switches along the bottom. One dark look on purpose. */
+  :root { --ink: #eef3f4; --dim: #9fb3ba; --panel: rgba(6, 14, 18, 0.72); --line: rgba(238, 243, 244, 0.22); --on: #f2b544; --on-ink: #10161a;
+    --mono: 'JetBrains Mono', ui-monospace, monospace; --sans: 'Instrument Sans', system-ui, sans-serif; color-scheme: dark; }
+  html, body { height: 100%; margin: 0; overflow: hidden; background: #0b1216; color: var(--ink); }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #dock { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    padding-block: 8px max(8px, env(safe-area-inset-bottom, 0px));
+    padding-left: max(12px, env(safe-area-inset-left, 0px)); padding-right: max(12px, env(safe-area-inset-right, 0px));
+    display: grid; gap: 6px; font: 13px/1.2 var(--sans); }
+  #ui { display: grid; gap: 6px; }
+  .row { display: flex; gap: 5px; align-items: center; overflow-x: auto; scrollbar-width: none; }
+  .row::-webkit-scrollbar { display: none; }
+  .lab { font: 500 10px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); min-width: 58px; flex: none; }
+  button { flex: none; font: 500 12.5px/1 var(--sans); color: var(--ink); background: transparent; border: 1px solid var(--line);
+    border-radius: 999px; padding: 7px 11px; cursor: pointer; text-transform: capitalize; }
+  button.on { background: var(--on); color: var(--on-ink); border-color: var(--on); }
+  button:focus-visible { outline: 2px solid var(--on); outline-offset: 2px; }
+  #note { font: 400 11px/1.4 var(--mono); color: var(--dim); }
+  #note b { color: var(--ink); font-weight: 500; }
+  #note .cost { display: block; }
+  #sliders { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 4px 16px; }
+  #sliders[hidden] { display: none; }
+  .slider { display: grid; grid-template-columns: 74px 1fr 76px; gap: 8px; align-items: center; min-width: 0; }
+  .slider input { width: 100%; min-width: 0; accent-color: var(--on); }
+  .slider output { font: 400 11px/1 var(--mono); color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+  #probe { font: 400 10.5px/1.4 var(--mono); color: var(--on); font-variant-numeric: tabular-nums; }
+  #wind { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); top: max(12px, env(safe-area-inset-top, 0px)); display: grid; justify-items: center; gap: 2px; pointer-events: none; }
+  #wind circle { fill: var(--panel); stroke: var(--line); }
+  #wind path { fill: var(--on); }
+  #wind span { font: 500 10px/1 var(--mono); color: var(--ink); text-shadow: 0 1px 3px #000; }
+  #status { position: fixed; inset: 0; display: grid; place-items: center; font: 500 13px var(--mono); color: var(--dim); }
+  #status[hidden] { display: none; }
+</style>
+</head>
+<body>
+<canvas></canvas>
+<div id="status">Loading the platform…</div>
+<div id="dock">
+  <div id="ui"></div>
+  <div id="sliders" hidden></div>
+  <div id="note"></div>
+</div>
+<script type="module" src="./src/oceanPrototype.js"></script>
+</body>
+</html>

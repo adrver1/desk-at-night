@@ -704,7 +704,7 @@ renderer.setAnimationLoop((now) => {
   room.setClock(outdoor.state.time); // the wall clock runs with the screens off too
   if (controls.screens) room.updateScreens(now / 1000, outdoor.cctv);
   if (controls.screens && cctv) cctv.update(now / 1000, room.feedsShown());
-  outdoor.render(renderer, camera);
+  outdoor.render(renderer, camera, { reflect: scene });   // the vessel mirrored in the sea
   renderer.render(scene, camera);
   if (panelOpen) showFrameTime(frame);
 });

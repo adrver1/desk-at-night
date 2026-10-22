@@ -75,10 +75,10 @@ export const sim = {
   gas: (t) => 4.1 + 0.08 * wobble(t * 0.3, 8),
   water: (t) => 6.3 + 0.15 * wobble(t * 0.3, 9),
   flare: (t) => 0.9 + 0.35 * Math.max(0, wobble(t * 0.2, 10)),
-  wind: (t) => (outside ? 3 + outside.wind * 22 : 14) * (1 + 0.15 * wobble(t * 0.15, 11)),
-  windDir: (t) => 235 + 12 * wobble(t * 0.1, 12),
-  // Significant wave height for a sea grown fully under the mean wind
-  waves: (t) => (outside ? 0.4 + 0.017 * (3 + outside.wind * 22) ** 2 : 2.6) + 0.2 * wobble(t * 0.05, 13),
+  wind: (t) => (outside ? outside.windSpeed : 14) * (1 + 0.15 * wobble(t * 0.15, 11)),
+  windDir: (t) => (((outside ? outside.windFrom : 235) + 12 * wobble(t * 0.1, 12)) % 360 + 360) % 360,
+  // Significant wave height of the sea outdoor.js draws: wind sea and swell
+  waves: (t) => (outside ? outside.waveHeight : 2.6) * (1 + 0.06 * wobble(t * 0.05, 13)),
   visibility: () => (outside ? 0.2 + 30 * (1 - outside.fog) ** 2.5 : 9),     // km
   cloudBase: () => (outside ? Math.round((4500 - 3800 * outside.clouds) / 100) * 100 : 1400), // ft
   gen: (i, t) => [62, 58, 0][i] + (i < 2 ? 3 * wobble(t * 0.4, 14 + i) : 0),

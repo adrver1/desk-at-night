@@ -9,8 +9,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { Outdoor, WEATHER, PLATFORM_HEADING } from './outdoor.js';
-import { approachPose } from './vessel.js';
+import { Outdoor, WEATHER, PLATFORM_HEADING, reflectable } from './outdoor.js';
+import { approachPose, floatOn } from './vessel.js';
 import { Wake } from './wake.js';
 import { Helicopter } from './helicopter.js';
 import { fpsCounter } from './fps.js';
@@ -132,7 +132,7 @@ const berth = info.berth && { x: info.berth.position[0], y: info.berth.position[
 const VESSEL_F = [0.35, 0.95, 1];   // approachPose's f at the start, at touchdown and at the end
 const vesselPose = {}, wakeFog = { color: new THREE.Color(), density: { value: 0 } };
 // The V-shaped wake (wake.js), laid in the platform's frame: z up turned to y up
-const wake = vessel && berth && new Wake({ length: 88.5, fog: wakeFog });
+const wake = vessel && berth && new Wake({ length: 88.5, fog: wakeFog, sea: outdoor.surfaceUniforms });
 if (wake) {
   const sea = new THREE.Group();
   sea.rotation.x = -Math.PI / 2;
@@ -145,12 +145,22 @@ const vesselSpeed = (t) => {   // m/s along the approach at time t
   const a = approachPose(berth, vesselF(Math.max(0, t - 0.5))), b = approachPose(berth, vesselF(t));
   return Math.hypot(b.x - a.x, b.y - a.y) / 0.5;
 };
+// Blender's axes to three's (B), as a matrix, and back
+const TO_THREE = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, 1), FROM_THREE = TO_THREE.clone().invert();
+let vesselFloat = null;
 let wakeAt = null;   // pose last frame, to spot a jump (Skip, or the start)
 function moveVessel(t, dt) {
   if (!vessel || !berth) return;
   approachPose(berth, vesselF(t), vesselPose);
-  vessel.scene.position.copy(B(vesselPose.x, vesselPose.y, 0));
-  vessel.scene.rotation.y = vesselPose.yaw;
+  // Floating on the waves: heave, pitch and roll in the platform's frame,
+  // turned into three's (a little slower than the water)
+  const f = floatOn(outdoor, TO_THREE, vesselPose.x, vesselPose.y, vesselPose.yaw, 88.5, 19);
+  const k = vesselFloat && dt ? 1 - Math.exp(-dt / 0.8) : vesselFloat ? 0 : 1;
+  vesselFloat ??= { ...f };
+  for (const key of ['heave', 'pitch', 'roll']) vesselFloat[key] += (f[key] - vesselFloat[key]) * k;
+  vessel.scene.position.copy(B(vesselPose.x, vesselPose.y, vesselFloat.heave));
+  vessel.scene.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(vesselFloat.roll, vesselFloat.pitch, vesselPose.yaw, 'ZYX'))
+    .premultiply(TO_THREE).multiply(FROM_THREE));
   if (!wake) return;
   if (!wakeAt || Math.hypot(vesselPose.x - wakeAt.x, vesselPose.y - wakeAt.y) > 40) {
     // Lay the wake it would have left: the track behind it, newest first,
@@ -669,7 +679,7 @@ function frame(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); // a first frame stamp can come before last
   last = now;
   step(paused ? 0 : dt);
-  outdoor.render(renderer, camera);
+  outdoor.render(renderer, camera, { reflect: scene });
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
@@ -778,6 +788,10 @@ function step(dt) {
   ui.end?.classList.toggle('on', t > T_END && !BOARD);
 
 }
+// What the sea mirrors: the platform, the helicopter (and everyone in it),
+// the vessel, and the lights on them
+reflectable(platform.scene, heliRoot, hemi, sun);
+if (vessel) reflectable(vessel.scene);
 document.body.classList.add('ready');
 requestAnimationFrame(frame);
 window.intro = { advance(sec) { for (let k = 0; k < sec * 30; k++) step(1 / 30); }, // for screenshots
