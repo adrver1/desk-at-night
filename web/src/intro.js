@@ -136,7 +136,7 @@ if (wake) {
   sea.add(wake.mesh);
   scene.add(sea);
 }
-const vesselF = (t) => BOARD ? 1 : t < FLIGHT ? THREE.MathUtils.lerp(VESSEL_F[0], VESSEL_F[1], t / FLIGHT)
+const vesselF = (t) => BOARD ? 1 : t < FLIGHT ? Math.max(0, THREE.MathUtils.lerp(VESSEL_F[0], VESSEL_F[1], t / FLIGHT))   // before 0: where it sailed before we came
   : THREE.MathUtils.lerp(VESSEL_F[1], VESSEL_F[2], THREE.MathUtils.clamp((t - FLIGHT) / (T_END - FLIGHT), 0, 1));
 const vesselSpeed = (t) => {   // m/s along the approach at time t
   const a = approachPose(berth, vesselF(Math.max(0, t - 0.5))), b = approachPose(berth, vesselF(t));
@@ -150,9 +150,10 @@ function moveVessel(t, dt) {
   vessel.scene.rotation.y = vesselPose.yaw;
   if (!wake) return;
   if (!wakeAt || Math.hypot(vesselPose.x - wakeAt.x, vesselPose.y - wakeAt.y) > 40) {
-    // Lay the wake it would have left: the track behind it, newest first
+    // Lay the wake it would have left: the track behind it, newest first,
+    // reaching back before the intro starts, as it was already under way
     const past = [];
-    for (let k = 0, g = t; k < 110 && g >= 0; k++, g -= 1) {
+    for (let k = 0, g = t; k < 110; k++, g -= 1) {
       const q = approachPose(berth, vesselF(g));
       past.push({ ...q, speed: vesselSpeed(g), age: t - g });
     }
