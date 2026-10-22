@@ -18,10 +18,12 @@
   .clock { position: fixed; left: max(14px, env(safe-area-inset-left)); top: max(12px, env(safe-area-inset-top));
     font: 500 11px/1 'JetBrains Mono', monospace; color: rgba(244, 241, 234, 0.6); pointer-events: none; }
   .end { position: fixed; inset: 0; display: grid; place-items: center; background: #05080a; opacity: 0;
+    align-content: center; gap: 14px;
     pointer-events: none; transition: opacity 2.5s; }
   .end.on { opacity: 1; pointer-events: auto; }
   .end a { font: 600 16px/1 'Instrument Sans', system-ui, sans-serif; color: #05080a; background: #f4f1ea;
     padding: 12px 18px; border-radius: 6px; text-decoration: none; }
+  .end a.board { background: none; color: #9fb0b8; font-weight: 500; font-size: 14px; }
   .loading { position: fixed; inset: 0; display: grid; place-items: center; font: 500 13px 'JetBrains Mono', monospace; color: #9fb0b8; }
   body.ready .loading { display: none; }
 </style>
@@ -31,7 +33,7 @@
 <div class="loading">loading</div>
 <div class="caption"></div>
 <div class="clock"></div>
-<div class="end"><a href="play.html">Continue to the control room</a></div>
+<div class="end"><a href="play.html">Continue to the control room</a><a class="board" href="#board" onclick="setTimeout(() => location.reload())">Watch the crew board</a></div>
 <button class="skip" type="button">Skip</button>
 <script type="module" src="/src/intro.js"></script>
 </body>

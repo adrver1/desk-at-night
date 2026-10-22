@@ -336,7 +336,7 @@ function disembark(p, since, dt) {
 // the stairs to the step, up into the cabin holding the door post, bent
 // along the aisle to their seat, turn and sit down (stand_up played back).
 // The farthest seats fill first.
-const BOARD = q.get('scene') === 'board';
+const BOARD = q.get('scene') === 'board' || location.hash === '#board';
 const STEP_UP = 1.3;   // s from the deck up onto the sill
 const SIT = 1.5;
 if (BOARD) {
