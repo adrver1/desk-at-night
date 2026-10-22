@@ -1,12 +1,15 @@
 // Time of day and weather sliders for outdoor.js, built into a container.
 // Shared by the lighting viewer and the room control panel in the game.
-// The URL can set them too: ?time=14.5&weather=storm (or clouds/wind/fog/rain=0..1).
-import { WEATHER, REAL_TIME, clock } from './outdoor.js';
+// The URL can set them too: ?time=14.5&weather=storm (or clouds/wind/fog/rain=0..1,
+// windFrom and swellFrom in degrees, swellHs in metres).
+import { WEATHER, REAL_TIME, clock, windSpeed, beaufort, compass } from './outdoor.js';
 
 const SLIDERS = [
   ['time', 'Time of day', 0, 24, 0.05, (v) => clock(v)],
   ['clouds', 'Clouds', 0, 1, 0.01, (v) => `${Math.round(v * 100)}%`],
-  ['wind', 'Wind and waves', 0, 1, 0.01, (v) => `${Math.round(3 + v * 22)} m/s`],
+  ['wind', 'Wind and waves', 0, 1, 0.01, (v) => `${Math.round(windSpeed(v))} m/s · ${beaufort(windSpeed(v))[0]} Bft`],
+  ['windFrom', 'Wind from', 0, 359, 1, (v) => `${compass(v)} ${Math.round(v)}°`],
+  ['swellHs', 'Swell', 0, 4, 0.1, (v) => `${v.toFixed(1)} m`],
   ['fog', 'Fog', 0, 1, 0.01, (v) => `${Math.round(v * 100)}%`],
   ['rain', 'Rain', 0, 1, 0.01, (v) => `${Math.round(v * 100)}%`],
 ];
@@ -17,7 +20,7 @@ export function outdoorControls(root, outdoor) {
   const params = new URLSearchParams(location.search);
   const preset = WEATHER[params.get('weather')];
   if (preset) outdoor.set(preset);
-  for (const [key] of SLIDERS) if (params.has(key)) outdoor.set({ [key]: Number(params.get(key)) });
+  for (const key of [...SLIDERS.map(([k]) => k), 'swellFrom']) if (params.has(key)) outdoor.set({ [key]: Number(params.get(key)) });
 
   const outputs = {}, inputs = {};
   for (const [key, label, min, max, step, show] of SLIDERS) {

@@ -1,7 +1,8 @@
 // PROTOTYPE (throwaway): which sea, sky and reflections should the game use?
 // Today's outdoor.js next to three upgrades, around the platform and the
 // supply vessel from the intro's models:
-//   now  today's outdoor.js, untouched
+//   now  the game's outdoor.js (since the sea was built into the game,
+//        this lab is frozen: its own looks still swap outdoor.js's materials)
 //   a    shader polish: lit puffy clouds and cirrus, a sea from a wind wave
 //        spectrum with whitecaps and rain rings; no extra render passes
 //   b    a + the platform and vessel mirrored in the sea (one extra render
@@ -546,7 +547,7 @@ function ringGrid(rings = 240, segments = 160, inner = 1, outer = 40000) {
 // ---------------------------------------------------------------- page
 
 const VARIANTS = {
-  now: { label: 'Today', cost: 'what the game draws now' },
+  now: { label: 'Game', cost: 'what outdoor.js draws now' },
   a: { label: 'A · Polish', cost: 'no extra passes' },
   b: { label: 'B · Reflections', cost: '+1 quarter-res render' },
   c: { label: 'C · Cinematic', cost: 'B + moving sea surface' },

@@ -9,6 +9,7 @@
 // mapped into the room's frame with its toRoom matrix.
 import * as THREE from 'three';
 import { Wake } from './wake.js';
+import { reflectable } from './outdoor.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 // Game-clock hours: start of the approach, alongside, start of the departure,
@@ -141,12 +142,14 @@ export class SupplyVessel {
   }
 
   // A copy of the model for one scene. `fog` gives it the outdoor fog (the
-  // room's scene has none of its own); `seaLevel` (y in the room's frame)
-  // clips what is under the water, which the CCTV pictures would show.
-  copy({ seaLevel, fog = false, lights = false }) {
+  // room's scene has none of its own); what is under its waterline is
+  // clipped away (the plane rides with it), which the pictures would show
+  // over the sea; `outdoor`: the Outdoor whose waves its wake rides.
+  copy({ seaLevel, fog = false, lights = false, outdoor = null }) {
     const root = this.model.clone(true);
     root.matrixAutoUpdate = false;
-    const clip = [new THREE.Plane(new THREE.Vector3(0, 1, 0), -seaLevel)];
+    this.waterline ??= new THREE.Plane(new THREE.Vector3(0, 1, 0), -seaLevel);
+    const clip = [this.waterline];
     const glowing = [], radars = [];
     root.traverse((o) => {
       if (o.name.startsWith('PsvRadar')) radars.push(o);
@@ -165,7 +168,7 @@ export class SupplyVessel {
     group.add(root);
     // The wake, laid in the platform's frame
     this.wakeFog ??= { color: new THREE.Color(), density: { value: 0 } };
-    const wake = new Wake({ length: this.info.length ?? 88, fog: this.wakeFog });
+    const wake = new Wake({ length: this.info.length ?? 88, fog: this.wakeFog, sea: outdoor?.surfaceUniforms });
     const sea = new THREE.Group();
     sea.matrixAutoUpdate = false;
     sea.matrix.copy(this.toRoom);
@@ -255,22 +258,30 @@ export class SupplyVessel {
       for (const c of this.copies) c.wake.seed(past);
     }
 
-    // Dynamic positioning: small slow drifts around the target; the swell:
-    // heave, roll and pitch growing with the wind
-    const t = this.t, w = outdoor.state.wind ?? 0.3;
+    // Dynamic positioning: small slow drifts around the target; the waves:
+    // it floats on the sea outdoor.js draws, heaving, pitching and rolling
+    // with the surface under its bow, stern and sides, a little slower than
+    // the water (a ship this size doesn't follow every wave)
+    const t = this.t;
     const dp = phase === 'alongside' ? 1 : 0.3;
     const x = p.x + dp * 0.5 * Math.sin(t * 0.07 + 1.3);
     const y = p.y + dp * 0.6 * Math.sin(t * 0.05);
     const yaw = p.yaw + dp * THREE.MathUtils.degToRad(0.6) * Math.sin(t * 0.04 + 2.1);
-    const heave = (0.25 + 1.1 * w) * (0.6 * Math.sin(t * 0.55) + 0.4 * Math.sin(t * 0.83 + 1));
-    const roll = THREE.MathUtils.degToRad(0.8 + 5 * w) * (0.7 * Math.sin(t * 0.45 + 0.5) + 0.3 * Math.sin(t * 0.71));
-    const pitch = THREE.MathUtils.degToRad(0.3 + 1.6 * w) * Math.sin(t * 0.6 + 2);
+    const fl = floatOn(outdoor, this.toRoom, x, y, yaw, this.info.length ?? 88, BEAM);
+    const k = jump ? 1 : 1 - Math.exp(-dt / 0.8);
+    this.float ??= { ...fl };
+    for (const key of ['heave', 'pitch', 'roll']) this.float[key] += (fl[key] - this.float[key]) * k;
+    const { heave, pitch, roll } = this.float;
     const m = new THREE.Matrix4().compose(
       new THREE.Vector3(x, y, heave),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(roll, pitch, yaw, 'ZYX')),
       new THREE.Vector3(1, 1, 1),
     );
-    m.premultiply(this.toRoom).multiply(this.yUp);
+    m.premultiply(this.toRoom);
+    // Clip at its own waterline, tilted with it
+    const up = new THREE.Vector3().setFromMatrixColumn(m, 2).normalize();
+    this.waterline?.setFromNormalAndCoplanarPoint(up, new THREE.Vector3().setFromMatrixPosition(m));
+    m.multiply(this.yUp);
 
     // Lit windows, floodlights and nav lights: full at night, faint by day
     const L = outdoor.light;
@@ -346,7 +357,25 @@ SupplyVessel.prototype.slew = function slew(dt, out) {
   c.obj.quaternion.setFromAxisAngle(UP, c.angle).multiply(c.rest);
 };
 const UP = new THREE.Vector3(0, 1, 0);
+const BEAM = 19;   // m
 const FLOOD = new THREE.Color(0.35, 0.3, 0.22);
+
+// How a ship at x, y (platform metres, heading yaw from +X) floats on an
+// Outdoor's sea, its frame given by toPage (platform to the page's frame,
+// z up to y up): heave (m), pitch (rad, bow down) and roll (rad, port up)
+// from the surface under points along and across its hull
+export function floatOn(outdoor, toPage, x, y, yaw, length, beam) {
+  const c = Math.cos(yaw), s = Math.sin(yaw), h = (along, across) => {
+    const q = new THREE.Vector3(x + c * along - s * across, y + s * along + c * across, 0).applyMatrix4(toPage);
+    return outdoor.heightAt(q.x, q.z);
+  };
+  const bow = h(length * 0.35, 0), stern = h(-length * 0.35, 0), port = h(0, beam * 0.4), starboard = h(0, -beam * 0.4);
+  return {
+    heave: (bow + stern + port + starboard) / 4,
+    pitch: -Math.atan2(bow - stern, length * 0.7),
+    roll: Math.atan2(port - starboard, beam * 0.8),
+  };
+}
 
 // Exponential fog by distance from the camera, from outdoor.js, on a Lambert
 // material (the room's scene has no THREE.Fog of its own: its baked
@@ -392,11 +421,15 @@ export function vesselControls(root, vessel, outdoor) {
 export async function addVessel({ renderer, scene, room, outdoor, cctv, panel }) {
   const vessel = await SupplyVessel.load();
   renderer.localClippingEnabled = true;
-  scene.add(vessel.copy({ seaLevel: room.seaLevel, fog: true, lights: true }));
+  const seen = vessel.copy({ seaLevel: room.seaLevel, fog: true, lights: true, outdoor });
+  reflectable(seen);
+  scene.add(seen);
   if (panel) vesselControls(panel, vessel, outdoor);
   cctv.then((c) => {
     if (!c) return;
-    c.scene.add(vessel.copy({ seaLevel: room.seaLevel }));
+    const pictured = vessel.copy({ seaLevel: room.seaLevel, outdoor });
+    reflectable(pictured);
+    c.scene.add(pictured);
     const crane = c.scene.getObjectByName('CraneSlew');
     if (crane) vessel.attachCrane(crane);
   }).catch(() => {});

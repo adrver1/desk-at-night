@@ -113,7 +113,7 @@ renderer.setAnimationLoop((now) => {
   room.updateScreens(now / 1000, outdoor.cctv);
   if (cctv) cctv.update(now / 1000, room.feedsShown());
   controls.update();
-  outdoor.render(renderer, camera);
+  outdoor.render(renderer, camera, { reflect: scene });   // the vessel mirrored in the sea
   renderer.render(scene, camera);
   ui.eq.innerHTML = `pixel = albedo × ( <b class="l">${state.ceiling.toFixed(2)}</b> · E<sub>ceiling</sub> + <b class="m">${state.screens.toFixed(2)}</b> · E<sub>screens</sub> + <b>sky</b> · E<sub>sky</sub> )`;
 });

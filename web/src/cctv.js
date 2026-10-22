@@ -1,12 +1,14 @@
 // The deck cameras' live pictures: the platform as they see it (cctv.glb, from
 // blender/cctv_platform.py) under outdoor.js's sky, sea, sun, moon and fog,
 // each drawn a few times a second into a small texture the wall screens show.
+// The cameras always see look B: a flat sea, with the platform mirrored in it.
 // The pictures stay linear and bright; the screens' shader exposes them like
 // a camera would (controlScene.js), and screens.js draws rain, noise and the
 // caption over them.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Helicopter } from './helicopter.js';
+import { reflectable } from './outdoor.js';
 
 const COARSE = matchMedia('(pointer: coarse)').matches;
 const WIDTH = COARSE ? 384 : 512; // pixels across, 16:9
@@ -32,6 +34,8 @@ export class Cctv {
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
     this.sun = new THREE.DirectionalLight(0xffffff, Math.PI);
     this.scene.add(this.hemi, this.sun, this.sun.target);
+    reflectable(model, this.hemi, this.sun);
+    this.scene.add(outdoor.surface());   // the sea's surface hides what is under it
     this.scene.fog = new THREE.FogExp2(0x000000, 0);
     // The helicopter on the helideck: parked, rotors stopped (?heli=running to spin them)
     const q = new URLSearchParams(location.search).get('heli');
@@ -82,7 +86,7 @@ export class Cctv {
     this.sun.target.position.copy(cam.camera.position);
     const r = this.renderer, prev = r.getRenderTarget();
     r.setRenderTarget(cam.target);
-    this.outdoor.render(r, cam.camera); // clears, draws the sky and sea, clears depth
+    this.outdoor.render(r, cam.camera, { reflect: this.scene }); // clears, draws the sky and sea, clears depth
     r.render(this.scene, cam.camera);
     r.setRenderTarget(prev);
   }

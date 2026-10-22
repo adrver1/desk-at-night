@@ -5,14 +5,17 @@
 // The wake follows the track the ship actually sailed, so it bends with the
 // turns: a ribbon through the bow positions of the last few hundred metres.
 // Everything is in the platform's frame (metres, z up, sea at z = 0); put the
-// mesh under a group whose matrix maps that frame into the scene.
+// mesh under a group whose matrix maps that frame into the scene. Given the
+// sea's surface uniforms (outdoor.js), it rides the moving waves.
 import * as THREE from 'three';
+import { SEA_SURFACE } from './outdoor.js';
 
 const KELVIN = Math.tan(THREE.MathUtils.degToRad(19.47));
 const STEP = 4;        // metres sailed between track points
 const POINTS = 110;    // so about 440 m of wake
 const FADE = 150;      // seconds for an old wake to settle
 const FULL_SPEED = 3;  // m/s for the full wake (about 6 knots)
+const ACROSS = 13;     // vertices across the ribbon, so it can follow the waves
 
 const vertex = /* glsl */ `
   attribute vec3 track;   // metres behind the bow, metres off the track, speed 0..1
@@ -20,10 +23,17 @@ const vertex = /* glsl */ `
   varying vec3 vTrack;
   varying float vAge;
   varying float vDepth;
+  #ifdef SEA
+  ${SEA_SURFACE}
+  #endif
   void main() {
     vTrack = track;
     vAge = age;
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    vec4 w = modelMatrix * vec4(position, 1.0);
+    #ifdef SEA
+    w.xyz += seaDisplace(w.xz, seaCell(w.xz));
+    #endif
+    vec4 mvPosition = viewMatrix * w;
     vDepth = -mvPosition.z;
     gl_Position = projectionMatrix * mvPosition;
   }
@@ -85,20 +95,23 @@ const fragment = /* glsl */ `
 `;
 
 export class Wake {
-  // fog: {color, density: {value}} shared with whatever else uses that fog
-  constructor({ length = 88, fog } = {}) {
+  // fog: {color, density: {value}} shared with whatever else uses that fog;
+  // sea: an Outdoor's surfaceUniforms, for the moving sea
+  constructor({ length = 88, fog, sea = null } = {}) {
     this.length = length;
     this.track = [];   // {x, y, s (speed 0..1), t (time laid)}
     this.time = 0;
     const n = POINTS;
     const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 2 * 3), 3).setUsage(THREE.DynamicDrawUsage));
-    g.setAttribute('track', new THREE.BufferAttribute(new Float32Array(n * 2 * 3), 3).setUsage(THREE.DynamicDrawUsage));
-    g.setAttribute('age', new THREE.BufferAttribute(new Float32Array(n * 2), 1).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * ACROSS * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('track', new THREE.BufferAttribute(new Float32Array(n * ACROSS * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('age', new THREE.BufferAttribute(new Float32Array(n * ACROSS), 1).setUsage(THREE.DynamicDrawUsage));
     const index = [];
     for (let i = 0; i < n - 1; i++) {
-      const a = i * 2;
-      index.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      for (let j = 0; j < ACROSS - 1; j++) {
+        const a = i * ACROSS + j, b = a + ACROSS;
+        index.push(a, a + 1, b, a + 1, b + 1, b);
+      }
     }
     g.setIndex(index);
     g.setDrawRange(0, 0);
@@ -107,9 +120,10 @@ export class Wake {
       uKelvin: { value: KELVIN }, uLength: { value: length }, uTime: { value: 0 },
       uFoam: { value: new THREE.Color(0.85, 0.9, 0.92) },
       uFogDensity: this.fog.density,
+      ...sea,
     };
     this.material = new THREE.ShaderMaterial({
-      vertexShader: vertex, fragmentShader: fragment, uniforms: this.uniforms,
+      vertexShader: vertex, fragmentShader: fragment, uniforms: this.uniforms, defines: sea ? { SEA: '' } : {},
       transparent: true, depthWrite: false, side: THREE.DoubleSide,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4,
     });
@@ -161,14 +175,14 @@ export class Wake {
       const l = Math.hypot(tx, ty) || 1;
       tx /= l; ty /= l;
       const half = d * KELVIN * 1.25 + 14;
-      for (const side of [0, 1]) {
-        const k = side ? -half : half, j = i * 2 + side;
+      for (let m = 0; m < ACROSS; m++) {
+        const k = half * (1 - 2 * m / (ACROSS - 1)), j = i * ACROSS + m;
         pos.set([p.x - ty * k, p.y + tx * k, 0.3], j * 3);
         tr.set([d, k, p.s], j * 3);
         age[j] = this.time - p.t;
       }
     }
     g.attributes.position.needsUpdate = g.attributes.track.needsUpdate = g.attributes.age.needsUpdate = true;
-    g.setDrawRange(0, Math.max(0, T.length - 1) * 6);
+    g.setDrawRange(0, Math.max(0, T.length - 1) * (ACROSS - 1) * 6);
   }
 }
