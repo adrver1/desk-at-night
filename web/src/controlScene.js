@@ -29,7 +29,7 @@ const lampOff = new THREE.Color();
 // them a few times a second was too slow, so they are drawn once, as they
 // look STATIC_T seconds into the shift (phones get a half-size atlas), and
 // only screens showing LIVE content keep moving, each on its own small texture.
-export const LIVE = ['assistant', 'deckCam', 'flareCam', 'craneCam', 'weather']; // content that keeps moving wherever it is shown (the cameras and weather follow outdoor.js)
+export const LIVE = ['assistant', 'deckCam', 'flareCam', 'craneCam', 'boomCam', 'weather']; // content that keeps moving wherever it is shown (the cameras and weather follow outdoor.js)
 const isLive = (name) => LIVE.includes(contentOf(name));
 const STATIC_T = 600, SCREEN_HZ = 4, SCREEN_GAIN = 1.4;
 const ATLAS_EVERY = 3; // s between redraws of the static screens for the clock
@@ -551,6 +551,11 @@ export async function loadControlRoom(renderer) {
       const shown = new Set();
       if (screens) for (const o of screens.overlays.values()) if (o.mesh.visible && o.mesh.material.uniforms.uFeed.value) shown.add(contentOf(o.name));
       return shown;
+    },
+    // The camera on the screen shown sharp, if it shows one (for cctv.js)
+    focusedFeed() {
+      const id = screens?.focus && contentOf(screens.focus.name);
+      return id && isFeed(id) ? id : null;
     },
     // Show one screen sharp and fully live (null for none)
     setFocus(name) {
