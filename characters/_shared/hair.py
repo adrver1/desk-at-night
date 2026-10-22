@@ -76,7 +76,7 @@ def cap(color, hairline=FULL, offsets=(0.008, 0.012, 0.016), lifts=(0.0, 0.008, 
             j = (i + 1) % n
             m.face([rows[k][i], rows[k][j], rows[k + 1][j], rows[k + 1][i]], shades[k], region)
     if crown:
-        m.face(rows[-1], shades[-1], region)
+        m.face(rows[-1], shades[len(fs) - 2], region)   # same as the top band
     return m
 
 
