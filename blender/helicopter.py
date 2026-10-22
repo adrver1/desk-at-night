@@ -230,34 +230,48 @@ def _band(k):
 def cut_quad(g, mat, a, c, d, e, holes, flip=False):
     """Loft face a-c (one ring, bottom to top or top to bottom), d-e (next
     ring) with rectangular holes, given as (x0, x1, z0, z1) in world x and z.
-    Emits the frame around the holes as quads; holes outside the face are ignored."""
+    Emits the frame around the holes as quads; holes outside the face are
+    ignored. A hole's edges keep their height across the face even where
+    the band slopes (the corners find their own place across it)."""
     def P(s, t):  # bilinear across the face: s along x (a->e), t across the band (a->c)
         lo, hi = a.lerp(e, s), c.lerp(d, s)
         return lo.lerp(hi, t)
 
+    def T(s, z):  # where height z crosses the band at s, 0 to 1
+        lo, hi = a.lerp(e, s), c.lerp(d, s)
+        return min(1.0, max(0.0, (z - lo.z) / (hi.z - lo.z)))
+
     xa, xe = a.x, e.x
+    zlo, zhi = sorted((min(a.z, e.z), max(a.z, e.z), min(c.z, d.z), max(c.z, d.z)))[::3]
     cuts = []
     for x0, x1, z0, z1 in holes:
         s0, s1 = sorted(((x0 - xa) / (xe - xa), (x1 - xa) / (xe - xa)))
-        if s1 <= 0 or s0 >= 1:
+        if s1 <= 0 or s0 >= 1 or z1 <= zlo or z0 >= zhi:
             continue
-        t0, t1 = sorted(((z0 - a.z) / (c.z - a.z), (z1 - a.z) / (c.z - a.z)))
-        if t1 <= 0 or t0 >= 1:
-            continue
-        cuts.append((max(s0, 0), min(s1, 1), max(t0, 0), min(t1, 1)))
+        cuts.append((max(s0, 0), min(s1, 1), z0, z1))
     cuts.sort()
-    pieces, s = [], 0.0
-    for s0, s1, t0, t1 in cuts:
+    pieces, s = [], 0.0   # (s0, s1, edge or hole height, hole height or edge)
+    for s0, s1, z0, z1 in cuts:
         if s0 > s:
             pieces.append((s, s0, 0, 1))
-        pieces += [(s0, s1, 0, t0), (s0, s1, t1, 1)]
+        pieces += [(s0, s1, 0, (z0, z1, 0)), (s0, s1, (z0, z1, 1), 1)]
         s = s1
     if s < 1:
         pieces.append((s, 1, 0, 1))
-    for s0, s1, t0, t1 in pieces:
-        if s1 - s0 < 1e-4 or t1 - t0 < 1e-4:
+
+    def t_at(s, spec):
+        if not isinstance(spec, tuple):
+            return spec
+        z0, z1, side = spec
+        return sorted((T(s, z0), T(s, z1)))[side]
+
+    for s0, s1, ta, tb in pieces:
+        if s1 - s0 < 1e-4:
             continue
-        vs = [P(s1, t0), P(s1, t1), P(s0, t1), P(s0, t0)]
+        t00, t01, t10, t11 = t_at(s0, ta), t_at(s0, tb), t_at(s1, ta), t_at(s1, tb)
+        if t01 - t00 < 1e-4 and t11 - t10 < 1e-4:
+            continue
+        vs = [P(s1, t10), P(s1, t11), P(s0, t01), P(s0, t00)]
         g.add(mat, vs[::-1] if flip else vs, [(0, 1, 2, 3)])
 
 
@@ -396,9 +410,9 @@ def build_door(g, m, liv, side):
     g.add(m["cabin"], [Vector((x0, t0, z0)), Vector((x1, t0, z0)), Vector((x1, t1, z0)), Vector((x0, t1, z0))],
           [(0, 1, 2, 3), (3, 2, 1, 0)])
     for w in (w for w in WINDOWS if _in_door(w)):   # reveals through the panel
-        _reveal(g, m["cabin"], w, side, lambda x, z: _side_y(x, z) + 0.02, lambda x, z: _side_y(x, z) - 0.075)
+        _reveal(g, m["cabin"], w, side, lambda x, z: _side_y(x, z) + 0.015, lambda x, z: _side_y(x, z) - 0.075)
     for wx0, wx1, wz0, wz1 in (w for w in WINDOWS if _in_door(w)):
-        _window(g, m, liv, wx0, wx1, wz0, wz1, side * 1.265, side, holes=True)
+        _window(g, m, liv, wx0, wx1, wz0, wz1, 0.012, side, holes=True)
 
 
 def _outline(w):
@@ -458,33 +472,33 @@ def _outside(box, pts):
     return pieces
 
 
-def _flat(g, mat, pts, y, s, inward=False):
-    """Polygon pts (x, z) flat at y on side s (+1 or -1), facing out (or in);
-    pts anticlockwise in (x, z) face -Y as given."""
-    vs = [Vector((x, y, z)) for x, z in pts]
+def _flat(g, mat, pts, lift, s, inward=False):
+    """Polygon pts (x, z) laid on the cabin side s (+1 or -1), lift off the
+    skin, facing out (or in); pts anticlockwise in (x, z) face -Y as given."""
+    vs = [Vector((x, s * (_side_y(x, z) + lift), z)) for x, z in pts]
     g.add(mat, vs[::-1] if (s > 0) != inward else vs, [tuple(range(len(vs)))])
 
 
-def _window(g, m, liv, x0, x1, z0, z1, y, side=None, holes=False):
-    """Glass and, if the livery has one, a frame; on one side or both.
-    holes: the skin has the window's rectangular opening, so fill what the
-    outline leaves of it, in paint outside and lining inside."""
-    w, y = (x0, x1, z0, z1), abs(y)
+def _window(g, m, liv, x0, x1, z0, z1, lift=0.0, side=None, holes=False):
+    """Glass and, if the livery has one, a frame, on the skin (lift off it:
+    the door panel stands proud); on one side or both. holes: the skin has
+    the window's rectangular opening, so fill what the outline leaves of
+    it, in paint outside and lining inside."""
+    w = (x0, x1, z0, z1)
     glass = _outline(w)
     f = 0.07 if liv.get("frame") else 0.0
     rim = _offset(glass, f) if f else glass
     for s in ((1, -1) if side is None else (side,)):
-        _flat(g, m["glass"], glass, s * (y + 0.01), s)
+        _flat(g, m["glass"], glass, lift + 0.012, s)
         if f:  # a ring, so the window stays clear from inside
             n = len(glass)
             for i in range(n):
-                _flat(g, m[liv["frame"]], [glass[i], rim[i], rim[(i + 1) % n], glass[(i + 1) % n]],
-                      s * (y + 0.005), s)
+                _flat(g, m[liv["frame"]], [glass[i], rim[i], rim[(i + 1) % n], glass[(i + 1) % n]], lift + 0.008, s)
         if holes:
-            for piece in _outside(_cut(w), rim):
-                _flat(g, m[liv["cabin"][5]], piece, s * (y + 0.003), s)
+            for piece in _outside(_cut(w, 0.03), rim):   # over the cut edge, so no crack shows
+                _flat(g, m[liv["cabin"][5]], piece, lift + 0.005, s)
             for piece in _outside(_cut(w), glass):   # under the paint, close behind the glass
-                _flat(g, m["lining"], piece, s * (y + 0.001), s, inward=True)
+                _flat(g, m["lining"], piece, lift + 0.003, s, inward=True)
 
 
 def one_quad(g, mat, x0, x1, z0, z1, y, s):
@@ -495,15 +509,17 @@ def one_quad(g, mat, x0, x1, z0, z1, y, s):
 def build_cabin_details(g, m, liv, door=False):
     """door: the sliding doors are separate parts (build_door), so leave
     their windows and seams off the body."""
-    y = 1.255
     zw1 = _ZW1
     for w in WINDOWS:
         if not (door and _in_door(w)):
-            _window(g, m, liv, *w, y, holes=door)
-    # Sliding door seam and crew door seam: thin dark lines
-    for x in (() if door else (1.30, -1.0)):
-        side_quad(g, m["metal"], x, x + 0.05, DOOR[2], zw1 + 0.10, y + 0.012)
-    side_quad(g, m["metal"], 2.98, 3.02, 0.80, zw1 + 0.10, y + 0.012)
+            _window(g, m, liv, *w, holes=door)
+    # Sliding door seam and crew door seam: thin dark lines on the skin
+    for x0, x1, z0 in [(x, x + 0.05, DOOR[2]) for x in (() if door else (1.30, -1.0))] + [(2.98, 3.02, 0.80)]:
+        zb, zt, _ = _section_at(x0)
+        zs = [z0] + [zb + v * (zt - zb) for v in (0.50, 0.88) if z0 < zb + v * (zt - zb) < zw1 + 0.10] + [zw1 + 0.10]
+        pts = [(x0, z) for z in reversed(zs)] + [(x1, z) for z in zs]   # anticlockwise in (x, z)
+        for s in (1, -1):
+            _flat(g, m["metal"], pts, 0.012, s)
     # Sponsons with the main gear under the door sill, and a step
     sp = m[liv["sponson"]]
     for s in (1, -1):
@@ -678,7 +694,7 @@ def build_cabin_interior(g, m, pilots=True):
     # Window reveals: close the gap between the skin and the lining round each opening
     for w in [w for w in WINDOWS if not _in_door(w)] + [DOOR]:
         for sy in (1, -1):
-            _reveal(g, m["cabin"], w, sy, lambda x, z: _side_y(x, z) + 0.01, lambda x, z: _side_y(x, z, 0.05) - 0.005)
+            _reveal(g, m["cabin"], w, sy, lambda x, z: _side_y(x, z) + 0.003, lambda x, z: _side_y(x, z, 0.05) - 0.005)
     g.span(m["floor"], CABIN_END, 4.9, -1.15, 1.15, FLOOR - 0.06, FLOOR)
     # Ceiling light strips and the overhead air and oxygen panels
     for y in (-0.45, 0.45):
@@ -688,8 +704,8 @@ def build_cabin_interior(g, m, pilots=True):
         for y in SEAT_Y:
             seat(g, m, x, y, face=face)
     # Cockpit: instrument panel with four displays, glareshield, centre console, overhead panel
-    g.box(m["panel"], (4.70, 0, FLOOR + 0.75), (0.30, 2.0, 0.70))
-    g.box(m["panel"], (4.62, 0, FLOOR + 1.13), (0.50, 2.05, 0.07))
+    g.box(m["panel"], (4.70, 0, FLOOR + 0.75), (0.30, 1.90, 0.70))
+    g.box(m["panel"], (4.62, 0, FLOOR + 1.13), (0.50, 1.90, 0.07))    # glareshield, inside the side panes
     for y in (-0.78, -0.30, 0.30, 0.78):
         if abs(y) > 0.5:  # flight displays: sky over ground, a horizon line
             g.box(m["screen"], (4.545, y, FLOOR + 0.87), (0.01, 0.36, 0.16))
