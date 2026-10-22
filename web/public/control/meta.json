@@ -1,8 +1,8 @@
 {
-  "scaleCeiling": 1.555152416229248,
-  "scaleScreens": 0.27687039971351624,
-  "scaleSky": 0.9907616376876831,
-  "seaLevel": -69.2,
+  "scaleCeiling": 1.5456974506378174,
+  "scaleScreens": 0.2806808650493622,
+  "scaleSky": 0.5598432421684265,
+  "seaLevel": -49.7,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
   "samples": 128,
@@ -69,40 +69,13 @@
       ],
       "strength": 4.0,
       "group": "floorlamp"
-    },
-    "EmitPlatformRed": {
-      "color": [
-        1.0,
-        0.05,
-        0.02
-      ],
-      "strength": 60.0,
-      "group": "ceiling"
-    },
-    "EmitPlatformLight": {
-      "color": [
-        1.0,
-        0.75,
-        0.4
-      ],
-      "strength": 40.0,
-      "group": "ceiling"
-    },
-    "EmitFlare": {
-      "color": [
-        1.0,
-        0.45,
-        0.1
-      ],
-      "strength": 80.0,
-      "group": "ceiling"
     }
   },
   "lamps": {
     "floorlamp": {
       "map": "light_floorlamp.png",
       "body": "FloorLamp",
-      "scale": 1.99857759475708
+      "scale": 2.0836944580078125
     }
   },
   "boards": {
