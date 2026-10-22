@@ -121,6 +121,10 @@ def materials():
         bsdf.inputs["Emission Strength"].default_value = strength
         return m
 
+    def one_sided(m):  # seen from its front only (glTF doubleSided false)
+        m.use_backface_culling = True
+        return m
+
     return {
         "navy": b.mat_flat("HeliNavy", NAVY, 0.35),
         "slate": b.mat_flat("HeliSlate", SLATE, 0.4),
@@ -137,6 +141,7 @@ def materials():
         # The cabin, for the view from inside
         "clear": clear_glass(),
         "cabin": b.mat_flat("HeliCabin", (0.62, 0.63, 0.63), 0.7),        # light grey wall and roof lining
+        "lining": one_sided(b.mat_flat("HeliLining", (0.62, 0.63, 0.63), 0.7)),  # window corners, inside only
         "floor": b.mat_flat("HeliFloor", (0.06, 0.065, 0.07), 0.8),
         "seat": b.mat_flat("HeliSeat", (0.085, 0.09, 0.095), 0.85),     # charcoal seat fabric
         "panel": b.mat_flat("HeliPanel", (0.03, 0.03, 0.035), 0.6),        # instrument panel, consoles
@@ -178,6 +183,28 @@ def _ring(x, zb, zt, hw):
     half = PROFILE[:-1] + [SHOULDER, PROFILE[-1]]
     pts = [Vector((x, u * hw, zb + v * (zt - zb))) for u, v in half]
     return pts + [Vector((p.x, -p.y, p.z)) for p in reversed(pts[1:-1])]
+
+
+def _section_at(x):
+    """(zb, zt, hw) of the fuselage at x, between the sections round it."""
+    for (xa, *a), (xb, *b_) in zip(SECTIONS, SECTIONS[1:]):
+        if xb <= x <= xa:
+            k = (xa - x) / (xa - xb)
+            return tuple(p + (q - p) * k for p, q in zip(a, b_))
+    raise ValueError(x)
+
+
+def _side_y(x, z, inset=0.0):
+    """Half width of the skin at x and height z on the cabin side (or of
+    the lining, inset like build_cabin_interior's)."""
+    zb, zt, hw = _section_at(x)
+    zb, zt, hw = zb + inset, zt - inset, hw - inset
+    v = (z - zb) / (zt - zb)
+    half = PROFILE[:-1] + [SHOULDER, PROFILE[-1]]
+    for (ua, va), (ub, vb) in zip(half, half[1:]):
+        if va <= v <= vb:
+            return hw * (ua + (ub - ua) * (v - va) / (vb - va))
+    return hw
 
 
 def loft(g, rings, mat, caps=True):
@@ -316,11 +343,28 @@ EXIT_X = 0.95
 _in_door = lambda w: DOOR[0] <= w[0] and w[1] <= DOOR[1]
 
 
-def _holes(band, door=True):
+def _cut(w, d=0.005):
+    """Window w's opening grown by d: the skin's a little bigger and the
+    lining's a little smaller than the reveal, so no cut edge lies flush
+    on it (an edge-on face flickers there)."""
+    return (w[0] - d, w[1] + d, w[2] - d, w[3] + d)
+
+
+def _holes(band, door=True, d=0.005):
     """Openings in a skin face of this paint band: the windows, and with
     door the door opening in place of the windows it carries."""
-    wins = WINDOWS if band in (4, 5) else []
-    return [w for w in wins if not _in_door(w)] + [DOOR] if door else list(wins)
+    wins = [_cut(w, d) for w in WINDOWS] if band in (4, 5) else []
+    return [w for w in wins if not _in_door(w)] + [DOOR] if door else wins
+
+
+def _reveal(g, mat, w, s, outer, inner):
+    """Walls round opening w on side s, from outer(x, z) to inner(x, z)
+    (half widths), facing into the opening."""
+    x0, x1, z0, z1 = w
+    for a, c in (((x0, z0), (x1, z0)), ((x1, z0), (x1, z1)), ((x1, z1), (x0, z1)), ((x0, z1), (x0, z0))):
+        vs = [Vector((a[0], s * outer(*a), a[1])), Vector((c[0], s * outer(*c), c[1])),
+              Vector((c[0], s * inner(*c), c[1])), Vector((a[0], s * inner(*a), a[1]))]
+        g.add(mat, vs if s > 0 else vs[::-1], [(0, 1, 2, 3)])
 
 
 def build_door(g, m, liv, side):
@@ -328,7 +372,7 @@ def build_door(g, m, liv, side):
     opening in its paint, the lining inside, its two windows."""
     x0, x1, z0, z1 = DOOR
     half = PROFILE[:-1] + [SHOULDER, PROFILE[-1]]
-    _, zb, zt, hw = SECTIONS[6]
+    zb, zt, hw = _section_at(0.0)
     for k in range(len(half) - 1):
         (ua, va), (ub, vb) = half[k], half[k + 1]
         za, zb_ = zb + va * (zt - zb), zb + vb * (zt - zb)
@@ -339,8 +383,8 @@ def build_door(g, m, liv, side):
         lo, hi = max(za, z0), min(zb_, z1)
         band = _band(k)
         paint = m[liv["cabin"][band]]
-        wins = [w for w in WINDOWS if _in_door(w)] if band in (4, 5) else []
-        for off, mat, flip in ((0.012, paint, True), (-0.07, m["cabin"], False)):
+        for off, mat, flip, grow in ((0.012, paint, True, 0.005), (-0.07, m["cabin"], False, -0.005)):
+            wins = [_cut(w, grow) for w in WINDOWS if _in_door(w)] if band in (4, 5) else []
             a, c = Vector((x0, side * (at(lo) + off), lo)), Vector((x0, side * (at(hi) + off), hi))
             d, e = Vector((x1, side * (at(hi) + off), hi)), Vector((x1, side * (at(lo) + off), lo))
             cut_quad(g, mat, a, c, d, e, wins, flip=(flip if side > 0 else not flip))
@@ -351,6 +395,8 @@ def build_door(g, m, liv, side):
               [(0, 1, 2, 3), (3, 2, 1, 0)])
     g.add(m["cabin"], [Vector((x0, t0, z0)), Vector((x1, t0, z0)), Vector((x1, t1, z0)), Vector((x0, t1, z0))],
           [(0, 1, 2, 3), (3, 2, 1, 0)])
+    for w in (w for w in WINDOWS if _in_door(w)):   # reveals through the panel
+        _reveal(g, m["cabin"], w, side, lambda x, z: _side_y(x, z) + 0.02, lambda x, z: _side_y(x, z) - 0.075)
     for wx0, wx1, wz0, wz1 in (w for w in WINDOWS if _in_door(w)):
         _window(g, m, liv, wx0, wx1, wz0, wz1, side * 1.265, side, holes=True)
 
@@ -413,9 +459,10 @@ def _outside(box, pts):
 
 
 def _flat(g, mat, pts, y, s, inward=False):
-    """Polygon pts (x, z) flat at y on side s (+1 or -1), facing out (or in)."""
+    """Polygon pts (x, z) flat at y on side s (+1 or -1), facing out (or in);
+    pts anticlockwise in (x, z) face -Y as given."""
     vs = [Vector((x, y, z)) for x, z in pts]
-    g.add(mat, vs if (s > 0) != inward else vs[::-1], [tuple(range(len(vs)))])
+    g.add(mat, vs[::-1] if (s > 0) != inward else vs, [tuple(range(len(vs)))])
 
 
 def _window(g, m, liv, x0, x1, z0, z1, y, side=None, holes=False):
@@ -434,10 +481,10 @@ def _window(g, m, liv, x0, x1, z0, z1, y, side=None, holes=False):
                 _flat(g, m[liv["frame"]], [glass[i], rim[i], rim[(i + 1) % n], glass[(i + 1) % n]],
                       s * (y + 0.005), s)
         if holes:
-            for piece in _outside(w, rim):
+            for piece in _outside(_cut(w), rim):
                 _flat(g, m[liv["cabin"][5]], piece, s * (y + 0.003), s)
-            for piece in _outside(w, glass):
-                _flat(g, m["cabin"], piece, s * (y - 0.02), s, inward=True)
+            for piece in _outside(_cut(w), glass):   # under the paint, close behind the glass
+                _flat(g, m["lining"], piece, s * (y + 0.001), s, inward=True)
 
 
 def one_quad(g, mat, x0, x1, z0, z1, y, s):
@@ -626,15 +673,12 @@ def build_cabin_interior(g, m, pilots=True):
                 if NOSE == "pointed":
                     split_z(g, m["cabin"], None, [e, d, c, a], WINDSCREEN_Z, flip=True)
                 continue
-            cut_quad(g, m["cabin"], a, c, d, e, _holes(band), flip=True)
+            cut_quad(g, m["cabin"], a, c, d, e, _holes(band, d=-0.005), flip=True)
     g.add(m["cabin"], rings[-1], [tuple(range(n))])                       # rear bulkhead
     # Window reveals: close the gap between the skin and the lining round each opening
-    for x0, x1, z0, z1 in [w for w in WINDOWS if not _in_door(w)] + [DOOR]:
+    for w in [w for w in WINDOWS if not _in_door(w)] + [DOOR]:
         for sy in (1, -1):
-            yo, yi = sy * 1.26, sy * 1.19
-            for a, c in (((x0, z0), (x1, z0)), ((x1, z0), (x1, z1)), ((x1, z1), (x0, z1)), ((x0, z1), (x0, z0))):
-                vs = [Vector((a[0], yo, a[1])), Vector((c[0], yo, c[1])), Vector((c[0], yi, c[1])), Vector((a[0], yi, a[1]))]
-                g.add(m["cabin"], vs if sy > 0 else vs[::-1], [(0, 1, 2, 3)])
+            _reveal(g, m["cabin"], w, sy, lambda x, z: _side_y(x, z) + 0.01, lambda x, z: _side_y(x, z, 0.05) - 0.005)
     g.span(m["floor"], CABIN_END, 4.9, -1.15, 1.15, FLOOR - 0.06, FLOOR)
     # Ceiling light strips and the overhead air and oxygen panels
     for y in (-0.45, 0.45):
