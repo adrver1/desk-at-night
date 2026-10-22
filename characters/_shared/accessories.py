@@ -4,7 +4,8 @@ Each returns a Mesh in its own region; a character passes
 {region: "head"} in `rigid` so it follows the head bone.
 
     glasses(style)   "rect_thick" (dark, chunky), "rect_thin", "thin_metal", "round_brown",
-                     "round_thick" (heavy black, rounded)
+                     "round_thick" (heavy black, rounded), "aviator" (gold
+                     teardrop sunglasses, dark lenses, double bridge)
     headset()        over-ear headset with a band over the hair and a cable
     beanie(color)    knitted hat with a turned-up cuff
     goggles()        ski goggles with a wide lens and a strap round the hat
@@ -23,7 +24,12 @@ GLASSES = {
     "rect_thin": ("charcoal", 0.027, 0.020, 0.0035, 0.004),   # tall enough not to cut the eyes
     "round_brown": ("leather_brown", 0.025, 0.019, 0.0045, 0.005),
     "round_thick": ("plastic_black", 0.026, 0.020, 0.0065, 0.007),
+    "aviator": ("gold", 0.029, 0.022, 0.0022, 0.003),
 }
+# Aviator teardrop in a unit box: u from the nose (-1) to the temple (+1),
+# a flat top and a deep rounded drop on the nose side
+AVIATOR = [(-0.95, 0.80), (-0.35, 1.0), (0.55, 1.0), (1.0, 0.70), (0.95, 0.05), (0.62, -0.62),
+           (0.0, -1.0), (-0.62, -0.85), (-0.95, -0.25)]
 
 
 def _front_y(x, z):
@@ -32,10 +38,13 @@ def _front_y(x, z):
     return base.head_point(a, z).y
 
 
-def _rim(m, cx, cz, y, hw, hh, t, d, swatch, region, round_=False):
+def _rim(m, cx, cz, y, hw, hh, t, d, swatch, region, round_=False, outline=None):
     """A lens frame: a flat loop of t-wide bars round a hole hw x hh,
-    d deep, facing +Y. Round frames cut the corners into an octagon."""
-    if round_:
+    d deep, facing +Y. Round frames cut the corners into an octagon;
+    `outline` gives any other shape in a unit box."""
+    if outline:
+        outline = [(u * hw, v * hh) for u, v in outline]
+    elif round_:
         k = 0.42
         outline = [(-hw, -hh * k), (-hw * k, -hh), (hw * k, -hh), (hw, -hh * k),
                    (hw, hh * k), (hw * k, hh), (-hw * k, hh), (-hw, hh * k)]
@@ -65,8 +74,19 @@ def glasses(style="thin_metal"):
     region = "glasses"
     cx = 0.045
     y = max(_front_y(cx + hw, EYE_Z), _front_y(cx, EYE_Z)) + 0.010
+    aviator = style == "aviator"
     for s in (1, -1):
-        _rim(m, s * cx, EYE_Z, y, hw, hh, t, d, swatch, region, round_=style.startswith("round"))
+        shape = None
+        if aviator:
+            # mirror for each side, kept anticlockwise seen from the front
+            shape = [(s * u, v) for u, v in AVIATOR]
+            area = sum(u0 * v1 - u1 * v0 for (u0, v0), (u1, v1) in zip(shape, shape[1:] + shape[:1]))
+            shape = shape if area > 0 else shape[::-1]
+        cz = EYE_Z - (0.003 if aviator else 0.0)
+        _rim(m, s * cx, cz, y, hw, hh, t, d, swatch, region, round_=style.startswith("round"), outline=shape)
+        if aviator:
+            # dark lens filling the frame, set just behind its front
+            m.face([Vector((s * cx + u * hw, y - d * 0.5, cz + v * hh)) for u, v in reversed(shape)], "lens", region)
         # arm: from the outer edge of the frame back to the top of the ear
         # along the side of the head, clear of the temple, to rest on the ear
         w = max(t * 0.6, 0.0025)
@@ -74,6 +94,10 @@ def glasses(style="thin_metal"):
         b = Vector((s * 0.127, 0.055, 1.632))
         m.bar(a, b, w, swatch, region)
         m.bar(b, (s * 0.129, -0.022, 1.630), w, swatch, region)
+    if aviator:
+        # the aviator's straight brow bar over the bridge
+        m.bar((cx - hw * 0.4, y - d * 0.5, EYE_Z + hh * 0.95), (-(cx - hw * 0.4), y - d * 0.5, EYE_Z + hh * 0.95),
+              t * 0.6, swatch, region)
     # bridge over the nose
     m.bar((cx - hw - t * 0.5, y - d * 0.5, EYE_Z + hh * 0.35), (-(cx - hw - t * 0.5), y - d * 0.5, EYE_Z + hh * 0.35),
           max(t * 0.5, 0.0022), swatch, region)

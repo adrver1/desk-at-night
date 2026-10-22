@@ -45,8 +45,9 @@ to also write a contact sheet next to the reference into a private folder.
   neck, reflective tape, boots, a yellow lifejacket and headband ear
   defenders. Pilots have their own kit instead (`FLIGHT_OUTFITS`): a navy
   flight suit with captain's epaulettes, wings and a name tag, and either a
-  white flight helmet (visor up, boom mic, no hair built under it) or an
-  olive headset with a boom mic. `crew.Look(shared=())` leaves out the
+  white flight helmet (visor up, boom mic, no hair built under it) or a
+  headset with big olive ear-defender cups and a boom mic
+  (`flying_headset_small` keeps the earlier light headset). `crew.Look(shared=())` leaves out the
   crew's PPE and survival outfits.
   Logos are flat polygons projected onto the shell (`Mesh.decal_poly`). A character script builds every outfit by default
   (`--outfit office|ppe|ppe_deck|all`); each one writes its own
@@ -99,4 +100,4 @@ to also write a contact sheet next to the reference into a private folder.
 | `crop_supervisor` | 788 | skin_2, hair_light_brown, white, light_grey, charcoal, black, lip | `ppe` 896, `ppe_deck` 1,207, `survival` 1,018. Very short receding crop, clean-shaven, white shirt. Reference is black and white, so the colours are guesses |
 | `curly_analyst` | 1,200 | skin_3, hair_dark_brown, stubble, turquoise, turquoise_dark, hivis_orange, plastic_black, khaki, leather_brown | `ppe` 1,252, `ppe_deck` 1,386, `survival` 1,374. Curly mullet receding on top, dark glasses, dark goatee, turquoise polo, orange watch. `HEADSET = True` adds the shared headset; `EXTRA_LOOKS = True` adds an amber `jacket` (1,234) and `winter` with beanie and goggles (1,196) |
 | `glasses_ceo` | 1,063 | skin_2, hair_brown, hair_salt_pepper, blue, denim, navy, white, charcoal, black | `ppe` 1,050, `ppe_deck` 1,231, `survival` 1,172. Short crop greying at the sides, clean-shaven, ears that stand out (`ears=1.1`, `ear_flare=0.022`), heavy round black glasses (kept on deck), blue blazer over a white shirt. `EXTRA_LOOKS = True` adds `casual`, a charcoal overshirt over a light-blue tee and jeans (1,105) |
-| `heli_pilot` | 836 | skin_4, hair_dark_brown, hair_salt_pepper, coverall_navy, black, gold, rubber, helmet_white, lens, plastic_black, olive | Outfits: office (flight suit alone) 836, `flying` (helmet) 958, `flying_headset` 1,020. The helicopter captain: an original character, no reference and no operator's colours or logo. Short crop greying at the sides, clean-shaven |
+| `heli_pilot` | 1,006 | skin_4, hair_dark_brown, hair_salt_pepper, coverall_navy, black, gold, rubber, helmet_white, lens, plastic_black, olive | Outfits: office (flight suit alone) 1,006, `flying_headset` (the cockpit pick: ear-defender headset) 1,134, `flying` (helmet) 1,128. The helicopter captain: an original character, no reference and no operator's colours or logo. Short crop greying at the sides, clean-shaven, gold aviator sunglasses (`glasses="aviator"`, dark lenses) |

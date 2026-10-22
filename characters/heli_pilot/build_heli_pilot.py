@@ -1,13 +1,14 @@
 """
 heli_pilot: the captain flying the crew out to the platform. Dark hair
-greying at the temples, clean-shaven, a navy flight suit with captain's
+greying at the temples, clean-shaven, aviator sunglasses, a navy flight suit with captain's
 epaulettes. An original character, not a likeness.
 
     python characters/heli_pilot/build_heli_pilot.py [--outfit office|flying|flying_headset|all]
 
 office is the flight suit alone (walking out to the helicopter), flying
 adds the white flight helmet with its visor up and a boom mic, and
-flying_headset an over-ear headset with a boom mic instead. Pilots wear
+flying_headset (the cockpit pick) a headset with big ear-defender cups
+and a boom mic instead. Pilots wear
 their own kit, so the crew's PPE and survival outfits are left out.
 """
 import os
@@ -32,6 +33,7 @@ LOOK = crew.Look(
     hair=lambda helmet: hair.crop_top(HAIR, TEMPLES, helmet=helmet),
     top={},
     office=office,
+    glasses="aviator",
     shared=(),
     extra=outfits.FLIGHT_OUTFITS,
     notes=["Original character: no reference, no operator's logo or colours."])

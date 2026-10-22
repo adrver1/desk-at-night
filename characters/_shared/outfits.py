@@ -152,7 +152,7 @@ def helmet():
 CUP_X, CUP_Y, CUP_Z = 0.110, -0.012, 1.594   # ear defender cup: inner face, centre over the ear
 
 
-def _cup(m, s):
+def _cup(m, s, shell=CUP):
     """Black cushion against the head and the blue shell outside it: one
     oval hexagonal tube, open where it meets the head, capped outside."""
     # a right-handed frame on either side, so the faces point outward;
@@ -166,19 +166,20 @@ def _cup(m, s):
     sub = base.Mesh().tube([(CUP_X, ru, rv, 0, "cushion"), (CUP_X + 0.02, ru, rv, 0, "shell"),
                             (CUP_X + 0.054, ru * 0.82, rv * 0.82, 0, "shell")],
                            origin=(0, CUP_Y, CUP_Z), axes=axes, angles=base.HEX6,
-                           colors={"cushion": RUBBER, "shell": CUP}, cap_start=False)
+                           colors={"cushion": RUBBER, "shell": shell}, cap_start=False)
     for ids, sw, _ in sub.faces:
         m.face([sub.verts[i] for i in ids], sw, "ear_cup")
 
 
-def ear_muffs():
+def ear_muffs(shell=CUP, region="ear_cup"):
     """Headband ear defenders, as worn by helicopter passengers: the same
     blue cups as the helmet's, on a black band over the head."""
     import accessories
     m = base.Mesh()
     for s in (1, -1):
-        _cup(m, s)
-    return accessories.headband(m, CLIP, "ear_cup", clear=0.022, cy=CUP_Y, end=(CUP_X + 0.040, 1.650),
+        _cup(m, s, shell)
+    m.faces = [(ids, sw, region) for ids, sw, _ in m.faces]
+    return accessories.headband(m, CLIP, region, clear=0.022, cy=CUP_Y, end=(CUP_X + 0.040, 1.650),
                                 width=0.013, thick=0.008)
 
 
@@ -448,7 +449,17 @@ def flying():
 
 
 def flying_headset():
-    """Flying: flight suit and an olive over-ear headset with a boom mic."""
+    """Flying: flight suit and an aviation headset with big olive
+    ear-defender cups over the ears and a boom mic."""
+    o = flying()
+    del o["parts"]["helmet"], o["bald"]
+    o["parts"]["headset"] = boom_mic(ear_muffs("olive", "headset"), CUP_X + 0.030)
+    return o
+
+
+def flying_headset_small():
+    """Flying: flight suit and a lighter olive over-ear headset with a boom
+    mic (an earlier pick, kept in the library)."""
     import accessories
     o = flying()
     del o["parts"]["helmet"], o["bald"]
