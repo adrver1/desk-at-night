@@ -83,14 +83,37 @@ def seated(breath=0.0, head=0.0, look_down=0.0):
     r = {}
     for side in (1, -1):
         legs(r, _tag(side), 88, 84)
-        d = _arm(side)
-        r[f"upper_arm.{_tag(side)}"] = [(base.bend(d, DOWN), 30), (X, 14)]
-        r[f"forearm.{_tag(side)}"] = (base.bend(d, Y), 42)
+        lap_hands(r, side, lean=8)
     r["spine"] = (X, 6)
     r["chest"] = (X, 2 + breath)
     r["neck"] = (X, -5)
     r["head"] = [(Z, head), (X, -3 - breath - look_down)]
     r["hips_offset"] = (0.0, -0.02, SEAT_DROP)
+    return r
+
+
+def aim(r, chain, parent=Matrix.Identity(3)):
+    """Point a chain of bones (rest direction along the arm) at world
+    directions: chain is [(bone, rest_dir, world_dir)], parent the world
+    rotation of the first bone's parent. Each rotation is the shortest
+    turn, so the bones keep their rest twist."""
+    world = parent
+    for bone, d0, d1 in chain:
+        local = world.inverted() @ Vector(d1).normalized()
+        q = Vector(d0).normalized().rotation_difference(local)
+        r[bone] = q
+        world = world @ q.to_matrix()
+    return r
+
+
+def lap_hands(r, side, lean=0.0):
+    """Arms hanging relaxed with the hands resting in the lap, for a seated
+    pose whose chest leans back `lean` degrees."""
+    d, tag = _arm(side), _tag(side)
+    aim(r, [(f"upper_arm.{tag}", d, (side * 0.02, 0.22, -1.0)),
+            (f"forearm.{tag}", d, (-side * 0.40, 0.80, -0.45)),
+            (f"hand.{tag}", d, (-side * 0.30, 0.90, -0.30))],
+        Matrix.Rotation(math.radians(lean), 3, X))
     return r
 
 
@@ -161,7 +184,6 @@ def clips():
     rise = {**up, "spine": (X, -16), "neck": (X, 6)}
     for side in (1, -1):
         legs(rise, _tag(side), 40, 50)
-        lean[f"forearm.{_tag(side)}"] = (base.bend(_arm(side), Y), 55)
     rise["hips_offset"] = (0.0, 0.05, -0.18)
     c["stand_up"] = [(0, seated()), (12, lean), (24, rise), (36, up)]
     c["typing"] = [(k * 6, typing(k / 8)) for k in range(9)]
@@ -211,6 +233,9 @@ def face_clips():
 
 # ------------------------------------------------------------------ keying
 def _rotation(arm_ob, bone, spec):
+    if hasattr(spec, "to_matrix"):  # a quaternion from aim()
+        m = arm_ob.data.bones[bone].matrix_local.to_3x3()
+        return (m.inverted() @ spec.to_matrix() @ m).to_quaternion()
     if isinstance(spec, tuple):
         spec = [spec]
     r = Matrix.Identity(3)
