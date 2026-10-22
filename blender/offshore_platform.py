@@ -467,12 +467,7 @@ def build_topsides(g, m):
     facade(g, m, ("y", -TOP_Y), -1, x0, x0 + 34, CELLAR, UTIL_TOP - 2, 2, 2, "X/KX")
     facade(g, m, ("y", TOP_Y), 1, x0 + 3, x1, CELLAR, UTIL_TOP - 2, 3, 2, "X\\XK/X")
     name_board(g, m, ("y", -TOP_Y + 0.5), -1, 25.0, 36.9, 10.0, 4.6)  # on the plant module
-    # Far side: on posts along the process module's roof edge
-    name_board(g, m, ("y", TOP_Y), 1, -22.5, PROC_TOP + 3.4, 9.5, 5.0)
-    for xx in (-26.5, -18.5):
-        g.beam(m["steel"], (xx, TOP_Y + 0.6, PROC_TOP + 0.6), (xx, TOP_Y + 0.6, PROC_TOP + 5.6), 0.3)
-    name_board(g, m, ("y", TOP_Y), 1, -48.5, 30.0, 4.4, 5.4)          # far side, flare-end corner
-    name_board(g, m, ("y", -TOP_Y), -1, -52.0, 26.8, 2.6, 6.6)        # crane side, flare-end corner
+    name_board(g, m, ("y", TOP_Y), 1, -26.0, PROC_TOP - 3.6, 9.5, 5.0)  # far side, high on the process module
     # Escape tunnel: a white clad corridor along the bottom of the far side,
     # from the quarters to the process end, panel seams every few metres
     tx0, tx1, ty, tz0, tz1 = -26.0, 42.0, TOP_Y + 2.8, DECK_BOT - 0.3, 27.6
