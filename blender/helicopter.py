@@ -445,7 +445,12 @@ def seat(g, m, x, y, w=0.48, face=1):
     z = FLOOR + 0.45
     g.box(m["seat"], (x, y, z), (0.48, w, 0.10))
     back0, back1 = Vector((x - face * 0.24, y, z + 0.03)), Vector((x - face * 0.31, y, z + 0.62))
-    g.beam(m["seat"], back0, back1, 0.08, w)
+    # Back: a slab the seat's width across, leaning back; built corner by
+    # corner, since a beam's section turns arbitrarily on a near-vertical axis
+    up = (back1 - back0).normalized()
+    t = Vector((-up.z, 0, up.x)) * 0.04          # half the thickness, in the x-z plane (axes as op.Mesh.beam's)
+    vs = [p + dt + Vector((0, dy, 0)) for p in (back0, back1) for dy in (-w / 2, w / 2) for dt in (-t, t)]
+    g.add(m["seat"], vs, op.BOX_FACES)
     g.box(m["seat"], (x - face * 0.32, y, z + 0.74), (0.10, w * 0.6, 0.20))   # headrest
     for dy in (-w / 2 + 0.05, w / 2 - 0.05):
         g.beam(m["metal"], (x + face * 0.15, y + dy, FLOOR), (x + face * 0.10, y + dy, z - 0.05), 0.04)
