@@ -13,6 +13,9 @@ import { Outdoor, WEATHER, PLATFORM_HEADING } from './outdoor.js';
 import { approachPose } from './vessel.js';
 import { Wake } from './wake.js';
 import { Helicopter } from './helicopter.js';
+import { fpsCounter } from './fps.js';
+
+fpsCounter(); // debug readout, ` toggles (see fps.js)
 
 const q = new URLSearchParams(location.search);
 const BASE = 'intro/';
