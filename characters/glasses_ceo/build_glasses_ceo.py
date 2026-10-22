@@ -1,6 +1,6 @@
 """
-glasses_ceo: a short greying crop, heavy round black glasses, clean-shaven,
-a wide smile, and a blue blazer open over a white shirt. An
+glasses_ceo: a short greying crop, heavy round black glasses, clean-shaven
+and a blue blazer open over a white shirt. An
 original character, not a likeness.
 
     python characters/glasses_ceo/build_glasses_ceo.py [--outfit office|ppe|ppe_deck|all]
@@ -17,7 +17,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "_shared"))
 import clothes  # noqa: E402  (imports bpy)
 import crew  # noqa: E402
-import faces  # noqa: E402
 import hair  # noqa: E402
 
 HAIR, TEMPLES = "hair_brown", "hair_salt_pepper"
@@ -48,7 +47,6 @@ LOOK = crew.Look(
     hair=lambda helmet: hair.crop_top(HAIR, TEMPLES, helmet=helmet),
     top={"belly": SHIRT, "chest": SHIRT, "upper_arm": BLAZER, "forearm": BLAZER},
     office=office,
-    face=lambda body: {"smile": faces.smile(body)},
     glasses="round_thick", ears=1.1, ear_flare=0.022, extra={"casual": casual} if EXTRA_LOOKS else None,
     notes=["Lower body is not in the references: charcoal trousers and black shoes."])
 

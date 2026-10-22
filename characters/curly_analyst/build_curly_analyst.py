@@ -61,7 +61,7 @@ def winter():
 
 
 def face(body):
-    return {"stubble": faces.stubble("stubble"), "beard": faces.goatee(HAIR), "smile": faces.smile(body)}
+    return {"stubble": faces.stubble("stubble"), "beard": faces.goatee(HAIR)}
 
 
 LOOK = crew.Look(

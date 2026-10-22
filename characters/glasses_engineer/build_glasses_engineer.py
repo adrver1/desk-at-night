@@ -33,7 +33,7 @@ LOOK = crew.Look(
     hair=lambda helmet: hair.swept_up(HAIR, helmet=helmet),
     top={"upper_arm": SWEATER, "forearm": SWEATER},
     office=office,
-    face=lambda body: {"stubble": faces.stubble("stubble"), "smile": faces.smile(body)},
+    face=lambda body: {"stubble": faces.stubble("stubble")},
     glasses="rect_thin",
     notes=["Lower body is not in the reference: grey chinos and brown shoes."])
 

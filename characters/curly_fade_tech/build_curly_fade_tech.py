@@ -1,6 +1,6 @@
 """
-curly_fade_tech: short dark curls on top of a skin fade, a stubble beard, a big
-smile and a black button shirt with white buttons. An original character,
+curly_fade_tech: short dark curls on top of a skin fade, a stubble beard
+and a black button shirt with white buttons. An original character,
 not a likeness.
 
     python characters/curly_fade_tech/build_curly_fade_tech.py [--outfit office|ppe|ppe_deck|all]
@@ -33,7 +33,7 @@ LOOK = crew.Look(
     hair=lambda helmet: hair.curly_top(HAIR, FADE, helmet=helmet, height=0.55),
     top={"belly": SHIRT, "chest": SHIRT, "upper_arm": SHIRT, "forearm": SHIRT},
     office=office,
-    face=lambda body: {"stubble": faces.stubble("stubble"), "smile": faces.smile(body)},
+    face=lambda body: {"stubble": faces.stubble("stubble")},
     notes=["Reference is black and white: dark-brown hair is a guess.",
            "Lower body from the cartoon: dark trousers, brown belt, white trainers."])
 
