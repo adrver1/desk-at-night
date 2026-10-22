@@ -8,8 +8,9 @@ into every character's .glb as named glTF animations:
     stand_up     seated_idle to idle                          (1.5 s)
     typing       seated, hands on a desk at 0.74 m            (loop, 2 s)
     flying       seated as a pilot: right hand on the cyclic between
-                 the knees, left on the collective by the left
-                 thigh, small stick inputs, glancing out  (loop, 4 s)
+                 the knees, left on the collective grip by the left
+                 thigh (0.23 m left, 0.27 m ahead, 0.52 m up), small
+                 stick inputs, glancing out               (loop, 4 s)
     point        standing, points at something ahead          (2 s)
     step_down    two 0.5 m steps down and 0.6 m forward, as out
                  of a helicopter cabin; ends with the hips 1 m lower,
@@ -148,6 +149,11 @@ def typing(phase):
     return r
 
 
+# Left arm directions (upper arm, forearm, hand), solved so the left fist sits on
+# a collective grip 0.23 m left, 0.27 m ahead and 0.52 m up from the root
+COLLECTIVE_ARM = ((-0.15, 0.20, -1.0), (-0.05, 0.40, -0.90), (-0.025, 0.90, -0.60))
+
+
 def flying(phase):
     """Seated in a pilot's seat: right hand forward on the cyclic grip
     between the knees, left hand low by the left thigh on the collective,
@@ -163,9 +169,10 @@ def flying(phase):
         Matrix.Rotation(math.radians(-6), 3, X))
     # left: arm down and forward to the collective lever by the left thigh
     d = _arm(-1)
-    aim(r, [("upper_arm.L", d, (-0.10, 0.42, -0.90)),
-            ("forearm.L", d, (0.05, 0.86, -0.50 + wob * 0.5), ((0.707, 0, -0.707), (1.0, 0, 0.0))),
-            ("hand.L", d, (0.05, 0.92, -0.38), ((0.707, 0, -0.707), (1.0, 0, 0.0)))],
+    u, f, h = COLLECTIVE_ARM
+    aim(r, [("upper_arm.L", d, u),
+            ("forearm.L", d, (f[0], f[1], f[2] + wob * 0.5), ((0.707, 0, -0.707), (1.0, 0, 0.0))),
+            ("hand.L", d, h, ((0.707, 0, -0.707), (1.0, 0, 0.0)))],
         Matrix.Rotation(math.radians(-6), 3, X))
     return r
 
