@@ -24,7 +24,7 @@ def office(body):
     knit = clothes.sweater(SWEATER, RIB, neck="zip")
     return {"colors": {}, "hide": {"belly", "chest", "upper_arm", "forearm"},
             "parts": {"sweater": knit, "zip": clothes.zip_line(knit, ZIP, 1.32, 1.465),
-                      "collar": clothes.shirt_collar(SHIRT, spread=1.3, under=True)},
+                      "collar": clothes.stand_shirt_collar(SHIRT)},
             "rigid": {"collar": "neck"}}
 
 

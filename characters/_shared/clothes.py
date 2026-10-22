@@ -110,10 +110,39 @@ def neck_band(color, z0=1.405, z1=1.44, region="neckband"):
                             swatch=color, angles=base.HEX6, angle_offset=30, cap_start=False, cap_end=False)
 
 
+STAND = [(1.40, 0.088, 0.084, -0.008), (1.47, 0.076, 0.072, -0.006)]   # zip-neck stand collar rings
+
+
 def stand_collar(color, region="neckband"):
     """Zip-neck stand collar, up the neck."""
-    return base.Mesh().tube([(1.40, 0.088, 0.084, -0.008, region), (1.47, 0.076, 0.072, -0.006, region)],
-                            swatch=color, angles=base.HEX6, angle_offset=30, cap_start=False, cap_end=False)
+    return base.Mesh().tube([r + (region,) for r in STAND], swatch=color, angles=base.HEX6, angle_offset=30,
+                            cap_start=False, cap_end=False)
+
+
+def _stand_point(a, z):
+    """Corner of the stand collar's hexagon at angle a (degrees, with its 30
+    degree offset already in) and height z."""
+    (z0, u0, v0, d0), (z1, u1, v1, d1) = STAND
+    t = (z - z0) / (z1 - z0)
+    ru, rv, dv = u0 + (u1 - u0) * t, v0 + (v1 - v0) * t, d0 + (d1 - d0) * t
+    a = math.radians(a)
+    return Vector((ru * math.cos(a), dv + rv * math.sin(a), z))
+
+
+def stand_shirt_collar(color, region="collar"):
+    """Shirt collar under a zip-neck stand collar: a rim just inside it that
+    shows above its edge all round, and two points folded down over its
+    front faces, lying on them so nothing clips through the knit."""
+    m = base.Mesh().tube([(1.45, 0.074, 0.070, -0.007, region), (1.49, 0.068, 0.064, -0.006, region)],
+                         swatch=color, angles=base.HEX6, angle_offset=30, cap_start=False, cap_end=False)
+    for side, back in ((1, 30), (-1, 150)):
+        a, b = back, 90
+        quad = lambda f, z: _stand_point(a, z).lerp(_stand_point(b, z), f)  # noqa: E731
+        n = (_stand_point(b, 1.40) - _stand_point(a, 1.40)).cross(_stand_point(a, 1.47) - _stand_point(a, 1.40))
+        n = n.normalized() * side
+        corners = [quad(0.02, 1.476), quad(0.6, 1.476), quad(0.93, 1.418), quad(0.3, 1.432)]
+        m.hull([c + n * lift for c in corners for lift in (0.002, 0.007)], color, region)
+    return m
 
 
 def placket(surface, color, z0, z1, buttons=None, n=0, width=0.016, region="placket"):
@@ -241,7 +270,9 @@ def watch(strap, face, side=-1, region="watch"):
                axes=axes, angles=base.HEX6, angle_offset=30, swatch=strap, cap_start=False, cap_end=False,
                offset=0.006)
     u, v, w = axes
-    c = base.SHOULDER + w * 0.44 + u * 0.052
-    right.hull([c + u * du + v * dv + w * dw for du in (0.0, 0.012) for dv in (-0.018, 0.018) for dw in (-0.018, 0.018)],
+    # the case sits on the back of the wrist (-u; +u is the palm side), its
+    # base sunk a little into the strap's flat side so no gap shows
+    c = base.SHOULDER + w * 0.44 - u * 0.043
+    right.hull([c - u * du + v * dv + w * dw for du in (0.0, 0.013) for dv in (-0.018, 0.018) for dw in (-0.018, 0.018)],
                face, region)
     return right if side == 1 else right.mirrored()

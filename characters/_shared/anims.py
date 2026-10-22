@@ -29,7 +29,7 @@ import math
 import struct
 
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Quaternion, Vector
 
 import base_body as base
 
@@ -96,11 +96,22 @@ def aim(r, chain, parent=Matrix.Identity(3)):
     """Point a chain of bones (rest direction along the arm) at world
     directions: chain is [(bone, rest_dir, world_dir)], parent the world
     rotation of the first bone's parent. Each rotation is the shortest
-    turn, so the bones keep their rest twist."""
+    turn, so the bones keep their rest twist, unless an entry has a fourth
+    item (rest palm direction, world palm direction): then the bone also
+    rolls about itself until the palm faces as near that way as it can."""
     world = parent
-    for bone, d0, d1 in chain:
+    for bone, d0, d1, *palm in chain:
         local = world.inverted() @ Vector(d1).normalized()
         q = Vector(d0).normalized().rotation_difference(local)
+        if palm:
+            p0, p1 = palm[0]
+            have = q @ Vector(p0)
+            want = world.inverted() @ Vector(p1)
+            have, want = (x - local * x.dot(local) for x in (have, want))
+            roll = have.angle(want, 0.0)
+            if have.cross(want).dot(local) < 0:
+                roll = -roll
+            q = Quaternion(local, roll) @ q
         r[bone] = q
         world = world @ q.to_matrix()
     return r
@@ -118,16 +129,19 @@ def lap_hands(r, side, lean=0.0):
 
 
 def typing(phase):
-    """Seated, leaning in, forearms level over a desk, hands patting."""
+    """Seated, leaning in, elbows by the sides and forearms angled in over a
+    desk, palms down on a keyboard about 0.3 m wide, fingers patting."""
     r = seated(look_down=10)
     r["spine"] = (X, -4)
     r["chest"] = (X, -2)
     for i, side in enumerate((1, -1)):
-        d = _arm(side)
-        tap = 4 * math.sin(2 * math.pi * (phase * 3 + i * 0.37))
-        r[f"upper_arm.{_tag(side)}"] = [(base.bend(d, DOWN), 38), (X, 30), (Z, -side * 8)]
-        r[f"forearm.{_tag(side)}"] = [(base.bend(d, Y), 85 + tap), (Z, -side * 12)]
-        r[f"hand.{_tag(side)}"] = (X, -10 - tap)
+        d, tag = _arm(side), _tag(side)
+        tap = 0.04 * math.sin(2 * math.pi * (phase * 3 + i * 0.37))
+        palm = ((-side * 0.707, 0, -0.707), (-side * 0.25, 0, -1.0))
+        aim(r, [(f"upper_arm.{tag}", d, (side * 0.06, 0.62, -0.78)),
+                (f"forearm.{tag}", d, (-side * 0.40, 0.92, -0.02 + tap * 0.3), palm),
+                (f"hand.{tag}", d, (-side * 0.10, 0.97, -0.12 - tap))],
+            Matrix.Rotation(math.radians(-6), 3, X))
     return r
 
 
