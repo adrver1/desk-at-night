@@ -13,6 +13,9 @@ Writes to web/public/intro/:
     intro.json    where things are, in three.js axes (y up, Blender's Y
                   is three's -z): the helideck, where it parks, the seats
                   and the eye of the passenger we play
+    chars/        the passengers and the pilot from characters/, slimmed by
+                  web/scripts/pack_chars.mjs (run npm ci in web/ first):
+                  their shared clips in anims.glb, meshes quantized
 
 The browser draws them under outdoor.js's sky and sea (web/src/intro.js).
 Seconds to run; no bake needed.
@@ -21,6 +24,7 @@ import json
 import math
 import os
 import shutil
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -45,6 +49,10 @@ VESSEL = True
 CAST = ["blazer_lead", "bearded_operator", "crop_supervisor", "curly_analyst", "curly_fade_tech",
         "glasses_engineer", "grey_beard_lead"]
 CHARS = [f"{c}/{c}_survival.glb" for c in CAST] + ["heli_pilot/heli_pilot_flying_headset.glb"]
+# True: copied through web/scripts/pack_chars.mjs (the clips once in
+# chars/anims.glb, quantized meshes, about 0.7 MB instead of 2.5 MB);
+# False: the character kit's files as they are, each with its own clips
+PACK_CHARS = True
 # The empty hook over the berth's cargo deck, 12 m aft of amidships, well above it
 LIFT = (sv.BERTH_LOC[0] - 12.0 * math.cos(sv.BERTH_YAW), sv.BERTH_LOC[1] - 12.0 * math.sin(sv.BERTH_YAW), 24.0, False)
 
@@ -108,9 +116,16 @@ def main():
         "berth": {"position": list(sv.BERTH_LOC), "yaw": sv.BERTH_YAW} if VESSEL else None,   # Blender axes
         "pilots": [three((heli.PILOT_X, y, heli.FLOOR + 0.50)) for y in (-heli.PILOT_Y, heli.PILOT_Y)] if PILOTS == "cast" else [],
     }
-    os.makedirs(os.path.join(OUT, "chars"), exist_ok=True)
-    for c in CHARS:
-        shutil.copy(os.path.join(b.ROOT, "characters", c), os.path.join(OUT, "chars", os.path.basename(c)))
+    chars = os.path.join(OUT, "chars")
+    os.makedirs(chars, exist_ok=True)
+    src = [os.path.join(b.ROOT, "characters", c) for c in CHARS]
+    if PACK_CHARS:   # needs node and web/'s npm packages
+        subprocess.run(["node", os.path.join(b.ROOT, "web", "scripts", "pack_chars.mjs"), chars, *src], check=True)
+    else:
+        for c in src:
+            shutil.copy(c, os.path.join(chars, os.path.basename(c)))
+        if os.path.exists(os.path.join(chars, "anims.glb")):
+            os.remove(os.path.join(chars, "anims.glb"))
     with open(os.path.join(OUT, "intro.json"), "w") as f:
         json.dump(info, f, indent=1)
     print("wrote", OUT, flush=True)

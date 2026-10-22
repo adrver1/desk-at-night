@@ -159,7 +159,9 @@ it, the landing from the helideck camera, and the crew walking off to the
 stairs, then on to the control room. The cabin interior (seats, lining,
 cockpit with cyclic and collective) is built with `build_helicopter(interior=True)`;
 the passengers and the pilot are the character kit's models, copied by the
-export. Skip jumps to the landing, the walkout, then the end.
+export through `web/scripts/pack_chars.mjs` (needs `npm ci` in `web/`), which
+keeps the clips they share once in `chars/anims.glb` and quantizes the meshes
+(2.5 MB down to 0.7 MB; `PACK_CHARS = False` copies them whole). Skip jumps to the landing, the walkout, then the end.
 `intro.html#board` plays the crew boarding instead. Debug: `?pause&t=40`,
 `&off=x,y,z&at=x,y,z` (camera in the helicopter's frame), `&world=x,y,z`
 (in the platform's), `&cutaway`.
@@ -176,7 +178,11 @@ notes. The script, voices, private build and open items are described in
 ```bash
 python web/scripts/voices.py --model DIR             # Kokoro voices for changed lines
 .venv/bin/python blender/sola_apron.py               # web/public/story/sola/sola.glb (?sola=1 opening)
+node web/qa/sola-perf.mjs [url] [dir]                # the opening's draw calls, triangles, bytes and a still per shot
 ```
+
+The apron is one palette material (`--materials split --detail full` builds
+the first version, 25 materials and the hidden faces).
 
 ## Supply vessel
 
