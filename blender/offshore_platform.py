@@ -93,34 +93,53 @@ WELL_X0, WELL_X1, WELL_Y0, WELL_Y1 = -15.0, -3.0, -5.0, 5.0
 class Mesh:
     """Collects geometry per material and turns each into one object."""
 
-    def __init__(self):
+    def __init__(self, caps=True):
+        self.caps = caps  # whether beams close their ends unless told otherwise
         self.parts = {}
+        self.uvs = {}  # material -> one (u, v) per vertex, for the ones mapped by hand
         self.tris = 0
 
-    def add(self, mat, verts, faces):
+    def add(self, mat, verts, faces, uv=None):
         vs, fs = self.parts.setdefault(mat, ([], []))
         o = len(vs)
         vs.extend(verts)
         fs.extend([tuple(i + o for i in f) for f in faces])
         self.tris += sum(len(f) - 2 for f in faces)
+        if uv:
+            self.uvs.setdefault(mat, [(0.0, 0.0)] * o).extend(uv)
 
-    def box(self, mat, center, size, rot_z=0.0):
+    def box(self, mat, center, size, rot_z=0.0, sides=None):
+        """Box; sides limits it to some faces ("-x+y-z" ...) where the rest
+        are always hidden, as on a lamp against a wall."""
         sx, sy, sz = (s / 2 for s in size)
         M = Matrix.Translation(Vector(center)) @ Matrix.Rotation(rot_z, 4, "Z")
         vs = [M @ Vector((x * sx, y * sy, z * sz)) for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)]
+        if sides:
+            self.add(mat, vs, [f for f, k in zip(BOX_FACES, BOX_SIDES) if k in sides])
+            return
         self.add(mat, vs, BOX_FACES)
 
     def span(self, mat, x0, x1, y0, y1, z0, z1):
         self.box(mat, ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), (x1 - x0, y1 - y0, z1 - z0))
 
-    def beam(self, mat, a, c, w, h=None):
-        """Square (or w x h) section from a to c."""
+    def beam(self, mat, a, c, w, h=None, caps=None, back=None):
+        """Square (or w x h) section from a to c. On the platform (a Mesh
+        made with caps=False) its ends are left open: members meet at joints,
+        where an end cap is always hidden; caps=True closes them for a free
+        end that shows, like a lifeboat. back is a
+        direction nobody looks from (into a wall): the face turned that way
+        is dropped too."""
         a, c = Vector(a), Vector(c)
         M = _frame(a, c)
         h = w if h is None else h
         ln = (c - a).length
         vs = [M @ Vector((x * ln, y * w / 2, z * h / 2)) for x in (0, 1) for y in (-1, 1) for z in (-1, 1)]
-        self.add(mat, vs, BOX_FACES)
+        faces = BOX_FACES if (self.caps if caps is None else caps) else BOX_FACES[2:]
+        if back is not None:
+            def normal(f):
+                return (vs[f[1]] - vs[f[0]]).cross(vs[f[2]] - vs[f[0]]).normalized()
+            faces = [f for f in faces if normal(f).dot(back) < 0.7]
+        self.add(mat, vs, faces)
 
     def tube(self, mat, a, c, r, n=8, caps=True, r1=None):
         a, c = Vector(a), Vector(c)
@@ -186,7 +205,11 @@ class Mesh:
             me.from_pydata([tuple(v) for v in vs], [], fs)
             me.validate()
             me.materials.append(mat)
-            if mat.get("tile"):
+            if mat in self.uvs:
+                uv = me.uv_layers.new(name="UVMap")
+                for li, lp in enumerate(me.loops):
+                    uv.data[li].uv = self.uvs[mat][lp.vertex_index]
+            elif mat.get("tile"):
                 _box_uvs(me, mat["tile"])
             o = bpy.data.objects.new(me.name, me)
             collection.objects.link(o)
@@ -221,6 +244,7 @@ class Mesh:
 
 
 BOX_FACES = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
+BOX_SIDES = ["-x", "+x", "-y", "+y", "-z", "+z"]  # which way each of BOX_FACES faces
 
 
 def _frame(a, c):
@@ -262,7 +286,6 @@ def materials(textured=True):
         "equip": b.mat_flat("PlatEquip", (0.30, 0.38, 0.42), 0.5),        # vessels, pipework
         "heli": b.mat_flat("PlatHelideck", (0.25, 0.26, 0.27), 0.8),
         "mark": b.mat_flat("PlatMarking", (0.88, 0.50, 0.01), 0.7),
-        "ink": b.mat_flat("PlatInk", (0.02, 0.02, 0.02), 0.8),             # lettering on the name board
         "white": b.mat_flat("PlatWhite", (0.80, 0.80, 0.80), 0.7),
         "orange": b.mat_flat("PlatOrange", (0.60, 0.04, 0.03), 0.5),      # lifeboats, crane boom bands
         "lamp": emit("PlatLamp", (1.0, 0.78, 0.45), 0.0),                   # deck lights, off by day
@@ -344,13 +367,14 @@ def facade(g, m, plane, out, u0, u1, z0, z1, nu, nz, pattern=None, seed=0, w=0.5
     skip "b" and/or "l" drops the bottom beam / first post where a facade
     stacks on or abuts another (coincident beams render black)."""
     P = _plane(plane, out)
+    back = Vector((0, -out, 0)) if plane[0] == "y" else Vector((-out, 0, 0))  # into the module
     us = [u0 + (u1 - u0) * i / nu for i in range(nu + 1)]
     zs = [z0 + (z1 - z0) * j / nz for j in range(nz + 1)]
     wm, off = m["white"], 0.4
     for u in us[1:] if "l" in skip else us:
-        g.beam(wm, P(u, z0, off), P(u, z1, off), w)
+        g.beam(wm, P(u, z0, off), P(u, z1, off), w, back=back)
     for z in zs[1:] if "b" in skip else zs:
-        g.beam(wm, P(u0, z, off), P(u1, z, off), w)
+        g.beam(wm, P(u0, z, off), P(u1, z, off), w, back=back)
     rng = random.Random(seed)
     for j in range(nz):
         for i in range(nu):
@@ -358,13 +382,13 @@ def facade(g, m, plane, out, u0, u1, z0, z1, nu, nz, pattern=None, seed=0, w=0.5
             a, c = us[i], us[i + 1]
             lo, hi = zs[j], zs[j + 1]
             if k in "X/":
-                g.beam(wm, P(a, lo, off), P(c, hi, off), w * 0.8)
+                g.beam(wm, P(a, lo, off), P(c, hi, off), w * 0.8, back=back)
             if k in "X\\":
-                g.beam(wm, P(a, hi, off), P(c, lo, off), w * 0.8)
+                g.beam(wm, P(a, hi, off), P(c, lo, off), w * 0.8, back=back)
             if k == "K":
                 mid = (a + c) / 2
-                g.beam(wm, P(a, lo, off), P(mid, hi, off), w * 0.8)
-                g.beam(wm, P(c, lo, off), P(mid, hi, off), w * 0.8)
+                g.beam(wm, P(a, lo, off), P(mid, hi, off), w * 0.8, back=back)
+                g.beam(wm, P(c, lo, off), P(mid, hi, off), w * 0.8, back=back)
 
 
 def open_module(g, m, x0, x1, y0, y1, z0, z1, floors, nu, sides="-+", ends="", seed=0, pattern=None, skip=""):
@@ -508,41 +532,25 @@ def build_topsides(g, m):
     g.span(m["white"], x0 + 0.05, END_X0 - 0.05, -TOP_Y - 1.5, TOP_Y + 0.25, UTIL_TOP - 0.6, UTIL_TOP + 0.08)
 
 
-def lettering(g, mat, lines, plane, out, uc, zc, h, w, off=0.85):
-    """Flat text on a vertical face (see rect), centred on (uc, zc) and
-    fitted into w x h metres, reading left to right from outside."""
-    cu = bpy.data.curves.new("Lettering", "FONT")
-    cu.body = "\n".join(lines)
-    cu.align_x, cu.align_y = "CENTER", "CENTER"
-    cu.space_line = 0.9
-    o = bpy.data.objects.new("Lettering", cu)
-    bpy.context.scene.collection.objects.link(o)
-    bpy.context.view_layer.update()
-    me = o.evaluated_get(bpy.context.evaluated_depsgraph_get()).to_mesh()
-    vs = [v.co.copy() for v in me.vertices]
-    fs = [tuple(p.vertices) for p in me.polygons]
-    o.to_mesh_clear()
-    bpy.data.objects.remove(o)
-    bpy.data.curves.remove(cu)
-    x0, x1 = min(v.x for v in vs), max(v.x for v in vs)
-    y0, y1 = min(v.y for v in vs), max(v.y for v in vs)
-    k = min(w / (x1 - x0), h / (y1 - y0))
-    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
-    P = _plane(plane, out)
-    s = -out if plane[0] == "y" else out  # which way along the face reads left to right
-    ws = [P(uc + s * (v.x - cx) * k, zc + (v.y - cy) * k, off) for v in vs]
-    want = Vector((0, out, 0)) if plane[0] == "y" else Vector((out, 0, 0))
-    f = fs[0]
-    flip = (ws[f[1]] - ws[f[0]]).cross(ws[f[2]] - ws[f[0]]).dot(want) < 0
-    g.add(mat, ws, [tuple(reversed(f)) for f in fs] if flip else fs)
-
-
 def name_board(g, m, plane, out, uc, zc, w, h, lines=("IVAR AASEN", "16/1-D", "AKER BP")):
     """Yellow board with the platform's name, licence block and operator,
-    standing proud of the facade bracing."""
-    u0, u1 = uc - w / 2, uc + w / 2
-    rect(g, m["mark"], plane, out, u0, u1, zc - h / 2, zc + h / 2, 0.8)
-    lettering(g, m["ink"], lines, plane, out, uc, zc, h * 0.8, w * 0.88)
+    standing proud of the facade bracing: one quad with its lettering drawn
+    into a small image (platform_textures.sign)."""
+    key = ("sign",) + tuple(lines) + (w, h)
+    if key not in m:
+        mat, _, bsdf = b._new_mat("PlatSign")
+        img = mat.node_tree.nodes.new("ShaderNodeTexImage")
+        img.image = bpy.data.images.load(tex.sign(lines, w, h), check_existing=True)
+        mat.node_tree.links.new(img.outputs["Color"], bsdf.inputs["Base Color"])
+        bsdf.inputs["Roughness"].default_value = 0.7
+        m[key] = mat
+    P = _plane(plane, out)
+    s = -out if plane[0] == "y" else out  # which way along the face reads left to right
+    corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+    vs = [P(uc + s * cu * w / 2, zc + cz * h / 2, 0.8) for cu, cz in corners]
+    want = Vector((0, out, 0)) if plane[0] == "y" else Vector((out, 0, 0))
+    face = (0, 1, 2, 3) if (vs[1] - vs[0]).cross(vs[3] - vs[0]).dot(want) > 0 else (3, 2, 1, 0)
+    g.add(m[key], vs, [face], uv=[((cu + 1) / 2, (cz + 1) / 2) for cu, cz in corners])
 
 
 def build_quarters(g, m):
@@ -561,7 +569,7 @@ def build_quarters(g, m):
     # Two free-fall lifeboats side by side on the end face, on skids sloping out
     for yy in (-3.3, 3.3):
         g.beam(m["white"], (TOP_X + 0.3, yy, 31.0), (TOP_X + 7.0, yy, 24.5), 0.5)
-        g.beam(m["boat"], (TOP_X + 1.2, yy, 30.6), (TOP_X + 8.0, yy, 25.6), 2.6, 2.8)
+        g.beam(m["boat"], (TOP_X + 1.2, yy, 30.6), (TOP_X + 8.0, yy, 25.6), 2.6, 2.8, caps=True)
     # Cabin windows: six rows on the -Y face, fewer on the end and the +Y face
     rows = 6
     fh = (LQ_TOP - UTIL_TOP - 2) / rows
@@ -677,12 +685,11 @@ def build_crane(g, m, base, ped_h, yaw, luff, boom_len, rest=None, slew=None):
     zt = z + ped_h
     g.prism(cr, (x, y), 2.1, z, zt, 12)
     # Spiral stair round the column, with two landings
-    turns, steps, r = 3.0, 54, 2.9
+    turns, steps, r = 3.0, 27, 2.9
     pts = [Vector((x + r * math.cos(2 * math.pi * turns * i / steps), y + r * math.sin(2 * math.pi * turns * i / steps),
                    z + 1.0 + (ped_h - 2.0) * i / steps)) for i in range(steps + 1)]
     for p0, p1 in zip(pts, pts[1:]):
-        g.beam(m["white"], p0, p1, 0.7, 0.15)
-        g.beam(m["white"], p0 + Vector((0, 0, 1.0)), p1 + Vector((0, 0, 1.0)), 0.08)  # handrail
+        g.beam(m["white"], p0, p1, 0.7, 0.4)  # deep enough to read as flight and handrail
     for zz in (z + ped_h * 0.45, zt - 0.6):
         g.ring(m["white"], (x, y), 2.1, 3.6, zz, 16)
     g.prism(cr, (x, y), 3.6, zt - 0.6, zt, 16)                  # slewing ring
@@ -733,10 +740,10 @@ def build_lights(g, m):
             x = -TOP_X + 4 + i * 9
             if x > END_X0:
                 continue
-            for y in (-TOP_Y - 0.8, TOP_Y + 0.8):
-                g.box(m["lamp"], (x, y, z + 2.4), (0.5, 0.3, 0.3))
+            for y, out in ((-TOP_Y - 0.8, "-y"), (TOP_Y + 0.8, "+y")):
+                g.box(m["lamp"], (x, y, z + 2.4), (0.5, 0.3, 0.3), sides=out + "-z")
         for y in (-12, 0, 12):
-            g.box(m["lamp"], (-TOP_X - 0.8, y, z + 2.4), (0.3, 0.5, 0.3))
+            g.box(m["lamp"], (-TOP_X - 0.8, y, z + 2.4), (0.3, 0.5, 0.3), sides="-x-z")
     for x, y, z in ((-40, 6, PROC_TOP + 1), (-14, 0, NOTCH_TOP + 5), (-8, 8, NOTCH_TOP + 1)):
         g.box(m["lamp"], (x, y, z), (1.0, 1.0, 0.5))  # floodlights
     # Floodlights over the roofs and the laydown deck: on the corner shaft,
@@ -803,8 +810,8 @@ def build_platform(m, collection=None, jackup=False, z_cut=-4.0, crane_slew=Fals
     origin on the slewing ring (CRANE_X, CRANE_Y, CRANE_RING) so a viewer
     can swing it; it is left out of the returned objects."""
     collection = collection or bpy.context.collection
-    g = Mesh()
-    slew = Mesh() if crane_slew else None
+    g = Mesh(caps=False)
+    slew = Mesh(caps=False) if crane_slew else None
     build_jacket(g, m, z_cut)
     build_topsides(g, m)
     build_quarters(g, m)
