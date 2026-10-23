@@ -759,7 +759,8 @@ def _quarters(g, m, terraced):
 
 def _helideck(g, m, beams):
     """Helideck as on the top view: an octagon out past the end, its deck
-    running on level back over the quarters' roof, on a deep truss with two pairs of raking struts down to the corner
+    running on level back over the quarters' roof to the head of the stairs,
+    on a deep truss with two pairs of raking struts down to the corner
     columns. beams builds the truss from members; otherwise it is a solid
     octagonal frustum with the bracing painted on (platform_textures.truss)."""
     hz, hx, r = HELI_Z, HELI_X, HELI_R
@@ -767,7 +768,7 @@ def _helideck(g, m, beams):
     # The deck: the octagon's outer five sides, then on level back over the
     # quarters' roof as wide as it is across the flats; the safety net shelf
     # follows the same outline 1.3 m out
-    x0 = LQ_X1 + 1.5
+    x0 = LQ_X1 - 3.0
 
     def outline(rr, z0, z1, mat):
         ring = [(x0, -rr * math.cos(rot))]
@@ -783,8 +784,9 @@ def _helideck(g, m, beams):
     outline(r, hz - 1.0, hz, m["heli"])
     outline(r + 1.3, hz - 1.4, hz - 1.1, m["steel"])
     half = r * math.cos(rot)
-    for s in (-1, 1):
-        g.beam(m["white"], (TOP_X + 0.3, s * (half - 0.3), hz - 4.5), (x0, s * (half - 0.3), hz - 1.0), 0.4)
+    # Under the deck where it crosses the roof and the end columns: a solid
+    # clad plinth down onto them, so no daylight shows between deck and roof
+    g.span(m["lq"], x0, TOP_X + 0.3, -half + 0.4, half - 0.4, LQ_TOP - 0.3, hz - 1.05)
     g.ring(m["mark"], (hx, 0), r * 0.42, r * 0.50, hz + 0.03, 20)
     for c, s in (((hx, -1.6, hz + 0.04), (4.0, 0.7, 0.04)), ((hx, 1.6, hz + 0.04), (4.0, 0.7, 0.04)),
                  ((hx, 0, hz + 0.04), (0.7, 3.2, 0.04))):
