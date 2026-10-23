@@ -13,6 +13,7 @@ import { Outdoor, WEATHER, PLATFORM_HEADING, reflectable } from './outdoor.js';
 import { approachPose, floatOn } from './vessel.js';
 import { Wake } from './wake.js';
 import { Helicopter } from './helicopter.js';
+import { Seabirds, PlatformMap } from './gulls.js';
 import { fpsCounter } from './fps.js';
 
 fpsCounter(); // debug readout, ` toggles (see fps.js)
@@ -193,6 +194,23 @@ if (vessel) {
 const heliRoot = new THREE.Group();
 heliRoot.rotation.order = 'YZX'; // heading, then pitch, then bank
 scene.add(heliRoot);
+
+// Seabirds round the platform (gulls.js): kittiwakes on the ledges, gulls
+// over the vessel and in the updraft by the control room's windows; they
+// get out of the helicopter's way. ?birds=off hides them.
+const birdMap = new PlatformMap(platform.scene, { avoid: [{ centre: new THREE.Vector3(...info.helideck.centre), radius: 13 }] });
+const heliAt = new THREE.Vector3();
+const birds = q.get('birds') === 'off' ? null : new Seabirds({
+  map: birdMap, sea: (x, z) => outdoor.heightAt(x, z),
+  anchors: () => [{ position: birdMap.centre, weight: 0.6 }, ...(vessel ? [{ position: vessel.scene.position, weight: 0.4 }] : [])],
+  hang: [{ position: new THREE.Vector3(32, 57, 32), spread: new THREE.Vector3(8, 3, 4) }],
+  threat: () => heliRoot.getWorldPosition(heliAt),
+});
+if (birds) {
+  birds.tick(0, outdoor);
+  for (let i = 0; i < 60; i++) birds.update(0.1, i * 0.1);
+  scene.add(birds.group);
+}
 heliRoot.add(heliModel.scene);
 const heli = new Helicopter(heliModel.scene, { running: true, gearDown: false });
 // The sky lights the cabin through its windows only: dim what's inside so
@@ -776,6 +794,7 @@ function step(dt) {
   }
 
   outdoor.update(dt);
+  birds?.tick(dt, outdoor);
   const L = outdoor.light;
   renderer.toneMappingExposure = L.exposure;
   hemi.color.copy(L.sky).multiplyScalar(Math.PI);

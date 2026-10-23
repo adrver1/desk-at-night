@@ -51,6 +51,7 @@ export class Cctv {
     this.renderer = renderer;
     this.outdoor = outdoor;
     this.scene = new THREE.Scene();
+    this.model = model;   // the platform (gulls.js finds its way round it)
     this.scene.add(model);
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
     this.sun = new THREE.DirectionalLight(0xffffff, Math.PI);

@@ -7,6 +7,7 @@ import { loadControlRoom } from './controlScene.js';
 import { Outdoor, ROOM_HEADING } from './outdoor.js';
 import { Cctv } from './cctv.js';
 import { addVessel } from './vessel.js';
+import { addSeabirds } from './gulls.js';
 import { outdoorControls } from './outdoorControls.js';
 import { fpsCounter } from './fps.js';
 
@@ -38,7 +39,7 @@ controls.minDistance = 0.3;
 controls.maxDistance = 9;
 const home = { position: new THREE.Vector3(), target: new THREE.Vector3() };
 
-let room, outdoor, cctv, vessel, last = 0, userEv = 0;
+let room, outdoor, cctv, vessel, birds, last = 0, userEv = 0;
 
 async function load() {
   room = await loadControlRoom(renderer);
@@ -53,6 +54,9 @@ async function load() {
   // The supply vessel: through the window, on the crane camera, and its row on the panel
   addVessel({ renderer, scene, room, outdoor, cctv: cctvReady, panel: document.getElementById('outdoor') })
     .then((v) => { vessel = v; }).catch((e) => console.warn('vessel', e));
+  // Seabirds round the platform: through the window and on the cameras (gulls.js)
+  addSeabirds({ scene, room, outdoor, cctv: cctvReady, vessel: () => vessel })
+    .then((b) => { birds = b; }).catch((e) => console.warn('birds', e));
   const pick = Number(new URLSearchParams(location.search).get('cam')) || 0; // ?cam=2 for the operator's view
   const cam = room.cameras[Math.min(pick, room.cameras.length - 1)];
   cam.getWorldPosition(home.position);
@@ -106,6 +110,7 @@ renderer.setAnimationLoop((now) => {
   if (!room) return;
   outdoor.update(dt);
   if (vessel) vessel.update(dt, outdoor);
+  if (birds) birds.tick(dt, outdoor);
   renderer.toneMappingExposure = 2 ** userEv * outdoor.light.exposure;
   room.setLights(state.ceiling, state.screens, state.mode);
   room.setDaylight(outdoor.light, now / 1000);

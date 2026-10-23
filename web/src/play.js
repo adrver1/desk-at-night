@@ -11,6 +11,7 @@ import { loadControlRoom } from './controlScene.js';
 import { Outdoor, ROOM_HEADING } from './outdoor.js';
 import { Cctv } from './cctv.js';
 import { addVessel } from './vessel.js';
+import { addSeabirds } from './gulls.js';
 import { outdoorControls } from './outdoorControls.js';
 import { RoomControls } from './roomControls.js';
 import { CONTENT, DEFAULT_LAYOUT, contentOf, screenLabel } from './screens.js';
@@ -75,7 +76,7 @@ const player = {
 };
 const keys = new Set();
 const touch = { move: new THREE.Vector2() };
-let room, outdoor, cctv, vessel, layout, playing = false, panelOpen = false;
+let room, outdoor, cctv, vessel, birds, layout, playing = false, panelOpen = false;
 const lamps = {}; // the rest corner's lamps: name -> { on, w (eased brightness) }
 const chairs = [], mugs = [], pickables = [], items = [];
 const raycaster = new THREE.Raycaster();
@@ -104,6 +105,9 @@ async function load() {
   // The supply vessel: through the window, on the crane camera, and its row on the panel
   addVessel({ renderer, scene, room, outdoor, cctv: cctvReady, panel: $('tpOutdoor') })
     .then((v) => { vessel = v; }).catch((e) => console.warn('vessel', e));
+  // Seabirds round the platform: through the window and on the cameras (gulls.js)
+  addSeabirds({ scene, room, outdoor, cctv: cctvReady, vessel: () => vessel })
+    .then((b) => { birds = b; }).catch((e) => console.warn('birds', e));
   const root = room.root;
   for (const name of room.meta.movable ?? []) {
     const obj = root.getObjectByName(name);
@@ -700,6 +704,7 @@ renderer.setAnimationLoop((now) => {
   for (const key of switchKeys) key.material.color.copy(key.userData.scene === controls.scene ? KEY_ON : KEY_OFF);
   outdoor.update(dt);
   if (vessel) vessel.update(dt, outdoor);
+  if (birds) birds.tick(dt, outdoor);
   renderer.toneMappingExposure = outdoor.light.exposure;
   room.setLights(controls.ceiling * FULL_LIGHT, controls.screens ? 1 : 0);
   for (const [name, l] of Object.entries(lamps)) {
@@ -740,7 +745,7 @@ window.__game = {
   // For story mode (src/story/): the room and everything in it, and a way
   // to hand the controls back to the player at a given spot
   hooks, renderer, scene, camera, player, chairs, ready: null,
-  get room() { return room; }, get outdoor3() { return outdoor; }, get vessel() { return vessel; },
+  get room() { return room; }, get outdoor3() { return outdoor; }, get vessel() { return vessel; }, get birds() { return birds; },
   get playing() { return playing; },
   free(pos, yaw, pitch) {
     zoomEnd();
