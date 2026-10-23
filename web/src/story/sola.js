@@ -56,6 +56,7 @@ export class Sola {
     this.on = false;
     this.t = 0;
     this.scene = new THREE.Scene();
+    this.scene.name = 'sola heliport';   // names the pass in the perf overlay
     this.camera = new THREE.PerspectiveCamera(46, 16 / 9, 0.1, 6000);
     this.loaded = null;
   }

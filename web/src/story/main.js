@@ -47,7 +47,7 @@ for (const ch of CHAPTERS) ch.beats = ch.beats.filter((b) => !b.sola || SOLA_STI
 // slide images and tool screenshots for the private build
 const PRIVATE_ON = q.get('private') === '1';
 if (PRIVATE_ON) fetch(`${PRIVATE}overrides.json`).then((r) => (r.ok ? r.json() : null)).then((o) => { if (o) applyOverrides(o); }).catch(() => {});
-if (q.get('fps') === '1') host.classList.add('show-fps');
+if (q.get('fps') === '1' || q.has('perf')) document.documentElement.classList.add('show-fps');   // the panel sits on <body>, outside the game
 function applyOverrides(o) {
   // { lines: { id: text }, cards: { id: { initiative, status } }, slides: { id: {...} } }
   for (const [id, text] of Object.entries(o.lines ?? {})) if (lines[id]) lines[id].text = text;
@@ -340,7 +340,8 @@ function startPrologue() {
   stopPrologue({ keepMusic: true });   // the music carries on from the Sola opening
   const f = document.createElement('iframe');
   f.className = 'prologue';
-  f.src = `intro.html${q.get('weather') ? `?weather=${q.get('weather')}` : ''}`;
+  const pass = new URLSearchParams([...q].filter(([key]) => ['weather', 'perf', 'trace'].includes(key)));   // debug overlays too
+  f.src = `intro.html${pass.size ? `?${pass}` : ''}`;
   f.allow = 'autoplay; fullscreen';
   host.append(f);
   prologue.frame = f;
@@ -353,7 +354,7 @@ function startPrologue() {
   f.addEventListener('load', () => {
     const doc = f.contentDocument;
     const style = doc.createElement('style');
-    style.textContent = '.caption, .skip, .end, .clock, .fps, .fps-counter { display: none !important; }';
+    style.textContent = '.caption, .skip, .end, .clock, .fps, .fps-counter:not(.full) { display: none !important; }';
     doc.head.append(style);
     f.contentWindow.addEventListener('keydown', (e) => handleKey(e));
     f.contentWindow.addEventListener('click', () => { if (prologue.ended) next(); });

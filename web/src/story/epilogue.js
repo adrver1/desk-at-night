@@ -44,6 +44,7 @@ export class Epilogue {
   constructor(game) {
     this.game = game;
     this.scene = new THREE.Scene();
+    this.scene.name = 'epilogue';   // names the pass in the perf overlay
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
     this.sun = new THREE.DirectionalLight(0xffffff, Math.PI);
     this.scene.add(this.hemi, this.sun, this.sun.target);

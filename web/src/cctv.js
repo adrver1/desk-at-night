@@ -34,6 +34,7 @@ const copy = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMater
 }));
 copy.frustumCulled = false;
 const copyScene = new THREE.Scene().add(copy), copyCamera = new THREE.Camera();
+copyScene.name = 'copy';
 
 export class Cctv {
   // Resolves to null where the GPU can't render to a float texture
@@ -51,6 +52,7 @@ export class Cctv {
     this.renderer = renderer;
     this.outdoor = outdoor;
     this.scene = new THREE.Scene();
+    this.scene.name = 'platform';   // pass names for the perf overlay (perf.js)
     this.model = model;   // the platform (gulls.js finds its way round it)
     this.scene.add(model);
     this.hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
@@ -77,6 +79,7 @@ export class Cctv {
       // A camera on a moving part (the crane boom's) rides along with it
       model.getObjectByName(c.parent ?? '')?.attach(camera);
       const target = new THREE.WebGLRenderTarget(WIDTH, Math.round(WIDTH * 9 / 16), { type: THREE.HalfFloatType, magFilter: THREE.NearestFilter });
+      target.texture.name = 'cctv feed';
       return { id, camera, target };
     });
     // id -> texture, for the screens
@@ -147,7 +150,10 @@ export class Cctv {
     this.sun.target.position.copy(at);
     const { width, height } = cam.target;
     let work = this.work.get(width);
-    if (!work) this.work.set(width, work = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType }));
+    if (!work) {
+      this.work.set(width, work = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType }));
+      work.texture.name = 'cctv';
+    }
     const r = this.renderer, prev = r.getRenderTarget();
     r.setRenderTarget(work);
     this.outdoor.render(r, cam.camera); // clears, draws the sky and sea, clears depth

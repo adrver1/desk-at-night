@@ -2,6 +2,7 @@
 // in their own little 3D view, head and shoulders, talking while their line
 // plays. It has its own small renderer, so it costs nothing when closed.
 import * as THREE from 'three';
+import { perfWatch } from '../perf.js';
 import { loadModel } from './cast.js';
 import { SPEAKERS } from './content.js';
 
@@ -14,6 +15,7 @@ export class Call {
     el.append(this.canvas, this.bar);
     this.renderer = null;
     this.scene = new THREE.Scene();
+    this.scene.name = 'video call';   // names the pass in the perf overlay
     this.scene.background = new THREE.Color(0x3a4350);
     this.scene.add(new THREE.HemisphereLight(0xfff3e0, 0x404858, 2.4));
     const key = new THREE.DirectionalLight(0xffffff, 1.4);
@@ -63,6 +65,7 @@ export class Call {
       this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
       this.renderer.outputColorSpace = THREE.SRGBColorSpace;
       this.renderer.toneMapping = THREE.AgXToneMapping;
+      perfWatch(this.renderer, 'call');
     }
     const p = await this.person(c.who);
     if (this.who !== c.who) return;

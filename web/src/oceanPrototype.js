@@ -18,9 +18,9 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Outdoor, WEATHER, PLATFORM_HEADING } from './outdoor.js';
-import { fpsCounter } from './fps.js';
+import { perfPanel, perfWatch } from './perf.js';
 
-fpsCounter();
+perfPanel();
 
 const q = new URLSearchParams(location.search);
 const B = (x, y, z) => new THREE.Vector3(x, z, -y); // Blender to three.js axes
@@ -596,6 +596,7 @@ for (const k of ['wind', 'clouds', 'fog', 'rain', 'swellHs']) if (q.has(k)) stat
 
 const canvas = document.querySelector('canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+perfWatch(renderer);
 const coarse = matchMedia('(pointer: coarse)').matches;
 renderer.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.5 : 2));
 renderer.toneMapping = THREE.AgXToneMapping;

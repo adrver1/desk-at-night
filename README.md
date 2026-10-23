@@ -234,6 +234,14 @@ Every push to `main` publishes `web/dist` to GitHub Pages
 Source: GitHub Actions. The site then lives at
 https://adrver1.github.io/desk-at-night/.
 
+## Performance
+
+Every game page has a frame rate readout at the top; tap it, press `` ` ``,
+or add `?perf=1` for the full performance panel (passes, draw calls, GPU
+time, an object scan and a copyable report; works on the iPhone). `?trace=1`
+adds named markers to Chrome Performance recordings, which also open in
+Perfetto. Step by step: [docs/performance.md](docs/performance.md).
+
 ## QA
 
 ```bash
