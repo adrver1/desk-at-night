@@ -41,7 +41,9 @@ M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "roof": ("#5e4b40", 0.8), "road": ("#505356", 0.9), "tree": ("#4f6a35", 1.0),
     "trunk": ("#4a3a2c", 1.0), "c1": ("#c9a77c", 0.8), "c2": ("#b46a4f", 0.8),
     "c3": ("#e2ddcf", 0.8), "c4": ("#8f9b8a", 0.8), "c5": ("#c7b07a", 0.8),
-    "brick": ("#8e3b2e", 0.85), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3a3d42", 0.7),
+    "brick": ("#8e3b2e", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
+    "torg": ("#cdbf9f", 0.8), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
+    "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3a3d42", 0.7),
 }.items()}
 
 
@@ -105,30 +107,51 @@ def tri(name, pts, z, mat):
     me.materials.append(M[mat])
 
 
-# Ground: Torvet, dark cobbles with the light granite compass rose (1960s aerial photo)
-M["lamp"] = b.mat_flat("TrdLamp", (1, 1, 1), 0.3)
-box("Ground", (0, 0, -0.05), (260, 260, 0.1), "road")
-box("Torvet", (0, 0, 0.02), (76, 76, 0.04), "cobble")
-for k in range(16):
-    a = k / 16 * math.tau
-    r = 30 if k % 2 == 0 else 18
-    w = 0.16 if k % 2 == 0 else 0.22
-    tri("Rose", [(r * math.cos(a), r * math.sin(a)), (8 * math.cos(a + w), 8 * math.sin(a + w)),
-                 (8 * math.cos(a - w), 8 * math.sin(a - w))], 0.05, "granite")
-bpy.ops.mesh.primitive_torus_add(major_radius=30, minor_radius=0.3, major_segments=64, location=(0, 0, 0.04))
-bpy.context.object.scale.z = 0.15
-bpy.context.object.data.materials.append(M["granite"])
-cyl("Island", (0, 0, 0), 7.5, 0.18, "granite", 32)   # the round island the column stands on
-cyl("Curb", (0, 0, 0), 7.7, 0.12, "dark", 32)
-for x, y in [(5, 4), (-5, 4), (5, -4), (-5, -4), (0, 6.2), (0, -6.2)]:   # flower tubs
-    cyl("Tub", (x, y, 0.18), 0.45, 0.5, "dark", 8)
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=0.55, location=(x, y, 0.95))
-    bpy.context.object.data.materials.append(M["tree"])
+def paving(name, size):
+    """Today's Torvet: grey granite slabs in a loose light/dark checker (2 m squares)."""
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    bsdf.inputs["Roughness"].default_value = 0.9
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    chk = nt.nodes.new("ShaderNodeTexChecker")
+    chk.inputs["Scale"].default_value = size / 1.5
+    chk.inputs["Color1"].default_value = (*srgb("#b4b7b8"), 1)
+    chk.inputs["Color2"].default_value = (*srgb("#9da1a3"), 1)
+    noise = nt.nodes.new("ShaderNodeTexNoise")
+    noise.inputs["Scale"].default_value = size / 6.0
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.inputs["Factor"].default_value = 0.25
+    nt.links.new(tc.outputs["UV"], chk.inputs["Vector"])
+    nt.links.new(tc.outputs["UV"], noise.inputs["Vector"])
+    nt.links.new(chk.outputs["Color"], mix.inputs[6])
+    nt.links.new(noise.outputs["Fac"], mix.inputs[7])
+    nt.links.new(mix.outputs[2], bsdf.inputs["Base Color"])
+    return mat
 
-# The column, square granite as on Rasmussen's 1921 drawing: three square steps,
-# shaft, zigzag band, flared capital (170 cm) under a 260 cm slab, statue plinth
+
+# Ground: Torvet as it is today (Adriaen's drone photos): one big grey paved square
+# running from Trondheim Torg in the west to the east side, the dark compass star
+# round the column, Føniks across the north side, the fjord behind
+M["lamp"] = b.mat_flat("TrdLamp", (1, 1, 1), 0.3)
+box("Ground", (0, 0, -0.05), (400, 400, 0.1), "road")
+bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 4, 0.03))
+sq = bpy.context.object
+sq.scale = (116, 100, 1)
+bpy.ops.object.transform_apply(scale=True)
+sq.data.materials.append(paving("TrdPaving", 100))
+for k in range(16):   # the compass star, dark stone, long and short points
+    a = k / 16 * math.tau + math.pi / 16
+    r = 15 if k % 2 == 0 else 9
+    w = 0.2 if k % 2 == 0 else 0.3
+    tri("Rose", [(r * math.cos(a), r * math.sin(a)), (6.5 * math.cos(a + w), 6.5 * math.sin(a + w)),
+                 (6.5 * math.cos(a - w), 6.5 * math.sin(a - w))], 0.05, "dark")
+cyl("RoseRing", (0, 0, 0), 7.2, 0.07, "dark", 32)
+cyl("Octagon", (0, 0, 0), 6.2, 0.18, "granite", 8)
 for i, w in enumerate((4.6, 3.7, 2.8)):
-    frustum("Step", (0, 0), 0.18 + i * 0.35, w, w, w, w, 0.35, "granite")
+    frustum("Step", (0, 0), 0.18 + i * 0.35, w, w, w, w, 0.35, "granite")   # (octagon below)
 frustum("Pedestal", (0, 0), 1.23, 1.5, 1.5, 1.3, 1.3, 1.0, "granite")
 frustum("Shaft", (0, 0), 2.23, 1.05, 1.05, 0.95, 0.95, 10.0, "granite")
 frustum("Band", (0, 0), 12.23, 1.0, 1.0, 1.0, 1.0, 0.3, "dark")
@@ -137,6 +160,40 @@ frustum("Cornice", (0, 0), 13.33, 1.9, 1.9, 2.6, 2.6, 0.25, "granite")
 frustum("Slab", (0, 0), 13.58, 2.6, 2.6, 2.4, 2.4, 0.22, "granite")
 frustum("Plinth", (0, 0), 13.8, 1.3, 1.1, 1.3, 1.1, 0.3, "bronze")
 TOP = 14.1
+
+
+def _logo():
+    """The Aker BP ribbon logo, read from the PPE outfit so there is one source."""
+    import ast
+    src = open(os.path.join(ROOT, "characters", "_shared", "outfits.py")).read()
+    node = next(n for n in ast.parse(src).body if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "LOGO")
+    return ast.literal_eval(node.value)
+
+
+LOGO = _logo()
+PAL = {"logo_magenta": "#c42a72", "logo_orange": "#ec8a3c", "logo_green": "#2e9a52"}
+
+
+def flag_mast(x, y, h=9.0):
+    """A white mast with a hanging banner flag: white, the logo on both faces."""
+    cyl("Mast", (x, y, 0), 0.06, h, "frame", 6)
+    cyl("Truck", (x, y, h), 0.1, 0.12, "frame", 8)
+    fw, fh, top = 1.0, 2.6, h - 0.4
+    fx = x + 0.08 + fw / 2
+    box("Flag", (fx, y, top - fh / 2), (fw, 0.02, fh), "flag")
+    box("FlagBar", (fx, y, top), (fw + 0.1, 0.04, 0.04), "frame")
+    lw, lh, lz = 0.8, 0.95, top - fh * 0.42
+    for face in (-1, 1):
+        for k, (swatch, outline) in enumerate(LOGO):
+            u0 = (lambda u: -u) if face > 0 else (lambda u: u)   # mirror on the back so it reads from both sides
+            off = face * (0.0115 + 0.002 * k)   # each ribbon a hair above the last, so overlaps don't flicker
+            pts = [(fx + u0(u - 0.5) * lw, y + off, lz + (v - 0.5) * lh) for u, v in outline]
+            me = bpy.data.meshes.new("Logo")
+            me.from_pydata(pts, [], [tuple(range(len(pts)))])
+            o = bpy.data.objects.new("Logo", me)
+            scene.collection.objects.link(o)
+            me.materials.append(M[swatch])
+            o.modifiers.new("Tri", "TRIANGULATE").quad_method = "BEAUTY"
 
 
 def foniks():
@@ -177,20 +234,48 @@ def foniks():
                 window(bx + dx, z, yf - 1.2, arch=(z == 6.6 and dx < 0))
     for x in (36.0, 41.4, 51.8, 57.0, x1 - 8.5, x1 - 4.5):
         window(x, 2.4, yf, 1.6, 2.2)
-    for x in (44.0, 49.2):   # the two entrance doors, steps and the name board
-        box("Door", (x, yf - 0.1, 1.9), (2.0, 0.15, 3.2), "dark")
-    # Balcony right across the entrance (Adriaen's photo), lamps underneath
-    box("EntryBalcony", (46.6, yf - 0.8, 4.4), (17, 1.6, 0.3), "frame")
-    box("EntryRail", (46.6, yf - 1.55, 5.5), (17, 0.1, 0.08), "dark")
+    # Entrance (Adriaen's photo): a raised landing with stairs in the middle and a
+    # ramp along the front on the left, railings, two wooden doors with fanlights,
+    # the balcony right across above, and four masts with Aker BP flags
+    L = 0.9   # landing height
+    box("Landing", (46.6, yf - 1.5, L / 2), (16.2, 3.0, L), "granite")
+    for i in range(5):
+        box("Stair", (46.6, yf - 3.0 - 0.2 - i * 0.4, (L - i * 0.18) / 2), (7.0, 0.4, L - i * 0.18), "granite")
+    ramp = frustum("Ramp", (39.6, yf - 3.7), 0, 6.8, 1.4, 6.8, 1.4, 0.02, "granite")
+    for v in ramp.data.vertices:   # slope it: low at the left end, landing height at the stairs
+        if v.co.z > 0.01:
+            v.co.z = 0.02 + L * (v.co.x - 36.2) / 6.8
+    def rail(p0, p1, z0, z1):
+        n = max(2, int((Vector(p1) - Vector(p0)).length / 1.2) + 1)
+        for i in range(n):
+            t = i / (n - 1)
+            x, y = p0[0] + t * (p1[0] - p0[0]), p0[1] + t * (p1[1] - p0[1])
+            cyl("Post", (x, y, z0 + t * (z1 - z0)), 0.03, 1.0, "steel", 6)
+        a, c = Vector((*p0, z0 + 1.0)), Vector((*p1, z1 + 1.0))
+        r = box("Handrail", (a + c) / 2, (0.05, 0.05, (c - a).length), "steel")
+        r.rotation_euler = (c - a).to_track_quat("Z", "Y").to_euler()
+    rail((36.2, yf - 4.4), (43.0, yf - 4.4), 0.02, L)            # ramp, outer side
+    rail((50.1, yf - 3.0), (54.7, yf - 3.0), L, L)                # landing edge right of the stairs
+    rail((54.7, yf - 3.0), (54.7, yf), L, L)
+    rail((38.5, yf - 3.0), (38.5, yf), L, L)
+    for x in (43.3, 49.9):                                        # stair handrails
+        rail((x, yf - 3.0), (x, yf - 5.0), L, 0.0)
+    for x in (44.0, 49.2):
+        box("DoorFrame", (x, yf - 0.05, L + 1.75), (2.3, 0.14, 3.5), "frame")
+        box("Door", (x, yf - 0.12, L + 1.35), (1.9, 0.12, 2.7), "wood")
+        box("Fanlight", (x, yf - 0.12, L + 3.1), (1.9, 0.12, 0.6), "glass")
+    for x in (40.6, 52.6):   # tall windows either side of the doors
+        box("EntryWinF", (x, yf - 0.05, L + 1.6), (1.9, 0.12, 2.6), "frame")
+        box("EntryWin", (x, yf - 0.1, L + 1.6), (1.6, 0.12, 2.3), "glass")
+    box("EntryBalcony", (46.6, yf - 0.8, 4.6), (17, 1.6, 0.3), "frame")
+    box("EntryRail", (46.6, yf - 1.55, 5.75), (17, 0.1, 0.08), "steel")
     for i in range(35):   # balusters
-        box("Baluster", (38.2 + i * 0.494, yf - 1.55, 5.03), (0.04, 0.04, 0.9), "dark")
-    for x in (40.5, 44.6, 48.6, 52.7):
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.16, location=(x, yf - 0.9, 4.1))
+        box("Baluster", (38.2 + i * 0.494, yf - 1.55, 5.25), (0.04, 0.04, 0.9), "steel")
+    for x in (41.5, 46.6, 51.7):
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.16, location=(x, yf - 0.9, 4.3))
         bpy.context.object.data.materials.append(M["lamp"])
-    for x in (38.6, 42.0, 51.2, 54.6):   # flagpoles along the steps
-        cyl("Flagpole", (x, yf - 2.6, 0), 0.06, 9.0, "frame", 6)
-    for i in range(4):
-        box("Step", (46.6, yf - 1.0 - i * 0.4, 0.15 + (3 - i) * 0.15), (9, 0.4 + i * 0.0, 0.3 + (3 - i) * 0.3), "granite")
+    for x in (39.0, 42.6, 50.6, 54.2):
+        flag_mast(x, yf - 4.9)
     # Glass conservatory in front of the left bay
     box("Conservatory", (x0 + 7.0, yf - 4.0, 1.6), (13.6, 6.6, 3.2), "glass")
     for i in range(8):   # white mullions on the glass front
@@ -211,43 +296,118 @@ def foniks():
             box("SideWin", (x0 - 0.1, y, z), (0.12, 1.6, 2.0), "glass")
 
 
+_before = set(bpy.data.objects)
 foniks()
 
 
+def wing(name, root, side, scale=1.0):
+    """A raised, spread wing as a flat feathered outline with a little thickness."""
+    out = [(0, 0), (0.22, 0.32), (0.5, 0.7), (0.72, 1.05), (0.98, 1.32), (0.92, 1.05), (1.04, 0.9),
+           (0.9, 0.72), (0.98, 0.56), (0.82, 0.42), (0.86, 0.26), (0.66, 0.16), (0.62, 0.0), (0.42, -0.05),
+           (0.3, -0.2), (0.12, -0.12)]
+    pts = [(root[0] + side * 1.25 * u * scale, root[1] - 0.28 * u * u * scale, root[2] + 0.9 * v * scale)
+           for u, v in out]   # wider than tall, cupped forward like the real bird
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(pts, [], [tuple(range(len(pts)))])
+    o = bpy.data.objects.new(name, me)
+    scene.collection.objects.link(o)
+    me.materials.append(M["bronze"])
+    o.modifiers.new("Thick", "SOLIDIFY").thickness = 0.06
+
+
 def phoenix_fountain(cx, cy):
-    """The phoenix fountain in front of the Føniks entrance: a round tiled basin, a
-    dark pedestal and a bronze phoenix with raised wings over three globe lamps."""
-    cyl("BasinRim", (cx, cy, 0), 3.4, 0.6, "granite", 24)
-    cyl("Water", (cx, cy, 0), 3.0, 0.62, "water", 24)
-    cyl("Pedestal", (cx, cy, 0), 0.5, 1.9, "dark", 10, 0.42)
-    cyl("Nest", (cx, cy, 1.9), 0.55, 0.35, "bronze", 10, 0.7)
-    for k in (-1, 0, 1):   # three globe lamps on arms below the bird
-        a = math.radians(-90 + k * 35)
-        x, y = cx + 0.95 * math.cos(a), cy + 0.95 * math.sin(a)
-        box("LampArm", ((cx + x) / 2, (cy + y) / 2, 2.15), (0.06, 0.95, 0.06), "dark", a + math.pi / 2)
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=6, radius=0.22, location=(x, y, 2.4))
+    """The phoenix fountain in front of the Føniks entrance (Adriaen's photo): a low
+    round basin with a thick stone rim, a dark tiled column, three globe lamps at the
+    front and the bronze phoenix rising from its nest with both wings raised."""
+    cyl("Water", (cx, cy, 0), 3.0, 0.32, "water", 32)
+    bpy.ops.mesh.primitive_torus_add(major_radius=3.0, minor_radius=0.3, major_segments=40, minor_segments=8,
+                                     location=(cx, cy, 0.3))
+    bpy.context.object.scale.z = 1.3
+    bpy.context.object.data.materials.append(M["granite"])
+    cyl("Column", (cx, cy, 0), 0.3, 1.45, "tile", 12)
+    cyl("Collar", (cx, cy, 1.45), 0.36, 0.12, "dark", 12)
+    cyl("Nest", (cx, cy, 1.57), 0.3, 0.28, "bronze", 10, 0.5)
+    for k in (-1, 0, 1):
+        a = math.radians(-90 + k * 32)
+        box("LampArm", (cx + 0.25 * math.cos(a), cy + 0.25 * math.sin(a), 1.32), (0.5, 0.05, 0.05), "dark", a)
+    for k in (-1, 0, 1):   # three globe lamps on short arms at the front, below the bird
+        a = math.radians(-90 + k * 32)
+        x, y = cx + 0.5 * math.cos(a), cy + 0.5 * math.sin(a)
+        cyl("LampStem", (x, y, 1.3), 0.03, 0.2, "dark", 6)
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=0.15, location=(x, y, 1.62))
         bpy.context.object.data.materials.append(M["lamp"])
-    cyl("Body", (cx, cy, 2.2), 0.24, 1.0, "bronze", 8, 0.14)
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.14, location=(cx, cy - 0.06, 3.3))
+    for k in range(7):   # the nest of flames it rises from
+        t = k / 7 * math.tau
+        f = cyl("Flame", (cx + 0.2 * math.cos(t), cy + 0.2 * math.sin(t), 1.75), 0.08, 0.32, "bronze", 4, 0.0)
+        f.rotation_euler = (0.35 * math.sin(t), -0.35 * math.cos(t), 0)
+    tail = box("Tail", (cx, cy + 0.26, 1.95), (0.36, 0.05, 0.55), "bronze")
+    tail.rotation_euler = (math.radians(-20), 0, 0)
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=0.26, location=(cx, cy, 2.25))
+    bpy.context.object.scale = (1.0, 0.85, 1.55)   # stout upright body
     bpy.context.object.data.materials.append(M["bronze"])
-    cyl("Beak", (cx, cy - 0.2, 3.26), 0.05, 0.14, "bronze", 4, 0.0)
-    for side in (-1, 1):   # wings raised high, tips curling out
-        w = box("Wing", (cx + side * 0.42, cy + 0.08, 3.35), (0.55, 0.06, 1.3), "bronze")
-        w.rotation_euler = (0, side * math.radians(-14), 0)
-        t = box("WingTip", (cx + side * 0.62, cy + 0.08, 4.05), (0.35, 0.06, 0.5), "bronze")
-        t.rotation_euler = (0, side * math.radians(-40), 0)
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=6, radius=0.13, location=(cx + 0.04, cy - 0.08, 2.74))
+    bpy.context.object.data.materials.append(M["bronze"])
+    cyl("Neck", (cx + 0.02, cy - 0.04, 2.5), 0.12, 0.22, "bronze", 8, 0.1)
+    beak = cyl("Beak", (cx + 0.16, cy - 0.12, 2.72), 0.045, 0.16, "bronze", 4, 0.0)
+    beak.rotation_euler = (0, math.radians(95), math.radians(-20))   # head turned to its left
+    for side in (-1, 1):
+        wing("Wing", (cx + side * 0.18, cy + 0.02, 2.4), side, 0.95)
 
 
-phoenix_fountain(46.6, 31.0)
-# Neighbours: low old wooden-town blocks with pitched roofs, as round Torvet in the old photos
-facade("NW", -92, -38, 38, 80, 12, "c3", 3, ("-y", "+x"))
-facade("SW", -92, -38, -80, -38, 12, "c1", 3, ("+y", "+x"))
-facade("SE", 38, 92, -80, -38, 11, "c4", 3, ("+y", "-x"))
-facade("NE2", 74, 110, 38, 70, 10, "c2", 3, ("-y",))
-for x, y in [(-30, 30), (-30, -30), (30, -30), (-14, 30), (14, -30), (12, 34), (78, 34)]:
-    cyl("Trunk", (x, y, 0), 0.25, 2.5, "trunk", 6)
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=2.6, location=(x, y, 4.6))
+phoenix_fountain(46.6, 28.0)
+DX = -26.0   # Føniks sits on the north side with the column in front of its left half
+for o in set(bpy.data.objects) - _before:
+    if o.parent is None:
+        o.location.x += DX
+
+
+def block(name, x0, x1, y0, y1, h, mat, floors, faces, roof=None, roof_h=4.0):
+    """A neighbour, kept simple: the right colour, height, windows and roof shape."""
+    facade(name, x0, x1, y0, y1, h, mat, floors, faces)
+    if roof:
+        along_x = (x1 - x0) >= (y1 - y0)
+        w, d = x1 - x0 + 0.6, y1 - y0 + 0.6
+        frustum(name + "Pitch", ((x0 + x1) / 2, (y0 + y1) / 2), h, w, d,
+                w if along_x else 0.6, 0.6 if along_x else d, roof_h, roof)
+
+
+# North side, either side of Føniks: the dark brick block on its left, the pink
+# wooden house with its steep grey roof on its right, then a white block
+block("BrickNW", -30, -5, 38, 62, 17, "brick_dark", 5, ("-y",), "slate", 5)
+block("PinkHouse", 45, 60, 38, 52, 8, "pink", 2, ("-y", "+x"), "slate", 5)
+block("WhiteN", 62, 86, 40, 62, 13, "c3", 4, ("-y",), "slate", 4)
+block("GreyNW", -58, -32, 40, 62, 14, "c4", 4, ("-y",), None)
+# West side: Trondheim Torg, long and beige with tall window strips, shop windows
+# and the red sign, and the green pavilion drum on its post in front
+box("Torg", (-72, 2, 10), (24, 84, 20), "torg")
+box("TorgRoof", (-72, 2, 20.6), (24.6, 84.6, 1.2), "dark")
+box("TorgShops", (-59.9, 2, 2.2), (0.3, 80, 4.0), "glass")
+for i in range(26):
+    box("TorgStrip", (-59.9, -36 + i * 3.0, 12.0), (0.25, 1.1, 11.5), "glass")
+box("TorgSign", (-59.6, 14, 17.6), (0.3, 14, 1.6), "red")
+cyl("PavilionPost", (-42, 6, 0), 1.0, 4.2, "dark", 12)
+cyl("Pavilion", (-42, 6, 4.2), 7.0, 3.0, "verdigris", 32)
+cyl("PavilionLid", (-42, 6, 7.2), 7.0, 0.15, "dark", 32)
+# East side: the grey 1950s office block with café awnings along its front
+block("OfficeE", 60, 84, -34, 30, 18, "c4", 5, ("-x",), None)
+for i in range(7):
+    box("Awning", (57.5, -26 + i * 8, 2.8), (4.0, 6.0, 0.2), "frame")
+# South side: low old town, dark roofs
+block("SouthW", -50, -10, -64, -46, 11, "c5", 3, ("+y",), "slate", 4)
+block("SouthE", -6, 40, -66, -46, 12, "c1", 3, ("+y",), "slate", 4)
+# Planters with young trees in rows along the edges of the square
+for x, y in [(-50, -30), (-50, -18), (-50, -6), (-50, 18), (-50, 30), (-28, 33), (-12, 33),
+             (34, 33), (50, -30), (50, -14), (50, 2), (50, 18), (-10, -42), (14, -42)]:
+    box("Planter", (x, y, 0.3), (2.6, 5.0, 0.6), "granite")
+    cyl("Trunk", (x, y, 0.6), 0.12, 1.8, "trunk", 6)
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1.3, location=(x, y, 3.2))
     bpy.context.object.data.materials.append(M["tree"])
+# The fjord and the hills behind the town to the north
+box("Fjord", (0, 230, -0.2), (900, 300, 0.1), "water")
+for x, y, sx, sz in [(-170, 170, 120, 60), (240, 320, 260, 40), (-40, 360, 300, 30)]:
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=8, radius=1, location=(x, y, -5))
+    bpy.context.object.scale = (sx, 40, sz)
+    bpy.context.object.data.materials.append(M["hill"])
 
 
 def load_char(name, loc, yaw, mat=None, scale=1.0, pose=None):
@@ -300,7 +460,7 @@ bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.35, loca
 bpy.context.object.scale.z = 1.3   # the stone by his left foot
 bpy.context.object.data.materials.append(M["bronze"])
 # The bearded character (Adriaen, one year ago) in front of Føniks
-me, _ = load_char("bearded_operator", (41.8, 33.2, 0), math.radians(200))
+me, _ = load_char("bearded_operator", (41.0 + DX, 31.8, 0), math.radians(200))
 
 # Light: low autumn sun, overcast sky
 world = bpy.data.worlds.new("Sky")
@@ -324,15 +484,17 @@ scene.render.image_settings.file_format = "JPEG"
 
 SHOTS = {
     # A: street level across the square, character in front of the door, statue on the left
-    "A_street": ((34, 14, 1.6), (46, 38, 8.0), 28),
+    "A_street": ((34 + DX, 14, 1.6), (46 + DX, 38, 8.0), 28),
     # Entrance close-up: the phoenix fountain, the balcony and the doors
-    "E_entrance": ((45.0, 21.5, 2.0), (46.6, 38, 4.2), 30),
-    # B: establishing drone view from the south-west, column centred, Føniks on the far corner
-    "B_wide": ((-40, -66, 30), (20, 24, 6), 30),
+    "E_entrance": ((44.0 + DX, 19.5, 2.0), (46.6 + DX, 38, 4.0), 30),
+    "F_phoenix": ((44.6 + DX, 24.4, 2.3), (46.6 + DX, 28, 2.4), 40),
+    # B: establishing drone view from the south, like the photo: column centred, Føniks
+    # behind on the north side, Trondheim Torg on the left, the fjord beyond
+    "B_wide": ((4, -92, 46), (4, 24, 4), 32),
     # Close-up of the statue for the pose check
     "D_statue_close": ((-6.5, -6, 16.2), (0, 0, 15.8), 50),
     # C: over the character's shoulder at the office door, looking back up at the statue
-    "C_statue": ((44.6, 35.6, 1.75), (2, 0, 10), 26),
+    "C_statue": ((44.6 + DX, 35.6, 1.75), (2, 0, 10), 26),
 }
 for name, (pos, at, lens) in SHOTS.items():
     for o in scene.objects:   # the over-the-shoulder shot stands where the conservatory would block it
@@ -340,6 +502,7 @@ for name, (pos, at, lens) in SHOTS.items():
             o.hide_render = name.startswith("C_")
     cam = bpy.data.objects.new(name, bpy.data.cameras.new(name))
     cam.data.lens = lens
+    cam.data.clip_end = 2000
     cam.location = pos
     cam.rotation_euler = (Vector(at) - Vector(pos)).to_track_quat("-Z", "Y").to_euler()
     scene.collection.objects.link(cam)
