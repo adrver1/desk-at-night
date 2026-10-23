@@ -140,7 +140,7 @@ def paving(name, size):
 # running north between tree rows, the café block along the north side, the yellow
 # 1950s block on the south side and Munkegata running south past it to the cathedral
 SQ_W, SQ_E, SQ_S, SQ_N = -37.0, 42.0, -44.0, 37.0
-FONIKS_FRONT, FONIKS_SOUTH, FW = -30.0, 16.0, 36.0   # Føniks: front line, south end, length
+FONIKS_FRONT, FONIKS_SOUTH, FW = -30.0, 16.0, 32.0   # Føniks: front line, south end, length
 
 M["lamp"] = b.mat_flat("TrdLamp", (1, 1, 1), 0.3)
 box("Ground", (0, 0, -0.05), (500, 500, 0.1), "road")
@@ -157,8 +157,8 @@ def paved(x0, x1, y0, y1, name="Paving", z=0.03):
 
 paved(SQ_W, SQ_E, SQ_S, SQ_N)                       # the square
 paved(-24, -2, SQ_N - 0.5, 140, "Munkegata", 0.036)   # Munkegata north, wide and pedestrian (a hair higher where it overlaps)
-paved(-20, SQ_E, -70, SQ_S + 0.5, "SquareS", 0.036)    # the square runs on south-east of the yellow block
-paved(-2, 10, -160, -69.5, "MunkegataS")         # Munkegata south toward the cathedral
+paved(0, SQ_E, -70, SQ_S + 0.5, "SquareS", 0.036)       # the square runs on south, east of the yellow block
+paved(0, 12, -160, -69.5, "MunkegataS")           # Munkegata south toward the cathedral
 for k in range(16):   # the compass star in dark stone, long and short points
     a = k / 16 * math.tau + math.pi / 16
     r = 10.5 if k % 2 == 0 else 6.5
@@ -239,7 +239,7 @@ def foniks():
     slate mansard with eight round-topped dormers. Ten window columns, white crosses.
     In front: the glass conservatory on the left, the ramp and the stairs up to a
     landing, the balcony across the doors, four flag masts and the phoenix fountain."""
-    L, PIER, BAY = FW, 4.6, 6.8
+    L, PIER, BAY = FW, FW * 0.128, FW * 0.189
     eave, depth = 16.8, 20.0
     cx = L / 2
     box("Foniks", (cx, depth / 2, eave / 2), (L, depth, eave), "phoenix")
@@ -321,6 +321,12 @@ def foniks():
     for i in range(10):
         box("Mullion", (0.15 + i * (cw - 0.3) / 9, -6.65, 1.8), (0.15, 0.1, 3.6), "frame")
     box("ConservatoryRoof", (cw / 2, -3.3, 3.75), (cw + 0.6, 7.2, 0.3), "dark")
+    # ...and it turns the corner, running on along the south side on Kongens gate
+    SW = 12.0
+    box("ConservatorySide", (-2.5, (SW - 6.6) / 2, 1.8), (5.0, SW + 6.6, 3.6), "glass")
+    for i in range(8):
+        box("Mullion", (-5.05, -6.5 + i * (SW + 6.4) / 7, 1.8), (0.1, 0.15, 3.6), "frame")
+    box("ConservatorySideRoof", (-2.6, (SW - 6.6) / 2, 3.75), (5.8, SW + 7.2, 0.3), "dark")
     # Eight round-topped dormers
     for i in range(8):
         x = 4.0 + i * (L - 8.0) / 7
@@ -329,7 +335,9 @@ def foniks():
         bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.95, depth=1.6,
                                             location=(x, 1.3, eave + 2.8), rotation=(math.pi / 2, 0, 0))
         bpy.context.object.data.materials.append(M["frame"])
-    # The south side along Kongens gate (build -x face): brick corner pier, windows
+    # The south side along Kongens gate (build -x face) is red brick, with the same
+    # white-framed windows with crosses
+    box("SouthBrick", (-0.04, depth / 2, eave / 2), (0.08, depth, eave - 0.6), "brick")
     for z in (3.4,) + rows:
         for y in (3.5, 8.0, 12.5, 17.0):
             window(y, z, 0.0, side=True)
@@ -463,7 +471,7 @@ cyl("Pavilion", (-24, -14, 3.0), 5.0, 2.8, "verdigris", 32)
 cyl("PavilionLid", (-24, -14, 5.8), 5.0, 0.15, "dark", 32)
 # South side: the yellow 1950s office block facing north over the square, Munkegata
 # running south past its east end
-block("YellowS", -72, -20, -84, SQ_S, 18, "c5", 6, ("+y", "+x"), None)
+block("YellowS", -66, 0, -84, SQ_S, 18, "c5", 6, ("+y", "+x"), None)
 block("SouthE", 12, 46, -110, -71, 10, "c1", 3, ("+y", "-x"), "slate", 4)
 block("SouthW", -18, -4, -110, -71, 9, "brick_dark", 3, ("+y", "+x"), "slate", 4)
 # East side: a white modern block with vertical fins (cafés in front), the yellow
@@ -473,7 +481,7 @@ for i in range(14):
     box("Fin", (SQ_E + 1.8, -7 + i * 3.0, 9), (0.4, 0.3, 13), "frame")
 block("YellowE", SQ_E + 8, 76, -36, -10, 10, "c5", 3, ("-x",), "slate", 4)
 # Planters with young trees in rows along the edges of the square
-for x, y in ([(-31, y) for y in (-40, -32, -24, -8, 4)] + [(x, -62) for x in (-12, 4, 20, 34)]
+for x, y in ([(-31, y) for y in (-40, -32, -24, -8, 4)] + [(x, -62) for x in (6, 18, 30)]
              + [(36, y) for y in (-40, -24, -8, 8, 24)] + [(x, 31) for x in (-12, 4, 18, 30)]):
     box("Planter", (x, y, 0.3), (2.6, 2.6, 0.6), "granite")
     cyl("Trunk", (x, y, 0.6), 0.12, 1.8, "trunk", 6)
@@ -598,6 +606,8 @@ SHOTS = {
     "D_statue_close": ((-6.5, -6, 16.2), (0, 0, 15.8), 50.0, 16 / 9),
     # C: over the character's shoulder at the door, looking back at the statue
     "C_statue": (FL(14.0, -4.6, 1.75), (2, 0, 10), 26.0, 16 / 9),
+    # Straight down, orthographic (lens < 0 = ortho width in metres), for the satellite check
+    "T_top": ((0.0, 10.0, 300.0), (0.0, 10.001, 0.0), -160.0, 1.0),
 }
 only = [s for s in os.environ.get("SHOTS", "").split(",") if s]
 for name, (pos, at, lens, aspect) in SHOTS.items():
@@ -605,7 +615,10 @@ for name, (pos, at, lens, aspect) in SHOTS.items():
         continue
     scene.render.resolution_x, scene.render.resolution_y = args.res, int(args.res / aspect)
     cam = bpy.data.objects.new(name, bpy.data.cameras.new(name))
-    cam.data.lens = lens
+    if lens < 0:
+        cam.data.type, cam.data.ortho_scale = "ORTHO", -lens
+    else:
+        cam.data.lens = lens
     cam.data.clip_end = 3000
     cam.location = pos
     cam.rotation_euler = (Vector(at) - Vector(pos)).to_track_quat("-Z", "Y").to_euler()
