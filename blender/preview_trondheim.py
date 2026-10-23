@@ -402,7 +402,7 @@ def foniks():
     # windows either side, the balcony with balusters across above
     T1, LAND = 0.8, 1.3         # terrace, platform at the doors
     d0, d1 = cols[1], cols[2]
-    cw = mid0 + 0.6            # where the restaurant's front arm ends
+    cw = mid0 - 1.0            # where the restaurant's front arm ends: short of the bay's edge, so its beige side shows down to the ground
     TD, t1 = -FOUNT[1], mid1 + 3.0   # terrace depth (to the fountain's centre), its north end
     PD, s0, s1 = 2.0, d0 - 1.6, d1 + 1.2  # platform depth, its steps' ends
     fx, fy, fr = FOUNT[0], FOUNT[1], 3.0
@@ -431,10 +431,20 @@ def foniks():
     for v in ramp.data.vertices:
         if v.co.z > 0.01:
             v.co.z = 0.02 + T1 * (v.co.x - r0) / (r1 - r0)
-    ramp = frustum("Ramp", ((cw + s0) / 2, -PD - 0.6), T1, s0 - cw, 1.2, s0 - cw, 1.2, 0.02, "granite")
-    for v in ramp.data.vertices:   # and on up to the platform beside its steps
-        if v.co.z > T1 + 0.01:
-            v.co.z = T1 + 0.02 + (LAND - T1) * (v.co.x - cw) / (s0 - cw)
+
+    def slope(x0, x1, y0, y1, z0, z1):   # a ramp slab rising from z0 at x0 to z1 at x1
+        o = frustum("Ramp", ((x0 + x1) / 2, (y0 + y1) / 2), 0, abs(x1 - x0), abs(y1 - y0), abs(x1 - x0), abs(y1 - y0), 1.0, "granite")
+        for v in o.data.vertices:
+            if v.co.z > 0.5:
+                v.co.z = z0 + (z1 - z0) * (v.co.x - x0) / (x1 - x0)
+    # ...and a U-shaped ramp on up to the platform beside its steps (2025 photo): up
+    # along the front towards the restaurant, a flat landing to turn on, then back
+    # up along the wall to the platform
+    RW, ml = 1.2, (T1 + LAND) / 2
+    lx = cw + 1.2   # landing: cw..lx
+    slope(lx, s0, -RW, -2 * RW, ml, T1)
+    box("RampLanding", ((cw + lx) / 2, -RW, ml / 2), (lx - cw, 2 * RW, ml), "granite")
+    slope(lx, s0, 0, -RW, ml, LAND)
 
     def rail(p0, p1, z0, z1):
         n = max(2, int((Vector(p1) - Vector(p0)).length / 1.2) + 1)
@@ -447,7 +457,11 @@ def foniks():
     rail((r0, -8.6), (r1, -8.6), 0.02, T1)
     rail((r0, -7.2), (r1, -7.2), 0.02, T1)
     rail((cw + 1.6, -8.6), (cw + 1.6, -TD - 1.6), T1, T1)
-    rail((cw, -PD - 1.2), (s0, -PD - 1.2), T1, LAND)
+    rail((s0, -2 * RW), (lx, -2 * RW), T1, ml)   # outer rail, round the landing, between the legs
+    rail((lx, -2 * RW), (cw, -2 * RW), ml, ml)
+    rail((cw, -2 * RW), (cw, -0.1), ml, ml)
+    rail((lx, -RW), (s0, -RW), ml, LAND)
+    rail((lx, -0.1), (s0, -0.1), ml, LAND)
     rail((s1 + 0.2, -PD - 0.1), (t1, -PD - 0.1), LAND, LAND)
     for x in (d0, d1):
         box("DoorFrame", (x, -0.08, LAND + 1.8), (2.1, 0.14, 3.6), "frame")
@@ -853,6 +867,7 @@ SHOTS = {
     # R: the restaurant corner from above the square (Adriaen's aerial photo)
     "R_restaurant": (FL(-24.0, -30.0, 24.0), FL(7.0, 4.0, 7.0), 32.0, 3 / 4),
     # T: along the front from the restaurant: the ramp, the terrace and the balcony doors
+    "U_ramp": (FL(18.5, -10.0, 3.2), FL(12.0, -1.0, 1.4), 30.0, 4 / 3),
     "T_terrace": (FL(2.0, -14.0, 1.7), FL(20.0, -2.0, 5.0), 24.0, 3 / 4),
     # S: across Kongens gate, Føniks's brick south wall and the annex (Adriaen's winter photo)
     "S_kongens_street": ((FB - 2.0, FONIKS_SOUTH - 34.0, 1.7), (FB - 2.0, FONIKS_SOUTH, 9.5), 20.0, 4 / 3),
