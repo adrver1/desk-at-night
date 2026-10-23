@@ -12,6 +12,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build as b  # noqa: E402  (imports bpy)
+import bmesh  # noqa: E402
 
 bpy = b.bpy
 Vector = b.Vector
@@ -85,6 +86,19 @@ def facade(name, x0, x1, y0, y1, h, mat, floors, faces=("-y",)):
             for i in range(n):
                 y = y0 + (i + 0.5) * (y1 - y0) / n
                 box(f"{name}W", (x, y, z), (0.2, 1.3, fh * 0.5), "glass")
+
+
+def prism(name, pts, z0, z1, mat):
+    """A straight prism over a convex outline pts (counter-clockwise seen from above)."""
+    n = len(pts)
+    v = [(x, y, z0) for x, y in pts] + [(x, y, z1) for x, y in pts]
+    f = [tuple(range(n))[::-1], tuple(range(n, 2 * n))] + [(i, (i + 1) % n, n + (i + 1) % n, n + i) for i in range(n)]
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(v, [], f)
+    o = bpy.data.objects.new(name, me)
+    scene.collection.objects.link(o)
+    me.materials.append(M[mat])
+    return o
 
 
 def frustum(name, c, z, w0, d0, w1, d1, h, mat):
@@ -369,7 +383,32 @@ def foniks():
         box("Cartouche", (x, -0.14, 12.95), (1.3, 0.12, 0.7), "phoenix")   # carved relief between the upper windows
     for i in range(5):   # capitals on the cream pilasters under the cornice
         box("Capital", (mid0 + i * bw, -0.16, eave - 1.2), (1.9, 0.2, 0.7), "phoenix")
-    box("BayCanopy", (L - PIER - BAY / 2, -1.95, 5.0), (BAY + 0.4, 0.8, 0.2), "dark")   # curved canopy over the north bay window
+    # The north bay's ground floor steps out again into a half-octagon with big
+    # windows and a small dark lead roof (2025 photos)
+    ox, OP, OF, OH = L - PIER - BAY / 2, 1.2, 3.6, 4.3   # centre, how far out, front width, height
+    oct_ = [(ox - OF / 2 - OP, -BD), (ox - OF / 2, -BD - OP), (ox + OF / 2, -BD - OP), (ox + OF / 2 + OP, -BD)]
+    prism("Oriel", oct_ + [(ox + OF / 2 + OP, -BD + 0.1), (ox - OF / 2 - OP, -BD + 0.1)], 0, OH, "phoenix")
+    grow = lambda pts, d: [(x + d * (1 if x > ox else -1) * (abs(x - ox) > 0.1), y - d * (y < -BD + 0.01)) for x, y in pts]
+    prism("OrielPlinth", grow(oct_, 0.04) + [(ox + OF / 2 + OP + 0.04, -BD + 0.1), (ox - OF / 2 - OP - 0.04, -BD + 0.1)], 0, 1.0, "plinth")
+    eav = grow(oct_, 0.3)   # roof: from the eave line out past the walls up to the bay wall
+    hood = [(x, y, OH) for x, y in eav] + [(eav[3][0], -BD + 0.05, OH + 0.75), (eav[0][0], -BD + 0.05, OH + 0.75)]
+    me = bpy.data.meshes.new("OrielRoof")
+    me.from_pydata(hood, [], [(0, 1, 2, 3), (0, 3, 4, 5), (0, 1, 5), (1, 2, 4, 5), (2, 3, 4)])
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.to_mesh(me)
+    bm.free()
+    o = bpy.data.objects.new("OrielRoof", me)
+    scene.collection.objects.link(o)
+    me.materials.append(M["dark"])
+    window(ox, 2.75, -BD - OP, 3.0, 2.3)
+    for sx in (-1, 1):   # narrow windows in the angled sides
+        a = math.radians(45 * sx)
+        cxw, cyw = ox + sx * (OF / 2 + OP / 2), -BD - OP / 2
+        n = (sx * 0.7071, -0.7071)
+        box("WinFrame", (cxw + n[0] * 0.05, cyw + n[1] * 0.05, 2.75), (1.2, 0.12, 2.6), "frame", a)
+        box("Win", (cxw + n[0] * 0.1, cyw + n[1] * 0.1, 2.75), (0.95, 0.12, 2.3), "glass", a)
     for bx in (PIER + BAY / 2, L - PIER - BAY / 2):   # the side bays come forward
         # the bays come out as far as the middle balcony and stop a floor short of
         # the eave; their tops are balconies behind a solid parapet with small slots
@@ -392,8 +431,7 @@ def foniks():
                 window(x, 7.33, -0.12, 1.5, 3.65, arch=True)
             else:
                 window(x, z, -0.12)
-    for x in (L - PIER / 2, L - PIER - BAY / 2 - 1.6, L - PIER - BAY / 2 + 1.6):   # (none behind the restaurant)
-        window(x, 3.4, -BD if abs(x - (L - PIER - BAY / 2)) < 2 else -0.12, 1.4, 2.4)
+    window(L - PIER / 2, 3.4, -0.12, 1.4, 2.4)   # (none behind the restaurant; the north bay has its oriel)
     # Entrance (2025 street photos): a raised terrace along the front from the
     # restaurant to past the doors, wide steps down to the square that wrap round the
     # phoenix fountain (its basin is set into the steps), a ramp up along the
@@ -867,6 +905,7 @@ SHOTS = {
     # R: the restaurant corner from above the square (Adriaen's aerial photo)
     "R_restaurant": (FL(-24.0, -30.0, 24.0), FL(7.0, 4.0, 7.0), 32.0, 3 / 4),
     # T: along the front from the restaurant: the ramp, the terrace and the balcony doors
+    "N_north_bay": (FL(25.0, -15.0, 1.7), FL(30.5, -1.0, 4.5), 30.0, 3 / 4),
     "U_ramp": (FL(18.5, -10.0, 3.2), FL(12.0, -1.0, 1.4), 30.0, 4 / 3),
     "T_terrace": (FL(2.0, -14.0, 1.7), FL(20.0, -2.0, 5.0), 24.0, 3 / 4),
     # S: across Kongens gate, Føniks's brick south wall and the annex (Adriaen's winter photo)
