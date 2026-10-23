@@ -1,5 +1,5 @@
 // The people in the room for story mode: the low-poly cast (characters/,
-// office looks copied to public/story/chars/) placed at named spots, sitting
+// copied to public/story/chars/) placed at named spots, sitting
 // or standing, blinking, talking while their line plays (the jaw follows the
 // line's loudness track from voices.py), and turning their head to the camera.
 //
@@ -10,7 +10,11 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const BASE = 'story/chars/';
-// Who is who: the speaker ids of content.js, plus the CEO's silent cameo
+// Who is who: the speaker ids of content.js, plus the CEO's silent cameo.
+// Offshore everyone wears PPE, visitors too: the 'ppe' look (?outfit=office
+// for the everyday clothes). Callers on the video link are onshore and keep
+// their everyday look (call.js)
+export const OUTFIT = new URLSearchParams(location.search).get('outfit') ?? 'ppe';
 export const MODELS = {
   operator: 'bearded_operator', supervisor: 'blazer_lead', oim: 'grey_beard_lead', ceo: 'glasses_ceo',
 };
@@ -61,7 +65,8 @@ export class Cast {
 
   async load() {
     await Promise.all(Object.entries(MODELS).map(async ([who, file]) => {
-      const gltf = await loadModel(file).catch((e) => { console.warn('cast', file, e); return null; });
+      const look = OUTFIT === 'office' ? file : `${file}_${OUTFIT}`;
+      const gltf = await loadModel(look).catch(() => loadModel(file)).catch((e) => { console.warn('cast', file, e); return null; });
       if (!gltf) return;
       const p = gltf.scene;
       const mixer = new THREE.AnimationMixer(p);
