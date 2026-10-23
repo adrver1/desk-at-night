@@ -40,9 +40,14 @@ export class StoryUI {
 
   // ------------------------------------------------------------ titles
 
+  // A solid title hides the whole picture once it has faded in (1.2 s):
+  // onCover(true) then, onCover(false) as soon as it starts to go
   title(t) {
     const e = this.el.title;
+    clearTimeout(this.coverTimer);
+    this.onCover?.(false);
     if (!t) { e.classList.remove('on'); return; }
+    if (t.solid) this.coverTimer = setTimeout(() => this.onCover?.(true), 1300);
     e.className = `title ${t.solid ? 'solid' : ''}`;
     e.innerHTML = `<div class="inner">${t.eyebrow ? `<div class="eyebrow">${esc(t.eyebrow)}</div>` : ''}<h1 class="${t.small ? 'small' : ''}">${esc(t.text)}</h1>${t.sub ? `<p>${esc(t.sub)}</p>` : ''}</div>`;
     fadeIn(e);
