@@ -44,7 +44,7 @@ M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "brick": ("#8e3b2e", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
     "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
     "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3a3d42", 0.7), "roof_light": ("#8f9498", 0.8),
-    "copper": ("#6e3a2c", 0.55), "plinth": ("#59625d", 0.8), "amber": ("#4a5258", 0.12), "door": ("#4a2c1e", 0.5),
+    "copper": ("#6e3a2c", 0.55), "plinth": ("#59625d", 0.8), "amber": ("#61798a", 0.08), "glass_curve": ("#86a3b8", 0.06), "skylight": ("#c9cdcf", 0.5), "door": ("#4a2c1e", 0.5),
     "bronze_dark": ("#2f3a33", 0.45), "gold": ("#b8913a", 0.35), "travertine": ("#dcd2bf", 0.8), "orange": ("#c9583a", 0.8),
 }.items()}
 
@@ -234,12 +234,70 @@ def window(x, z, y, w=1.35, h=2.1, arch=False, side=False):
         bpy.context.object.data.materials.append(M["frame"])
 
 
-def skylight(loc, r=0.55):
+def rib(path, leg, at, quarter, r, z0, side):
+    """A dark glazing bar over the curved eave: a thin strip following the quarter
+    round, across leg `leg` of the path at coordinate `at` along it."""
+    a_, b_ = Vector(path[leg]), Vector(path[leg + 1])
+    t = (b_ - a_).normalized()
+    n = Vector((-t.y, t.x)) * side
+    p = a_ + t * ((at - a_.x) / t.x if abs(t.x) > 0.5 else (at - a_.y) / t.y)
+    verts, faces = [], []
+    for k, (c, sn) in enumerate(quarter):
+        d, z = r - r * c, z0 + r * sn
+        q = p + n * (d - 0.03 * c)   # a hair proud of the glass, along its normal
+        verts += [(*(q - t * 0.05), z + 0.03 * sn), (*(q + t * 0.05), z + 0.03 * sn)]
+        if k:
+            faces.append((2 * k - 2, 2 * k - 1, 2 * k + 1, 2 * k))
+    me = bpy.data.meshes.new("Rib")
+    me.from_pydata(verts, [], faces)
+    o = bpy.data.objects.new("Rib", me)
+    scene.collection.objects.link(o)
+    me.materials.append(M["dark"])
+
+
+def sweep(name, path, profile, side, mat):
+    """A profile swept along a 2D path with mitred corners: profile points are
+    (distance off the path, height); side 1 offsets to the left of the walk direction,
+    -1 to the right. The open ends get flat caps."""
+    P = [Vector((x, y)) for x, y in path]
+    normals = []
+    for a_, b_ in zip(P, P[1:]):
+        t = (b_ - a_).normalized()
+        normals.append(Vector((-t.y, t.x)) * side)
+    rings = []
+    for i, p in enumerate(P):
+        if i == 0:
+            m = normals[0]
+        elif i == len(P) - 1:
+            m = normals[-1]
+        else:
+            n1, n2 = normals[i - 1], normals[i]
+            m = (n1 + n2) / (1 + n1.dot(n2))   # mitre: keeps the offset true on both legs
+        rings.append([(p.x + m.x * d, p.y + m.y * d, z) for d, z in profile])
+    verts = [v for r_ in rings for v in r_]
+    n = len(profile)
+    faces = [(i * n + j, i * n + j + 1, (i + 1) * n + j + 1, (i + 1) * n + j)
+             for i in range(len(P) - 1) for j in range(n - 1)]
+    for i, far in ((0, profile[-1][0]), (len(P) - 1, profile[-1][0])):   # end caps
+        base = len(verts)
+        p, m = P[i], normals[0 if i == 0 else -1]
+        verts.append((p.x + m.x * far, p.y + m.y * far, profile[0][1]))
+        faces.append(tuple(range(i * n, i * n + n)) + (base,))
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    me.validate()
+    o = bpy.data.objects.new(name, me)
+    scene.collection.objects.link(o)
+    me.materials.append(M[mat])
+    return o
+
+
+def skylight(loc, r=0.45):
     """A round roof light: a flat white disc lying on the roof."""
     bpy.ops.mesh.primitive_circle_add(vertices=8, radius=r, fill_type="NGON", location=loc)
     o = bpy.context.object
     o.name = "Skylight"
-    o.data.materials.append(M["frame"])
+    o.data.materials.append(M["skylight"])
 
 
 def curved_eave(x, y, length, rot_deg, r=1.0, z=3.1):
@@ -342,41 +400,51 @@ def foniks():
     for x in (d0 - 2.6, d0 - 0.4, d1 + 0.4, d1 + 2.6):   # four masts, two each side of the stairs
         flag_mast(x, -5.6)
     # The glass restaurant, L-shaped round the south-east corner (2024 photos): a
-    # granite plinth, amber glazing in dark frames, a flat dark roof dotted with round
-    # skylights, curved glass along both the outer edge and the edge against the
-    # building, the door with steps on the cut corner
+    # granite plinth, clear glazing in dark frames, the glass curving over at the eaves
+    # in a quarter round that meets in a mitred hip at the corner, a flat dark roof
+    # dotted with round skylights, a second curved glass strip leaning on the building,
+    # and the door in a little arched porch on the corner with steps down to the square
     cw = mid0 + 0.6            # the front arm runs past the south side bay
     RD, RS = 7.0, 6.0          # depth of the front arm, of the south arm
-    def arm(x0, x1, y0, y1, along_x):
+    WT, R, RI = 3.0, 1.4, 1.1  # wall top, eave radius, radius of the strip on the building
+    outer = [(cw, -RD), (-RS, -RD), (-RS, depth)]            # street edge, corner in the middle
+    wall = [(cw, 0.0), (0.0, 0.0), (0.0, depth)]             # the building's walls
+    quarter = [(math.cos(t), math.sin(t)) for t in (k / 6 * math.pi / 2 for k in range(7))]
+    # eave: from upright at the wall top to flat at the roof, inward from the street edge
+    sweep("RestaurantEave", outer, [(R - R * c, WT + R * sn) for c, sn in quarter], -1, "glass_curve")
+    # strip on the building: rises off the roof RI out from the wall and leans in onto it
+    sweep("RestaurantLean", wall, [(RI * c, WT + R + RI * sn) for c, sn in quarter], 1, "glass_curve")
+    for x0, x1, y0, y1 in ((-RS, cw, -RD, 0.0), (-RS, 0.0, 0.0, depth)):
         cxa, cya, wx, wy = (x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0
-        box("RestaurantPlinth", (cxa, cya, 0.4), (wx, wy, 0.8), "granite")
-        box("Restaurant", (cxa, cya, 1.95), (wx - 0.1, wy - 0.1, 2.3), "amber")
-        box("RestaurantRoof", (cxa, cya, 3.2), (wx, wy, 0.2), "dark")
-        n = int((wx if along_x else wy) / 1.6)
-        for i in range(n + 1):
-            t = i / n
-            if along_x:
-                box("Mullion", (x0 + t * wx, y0 + 0.0, 1.95), (0.1, 0.12, 2.3), "dark")
-            else:
-                box("Mullion", (x0 + 0.0, y0 + t * wy, 1.95), (0.12, 0.1, 2.3), "dark")
-        if along_x:   # outer barrel on the street side, a raised one against the wall
-            curved_eave(cxa, y0 + 0.8, wx, 0.0, 0.85, 3.05)
-            curved_eave(cxa, y1 - 0.8, wx, 0.0, 0.85, 3.55)
-            for i in range(int(wx / 2.0)):
-                for j in (y0 + 2.6, y0 + 4.4):
-                    skylight((x0 + 1.2 + i * 2.0, j, 3.31))
-        else:
-            curved_eave(x0 + 0.8, cya, wy, 90.0, 0.85, 3.05)
-            curved_eave(x1 - 0.8, cya, wy, 90.0, 0.85, 3.55)
-            for i in range(int(wy / 2.0)):
-                for j in (x0 + 2.4, x0 + 3.7):
-                    skylight((j, y0 + 1.2 + i * 2.0, 3.31))
-    arm(-RS, cw, -RD, 0.0, True)
-    arm(-RS, 0.0, 0.0, depth, False)
-    box("CornerDoor", (-RS, -RD, 1.9), (1.4, 0.12, 2.4), "dark", math.radians(-45))
+        box("RestaurantPlinth", (cxa, cya, 0.35), (wx, wy, 0.7), "granite")
+        box("Restaurant", (cxa, cya, (0.7 + WT) / 2), (wx - 0.1, wy - 0.1, WT - 0.7), "amber")
+        ux0, uy0 = x0 + R, y0 + (R if y0 < 0 else 0.0)   # the roof sits inside the eave
+        box("RestaurantUpper", ((ux0 + x1) / 2, (uy0 + y1) / 2, WT + R / 2), (x1 - ux0, y1 - uy0, R), "dark")
+        box("RestaurantRoof", ((ux0 + x1) / 2, (uy0 + y1) / 2, WT + R), (x1 - ux0, y1 - uy0, 0.2), "dark")
+    for x in [cw - 0.05 - i * 1.6 for i in range(int((cw + RS) / 1.6) + 1) if cw - 0.05 - i * 1.6 > -RS + 0.3]:   # frames on the street faces
+        box("Mullion", (x, -RD, (0.7 + WT) / 2), (0.1, 0.12, WT - 0.7), "dark")
+        rib(outer, 0, x, quarter, R, WT, -1)
+    for y in [depth - 0.05 - i * 1.6 for i in range(int((depth + RD) / 1.6) + 1) if depth - 0.05 - i * 1.6 > -RD + 0.3]:
+        box("Mullion", (-RS, y, (0.7 + WT) / 2), (0.12, 0.1, WT - 0.7), "dark")
+        rib(outer, 1, y, quarter, R, WT, -1)
+    for i in range(int((cw + RS - 3) / 2.0)):   # skylights between the eave and the strip
+        for y in (-RD + R + 1.0, -RD + R + 2.9):
+            skylight((-RS + 2.6 + i * 2.0, y, WT + R + 0.11))
+    for i in range(int((depth - 0.5) / 2.0)):
+        for x in (-RS + R + 0.9, -RS + R + 2.5):
+            skylight((x, 0.8 + i * 2.0, WT + R + 0.11))
+    # the corner porch: a dark frame facing the square on the diagonal, arched on top
+    pc = Vector((-RS, -RD)) + Vector((-1, -1)).normalized() * 0.55
+    box("Porch", (pc.x, pc.y, (WT + 0.4) / 2), (1.7, 1.4, WT + 0.4), "dark", math.radians(-45))
+    bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.85, depth=1.4, location=(pc.x, pc.y, WT + 0.4),
+                                        rotation=(math.pi / 2, 0, math.radians(135)))
+    bpy.context.object.name = "PorchArch"
+    bpy.context.object.data.materials.append(M["dark"])
+    pf = pc + Vector((-1, -1)).normalized() * 0.71
+    box("PorchDoor", (pf.x, pf.y, 0.7 + 1.2), (1.1, 0.06, 2.4), "glass", math.radians(-45))
     for i in range(3):
-        box("CornerStep", (-RS - 0.2 - i * 0.3, -RD - 0.2 - i * 0.3, (0.8 - i * 0.26) / 2),
-            (2.4, 0.5, 0.8 - i * 0.26), "granite", math.radians(-45))
+        st = pc + Vector((-1, -1)).normalized() * (1.0 + i * 0.35)
+        box("CornerStep", (st.x, st.y, (0.8 - i * 0.26) / 2), (2.4, 0.5, 0.8 - i * 0.26), "granite", math.radians(-45))
     # Eight round-topped dormers
     for i in range(8):
         x = 4.0 + i * (L - 8.0) / 7
