@@ -592,10 +592,10 @@ def phoenix_fountain(cx, cy, z0=0.15):
     cyl("Drum", (cx, cy, 0), 3.25, z0 + 0.3, "granite", 24)
 
 
-FOUNT = (16.0, -5.0)   # phoenix fountain: in front of the south door, its centre on the terrace edge
+FOUNT = (FW / 2, -6.5)   # phoenix fountain: centred on the doors, its back just clear of the platform steps
 _before = set(bpy.data.objects)
 foniks()
-phoenix_fountain(*FOUNT)   # set into the terrace steps, south of the doors
+phoenix_fountain(*FOUNT)   # set into the terrace steps, in front of the doors
 from mathutils import Matrix
 # Built facing -y with its south end at build x = 0; a quarter turn to the left makes
 # it face EAST, then it slides onto the square: front at FONIKS_FRONT, south end at
@@ -857,7 +857,7 @@ SHOTS = {
     # S: across Kongens gate, Føniks's brick south wall and the annex (Adriaen's winter photo)
     "S_kongens_street": ((FB - 2.0, FONIKS_SOUTH - 34.0, 1.7), (FB - 2.0, FONIKS_SOUTH, 9.5), 20.0, 4 / 3),
     "E_entrance": (FL(18.0, -19.0, 2.0), FL(18.0, 0.0, 4.2), 30.0, 16 / 9),
-    "F_phoenix": (FL(18.0, -14.5, 2.0), FL(16.0, -5.0, 2.2), 40.0, 16 / 9),
+    "F_phoenix": (FL(20.0, -16.0, 2.0), FL(19.0, -6.5, 2.2), 40.0, 16 / 9),
     "D_statue_close": ((-6.5, -6, 16.2), (0, 0, 15.8), 50.0, 16 / 9),
     # C: over the character's shoulder at the door, looking back at the statue
     "C_statue": (FL(21.5, -1.2, 3.0), (2, 0, 10), 26.0, 16 / 9),
