@@ -346,7 +346,7 @@ function chat(ctx, w, h, id) {
     return { who, lines, typing, h: lines.length * lh + 2 * pad + (who === 'me' ? 0 : 16 * s) };
   });
   // Stack from the bottom up, dropping what no longer fits
-  let y = h - 14 * s;
+  let y = h - 44 * s;   // clear of the story's navigator when the screen fills the view
   for (let i = bubbles.length - 1; i >= 0; i--) {
     const b = bubbles[i];
     y -= b.h;
