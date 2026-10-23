@@ -49,6 +49,22 @@ def _convex_planes(bm):
     return np.array(planes)
 
 
+def _samples(f, mw):
+    """World-space points spread over face f: the centre, points towards each corner
+    and, for quads, a 4 x 4 grid, so a big face that is only partly covered (a brick
+    panel behind a column of windows) is not mistaken for a buried one."""
+    vs = [mw @ v.co for v in f.verts]
+    c = mw @ f.calc_center_median()
+    pts = [c] + [c.lerp(v, 0.85) for v in vs]
+    if len(vs) == 4:
+        for u in (0.08, 0.36, 0.64, 0.92):
+            a, b = vs[0].lerp(vs[1], u), vs[3].lerp(vs[2], u)
+            pts += [a.lerp(b, t) for t in (0.08, 0.36, 0.64, 0.92)]
+    else:
+        pts += [c.lerp(vs[i].lerp(vs[(i + 1) % len(vs)], 0.5), 0.85) for i in range(len(vs))]
+    return pts
+
+
 def strip_hidden(objs, ground=0.0):
     """Delete faces of objs that are buried in, or pressed flat against, another solid
     (any closed convex mesh in objs), and faces lying on or under the ground plane."""
@@ -80,7 +96,7 @@ def strip_hidden(objs, ground=0.0):
         for f in bm.faces:
             n = (mw3 @ f.normal).normalized()
             c = mw @ f.calc_center_median()
-            pts = [c] + [c.lerp(mw @ v.co, 0.85) for v in f.verts]
+            pts = _samples(f, mw)
             if max(p.z for p in pts) <= ground + 0.02 and n.z < -0.5:
                 dead.append(f)
                 continue

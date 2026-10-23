@@ -441,14 +441,16 @@ def foniks():
     T1, LAND = 0.8, 1.3         # terrace, platform at the doors
     d0, d1 = cols[1], cols[2]
     cw = mid0 - 1.0            # where the restaurant's front arm ends: short of the bay's edge, so its beige side shows down to the ground
-    TD, t1 = -FOUNT[1], mid1 + 3.0   # terrace depth (to the fountain's centre), its north end
+    TD, t1 = -FOUNT[1], mid1 + 0.5   # terrace depth (to the fountain's centre), its north end (just short of the oriel)
     PD, s0, s1 = 2.0, d0 - 1.6, d1 + 1.2  # platform depth, its steps' ends
     fx, fy, fr = FOUNT[0], FOUNT[1], 3.0
     cut = [box("Terrace", ((cw + t1) / 2, -TD / 2, T1 / 2), (t1 - cw, TD, T1), "granite")]
     box("RampTop", (cw + 0.8, -(TD + 8.6) / 2, T1 / 2), (1.6, 8.6 - TD, T1), "granite")
-    for i in range(4):
-        cut.append(box("Stair", ((cw + 1.6 + t1) / 2, -TD - 0.2 - i * 0.4, (T1 - i * 0.2) / 2),
-                       (t1 - cw - 1.6, 0.4, T1 - i * 0.2), "granite"))
+    for i in range(4):   # the steps turn the north corner too, each one reaching further out
+        e = t1 + (i + 1) * 0.45
+        cut.append(box("Stair", ((cw + 1.6 + e) / 2, -TD - 0.2 - i * 0.4, (T1 - i * 0.2) / 2),
+                       (e - cw - 1.6, 0.4, T1 - i * 0.2), "granite"))
+        box("Stair", (e - 0.225, (-3.0 - TD - i * 0.4) / 2, (T1 - i * 0.2) / 2), (0.45, TD + i * 0.4 - 3.0, T1 - i * 0.2), "granite")
     bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=fr, depth=10, location=(fx, fy, 0))
     hole = bpy.context.object   # the basin takes a round bite out of terrace and steps
     dg = bpy.context.evaluated_depsgraph_get()
