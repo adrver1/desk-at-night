@@ -42,7 +42,7 @@ M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "trunk": ("#4a3a2c", 1.0), "c1": ("#c9a77c", 0.8), "c2": ("#b46a4f", 0.8),
     "c3": ("#e2ddcf", 0.8), "c4": ("#8f9b8a", 0.8), "c5": ("#c7b07a", 0.8),
     "brick": ("#8e3b2e", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
-    "torg": ("#cdbf9f", 0.8), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
+    "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
     "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3a3d42", 0.7),
 }.items()}
 
@@ -137,9 +137,9 @@ def paving(name, size):
 # round the column, Føniks across the north side, the fjord behind
 M["lamp"] = b.mat_flat("TrdLamp", (1, 1, 1), 0.3)
 box("Ground", (0, 0, -0.05), (400, 400, 0.1), "road")
-bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 4, 0.03))
+bpy.ops.mesh.primitive_plane_add(size=1, location=(7, 0, 0.03))
 sq = bpy.context.object
-sq.scale = (116, 100, 1)
+sq.scale = (138, 132, 1)
 bpy.ops.object.transform_apply(scale=True)
 sq.data.materials.append(paving("TrdPaving", 100))
 for k in range(16):   # the compass star, dark stone, long and short points
@@ -355,10 +355,14 @@ def phoenix_fountain(cx, cy):
 
 
 phoenix_fountain(46.6, 28.0)
-DX = -26.0   # Føniks sits on the north side with the column in front of its left half
+# Placed from Adriaen's street map (column = origin, x east, y north, ~0.3 m per map
+# pixel): Føniks is the north-west corner block, Kongens gate in front of it, its
+# front facing south over the forecourt; Trondheim Torg south-west of the column
+DX, DY = -126.0, -5.0
 for o in set(bpy.data.objects) - _before:
     if o.parent is None:
         o.location.x += DX
+        o.location.y += DY
 
 
 def block(name, x0, x1, y0, y1, h, mat, floors, faces, roof=None, roof_h=4.0):
@@ -371,33 +375,57 @@ def block(name, x0, x1, y0, y1, h, mat, floors, faces, roof=None, roof_h=4.0):
                 w if along_x else 0.6, 0.6 if along_x else d, roof_h, roof)
 
 
-# North side, either side of Føniks: the dark brick block on its left, the pink
-# wooden house with its steep grey roof on its right, then a white block
-block("BrickNW", -30, -5, 38, 62, 17, "brick_dark", 5, ("-y",), "slate", 5)
-block("PinkHouse", 45, 60, 38, 52, 8, "pink", 2, ("-y", "+x"), "slate", 5)
-block("WhiteN", 62, 86, 40, 62, 13, "c3", 4, ("-y",), "slate", 4)
-block("GreyNW", -58, -32, 40, 62, 14, "c4", 4, ("-y",), None)
-# West side: Trondheim Torg, long and beige with tall window strips, shop windows
-# and the red sign, and the green pavilion drum on its post in front
-box("Torg", (-72, 2, 10), (24, 84, 20), "torg")
-box("TorgRoof", (-72, 2, 20.6), (24.6, 84.6, 1.2), "dark")
-box("TorgShops", (-59.9, 2, 2.2), (0.3, 80, 4.0), "glass")
-for i in range(26):
-    box("TorgStrip", (-59.9, -36 + i * 3.0, 12.0), (0.25, 1.1, 11.5), "glass")
-box("TorgSign", (-59.6, 14, 17.6), (0.3, 14, 1.6), "red")
-cyl("PavilionPost", (-42, 6, 0), 1.0, 4.2, "dark", 12)
-cyl("Pavilion", (-42, 6, 4.2), 7.0, 3.0, "verdigris", 32)
-cyl("PavilionLid", (-42, 6, 7.2), 7.0, 0.15, "dark", 32)
-# East side: the grey 1950s office block with café awnings along its front
-block("OfficeE", 60, 84, -34, 30, 18, "c4", 5, ("-x",), None)
-for i in range(7):
-    box("Awning", (57.5, -26 + i * 8, 2.8), (4.0, 6.0, 0.2), "frame")
-# South side: low old town, dark roofs
-block("SouthW", -50, -10, -64, -46, 11, "c5", 3, ("+y",), "slate", 4)
-block("SouthE", -6, 40, -66, -46, 12, "c1", 3, ("+y",), "slate", 4)
+# The Føniks forecourt between the building and Kongens gate, paved like the square
+bpy.ops.mesh.primitive_plane_add(size=1, location=(-80, 24, 0.025))
+fc = bpy.context.object
+fc.scale = (50, 18, 1)
+bpy.ops.object.transform_apply(scale=True)
+fc.data.materials.append(bpy.data.materials["TrdPaving"])
+# West of Føniks across Bersvendveita: the light modern block with the grid of
+# windows and the green awning, the dark brick block with steep roofs behind it
+block("ModernW", -146, -110, 28, 64, 20, "c3", 6, ("-y", "+x"), None)
+box("ModernWAwning", (-128, 27.2, 3.0), (30, 1.6, 0.2), "tree")
+block("BrickNW", -146, -110, 68, 96, 17, "brick_dark", 5, ("-y", "+x"), "slate", 6)
+# North side of the square, east of Munkegata: the small pink wooden house with a
+# steep grey roof, then a white block; Munkegata runs off north between tree rows
+block("PinkHouse", -2, 20, 66, 80, 8, "pink", 2, ("-y", "+x"), "slate", 5)
+block("WhiteN", 22, 64, 66, 88, 13, "c3", 4, ("-y",), "slate", 4)
+block("BehindFoniks", -54, -40, 70, 104, 14, "c4", 4, ("+x",), "slate", 4)
+for y in range(40, 150, 10):
+    cx = -6 - (y - 40) * 0.2   # Munkegata bends a little west as it heads to the fjord
+    for x in (cx - 9, cx + 9):
+        cyl("Trunk", (x, y, 0), 0.15, 2.2, "trunk", 6)
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1.8, location=(x, y, 4.0))
+        bpy.context.object.data.materials.append(M["tree"])
+# South-west of the column, across Kongens gate from Føniks: Trondheim Torg, long and
+# beige with tall window strips, shop windows and the red sign on its corner, and the
+# green pavilion drum on its post in front
+box("Torg", (-81, -34.5, 10), (38, 57, 20), "torg")
+box("TorgRoof", (-81, -34.5, 20.6), (38.6, 57.6, 1.2), "dark")
+box("TorgShops", (-61.9, -34.5, 2.2), (0.3, 55, 4.0), "glass")
+for i in range(18):
+    box("TorgStrip", (-61.9, -60 + i * 3.0, 12.0), (0.25, 1.1, 11.5), "glass")
+for i in range(12):
+    box("TorgStripN", (-96 + i * 3.0, -5.9, 12.0), (1.1, 0.25, 11.5), "glass")
+box("TorgSign", (-61.6, -12, 17.6), (0.3, 14, 1.6), "red")
+cyl("PavilionPost", (-44, -24, 0), 1.0, 4.2, "dark", 12)
+cyl("Pavilion", (-44, -24, 4.2), 7.0, 3.0, "verdigris", 32)
+cyl("PavilionLid", (-44, -24, 7.2), 7.0, 0.15, "dark", 32)
+block("YellowSW", -100, -62, -100, -66, 22, "c5", 6, ("+x", "+y"), None)
+# East side: the dark blue-grey glass office block under a dark mansard with café
+# umbrellas in front, and a white block north of it
+block("OfficeE", 78, 104, -34, 16, 16, "glass_block", 5, ("-x",), "slate", 3)
+for i in range(6):
+    cyl("UmbrellaPole", (73.5, -28 + i * 8, 0), 0.05, 2.4, "dark", 6)
+    cyl("Umbrella", (73.5, -28 + i * 8, 2.4), 1.6, 0.6, "frame", 8, 0.1)
+block("WhiteE", 78, 104, 20, 52, 14, "c3", 4, ("-x",), "slate", 4)
+# South side, either side of Munkegata south: the grey block west of it, older
+# buildings with dark roofs to the east
+block("SouthW", -60, -8, -104, -70, 14, "c4", 4, ("+y",), None)
+block("SouthE", 16, 74, -100, -40, 12, "c1", 3, ("+y", "-x"), "slate", 4)
 # Planters with young trees in rows along the edges of the square
-for x, y in [(-50, -30), (-50, -18), (-50, -6), (-50, 18), (-50, 30), (-28, 33), (-12, 33),
-             (34, 33), (50, -30), (50, -14), (50, 2), (50, 18), (-10, -42), (14, -42)]:
+for x, y in [(-56, -58), (-56, -46), (-56, -34), (-30, 12), (-14, 12), (12, 60), (32, 60),
+             (68, -40), (68, -24), (68, -8), (68, 8), (68, 24), (-30, -62), (-6, -62)]:
     box("Planter", (x, y, 0.3), (2.6, 5.0, 0.6), "granite")
     cyl("Trunk", (x, y, 0.6), 0.12, 1.8, "trunk", 6)
     bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1.3, location=(x, y, 3.2))
@@ -460,7 +488,7 @@ bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.35, loca
 bpy.context.object.scale.z = 1.3   # the stone by his left foot
 bpy.context.object.data.materials.append(M["bronze"])
 # The bearded character (Adriaen, one year ago) in front of Føniks
-me, _ = load_char("bearded_operator", (41.0 + DX, 31.8, 0), math.radians(200))
+me, _ = load_char("bearded_operator", (41.0 + DX, 31.8 + DY, 0), math.radians(200))
 
 # Light: low autumn sun, overcast sky
 world = bpy.data.worlds.new("Sky")
@@ -484,17 +512,17 @@ scene.render.image_settings.file_format = "JPEG"
 
 SHOTS = {
     # A: street level across the square, character in front of the door, statue on the left
-    "A_street": ((34 + DX, 14, 1.6), (46 + DX, 38, 8.0), 28),
+    "A_street": ((34 + DX, 14 + DY, 1.6), (46 + DX, 38 + DY, 8.0), 28),
     # Entrance close-up: the phoenix fountain, the balcony and the doors
-    "E_entrance": ((44.0 + DX, 19.5, 2.0), (46.6 + DX, 38, 4.0), 30),
-    "F_phoenix": ((44.6 + DX, 24.4, 2.3), (46.6 + DX, 28, 2.4), 40),
+    "E_entrance": ((44.0 + DX, 19.5 + DY, 2.0), (46.6 + DX, 38 + DY, 4.0), 30),
+    "F_phoenix": ((44.6 + DX, 24.4 + DY, 2.3), (46.6 + DX, 28 + DY, 2.4), 40),
     # B: establishing drone view from the south, like the photo: column centred, Føniks
     # behind on the north side, Trondheim Torg on the left, the fjord beyond
-    "B_wide": ((4, -92, 46), (4, 24, 4), 32),
+    "B_wide": ((-8, -96, 84), (-42, 30, 2), 34),
     # Close-up of the statue for the pose check
     "D_statue_close": ((-6.5, -6, 16.2), (0, 0, 15.8), 50),
     # C: over the character's shoulder at the office door, looking back up at the statue
-    "C_statue": ((44.6 + DX, 35.6, 1.75), (2, 0, 10), 26),
+    "C_statue": ((44.6 + DX, 35.6 + DY, 1.75), (2, 0, 10), 26),
 }
 for name, (pos, at, lens) in SHOTS.items():
     for o in scene.objects:   # the over-the-shoulder shot stands where the conservatory would block it
