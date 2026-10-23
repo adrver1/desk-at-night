@@ -693,9 +693,9 @@ function showFrameTime(frame) {
 
 // Story mode (story.html) runs on top of this page: it adds per-frame steps
 // and render passes, and can hide the room while its prologue plays
-const hooks = { frame: [], render: [], reflect: [], hidden: false };   // reflect: more scenes for the sea's mirror
+const hooks = { frame: [], render: [], reflect: [], hidden: false, covered: false };   // reflect: more scenes for the sea's mirror; covered: an opaque title is over the picture
 
-// Behind the story's prologue the room doesn't show, so it isn't drawn, apart
+// Behind the story's prologue or a solid title the room doesn't show, so it isn't drawn, apart
 // from a few frames once it and the CCTV have loaded, into a single pixel:
 // that compiles every shader (room, sea, mirror, CCTV) out of sight instead
 // of stalling the first frame after the intro
@@ -710,7 +710,7 @@ renderer.setAnimationLoop((now) => {
   if (!room) return;
   perfStep('player', () => update(dt));
   for (const f of hooks.frame) perfStep('story', () => f(dt, now));   // story mode (src/story/) steps here and may take the camera
-  const tiny = hooks.hidden;                 // behind the story's prologue: see WARM
+  const tiny = hooks.hidden || hooks.covered;   // behind the story's prologue or a solid title: see WARM
   if (tiny && (!cctvSettled || (warm >= WARM.frames && now - warmFrom >= WARM.ms))) return;
   if (tiny) {
     if (!warm++) warmFrom = now;

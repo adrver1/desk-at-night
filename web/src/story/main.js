@@ -481,6 +481,8 @@ begin.innerHTML = `<div class="inner"><p class="eyebrow">Story mode</p><h1>${TIT
   <dl class="keys"><dt>Space / →</dt><dd>next</dd><dt>←</dt><dd>back</dd><dt>1 – 9</dt><dd>jump to a chapter</dd><dt>F</dt><dd>free mode and back</dd><dt>P</dt><dd>presenter notes</dd></dl>
   <button type="button" id="storyGo" disabled>Loading the control room…</button></div>`;
 host.append(begin);
+ui.onCover = (on) => { game.hooks.covered = on; };   // solid act titles: nothing to draw behind them
+game.hooks.hidden = true;   // the Begin screen is opaque: no need to draw the room behind it (it still warms its shaders, see play.js)
 const go = begin.querySelector('#storyGo');
 begin.addEventListener('click', start);
 
@@ -502,6 +504,7 @@ function start() {
     // The prologue can start before the room is ready: it loads underneath
   }
   begin.remove();
+  game.hooks.hidden = false;   // the prologue hides it again
   if (!q.has('nofs') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
   game.controls.startAudio();
   sound.start(game.controls.audio?.ctx);
