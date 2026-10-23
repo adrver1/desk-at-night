@@ -44,5 +44,11 @@
   "a3.eng2": { "who": "engineer", "text": "No. That's a trip transmitter. We don't inhibit a safety function to quiet the alarms." },
   "a3.eng3": { "who": "engineer", "text": "Send a work order to the instrument tech. They'll swap it on the next window." },
   "a3.oim1": { "who": "oim", "text": "Right call." },
-  "a3.oim2": { "who": "oim", "text": "This part isn't ours to decide. It's yours." }
+  "a3.oim2": { "who": "oim", "text": "This part isn't ours to decide. It's yours." },
+
+  "t.brage1": { "who": "supervisor", "name": "Brage", "text": "How does the business plan hold up if the new well comes in three months late?", "no": "Hvordan holder forretningsplanen hvis den nye brønnen kommer tre måneder for sent?" },
+  "t.brage2": { "who": "supervisor", "name": "Brage", "text": "Good. Draft both, and flag anything that needs sign-off offshore.", "no": "Bra. Lag utkast til begge, og merk det som trenger godkjenning offshore." },
+  "t.adr1": { "who": "operator", "name": "Adriaen", "text": "The riser started slugging again overnight. Can you retune the anti-slug controller?", "no": "Stigerøret begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?" },
+  "t.adr2": { "who": "operator", "name": "Adriaen", "text": "Good. Run it through the logic tester before I sign.", "no": "Bra. Kjør den gjennom logikktesteren før jeg signerer." },
+  "t.adr3": { "who": "operator", "name": "Adriaen", "text": "Signed. A year ago, this would have taken me a week.", "no": "Signert. For ett år siden ville dette tatt meg en uke." }
 }

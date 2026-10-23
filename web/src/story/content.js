@@ -2,6 +2,7 @@
 // card, slide and on-screen text lives here, so the story can be edited
 // without touching the engine (story/main.js). The spoken lines are in
 // lines.json (rendered to audio by web/scripts/voices.py).
+import { FULL, T } from './lang.js';
 //
 // This repo is public: no real platform numbers, initiative names, or names
 // of people. Agents carry generic labels. The private build can override any
@@ -13,8 +14,15 @@
 // state), then runs its own `do` steps once. Beats wait for the presenter's
 // key (Space or →) unless they say `auto`.
 //
+// Two runs share this file: the default one (SHORT_CHAPTERS: prologue, the
+// control room of tomorrow, a rewind to one year ago, presenter-led chapters,
+// back to tomorrow, epilogue; design.md 18b/18c), with Norwegian on screen,
+// and the three-act version at ?story=full (FULL_CHAPTERS). T(no, en) picks
+// the language (lang.js).
+//
 // `set` keys (all optional, merged in order):
-//   act      0 prologue, 1 Yesterday, 2 Today, 3 Tomorrow, 4 epilogue: colour grade
+//   act      0 prologue, 1 Yesterday, 2 Today, 3 Tomorrow, 4 epilogue,
+//            5 one year ago (strong sepia): colour grade
 //   time     game clock, hours
 //   shot     camera: desk, band, clock, window, boat, supervisor, table, link,
 //            monitor:<screen>, wideRoom, epilogue
@@ -28,7 +36,14 @@
 //   org      null, or 'chart' / 'chart+graph'
 //   overlay  one of: slide:<id>, card:<id>, vote:<id>, log:<id>, call:<who>, phone:<who>, search
 //   tool     the Act 2 tool demo running on the zoomed monitor
+//   chats    { chatId: messages shown } on the chat screens (CHATS)
 //   sound    room (default), alarm, silence
+//
+// Beats may also carry `card` (a title card shown on entering: { eyebrow,
+// text, sub, solid }) and `auto` (go on to the next beat by itself once its
+// steps are done). Steps: say, wait, set, clock, chat (one more message),
+// card (show or null), rewind (seconds), forward (seconds), and the rest
+// listed in main.js run().
 
 export const SPEAKERS = {
   pilot: { name: 'Pilot', model: 'heli_pilot' },
@@ -157,6 +172,18 @@ export const GRAPH = [
   ['log', 'Shift log', 'data', 5, ['l.cite', 'nogo', 'moc', 'order'], [0.85, -0.3]],
   ['a.hand', 'Handover agent', 'agent', 5, ['log'], [0.85, -0.05]],
 ];
+// The same labels in Norwegian
+const GRAPH_NO = {
+  pumpA: 'Boosterpumpe A', pumpB: 'Boosterpumpe B', wi: 'Vanninjeksjon', crane: 'Plattformkran', vessel: 'Forsyningsskip',
+  plan: 'Aktivitetsplan', hist: 'Prosesshistorikk', std: 'Logikkstandard', req: 'Selskapskrav', 'a.rca': 'Rotårsaksagent',
+  'a.proc': 'Prosedyreassistent', 'a.chem': 'Kjemikalieagent', 'a.doc': 'Dokumentkontroll', 'a.logic': 'Logikktestagent',
+  fcast: 'Injeksjonsprognose', order: 'Bestilling: 4 IBC', lift4: 'Løfteprosedyre rev 4 (gammel)', lift5: 'Løfteprosedyre rev 5',
+  'l.cite': 'Lærdom: sjekk kilden', 'l.rca': 'Lærdom: lagerslitasje + omkobling', vib: 'Vibrasjonsmodell, pumpe A',
+  'a.anom': 'Avviksagent', 'a.step': 'Steptest-agent', model: 'Trykksløyfemodell', 'a.sim': 'Simulatoragent',
+  logic2: 'Omkoblingslogikk v2', moc: 'MoC, signert', tx: 'Defekt transmitter', 'a.alarm': 'Alarmrasjonalisering',
+  wo: 'Arbeidsordre: bytt den', nogo: 'Nei: ingen inhibit', log: 'Skiftlogg', 'a.hand': 'Overleveringsagent',
+};
+for (const n of GRAPH) n[1] = T(GRAPH_NO[n[0]] ?? n[1], n[1]);
 
 // ---------------------------------------------------------------- cards (front: the task; back: how, who, why)
 // TODO(Adriaen): status per card, and the real initiative names in the private overrides.
@@ -253,7 +280,7 @@ export const SEARCH = ['Lifting operations, general (rev 2, superseded)', 'Crane
 
 const DESK = { wi: 'normal', sound: 'room' };
 
-export const CHAPTERS = [
+const FULL_CHAPTERS = [
   {
     key: 1, id: 'prologue', name: 'Prologue · Flying in', prologue: true,
     beats: [{ id: 'pro', set: { act: 0 }, notes: 'Fade in from black. Title, credits, the flight. Space at the end goes to Act 1.' }],
@@ -392,3 +419,168 @@ export const PLAIN_CARDS = {
   catch: { title: 'Catch the agent', body: ['The assistant cited <b>revision 4</b>, step 7.', 'Revision 5 is current, and it changed step 7: two tag lines are now required.', 'You checked the citation. The agent corrects itself, and the mistake goes into the knowledge graph as a lesson.'] },
   never: { title: 'What agents never touch', list: NEVER, foot: 'These areas stay with people. It is a mandate, not a score.' },
 };
+
+// ================================================================ the default run
+// Prologue, the control room of tomorrow, "How did we get here?", the rewind
+// to one year ago, then Adriaen's own story led by the presenter (onboarding,
+// the decision, the money slides, the how), back to tomorrow, and the
+// epilogue (design.md 18b/18c). On-screen text in Norwegian (?lang=en for
+// English); the voiced lines stay English, with Norwegian subtitles.
+
+// The agents' chats on the screens of tomorrow's room: who writes ('me' or
+// 'ai') and what. A `chat` step shows one more message; an 'ai' message types
+// for a moment first.
+export const CHATS = {
+  plan: {
+    title: T('Forretningsplan-agent', 'Business-plan agent'), who: 'Brage',
+    messages: [
+      ['me', T('Hvordan holder forretningsplanen hvis den nye brønnen kommer tre måneder for sent?', 'How does the business plan hold up if the new well comes in three months late?')],
+      ['ai', T('Produksjonen faller litt i tredje kvartal. To prosjekter kan flyttes fram og dekke gapet. Skal jeg lage utkast til begge?', 'Production dips a little in the third quarter. Two projects can move forward to fill the gap. Shall I draft both?')],
+      ['me', T('Ja, lag begge. Og merk det som trenger godkjenning offshore.', 'Yes, draft both. And flag anything that needs sign-off offshore.')],
+      ['ai', T('Utkastene er klare. To punkter trenger godkjenning, og de er sendt til kontrollrommet.', 'Drafts ready. Two items need sign-off, and they have gone to the control room.')],
+    ],
+  },
+  slug: {
+    title: T('Reguleringsagent · anti-slug', 'Control agent · anti-slug'), who: 'Adriaen',
+    messages: [
+      ['me', T('Stigerøret begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?', 'The riser started slugging again overnight. Can you retune the anti-slug controller?')],
+      ['ai', T('Ny modell tilpasset fra nattens data. Den foreslåtte innstillingen holder stigerøret stabilt i simulatoren.', 'New model fitted from last night\'s data. The proposed tuning holds the riser steady in the simulator.')],
+      ['me', T('Bra. Kjør den gjennom logikktesteren før jeg signerer.', 'Good. Run it through the logic tester before I sign.')],
+      ['ai', T('Alle 14 testtilfeller består. Klar for din signatur.', 'All 14 test cases pass. Ready for your signature.')],
+    ],
+  },
+};
+
+// Slides of the default run. TODO(Adriaen): your own slides, as text here or
+// as PNGs in public/story/private/slides/<id>.png (see SLIDES above).
+const TODO = T('TODO(Adriaen): ditt lysbilde', 'TODO(Adriaen): your slide');
+Object.assign(SLIDES, {
+  'y-01': { title: T('Trondheim, ett år tidligere', 'Trondheim, one year ago'), bullets: [T('TODO: Trondheim-scenen kommer her (drone over Torvet, ned til døra på Føniks)', 'TODO: the Trondheim scene goes here (drone over Torvet, down to the Føniks door)'), T('Første uke i jobben', 'First week on the job')], placeholder: true },
+  'y-02': { title: T('Onboarding er bratt', 'Onboarding is steep'), bullets: [TODO, T('Nytt anlegg, nye systemer, nye forkortelser', 'New plant, new systems, new acronyms'), T('Tusenvis av styrende dokumenter', 'Thousands of governing documents'), T('Hvem vet hva, og hvor står det?', 'Who knows what, and where is it written?')], placeholder: true },
+  'd-01': { title: T('Et bevisst valg', 'A deliberate choice'), bullets: [TODO, T('KI inn i min egen onboarding', 'AI in my own onboarding'), T('Bygge verktøy for det, og for daglige reguleringsoppgaver', 'Build tools for it, and for daily control-engineering tasks')], placeholder: true },
+  'd-02': { title: T('Fra spørsmål til verktøy', 'From questions to tools'), bullets: [TODO, T('Hva spurte jeg om de første ukene?', 'What did I ask about in the first weeks?'), T('Hva ble til verktøy?', 'What became a tool?')], placeholder: true },
+  'm-01': { title: T('Hva er mulig', 'What is possible'), bullets: [TODO, T('Steptest-finner', 'Step-test finder'), T('Simulatorer', 'Simulators'), T('I-005 logikktester', 'I-005 logic tester'), T('Agenter for styrende dokumenter', 'Governing-document agents')], placeholder: true },
+  'm-02': { title: T('Modeller uten nye steptester', 'Models without new step tests'), bullets: [TODO, T('Finner brukbare strekk i historikken', 'Finds usable stretches in history'), T('Ingen tapte fat', 'No lost barrels')], placeholder: true },
+  'm-03': { title: T('Å se er å tro', 'Seeing is believing'), bullets: [TODO, T('Fysikkmodeller (Python, CasADi) som snakker OPC UA', 'Physics models (Python, CasADi) that talk OPC UA'), T('Prøv regulatoren før anlegget gjør det', 'Try the controller before the plant does')], placeholder: true },
+  'm-04': { title: T('Test logikken før leverandøren', 'Test the logic before the vendor'), bullets: [TODO, T('SCD etter I-005, kjørt i en interaktiv logikktester', 'SCD to I-005, run in an interactive logic tester'), T('Feil funnet på en laptop, ikke under igangkjøring', 'Mistakes found on a laptop, not at commissioning')], placeholder: true },
+  'm-05': { title: T('Styrende dokumenter, med kilde', 'Governing documents, with sources'), bullets: [TODO, T('Agenter som svarer med henvisning', 'Agents that answer with a citation'), T('Sjekker endringer mot kravene', 'Check changes against the requirements')], placeholder: true },
+  'h-01': { title: T('Kunnskapsgrafer', 'Knowledge graphs'), bullets: [TODO, T('Utstyr, dokumenter, krav og lærdom, koblet sammen', 'Equipment, documents, requirements and lessons, linked'), T('Én kunnskapsbase, mange agenter', 'One knowledge base, many agents')], placeholder: true },
+  'h-02': { title: T('Flere agenter sammen', 'Multi-agent work'), bullets: [TODO, T('Hver agent har sitt fag og sitt mandat', 'Each agent has its subject and its mandate'), T('Mennesker leder dem', 'People lead them')], placeholder: true },
+  'h-03': { title: T('MCP-verktøy', 'MCP tools'), bullets: [TODO, T('Agentene bruker de samme verktøyene som oss', 'The agents use the same tools we do'), T('Historikk, simulatorer, logikktester, dokumenter', 'History, simulators, logic tester, documents')], placeholder: true },
+  'h-04': { title: T('Hva betyr det for oss?', 'What does it mean for us?'), bullets: [TODO, T('Inn i idédugnaden', 'Into the brainstorm')], placeholder: true },
+});
+
+// The governing-document agent on a desk monitor (mock-up), and its sources
+export const GOV_DOCS = {
+  q: T('Hvilke krav gjelder for å endre en trippgrense?', 'Which requirements apply to changing a trip limit?'),
+  a: [T('En endring av en trippgrense er en endring i et sikkerhetssystem. Den krever en godkjent MoC før den gjennomføres.', 'Changing a trip limit is a change to a safety system. It needs an approved MoC before it is made.'),
+    T('Sikkerhetskravspesifikasjonen må oppdateres, og endringen verifiseres etter at den er gjort.', 'The safety requirement specification must be updated, and the change verified once it is made.')],
+  sources: [T('Styringssystem · Endringsstyring, kap. 4', 'Management system · Management of change, ch. 4'), T('Sikkerhetskravspesifikasjon, kap. 2.3', 'Safety requirement specification, ch. 2.3'), T('Selskapskrav · Sikkerhetssystemer', 'Company requirements · Safety systems')],
+};
+
+// Every screen, blanked for the rewind
+const ALL_SCREENS = [0, 1, 2, 3, 4, 5].flatMap((i) => [`Desk0Mon${i}Screen`, `Desk1Mon${i}Screen`]).concat([0, 1, 2, 3, 4, 5, 6].map((i) => `Wall${i}Screen`), ['LinkScreen', 'TvScreen']);
+const BLANK = Object.fromEntries(ALL_SCREENS.map((n) => [n, 'blank']));
+// Tomorrow's room: Brage's agent in the middle of the band with his plan on
+// either side, the graph at the ends; Adriaen's agent and the riser at his desk
+const TOMORROW_SCREENS = { Wall1Screen: 'graph', Wall2Screen: 'planChart', Wall3Screen: 'chatPlan', Wall4Screen: 'planChart', Wall5Screen: 'graph', Desk1Mon2Screen: 'chatSlug', Desk1Mon3Screen: 'riser' };
+const TOMORROW_CAST = { supervisor: { at: 'tableBand' }, operator: { at: 'desk2' } };
+export const CLOSING = T('Denne delen er ikke vår å bestemme. Den er deres.', 'This part isn\'t ours to decide. It\'s yours.');
+
+const SHORT_CHAPTERS = [
+  {
+    key: 1, id: 'prologue', name: T('Prolog · Innflyging', 'Prologue · Flying in'), prologue: true,
+    beats: [{ id: 'pro', set: { act: 0 }, notes: 'Fade in from black. Title, credits, the flight. Space at the end goes to tomorrow\'s control room.' }],
+  },
+  {
+    key: 2, id: 'tomorrow', name: T('I morgen · Kontrollrommet', 'Tomorrow · The control room'),
+    base: { act: 3, time: 11.5, shot: 'wideRoom', ...DESK, cast: TOMORROW_CAST, graph: 5, graphOn: 'band', chats: { plan: 0, slug: 0 }, screens: TOMORROW_SCREENS },
+    beats: [
+      { id: 't.open', auto: true, do: [{ wait: 7 }], notes: 'Runs by itself for about a minute and a half. The control room of tomorrow: Brage at the meeting table, Adriaen at his desk, each with an agent.' },
+      { id: 't.brage', auto: true, set: { shot: 'brageBand' },
+        do: [{ wait: 1.5 }, { chat: 'plan' }, { say: 't.brage1' }, { chat: 'plan' }, { set: { shot: 'monitor:Wall3Screen' } }, { wait: 7 },
+          { set: { shot: 'brage' } }, { chat: 'plan' }, { say: 't.brage2' }, { chat: 'plan' }, { set: { shot: 'monitor:Wall3Screen' } }, { wait: 5 }, { set: { shot: 'band' } }, { wait: 4 }],
+        end: { shot: 'band', chats: { plan: 4, slug: 0 } },
+        notes: 'Brage optimises the business plan with his agent on the wall band. The plan on either side closes its gap once the drafts are in.' },
+      { id: 't.adriaen', auto: true, set: { shot: 'adriaenDesk', chats: { plan: 4, slug: 0 } },
+        do: [{ wait: 1.5 }, { chat: 'slug' }, { say: 't.adr1' }, { chat: 'slug' }, { set: { shot: 'monitor:Desk1Mon2Screen' } }, { wait: 5 },
+          { set: { shot: 'monitor:Desk1Mon3Screen', tool: 'antiSlug', screens: { Desk1Mon3Screen: 'antiSlug' } } }, { wait: 6 },
+          { set: { shot: 'adriaenDesk' } }, { chat: 'slug' }, { say: 't.adr2' }, { chat: 'slug' }, { set: { shot: 'monitor:Desk1Mon2Screen' } }, { wait: 5 },
+          { set: { shot: 'adriaen' } }, { wait: 1 }, { say: 't.adr3' }],
+        end: { shot: 'adriaen', tool: 'antiSlug', screens: { Desk1Mon3Screen: 'antiSlug' }, chats: { plan: 4, slug: 4 } },
+        notes: 'Adriaen works with his agent on the anti-slug controller. The camera settles on him.' },
+      { id: 't.question', auto: true, set: { shot: 'adriaen' }, do: [{ wait: 1 }, { card: { text: T('Hvordan kom vi hit?', 'How did we get here?') } }, { wait: 4 }, { card: null }],
+        notes: 'The question. Let it hang for a moment.' },
+      { id: 't.rewind', auto: true, do: [{ rewind: 6 }], end: { act: 5, time: 8.5, screens: BLANK, chats: { plan: 0, slug: 0 }, cast: {}, tool: null, shot: 'desk', graph: 0 },
+        notes: 'The rewind: the clock spins backwards, the screens empty, the picture goes sepia.' },
+    ],
+  },
+  {
+    key: 3, id: 'year-ago', name: T('Ett år tidligere · Trondheim', 'One year ago · Trondheim'),
+    base: { act: 5, time: 8.5, shot: 'desk', ...DESK, cast: {}, graph: 0, screens: BLANK },
+    beats: [
+      { id: 'y.card', card: { text: T('Ett år tidligere', 'One year ago'), solid: true }, notes: 'One year ago. From here on you talk; Space moves on.' },
+      { id: 'y.trondheim', set: { overlay: 'slide:y-01' }, notes: 'TODO: the Trondheim scene (thread "Trondheim Torvet scene"): drone over Torvet gliding down to you at the Føniks door. A placeholder slide until it lands.' },
+      { id: 'y.steep', set: { overlay: 'slide:y-02' }, notes: 'Onboarding is steep. TODO(Adriaen): your talking points.' },
+      { id: 'y.room', set: { overlay: null, shot: 'band', screens: null }, notes: 'The room as it was to a newcomer, still in sepia: screens full of things you have yet to learn.' },
+    ],
+  },
+  {
+    key: 4, id: 'decision', name: T('I dag · Beslutningen', 'Today · The decision'),
+    base: { act: 5, time: 8.5, shot: 'band', ...DESK, cast: {}, graph: 0 },
+    beats: [
+      { id: 'd.s1', set: { overlay: 'slide:d-01' }, notes: 'The decision to bring AI into onboarding. TODO(Adriaen): your talking points.' },
+      { id: 'd.wake', set: { overlay: null, act: 2, time: 13.0, screens: null, cast: { operator: { at: 'desk2' } } }, notes: 'The room wakes up: colour back, screens on. Today.' },
+      { id: 'd.s2', set: { overlay: 'slide:d-02' }, notes: 'From questions to tools.' },
+    ],
+  },
+  {
+    key: 5, id: 'money', name: T('I dag · Verktøyene', 'Today · The tools'),
+    base: { act: 2, time: 13.2, shot: 'desk', ...DESK, cast: { operator: { at: 'desk2' } }, screens: { Desk0Mon2Screen: 'stepTest', Desk0Mon3Screen: 'riser', Desk0Mon4Screen: 'govDocs' } },
+    beats: [
+      { id: 'm.s1', set: { overlay: 'slide:m-01' }, notes: 'The money slides: what is possible.' },
+      { id: 'm.step', set: { overlay: null, shot: 'monitor:Desk0Mon2Screen', tool: 'stepTest' }, notes: 'Step-test finder on history. TODO(Adriaen): screenshot of the real tool in private/tools/stepTest.png.' },
+      { id: 'm.s2', set: { overlay: 'slide:m-02' } },
+      { id: 'm.riser', set: { overlay: null, shot: 'monitor:Desk0Mon3Screen', tool: 'riser', screens: { Desk0Mon3Screen: 'riser' } }, notes: 'The riser simulator, open loop: it fills and blows through.' },
+      { id: 'm.antislug', set: { tool: 'antiSlug', screens: { Desk0Mon3Screen: 'antiSlug' } }, notes: 'Anti-slug control tuned on the model. Seeing is believing.' },
+      { id: 'm.s3', set: { overlay: 'slide:m-03' } },
+      { id: 'm.scd', set: { overlay: null, shot: 'monitor:Desk0Mon2Screen', tool: 'scd', screens: { Desk0Mon2Screen: 'scd' } }, notes: 'The I-005 logic tester: a missing interlock found on a laptop.' },
+      { id: 'm.s4', set: { overlay: 'slide:m-04' } },
+      { id: 'm.docs', set: { overlay: null, shot: 'monitor:Desk0Mon4Screen', tool: 'govDocs' }, notes: 'A governing-document agent answers with its sources. TODO(Adriaen): screenshot in private/tools/govDocs.png.' },
+      { id: 'm.s5', set: { overlay: 'slide:m-05' } },
+    ],
+  },
+  {
+    key: 6, id: 'how', name: T('I dag · Hvordan', 'Today · How'),
+    base: { act: 2, time: 13.5, shot: 'band', ...DESK, cast: { operator: { at: 'desk2' } }, graph: 1, graphOn: 'band', screens: { Wall1Screen: 'graph', Wall3Screen: 'graph', Wall5Screen: 'graph' } },
+    beats: [
+      { id: 'h.s1', set: { overlay: 'slide:h-01' }, notes: 'Knowledge graphs.' },
+      { id: 'h.g1', set: { overlay: null }, do: [{ graph: 2 }, { wait: 2 }, { graph: 3 }], end: { graph: 3 }, notes: 'The graph grows on the band as knowledge is added.' },
+      { id: 'h.s2', set: { overlay: 'slide:h-02' }, notes: 'Multi-agent work.' },
+      { id: 'h.g2', set: { overlay: null }, do: [{ graph: 4 }], end: { graph: 4 }, notes: 'More agents on the same graph.' },
+      { id: 'h.s3', set: { overlay: 'slide:h-03' }, notes: 'MCP tools.' },
+      { id: 'h.g3', set: { overlay: null, graphOn: 'overlay' }, do: [{ graph: 5 }], end: { graph: 5 }, notes: 'The whole graph, full screen.' },
+      { id: 'h.s4', set: { overlay: 'slide:h-04', graphOn: 'band' } },
+    ],
+  },
+  {
+    key: 7, id: 'back', name: T('I morgen · Tilbake', 'Tomorrow · Back'),
+    base: { act: 3, time: 11.5, shot: 'wideRoom', ...DESK, cast: TOMORROW_CAST, graph: 5, graphOn: 'band', chats: { plan: 4, slug: 4 }, tool: 'antiSlug', screens: { ...TOMORROW_SCREENS, Desk1Mon3Screen: 'antiSlug' } },
+    beats: [
+      { id: 'b.forward', do: [{ forward: 3 }], notes: 'Fast forward to tomorrow\'s room again.' },
+      { id: 'b.room', set: { shot: 'adriaen' }, notes: 'Where we are heading. Bridge to the epilogue.' },
+    ],
+  },
+  {
+    key: 8, id: 'epilogue', name: T('Epilog · Zoom ut', 'Epilogue · The zoom out'),
+    base: { act: 4, time: 22.0, shot: 'desk', ...DESK, graph: 5, graphOn: 'band', screens: { Wall0Screen: 'graph', Wall1Screen: 'graph', Wall2Screen: 'graph', Wall3Screen: 'graph', Wall4Screen: 'graph', Wall5Screen: 'graph', Wall6Screen: 'graph' } },
+    beats: [
+      { id: 'ep.zoom', set: { shot: 'epilogue' }, notes: 'The camera pulls back through the window to the platform at night, the graph glowing inside.' },
+      { id: 'ep.line', do: [{ card: { text: CLOSING, small: true } }], notes: 'TODO(Adriaen): pick the closing line (CLOSING in content.js). Then into the brainstorm.' },
+    ],
+  },
+];
+
+export const CHAPTERS = FULL ? FULL_CHAPTERS : SHORT_CHAPTERS;
+// The slides this run shows, in order, for their numbers
+export const SLIDE_ORDER = [...new Set(CHAPTERS.flatMap((ch) => ch.beats.map((b) => b.set?.overlay).filter((o) => o?.startsWith('slide:')).map((o) => o.slice(6))))];

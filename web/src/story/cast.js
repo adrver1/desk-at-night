@@ -32,6 +32,7 @@ export const SPOTS = {
   table1: { at: [1.75, 1.6], face: TABLE },
   table2: { at: [2.55, 1.6], face: TABLE },
   table3: { at: [3.3, 2.0], face: TABLE },
+  tableBand: { at: [1.3, 1.5], face: [0, -4] },   // at the meeting table, turned to the band (Brage, tomorrow)
 };
 
 const loader = new GLTFLoader();

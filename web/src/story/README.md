@@ -1,6 +1,20 @@
 # Story mode: A day in the life of EIGA
 
-`story.html` is the on-rails presentation. It loads the first-person game
+`story.html` is the on-rails presentation. Two runs:
+
+- **Default** (design.md 18b/18c): the prologue, about 1.5 minutes in the
+  control room of tomorrow (Brage and his business-plan agent on the band,
+  Adriaen and his anti-slug agent at his desk, running by itself), "How did
+  we get here?", the rewind to one year ago, then presenter-led chapters:
+  Trondheim and onboarding, the decision, the tools, the how (knowledge
+  graphs, multi-agent work, MCP tools), back to tomorrow, the epilogue.
+  Norwegian on screen; voiced lines in English with Norwegian subtitles.
+- **`?story=full`**: the three-act version (yesterday, today, tomorrow with
+  the clipboard, stars and votes), in English.
+
+`?lang=en` or `?lang=no` switches the on-screen language of either run.
+
+`story.html`  It loads the first-person game
 (`src/play.js`) underneath and drives it beat by beat: camera shots, people,
 screens, sounds, overlays, subtitles. Free mode (F) hands the game back to
 WASD and the mouse, for questions and for debugging.
@@ -15,14 +29,16 @@ WASD and the mouse, for questions and for debugging.
 
 URL options: `?chapter=N` (or `#chapter.beat`), `?mode=free`, `?nofs` (no
 fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
-`?sola=1` (the Sola apron opening, see below).
+`?sola=1` (the Sola apron opening, see below), `?story=full`, `?lang=en|no`.
 
 ## Files
 
 - `content.js`: the whole script. Chapters, beats and their steps, the
   clipboard, stars, cards, slides, logs, the knowledge graph. Edit here.
 - `lines.json`: every spoken line, with who says it and an optional `fx`
-  (`radio`, `phone`). The subtitles come from here too.
+  (`radio`, `phone`). The subtitles come from here too: `no` holds the
+  Norwegian subtitle, `name` the name shown instead of the speaker's role.
+- `lang.js`: which run (`FULL`) and language (`LANG`, `T(no, en)`).
 - `main.js`: the engine (state per beat, keys, prologue, free mode).
 - `cast.js`, `shots.js`, `call.js`: people, the camera, the video and phone
   window. `epilogue.js`: the fly-out to the whole platform.
@@ -32,7 +48,9 @@ fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
 
 A beat's `set` is state (shot, cast, screens, overlay...). States add up
 through a chapter, so back and jumping always land in the right state. `do`
-is the timed part (lines, waits, sounds); skipping a beat jumps to its `end`.
+is the timed part (lines, waits, sounds, chat messages, the rewind); skipping
+a beat jumps to its `end`. A beat with `auto` goes on by itself when its
+steps are done (the cold open), and `card` shows a title card on entering.
 
 ## Voices
 
