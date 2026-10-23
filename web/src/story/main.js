@@ -338,6 +338,7 @@ function startPrologue() {
   showHud();
   if (sola && !sola.done) return sola.play(host, ui, (id) => say(id, token)).then(() => { if (CHAPTERS[chapter].prologue) startPrologue(); });
   stopPrologue({ keepMusic: true });   // the music carries on from the Sola opening
+  game.hooks.hidden = true;            // again: stopPrologue() shows the room, which would then draw behind the intro all along
   const f = document.createElement('iframe');
   f.className = 'prologue';
   const pass = new URLSearchParams([...q].filter(([key]) => ['weather', 'perf', 'trace'].includes(key)));   // debug overlays too
