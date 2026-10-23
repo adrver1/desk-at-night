@@ -42,7 +42,8 @@ M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "c3": ("#e2ddcf", 0.8), "c4": ("#8f9b8a", 0.8), "c5": ("#c7b07a", 0.8),
     "brick": ("#8e3b2e", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
     "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
-    "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3a3d42", 0.7),
+    "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3a3d42", 0.7), "roof_light": ("#8f9498", 0.8),
+    "copper": ("#6e3a2c", 0.55), "travertine": ("#dcd2bf", 0.8), "orange": ("#c9583a", 0.8),
 }.items()}
 
 
@@ -132,15 +133,15 @@ def paving(name, size):
 
 
 # Layout (x east, y north, metres, the column at the origin), measured from Adriaen's
-# two drone photos: each photo's camera is fitted to the 18 m column, the photo is
-# projected onto the ground and lined up with his street map (~0.18 m per map pixel).
+# two drone photos (cameras fitted to the 18 m column), then corrected against a
+# Google 3D top-down view at ~0.128 m per pixel.
 # Trondheim Torg along the west side facing east, the green pavilion in front of it,
-# Kongens gate leaving west at y ~ 0..8, Føniks on the corner north of Kongens gate
+# Kongens gate (bus stops) leaving west at y ~ -15..15, Føniks on the corner north of it
 # with its phoenix front facing EAST, the pink wooden house right after it, Munkegata
 # running north between tree rows, the café block along the north side, the yellow
 # 1950s block on the south side and Munkegata running south past it to the cathedral
-SQ_W, SQ_E, SQ_S, SQ_N = -37.0, 42.0, -44.0, 37.0
-FONIKS_FRONT, FONIKS_SOUTH, FW = -30.0, 16.0, 32.0   # Føniks: front line, south end, length
+SQ_W, SQ_E, SQ_S, SQ_N = -44.5, 42.0, -49.0, 43.0
+FONIKS_FRONT, FONIKS_SOUTH, FW = -44.5, 20.5, 38.0   # Føniks: front line, south end, length
 
 M["lamp"] = b.mat_flat("TrdLamp", (1, 1, 1), 0.3)
 box("Ground", (0, 0, -0.05), (500, 500, 0.1), "road")
@@ -156,9 +157,9 @@ def paved(x0, x1, y0, y1, name="Paving", z=0.03):
 
 
 paved(SQ_W, SQ_E, SQ_S, SQ_N)                       # the square
-paved(-24, -2, SQ_N - 0.5, 140, "Munkegata", 0.036)   # Munkegata north, wide and pedestrian (a hair higher where it overlaps)
-paved(0, SQ_E, -70, SQ_S + 0.5, "SquareS", 0.036)       # the square runs on south, east of the yellow block
-paved(0, 12, -160, -69.5, "MunkegataS")           # Munkegata south toward the cathedral
+paved(-38, -6, SQ_N - 0.5, 140, "Munkegata", 0.036)   # Munkegata north, wide and pedestrian (a hair higher where it overlaps)
+paved(11.5, SQ_E, -70, SQ_S + 0.5, "SquareS", 0.036)       # the square runs on south, east of the yellow block
+paved(12, 34, -160, -69.5, "MunkegataS")           # Munkegata south toward the cathedral
 for k in range(16):   # the compass star in dark stone, long and short points
     a = k / 16 * math.tau + math.pi / 16
     r = 10.5 if k % 2 == 0 else 6.5
@@ -231,6 +232,16 @@ def window(x, z, y, w=1.35, h=2.1, arch=False, side=False):
         bpy.context.object.data.materials.append(M["frame"])
 
 
+def curved_eave(x, y, length, rot_deg, r=1.0, z=3.1):
+    """The conservatory's rounded glass eave: a quarter barrel along one outer edge."""
+    bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=r, depth=length, location=(x, y, z),
+                                        rotation=(0, math.radians(90), math.radians(rot_deg)))
+    o = bpy.context.object
+    o.name = "CurvedEave"
+    o.data.materials.append(M["glass_block"])
+    return o
+
+
 def foniks():
     """Føniks (the 1916 Hotel Phoenix) as on the 2011 photo, built facing -y with its
     south end at x = 0: ground floor + three floors of cream render, wide red brick
@@ -249,14 +260,13 @@ def foniks():
     frustum("FoniksRoof", (cx, depth / 2), eave + 3.6, L - 3.4, depth - 3.4, L - 14, 3, 2.6, "slate")
     for x in (8.5, L - 8.5):
         box("Chimney", (x, depth / 2 + 2, eave + 6.2), (1.6, 1.2, 2.0), "dark")
-    # Brick corner piers and the middle pilasters, from above the ground floor up
-    for x0, w in ((0, PIER), (L - PIER, PIER)):
-        box("BrickPier", (x0 + w / 2, -0.06, (5.2 + eave - 0.6) / 2), (w, 0.14, eave - 0.6 - 5.2), "brick")
+    # Cream corners and pilasters, red brick panels between the middle pilasters
+    # from above the ground floor up (2024 photos)
     mid0, mid1 = PIER + BAY, L - PIER - BAY
     cols = [(mid0 + (i + 0.5) * (mid1 - mid0) / 4) for i in range(4)]
-    for i in range(5):
-        x = mid0 + i * (mid1 - mid0) / 4
-        box("BrickPilaster", (x, -0.06, (5.2 + eave - 0.6) / 2), (1.3, 0.14, eave - 0.6 - 5.2), "brick")
+    bw = (mid1 - mid0) / 4
+    for x in cols:
+        box("BrickPanel", (x, -0.05, (5.2 + eave - 0.6) / 2), (bw - 1.4, 0.12, eave - 0.6 - 5.2), "brick")
     for bx in (PIER + BAY / 2, L - PIER - BAY / 2):   # the side bays come forward
         box("Bay", (bx, -0.45, eave / 2), (BAY, 0.9, eave - 0.4), "phoenix")
         box("Balcony", (bx, -1.3, 13.0), (BAY + 0.4, 1.0, 0.25), "frame")
@@ -280,11 +290,11 @@ def foniks():
     box("Landing", ((mid0 + mid1) / 2 + 1.5, -1.6, LAND / 2), (mid1 - mid0 + 3.0, 3.2, LAND), "granite")
     for i in range(5):
         box("Stair", ((d0 + d1) / 2, -3.2 - 0.2 - i * 0.4, (LAND - i * 0.18) / 2), (d1 - d0 + 3.4, 0.4, LAND - i * 0.18), "granite")
-    r0, r1 = mid0 - 6.0, (d0 + d1) / 2 - (d1 - d0 + 3.4) / 2   # ramp: left end on the ground, right end at the landing
+    r0, r1 = (d0 + d1) / 2 + (d1 - d0 + 3.4) / 2, (d0 + d1) / 2 + (d1 - d0 + 3.4) / 2 + 7.0   # ramp: rises from the north to the landing
     ramp = frustum("Ramp", ((r0 + r1) / 2, -3.9), 0, r1 - r0, 1.4, r1 - r0, 1.4, 0.02, "granite")
     for v in ramp.data.vertices:
         if v.co.z > 0.01:
-            v.co.z = 0.02 + LAND * (v.co.x - r0) / (r1 - r0)
+            v.co.z = 0.02 + LAND * (r1 - v.co.x) / (r1 - r0)
 
     def rail(p0, p1, z0, z1):
         n = max(2, int((Vector(p1) - Vector(p0)).length / 1.2) + 1)
@@ -317,16 +327,31 @@ def foniks():
         flag_mast(x, -5.6)
     # Glass conservatory across the left pier and bay
     cw = mid0 + 0.6
-    box("Conservatory", (cw / 2, -3.3, 1.8), (cw, 6.6, 3.6), "glass")
+    # (2024 photos: a stone plinth, black frames, curved glass eaves, a flat roof
+    # dotted with round skylights, a door with steps on the corner)
+    box("ConservatoryPlinth", (cw / 2, -3.3, 0.45), (cw, 6.6, 0.9), "granite")
+    box("Conservatory", (cw / 2, -3.0, 2.0), (cw, 6.0, 2.2), "glass")
     for i in range(10):
-        box("Mullion", (0.15 + i * (cw - 0.3) / 9, -6.65, 1.8), (0.15, 0.1, 3.6), "frame")
-    box("ConservatoryRoof", (cw / 2, -3.3, 3.75), (cw + 0.6, 7.2, 0.3), "dark")
+        box("Mullion", (0.15 + i * (cw - 0.3) / 9, -6.05, 2.0), (0.12, 0.1, 2.2), "dark")
+    box("ConservatoryRoof", (cw / 2 - 0.5, -2.5, 3.95), (cw - 1.0, 5.0, 0.2), "dark")
+    curved_eave((cw - 1.0) / 2, -5.0, cw - 1.0, 0.0)
+    box("CornerDoor", (cw + 0.05, -5.4, 1.95), (0.1, 1.2, 2.3), "dark")
+    for i in range(3):
+        box("CornerStep", (cw + 0.5 + i * 0.35, -5.4, (0.9 - i * 0.3) / 2), (0.35, 1.8, 0.9 - i * 0.3), "granite")
     # ...and it turns the corner, running on along the south side on Kongens gate
-    SW = 12.0
-    box("ConservatorySide", (-2.5, (SW - 6.6) / 2, 1.8), (5.0, SW + 6.6, 3.6), "glass")
-    for i in range(8):
-        box("Mullion", (-5.05, -6.5 + i * (SW + 6.4) / 7, 1.8), (0.1, 0.15, 3.6), "frame")
-    box("ConservatorySideRoof", (-2.6, (SW - 6.6) / 2, 3.75), (5.8, SW + 7.2, 0.3), "dark")
+    SW = depth   # the whole south wall
+    box("ConservatorySidePlinth", (-2.5, (SW - 6.6) / 2, 0.45), (5.0, SW + 6.6, 0.9), "granite")
+    box("ConservatorySide", (-2.5, (SW - 6.6) / 2, 2.0), (5.0, SW + 6.6, 2.2), "glass")
+    for i in range(12):
+        box("Mullion", (-5.05, -6.5 + i * (SW + 6.4) / 11, 2.0), (0.1, 0.12, 2.2), "dark")
+    box("ConservatorySideRoof", (-2.0, (SW - 6.6) / 2 + 0.5, 3.95), (4.0, SW + 5.6, 0.2), "dark")
+    curved_eave(-4.0, (SW - 6.6) / 2 + 0.5, SW + 5.6, 90.0)
+    # the restaurant's flat glass roof is dotted with round white skylights
+    for i in range(int(cw / 2.2)):
+        for j in (-3.6, -1.4):
+            cyl("Skylight", (1.1 + i * 2.2, j, 4.02), 0.6, 0.12, "frame", 12)
+    for i in range(int((SW + 4) / 2.2)):
+        cyl("Skylight", (-1.8, -4.0 + i * 2.2, 4.02), 0.6, 0.12, "frame", 12)
     # Eight round-topped dormers
     for i in range(8):
         x = 4.0 + i * (L - 8.0) / 7
@@ -338,9 +363,11 @@ def foniks():
     # The south side along Kongens gate (build -x face) is red brick, with the same
     # white-framed windows with crosses
     box("SouthBrick", (-0.04, depth / 2, eave / 2), (0.08, depth, eave - 0.6), "brick")
+    for y in (0.7, depth - 0.7):   # cream quoins at both corners
+        box("Quoin", (-0.09, y, eave / 2), (0.1, 1.4, eave - 0.6), "phoenix")
     for z in (3.4,) + rows:
         for y in (3.5, 8.0, 12.5, 17.0):
-            window(y, z, 0.0, side=True)
+            window(y, z, 0.0, side=True, arch=z in rows[:2])
 
 
 def wing(name, root, side, scale=1.0):
@@ -399,7 +426,7 @@ def phoenix_fountain(cx, cy):
 
 _before = set(bpy.data.objects)
 foniks()
-phoenix_fountain(FW / 2, -10.0)   # on the axis of the doors, in front of the stairs
+phoenix_fountain(FW / 2, -8.0)   # on the axis of the doors, in front of the stairs
 from mathutils import Matrix
 # Built facing -y with its south end at build x = 0; a quarter turn to the left makes
 # it face EAST, then it slides onto the square: front at FONIKS_FRONT, south end at
@@ -431,58 +458,73 @@ def block(name, x0, x1, y0, y1, h, mat, floors, faces, roof=None, roof_h=4.0):
 # The rest of the Føniks block behind it, and along the north side of Kongens gate
 # going west: the light block with a grid of windows and green awnings, then the
 # dark brick block with steep slate roofs
-block("FoniksBack", -70, FONIKS_FRONT - 20.0, 22, 48, 16, "c4", 4, (), "slate", 3)
-block("ModernW", -66, -48, 9, 24, 19, "c3", 6, ("-y",), None)
-box("ModernWAwning", (-57, 7.2, 3.0), (17, 1.6, 0.2), "tree")
-block("BrickW", -100, -66, 8, 24, 17, "brick_dark", 5, ("-y",), "slate", 6)
+# Føniks's own annex, joined straight onto its west wall along Kongens gate (Adriaen:
+# part of Føniks): cream, five storeys of regular windows, a set-back top floor,
+# awnings over its ground floor; a glass-roofed courtyard block behind both
+FB = FONIKS_FRONT - 20.0   # Føniks's back wall
+# (2024 photos: pale travertine, tall windows, dark glass ground floor with a black
+# pergola canopy, a copper-clad top floor, a copper strip where it meets Føniks)
+block("FoniksAnnex", FB - 22, FB, FONIKS_SOUTH - 1, FONIKS_SOUTH + 20, 17, "travertine", 5, ("-y",), None)
+box("FoniksAnnexTop", (FB - 11, FONIKS_SOUTH + 9, 18.6), (21.4, 19, 3.2), "copper")
+box("FoniksAnnexBase", (FB - 11, FONIKS_SOUTH - 1.05, 1.9), (21.6, 0.12, 3.6), "glass")
+box("FoniksAnnexJoint", (FB - 0.6, FONIKS_SOUTH - 1.1, 9), (1.4, 0.3, 18), "copper")
+box("FoniksAnnexAwning", (FB - 11, FONIKS_SOUTH - 3.0, 3.0), (21, 4.0, 0.15), "dark")
+for i in range(6):
+    box("PergolaPost", (FB - 21 + i * 4, FONIKS_SOUTH - 4.9, 1.5), (0.15, 0.15, 3.0), "dark")
+block("FoniksBack", FB - 22, FB, FONIKS_SOUTH + 20, FONIKS_SOUTH + FW, 15, "brick_dark", 4, (), None)
+box("FoniksAtrium", (FB - 11, FONIKS_SOUTH + FW / 2 + 10, 15.4), (21, 8, 0.4), "glass_block")
+# West of the annex: a block clad in copper-brown fins on a tight window grid
+block("BrickW", -108, FB - 22, 13, 32, 17, "copper", 6, ("-y",), None)
+box("AnnexPlinth", (FB - 11, FONIKS_SOUTH - 1.0, 0.45), (22, 0.2, 0.9), "dark")
 # Right after Føniks at its north end, facing the square: the small pink wooden house
 # with a steep grey roof and a cross gable, more old houses north of it on Munkegata
-PH = (FONIKS_SOUTH + FW, FONIKS_SOUTH + FW + 12)
-block("PinkHouse", FONIKS_FRONT - 14, FONIKS_FRONT + 3, PH[0], PH[1], 7.5, "pink", 2, ("+x", "+y"), "slate", 5)
-frustum("PinkGable", (FONIKS_FRONT + 1.5, (PH[0] + PH[1]) / 2), 7.5, 4.0, 5.0, 0.4, 5.0, 4.0, "slate")
+PH = (FONIKS_SOUTH + FW, FONIKS_SOUTH + FW + 22)   # a long low house on the square
+block("PinkHouse", FONIKS_FRONT - 12, FONIKS_FRONT + 5, PH[0], PH[1], 8, "orange", 2, ("+x", "-y"), None)
+frustum("PinkRoof", (FONIKS_FRONT - 3.5, (PH[0] + PH[1]) / 2), 8, 17.6, PH[1] - PH[0] + 0.6, 3, PH[1] - PH[0] - 9, 5.5, "roof_light")   # hipped, light grey
 block("OldN", FONIKS_FRONT - 18, FONIKS_FRONT + 3, PH[1] + 1, PH[1] + 40, 12, "c1", 4, ("+x",), "slate", 4)
 # North side east of Munkegata: the dark modern block with ribbon windows under a dark
 # mansard and café awnings along its front, a white block beside it
-block("GlassN", -2, 26, SQ_N, 62, 15, "glass_block", 5, ("-y", "-x"), "slate", 3)
+block("GlassN", -6, 22, SQ_N + 0.5, 85, 15, "glass_block", 5, ("-y", "-x"), "slate", 3)
 for i in range(6):
-    box("CafeAwning", (1 + i * 4.2, SQ_N - 2.2, 2.6), (3.8, 3.4, 0.15), "frame")
-block("WhiteN", 26, 46, SQ_N, 60, 14, "c3", 4, ("-y",), "slate", 4)
+    box("CafeAwning", (-3 + i * 4.2, SQ_N - 2.2, 2.6), (3.8, 3.4, 0.15), "frame")
+block("WhiteN", 22, 44, SQ_N + 0.5, 82, 14, "c3", 4, ("-y",), "slate", 4)
 # Munkegata north runs off toward the fjord between tree rows
-for y in range(42, 140, 9):
-    for x in (-21, -5):
+for y in range(50, 140, 9):
+    for x in (-33, -12):
         cyl("Trunk", (x, y, 0), 0.15, 2.2, "trunk", 6)
         bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=2.2, location=(x, y, 4.4))
         bpy.context.object.data.materials.append(M["tree"])
 # West side south of Kongens gate: Trondheim Torg, beige with tall window strips, the
 # red sign high up, shop windows and McDonald's at street level, a big screen; the
 # green pavilion drum on its short post in front
-TX = SQ_W
-box("Torg", (TX - 20, -23.5, 8), (40, 41, 16), "torg")
-box("TorgTop", (TX - 22, -23.5, 17.5), (34, 39, 3), "glass_block")
-box("TorgRoof", (TX - 20, -23.5, 16.1), (40.6, 41.6, 0.3), "dark")
-box("TorgShops", (TX + 0.1, -23.5, 2.2), (0.3, 39, 4.0), "glass")
-box("TorgFascia", (TX + 0.3, -23.5, 4.6), (0.3, 39, 0.6), "red")
-for i in range(14):
-    box("TorgStrip", (TX + 0.1, -41 + i * 2.7, 10.5), (0.25, 1.1, 10.0), "glass")
-box("TorgSign", (TX + 0.4, -10, 15.2), (0.3, 10, 1.4), "red")
-box("TorgScreen", (TX + 0.4, -22, 9.0), (0.3, 6, 3.0), "red")
-cyl("PavilionPost", (-24, -14, 0), 1.2, 3.0, "frame", 12)
-cyl("Pavilion", (-24, -14, 3.0), 5.0, 2.8, "verdigris", 32)
-cyl("PavilionLid", (-24, -14, 5.8), 5.0, 0.15, "dark", 32)
+TX, TY = -42.0, -32.0   # front line; Kongens gate (bus stops) lies between it and Føniks
+box("Torg", (TX - 20, TY, 8), (40, 34, 16), "torg")
+box("TorgTop", (TX - 22, TY, 17.5), (34, 32, 3), "glass_block")
+box("TorgRoof", (TX - 20, TY, 16.1), (40.6, 34.6, 0.3), "dark")
+box("TorgShops", (TX + 0.1, TY, 2.2), (0.3, 32, 4.0), "glass")
+box("TorgFascia", (TX + 0.3, TY, 4.6), (0.3, 32, 0.6), "red")
+for i in range(12):
+    box("TorgStrip", (TX + 0.1, -47 + i * 2.7, 10.5), (0.25, 1.1, 10.0), "glass")
+box("TorgSign", (TX + 0.4, -21, 15.2), (0.3, 10, 1.4), "red")
+box("TorgScreen", (TX + 0.4, -36, 9.0), (0.3, 6, 3.0), "red")
+cyl("PavilionPost", (-25, -21, 0), 1.2, 3.0, "frame", 12)
+cyl("Pavilion", (-25, -21, 3.0), 5.5, 2.8, "verdigris", 32)
+cyl("PavilionLid", (-25, -21, 5.8), 5.5, 0.15, "dark", 32)
 # South side: the yellow 1950s office block facing north over the square, Munkegata
 # running south past its east end
-block("YellowS", -66, 0, -84, SQ_S, 18, "c5", 6, ("+y", "+x"), None)
-block("SouthE", 12, 46, -110, -71, 10, "c1", 3, ("+y", "-x"), "slate", 4)
-block("SouthW", -18, -4, -110, -71, 9, "brick_dark", 3, ("+y", "+x"), "slate", 4)
+block("YellowS", -62, 11, -80, SQ_S, 18, "c5", 6, ("+y", "+x"), None)
+block("SouthE", 39, 70, -100, -57, 10, "c2", 3, ("+y", "-x"), "roof", 4)
+block("SouthW", -30, 10, -120, -86, 9, "brick_dark", 3, ("+y", "+x"), "slate", 4)
 # East side: a white modern block with vertical fins (cafés in front), the yellow
 # older house with dormers at the south-east corner
-block("OfficeE", SQ_E + 2, 70, -8, 34, 16, "c3", 5, ("-x",), None)
+block("OfficeE", 51, 76, 18, 60, 16, "c3", 5, ("-x",), None)
 for i in range(14):
-    box("Fin", (SQ_E + 1.8, -7 + i * 3.0, 9), (0.4, 0.3, 13), "frame")
-block("YellowE", SQ_E + 8, 76, -36, -10, 10, "c5", 3, ("-x",), "slate", 4)
+    box("Fin", (50.8, 19.5 + i * 3.0, 9), (0.4, 0.3, 13), "frame")
+block("YellowE", 51, 72, -55, -18, 12, "c5", 3, ("-x",), "slate", 4)
 # Planters with young trees in rows along the edges of the square
-for x, y in ([(-31, y) for y in (-40, -32, -24, -8, 4)] + [(x, -62) for x in (6, 18, 30)]
-             + [(36, y) for y in (-40, -24, -8, 8, 24)] + [(x, 31) for x in (-12, 4, 18, 30)]):
+for x, y in ([(-29, y) for y in (27, 18, 9, -10, -36)] + [(24, -60), (30, -72)]
+             + [(37, y) for y in (28, 18, 8, -10, -20, -32)] + [(x, 33) for x in (-20, -3, 8, 18, 29)]
+             + [(x, -43.5) for x in (-18, -6, 4.5, 23, 33)]):
     box("Planter", (x, y, 0.3), (2.6, 2.6, 0.6), "granite")
     cyl("Trunk", (x, y, 0.6), 0.12, 1.8, "trunk", 6)
     bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1.3, location=(x, y, 3.2))
@@ -493,9 +535,9 @@ import random
 random.seed(7)
 for _ in range(220):
     x, y = random.uniform(-320, 260), random.uniform(-260, 330)
-    if -110 < x < 90 and -90 < y < 70:
+    if -110 < x < 90 and -90 < y < 95:
         continue
-    if -26 < x < 0 and y < 160:
+    if -40 < x < -4 and y < 160:
         continue
     if math.hypot(x - 79, y + 47) < 140:   # keep the drone's own foreground clear
         continue
@@ -593,7 +635,7 @@ def aim(pos, bearing, pitch):
 # The drone cameras fitted to Adriaen's two photos (24 mm, 3:2): B = the sunset photo,
 # high over the south-east corner looking north-west; B1 = the overcast photo, lower
 B_POS, B1_POS = (79.3, -47.1, 48.1), (28.2, -48.1, 26.0)
-A_POS, A_AT = FL(9.0, -17.5, 1.7), FL(17.0, 0.0, 3.2)
+A_POS, A_AT = FL(10.0, -16.0, 1.7), FL(17.0, 0.0, 3.2)
 SHOTS = {
     "B_wide": (B_POS, aim(B_POS, 303.3, 16.3), 24.0, 1.5),
     "B1_overcast": (B1_POS, aim(B1_POS, 318.4, 18.0), 24.0, 5 / 3),
@@ -606,6 +648,8 @@ SHOTS = {
     "D_statue_close": ((-6.5, -6, 16.2), (0, 0, 15.8), 50.0, 16 / 9),
     # C: over the character's shoulder at the door, looking back at the statue
     "C_statue": (FL(14.0, -4.6, 1.75), (2, 0, 10), 26.0, 16 / 9),
+    # Like Adriaen's Google 3D view: over Kongens gate, Føniks's brick south wall and its annex
+    "K_kongens": ((-12.0, -22.0, 38.0), (-46.0, 24.0, 6.0), 30.0, 16 / 9),
     # Straight down, orthographic (lens < 0 = ortho width in metres), for the satellite check
     "T_top": ((0.0, 10.0, 300.0), (0.0, 10.001, 0.0), -160.0, 1.0),
 }
