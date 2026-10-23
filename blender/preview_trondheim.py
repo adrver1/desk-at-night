@@ -196,7 +196,7 @@ LOGO = _logo()
 def flag_mast(x, y, h=9.0):
     """A white mast with a hanging banner flag: white, the logo on both faces."""
     cyl("Mast", (x, y, 0), 0.06, h, "frame", 6)
-    cyl("Truck", (x, y, h), 0.1, 0.12, "frame", 8)
+    cyl("Truck", (x, y, h), 0.1, 0.12, "frame", 6)
     fw, fh, top = 1.0, 2.6, h - 0.4
     fx = x + 0.08 + fw / 2
     box("Flag", (fx, y, top - fh / 2), (fw, 0.02, fh), "flag")
@@ -234,9 +234,17 @@ def window(x, z, y, w=1.35, h=2.1, arch=False, side=False):
         bpy.context.object.data.materials.append(M["frame"])
 
 
+def skylight(loc, r=0.55):
+    """A round roof light: a flat white disc lying on the roof."""
+    bpy.ops.mesh.primitive_circle_add(vertices=8, radius=r, fill_type="NGON", location=loc)
+    o = bpy.context.object
+    o.name = "Skylight"
+    o.data.materials.append(M["frame"])
+
+
 def curved_eave(x, y, length, rot_deg, r=1.0, z=3.1):
     """The conservatory's rounded glass eave: a quarter barrel along one outer edge."""
-    bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=r, depth=length, location=(x, y, z),
+    bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=r, depth=length, location=(x, y, z),
                                         rotation=(0, math.radians(90), math.radians(rot_deg)))
     o = bpy.context.object
     o.name = "CurvedEave"
@@ -308,7 +316,7 @@ def foniks():
         n = max(2, int((Vector(p1) - Vector(p0)).length / 1.2) + 1)
         for i in range(n):
             t = i / (n - 1)
-            cyl("Post", (p0[0] + t * (p1[0] - p0[0]), p0[1] + t * (p1[1] - p0[1]), z0 + t * (z1 - z0)), 0.03, 1.0, "steel", 6)
+            cyl("Post", (p0[0] + t * (p1[0] - p0[0]), p0[1] + t * (p1[1] - p0[1]), z0 + t * (z1 - z0)), 0.03, 1.0, "steel", 4)
         a, c = Vector((*p0, z0 + 1.0)), Vector((*p1, z1 + 1.0))
         r = box("Handrail", (a + c) / 2, (0.05, 0.05, (c - a).length), "steel")
         r.rotation_euler = (c - a).to_track_quat("Z", "Y").to_euler()
@@ -329,7 +337,7 @@ def foniks():
     for i in range(n):
         box("Baluster", (mid0 + 0.25 + i * (mid1 - mid0 - 0.5) / (n - 1), -1.55, 5.95), (0.04, 0.04, 0.9), "dark")
     for x in (cols[0], (d0 + d1) / 2, cols[3]):
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.16, location=(x, -0.9, 5.0))
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=6, ring_count=4, radius=0.16, location=(x, -0.9, 5.0))
         bpy.context.object.data.materials.append(M["lamp"])
     for x in (d0 - 2.6, d0 - 0.4, d1 + 0.4, d1 + 2.6):   # four masts, two each side of the stairs
         flag_mast(x, -5.6)
@@ -348,21 +356,21 @@ def foniks():
         for i in range(n + 1):
             t = i / n
             if along_x:
-                box("Mullion", (x0 + t * wx, y0 - 0.03, 1.95), (0.1, 0.12, 2.3), "dark")
+                box("Mullion", (x0 + t * wx, y0 + 0.0, 1.95), (0.1, 0.12, 2.3), "dark")
             else:
-                box("Mullion", (x0 - 0.03, y0 + t * wy, 1.95), (0.12, 0.1, 2.3), "dark")
+                box("Mullion", (x0 + 0.0, y0 + t * wy, 1.95), (0.12, 0.1, 2.3), "dark")
         if along_x:   # outer barrel on the street side, a raised one against the wall
             curved_eave(cxa, y0 + 0.8, wx, 0.0, 0.85, 3.05)
             curved_eave(cxa, y1 - 0.8, wx, 0.0, 0.85, 3.55)
             for i in range(int(wx / 2.0)):
                 for j in (y0 + 2.6, y0 + 4.4):
-                    cyl("Skylight", (x0 + 1.2 + i * 2.0, j, 3.3), 0.55, 0.14, "frame", 12)
+                    skylight((x0 + 1.2 + i * 2.0, j, 3.31))
         else:
             curved_eave(x0 + 0.8, cya, wy, 90.0, 0.85, 3.05)
             curved_eave(x1 - 0.8, cya, wy, 90.0, 0.85, 3.55)
             for i in range(int(wy / 2.0)):
                 for j in (x0 + 2.4, x0 + 3.7):
-                    cyl("Skylight", (j, y0 + 1.2 + i * 2.0, 3.3), 0.55, 0.14, "frame", 12)
+                    skylight((j, y0 + 1.2 + i * 2.0, 3.31))
     arm(-RS, cw, -RD, 0.0, True)
     arm(-RS, 0.0, 0.0, depth, False)
     box("CornerDoor", (-RS, -RD, 1.9), (1.4, 0.12, 2.4), "dark", math.radians(-45))
@@ -374,7 +382,7 @@ def foniks():
         x = 4.0 + i * (L - 8.0) / 7
         box("Dormer", (x, 1.3, eave + 1.7), (1.9, 1.6, 2.2), "frame")
         box("DormerWin", (x, 0.48, eave + 1.6), (1.1, 0.1, 1.5), "glass")
-        bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.95, depth=1.6,
+        bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.95, depth=1.6,
                                             location=(x, 1.3, eave + 2.8), rotation=(math.pi / 2, 0, 0))
         bpy.context.object.data.materials.append(M["frame"])
     # The south side along Kongens gate (build -x face) is red brick, with the same
@@ -384,7 +392,7 @@ def foniks():
     for y in (4.5, 10.0, 15.5):   # three round-topped dormers on the south slope
         box("Dormer", (1.3, y, eave + 1.7), (1.6, 1.9, 2.2), "frame")
         box("DormerWin", (0.48, y, eave + 1.6), (0.1, 1.1, 1.5), "glass")
-        bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.95, depth=1.6,
+        bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.95, depth=1.6,
                                             location=(1.3, y, eave + 2.8), rotation=(0, math.pi / 2, 0))
         bpy.context.object.data.materials.append(M["frame"])
     for y in (0.7, depth - 0.7):   # cream quoins at both corners
@@ -413,8 +421,8 @@ def phoenix_fountain(cx, cy):
     """The phoenix fountain in front of the Føniks entrance (Adriaen's photo): a low
     round basin with a thick stone rim, a dark tiled column, three globe lamps at the
     front and the bronze phoenix rising from its nest with both wings raised."""
-    cyl("Water", (cx, cy, 0), 3.0, 0.32, "water", 32)
-    bpy.ops.mesh.primitive_torus_add(major_radius=3.0, minor_radius=0.3, major_segments=40, minor_segments=8,
+    cyl("Water", (cx, cy, 0), 3.0, 0.32, "water", 24)
+    bpy.ops.mesh.primitive_torus_add(major_radius=3.0, minor_radius=0.3, major_segments=24, minor_segments=6,
                                      location=(cx, cy, 0.3))
     bpy.context.object.scale.z = 1.3
     bpy.context.object.data.materials.append(M["granite"])
@@ -428,7 +436,7 @@ def phoenix_fountain(cx, cy):
         a = math.radians(-90 + k * 32)
         x, y = cx + 0.5 * math.cos(a), cy + 0.5 * math.sin(a)
         cyl("LampStem", (x, y, 1.3), 0.03, 0.2, "dark", 6)
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=0.15, location=(x, y, 1.62))
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.15, location=(x, y, 1.62))
         bpy.context.object.data.materials.append(M["lamp"])
     for k in range(7):   # the nest of flames it rises from
         t = k / 7 * math.tau
@@ -436,10 +444,10 @@ def phoenix_fountain(cx, cy):
         f.rotation_euler = (0.35 * math.sin(t), -0.35 * math.cos(t), 0)
     tail = box("Tail", (cx, cy + 0.26, 1.95), (0.36, 0.05, 0.55), "bronze_dark")
     tail.rotation_euler = (math.radians(-20), 0, 0)
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=0.26, location=(cx, cy, 2.25))
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=6, radius=0.26, location=(cx, cy, 2.25))
     bpy.context.object.scale = (1.0, 0.85, 1.55)   # stout upright body
     bpy.context.object.data.materials.append(M["bronze_dark"])
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=6, radius=0.13, location=(cx + 0.04, cy - 0.08, 2.74))
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.13, location=(cx + 0.04, cy - 0.08, 2.74))
     bpy.context.object.data.materials.append(M["bronze_dark"])
     cyl("Neck", (cx + 0.02, cy - 0.04, 2.5), 0.12, 0.22, "bronze_dark", 8, 0.1)
     beak = cyl("Beak", (cx + 0.16, cy - 0.12, 2.72), 0.045, 0.16, "bronze_dark", 4, 0.0)
@@ -447,7 +455,7 @@ def phoenix_fountain(cx, cy):
     for side in (-1, 1):
         wing("Wing", (cx + side * 0.18, cy + 0.02, 2.4), side, 0.95)
         for u, v in ((0.82, 0.95), (0.86, 0.75), (0.8, 0.55), (0.7, 0.36)):   # round bosses along each wing
-            bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.06,
+            bpy.ops.mesh.primitive_uv_sphere_add(segments=6, ring_count=3, radius=0.06,
                                                  location=(cx + side * (0.18 + 1.19 * u), cy + 0.02 - 0.27 * u * u - 0.06, 2.4 + 0.855 * v))
             bpy.context.object.data.materials.append(M["steel"])
 
@@ -683,9 +691,21 @@ A_POS, A_AT = FL(10.0, -16.0, 1.7), FL(17.0, 0.0, 3.2)
 if args.glb:   # Føniks on its own for the spin-around viewer
     bpy.ops.object.select_all(action="DESELECT")
     keep = FONIKS_OBJS | {o for o in bpy.data.objects if o.name.startswith(("Foniks", "PergolaPost"))}
-    for o in keep:
-        if o.type == "MESH":
-            o.select_set(True)
+    # Lean export: drop buried and flush-hidden faces, then one mesh per material
+    import mesh_cleanup
+    keep = [o for o in keep if o.type == "MESH"]
+    mesh_cleanup.strip_hidden(keep)
+    mesh_cleanup.fronts_only(keep, {"Win", "Mullion", "Transom", "Cartouche", "DormerWin", "Capital", "FoniksAnnexWin",
+                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "Fanlight", "Door", "BrickPanel", "SouthBand"})
+    if os.environ.get("TRD_STATS"):   # triangles left per part, biggest first
+        import collections, re
+        tri = collections.Counter()
+        for o in keep:
+            tri[re.sub(r"\.\d+$", "", o.name)] += sum(len(p.vertices) - 2 for p in o.data.polygons)
+        for k, v in tri.most_common(30):
+            print(f"  {k:24s}{v:6d}")
+    for o in mesh_cleanup.merge_by_material(keep):
+        o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=args.glb, use_selection=True, export_apply=True, export_yup=True)
     print("wrote", args.glb)
     sys.exit(0)
