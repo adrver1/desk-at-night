@@ -1,10 +1,11 @@
 // The optional opening at the heliport before the flight (?sola=1): about
 // twenty seconds on the apron in the morning, the helicopter idling on its
 // stand, the crew walking out of the gate in survival suits, and by the
-// fence a pallet of chemical IBCs that is not going anywhere today. They
+// fence a pallet of chemical IBCs, just cargo in the background for now. They
 // board the way the intro's #board scene has them (up the step holding the
 // door post, bent along the aisle, sit down), into the seats they fly in.
 // The title runs here; the credits follow in the cabin flight (intro.html).
+// The music starts here and runs on through the flight (main.js).
 //
 // The same spot comes back as two stills (?solastills): in Act 1 the
 // pallet is still waiting, in Act 3 it has gone.
@@ -34,9 +35,8 @@ const KNEE = 0.35 / DUCK_DOOR;
 
 // Shots: [from, to] for the camera and what it looks at, over [t0, t1]
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
-const PALLET = v(5.0, 1.0, 30.6);
 const SHOTS = [
-  { t: [0, 7], pos: [v(9.6, 1.7, 26.8), v(8.4, 1.55, 27.9)], at: [v(4.6, 0.8, 30.4), v(4.6, 0.75, 30.5)], fov: 42, label: true },   // the chemicals, waiting
+  { t: [0, 7], pos: [v(24, 2.4, 16), v(20, 2.1, 13.5)], at: [v(-22, 5, -8), v(-20, 4.4, -7)], fov: 48 },   // the apron: the helicopter turning, SOLA HELIPORT on the hangar
   { t: [7, 14], pos: [v(16, 1.6, 31), v(14.5, 1.6, 31.3)], at: [v(-5.2, 1.4, 17.8), v(-6, 1.4, 18.5)], fov: 50 },  // along the fence: the pallet, the crew, the helicopter beyond
   { t: [14, LENGTH], pos: [v(-9.5, 1.75, 3.2), v(-8, 1.65, 1.8)], at: [v(-1.6, 1.35, -0.8), v(-1.4, 1.4, -0.9)], fov: 46 },   // at the door: boarding
 ];
@@ -92,7 +92,7 @@ export class Sola {
         o.receiveShadow = true;
         o.castShadow = o.name !== 'SolaApron';   // the ground and buildings only take shadows
         if (o.material.name === 'SolaFenceMesh') Object.assign(o.material, { transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide });
-        if (o.material.name === 'SolaTank') Object.assign(o.material, { transparent: true, opacity: 0.5, depthWrite: false });   // the chemical shows through
+        if (o.material.name === 'SolaTank') this.tank = o.material;   // see-through in the stills (show)
       });
       s.add(apron.scene);
       this.pallet = apron.scene.getObjectByName('SolaPallet');
@@ -162,6 +162,12 @@ export class Sola {
 
   // The apron scene; resolves when it has played (or was skipped)
   async play(host, ui, say) {
+    if (this.playing) return this.running;   // asked twice (Begin while the chapter is entering): one opening
+    this.running = this.run(host, ui, say);
+    return this.running;
+  }
+
+  async run(host, ui, say) {
     this.host = host; this.ui = ui;
     this.done = false;
     this.playing = true;
@@ -174,6 +180,7 @@ export class Sola {
     this.cues = new Set();
     this.say = say;
     this.sound?.rotor(0.08, 2.5);
+    if (this.music) this.sound?.music(this.music);   // runs on through the flight (main.js)
     return new Promise((resolve) => { this.resolve = resolve; });
   }
 
@@ -197,6 +204,10 @@ export class Sola {
     this.heli.visible = opening;
     for (const c of this.crew) this.reset(c, opening);
     this.pallet.visible = opening || this.kind === 'full';
+    // In the act stills the chemical shows through the IBCs; the opening
+    // leaves them as plain cargo by the fence
+    if (this.tank) Object.assign(this.tank, opening ? { transparent: false, opacity: 1, depthWrite: true } : { transparent: true, opacity: 0.5, depthWrite: false });
+    if (this.tank) this.tank.needsUpdate = true;
   }
 
   skip() {
@@ -209,7 +220,6 @@ export class Sola {
     this.sound?.rotor(0, 1);
     this.ui?.title(null);
     this.ui?.credit(null);
-    this.tag?.classList.remove('on');
     this.black?.remove();
     this.black = null;
     const r = this.resolve;
@@ -219,7 +229,6 @@ export class Sola {
 
   hide() {
     if (this.mode === 'still') this.ui?.credit(null);
-    this.tag?.classList.remove('on');
     if (this.playing) { this.on = false; this.finish(); }
     if (this.on) this.game.hooks.hidden = false;
     this.on = false;
@@ -252,21 +261,11 @@ export class Sola {
     r.toneMappingExposure = 1;
     r.render(this.scene, cam);
     r.toneMappingExposure = exposure;
-    // A tag on the pallet in the opening shot, like the boat's in the acts
-    if (this.mode === 'open' && pose.label && t > 1.2 && t < 6.6) {
-      const q = PALLET.clone().add(new THREE.Vector3(0, 0.9, 0)).project(cam), rect = r.domElement.getBoundingClientRect();
-      if (!this.tag) {
-        this.tag = Object.assign(document.createElement('div'), { className: 'label3d', textContent: 'Chemicals for the platform · 4 IBCs' });
-        this.host.append(this.tag);
-      }
-      Object.assign(this.tag.style, { left: `${rect.left + (q.x + 1) / 2 * rect.width}px`, top: `${rect.top + (1 - q.y) / 2 * rect.height}px` });
-      this.tag.classList.add('on');
-    } else this.tag?.classList.remove('on');
   }
 
   pose(shot, k) {
     const e = k * k * (3 - 2 * k) * 0.6 + k * 0.4;   // a slow drift, eased a little
-    return { pos: shot.pos[0].clone().lerp(shot.pos[1], e), at: shot.at[0].clone().lerp(shot.at[1], e), fov: shot.fov, label: shot.label };
+    return { pos: shot.pos[0].clone().lerp(shot.pos[1], e), at: shot.at[0].clone().lerp(shot.at[1], e), fov: shot.fov };
   }
 
   reset(c, on) {

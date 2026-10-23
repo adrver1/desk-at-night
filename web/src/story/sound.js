@@ -4,6 +4,14 @@
 // ringing, and the soft chime of an agent's notification.
 const VOICE = 'story/voice/';
 
+// The rotor's two mixes, tuned by ear in a Web Audio test page (the Rotor Sound Lab):
+// blade passes in Hz (5 blades), beat depth, blade slap (harmonics), air
+// noise tone and level, low thump, tail rotor pitch and level, turbine whine
+const ROTOR = {
+  inside: { rate: 22, depth: 0.35, sharp: 3, cutoff: 420, noise: 0.9, thump: 0.35, tailHz: 105, tail: 0.02, whineHz: 1350, whine: 0.005 },
+  outside: { rate: 22, depth: 0.85, sharp: 8, cutoff: 1500, noise: 0.8, thump: 0.6, tailHz: 105, tail: 0.05, whineHz: 1350, whine: 0.006 },
+};
+
 export class Sound {
   constructor() {
     this.ctx = null;
@@ -141,9 +149,11 @@ export class Sound {
     this.alarm = null;
   }
 
-  // A helicopter's rotors: low noise beating at the blade pass rate. Heard
-  // from outside it thumps; inside the cabin it is a duller drone with the
-  // turbines' whine on top. Fades to `level` over `fade` s; 0 stops it
+  // A helicopter's rotors: air noise beating at the blade pass rate with a
+  // pulse (equal harmonics, so each blade slaps), a low thump on the same
+  // beat, the tail rotor's buzz and the turbines' whine. Two mixes, tuned by
+  // Adriaen in the Rotor Sound Lab: the cabin's duller drone and the
+  // outside's sharp slap. Fades to `level` over `fade` s; 0 stops it
   rotor(level, fade = 1.5, tone = 'outside') {
     if (!this.ctx) return;
     const ctx = this.ctx, t = ctx.currentTime;
@@ -152,40 +162,58 @@ export class Sound {
       for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
       const src = ctx.createBufferSource();
       src.buffer = buf; src.loop = true;
-      const lp = ctx.createBiquadFilter();
+      const lp = ctx.createBiquadFilter(), air = ctx.createGain();
       lp.type = 'lowpass';
       const beat = ctx.createGain(), lfo = ctx.createOscillator(), depth = ctx.createGain();
-      beat.gain.value = 0.55; lfo.frequency.value = 22;   // 5 blades at ~265 rpm
+      beat.gain.value = 0.55;
       lfo.connect(depth).connect(beat.gain);
+      const thumpOsc = ctx.createOscillator(), thumpLp = ctx.createBiquadFilter(), thump = ctx.createGain();
+      thumpLp.type = 'lowpass'; thumpLp.frequency.value = 140; thump.gain.value = 0;
+      const tailOsc = ctx.createOscillator(), tailLp = ctx.createBiquadFilter(), tail = ctx.createGain();
+      tailOsc.type = 'sawtooth'; tailLp.type = 'lowpass'; tailLp.frequency.value = 700; tail.gain.value = 0;
       const whine = ctx.createOscillator(), whineGain = ctx.createGain();
-      whine.frequency.value = 1180; whineGain.gain.value = 0;
-      whine.connect(whineGain);
+      whineGain.gain.value = 0;
       const bus = ctx.createGain();
       bus.gain.value = 0;
-      src.connect(lp).connect(beat).connect(bus);
-      whineGain.connect(bus);
+      src.connect(lp).connect(air).connect(beat).connect(bus);
+      thumpOsc.connect(thumpLp).connect(thump).connect(bus);
+      tailOsc.connect(tailLp).connect(tail).connect(bus);
+      whine.connect(whineGain).connect(bus);
       bus.connect(this.out);
-      src.start(); lfo.start(); whine.start();
-      this.rot = { src, lfo, whine, lp, depth, whineGain, bus };
+      for (const o of [src, lfo, thumpOsc, tailOsc, whine]) o.start();
+      this.rot = { src, lp, air, lfo, depth, thumpOsc, thump, tailOsc, tail, whine, whineGain, bus, sharp: 0 };
     }
     if (!this.rot) return;
     const r = this.rot, ramp = (param, v) => { param.cancelScheduledValues(t); param.setValueAtTime(param.value, t); param.linearRampToValueAtTime(v, t + fade); };
-    const inside = tone === 'inside';
-    ramp(r.lp.frequency, inside ? 340 : 900);
-    ramp(r.depth.gain, inside ? 0.2 : 0.5);
-    ramp(r.whineGain.gain, inside ? 0.012 : 0.004);
+    const m = ROTOR[tone] ?? ROTOR.outside;
+    if (r.sharp !== m.sharp) {
+      // A pulse train: cosines of equal height all peak once per blade
+      const re = new Float32Array(m.sharp + 1).fill(1);
+      re[0] = 0;
+      const wave = ctx.createPeriodicWave(re, new Float32Array(m.sharp + 1));
+      r.lfo.setPeriodicWave(wave);
+      r.thumpOsc.setPeriodicWave(wave);
+      r.sharp = m.sharp;
+    }
+    ramp(r.lfo.frequency, m.rate); ramp(r.thumpOsc.frequency, m.rate);
+    ramp(r.depth.gain, m.depth * 0.5);
+    ramp(r.lp.frequency, m.cutoff); ramp(r.air.gain, m.noise);
+    ramp(r.thump.gain, m.thump * 0.5);
+    ramp(r.tailOsc.frequency, m.tailHz); ramp(r.tail.gain, m.tail);
+    ramp(r.whine.frequency, m.whineHz); ramp(r.whineGain.gain, m.whine);
     ramp(r.bus.gain, level);
     if (level <= 0) {
       this.rot = null;
-      setTimeout(() => { try { r.src.stop(); r.lfo.stop(); r.whine.stop(); } catch { /* gone */ } r.bus.disconnect(); }, fade * 1000 + 100);
+      setTimeout(() => { try { for (const o of [r.src, r.lfo, r.thumpOsc, r.tailOsc, r.whine]) o.stop(); } catch { /* gone */ } r.bus.disconnect(); }, fade * 1000 + 100);
     }
   }
 
   // Music under a scene (the flight's): a file that may not be there yet,
   // in which case nothing plays. Ducks under the spoken lines (line())
   async music(url, level = 0.35) {
-    if (!this.ctx) return;
+    if (!this.ctx || this.musicUrl === url) return;   // already playing (or loading): carry on
     this.stopMusic();
+    this.musicUrl = url;
     const my = this.musicToken = (this.musicToken ?? 0) + 1;
     const buf = await fetch(url).then((r) => (r.ok ? r.arrayBuffer() : null)).then((b) => b && this.ctx.decodeAudioData(b)).catch(() => null);
     if (!buf || my !== this.musicToken) return;
@@ -195,6 +223,7 @@ export class Sound {
     g.gain.linearRampToValueAtTime(level, this.ctx.currentTime + 2);
     src.connect(g).connect(this.out);
     src.start();
+    src.onended = () => { if (this.mus?.src === src) { this.mus = null; this.musicUrl = null; } };
     this.mus = { src, g, level };
   }
 
@@ -208,6 +237,7 @@ export class Sound {
 
   stopMusic(fade = 1.5) {
     this.musicToken = (this.musicToken ?? 0) + 1;
+    this.musicUrl = null;
     const m = this.mus;
     if (!m) return;
     this.mus = null;

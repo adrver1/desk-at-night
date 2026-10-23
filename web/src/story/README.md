@@ -49,12 +49,13 @@ dropped in by hand (for example a paid voice for a main character).
 
 ## Music
 
-The flight plays `public/story/music/flight.mp3`, ducked under the pilot's
-lines and faded out after landing. It is Wagner's *Ride of the Valkyries*
+`public/story/music/flight.mp3` starts with the Sola opening (or the flight,
+without it), ducks under spoken lines and plays on until the "press Space"
+after the walk-off. It is Wagner's *Ride of the Valkyries*
 conducted by Philip Milman (PM Music, https://pmmusic.pro/), from
 [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Ride_of_the_Valkyries.ogg)
-under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0): the first
-100 s, re-encoded at 128 kb/s with a fade at the end. The licence asks for
+under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0), the whole
+2:20, re-encoded at 128 kb/s. The licence asks for
 credit, which the flight shows among its credits (`CREDITS` in content.js);
 keep that line if the music stays.
 

@@ -25,7 +25,7 @@ import { Sola } from './sola.js';
 const game = window.__game;
 const q = new URLSearchParams(location.search);
 const PRIVATE = 'story/private/';
-const MUSIC = 'story/music/flight.mp3';   // optional: a free recording for the helicopter flight
+const MUSIC = 'story/music/flight.mp3';   // from the Sola opening (or the flight) until 'press Space'
 addStoryScreens();
 
 const host = document.getElementById('game');
@@ -40,7 +40,7 @@ let cast = null, shots = null, epilogue = null;
 // (?solastills=1, on with ?sola=1 unless ?solastills=0). Both off by default.
 const SOLA_OPEN = q.get('sola') === '1';
 const SOLA_STILLS = (q.get('solastills') ?? (SOLA_OPEN ? '1' : '0')) === '1';
-const sola = SOLA_OPEN || SOLA_STILLS ? Object.assign(new Sola(game, { open: SOLA_OPEN }), { sound, titleText: TITLE, credits: CREDITS }) : null;
+const sola = SOLA_OPEN || SOLA_STILLS ? Object.assign(new Sola(game, { open: SOLA_OPEN }), { sound, titleText: TITLE, credits: CREDITS, music: MUSIC }) : null;
 for (const ch of CHAPTERS) ch.beats = ch.beats.filter((b) => !b.sola || SOLA_STILLS);
 
 // Private overrides (git-ignored, ?private=1): real names and statuses,
@@ -337,7 +337,7 @@ function startPrologue() {
   host.classList.remove(`grade-${lastGrade}`); lastGrade = 0;
   showHud();
   if (sola && !sola.done) return sola.play(host, ui, (id) => say(id, token)).then(() => { if (CHAPTERS[chapter].prologue) startPrologue(); });
-  stopPrologue();
+  stopPrologue({ keepMusic: true });   // the music carries on from the Sola opening
   const f = document.createElement('iframe');
   f.className = 'prologue';
   f.src = `intro.html${q.get('weather') ? `?weather=${q.get('weather')}` : ''}`;
@@ -360,14 +360,14 @@ function startPrologue() {
   });
 }
 
-function stopPrologue() {
+function stopPrologue({ keepMusic = false } = {}) {
   prologue.frame?.remove();
   prologue.frame = null;
   prologue.black?.remove();
   prologue.black = null;
   sola?.hide();
   sound.rotor(0, 0.6);
-  sound.stopMusic(0.6);
+  if (!keepMusic) sound.stopMusic(1.5);
   ui.credit(null);
   if (game.hooks) game.hooks.hidden = false;
 }
@@ -415,9 +415,9 @@ function prologueFrame() {
   // Rotor sound: a drone in the cabin, the thump outside on the descent,
   // running down after touchdown
   cue('rotor-in', 0, () => sound.rotor(0.09, 2, 'inside'));
-  // Music over the flight if the file is there (see story/README.md), out by the walk-off
+  // Music over the flight if the file is there (see story/README.md), unless
+  // the Sola opening started it already; it plays on until Space
   cue('music', 0.5, () => sound.music(MUSIC));
-  cue('music-out', intro.T_LAND + 6, () => sound.stopMusic(4));
   cue('rotor-out', intro.cut ? t : Infinity, () => sound.rotor(0.12, 1, 'outside'));
   cue('rotor-down', intro.T_LAND + 0.5, () => sound.rotor(0, 9, 'outside'));
   cue('p1', 5, () => say('pro.pilot1', token));
