@@ -11,14 +11,15 @@ const PLATFORM_SIZE = 1024;              // ~20 cm over the platform
 const ROOM_HZ = 5;
 const REACH = 250;  // m toward the sun beyond the room: the platform shadows it too
 
-const depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide });
+const depthOnly = new THREE.MeshBasicMaterial({ colorWrite: false, side: THREE.DoubleSide, name: 'sun shadow depth' });
 const _corner = new THREE.Vector3();
 
 class ShadowView {
-  constructor(size, reach = 0) {
+  constructor(size, reach = 0, name = 'sun shadow') {
     this.size = size;
     this.reach = reach;
     this.target = new THREE.WebGLRenderTarget(size, size, { depthTexture: new THREE.DepthTexture(size, size) });
+    this.target.texture.name = name;   // names the pass in the perf overlay
     this.camera = new THREE.OrthographicCamera();
     this.box = null;
     this.uniforms = {
@@ -68,8 +69,8 @@ class ShadowView {
 export class SunShadow {
   constructor(renderer) {
     this.renderer = renderer;
-    this.room = new ShadowView(ROOM_SIZE, REACH);
-    this.platform = new ShadowView(PLATFORM_SIZE);
+    this.room = new ShadowView(ROOM_SIZE, REACH, 'sun shadow room');
+    this.platform = new ShadowView(PLATFORM_SIZE, 0, 'sun shadow platform');
     this.dir = new THREE.Vector3();
     this.roomAt = -Infinity;
   }

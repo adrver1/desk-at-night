@@ -16,9 +16,9 @@ import { outdoorControls } from './outdoorControls.js';
 import { RoomControls } from './roomControls.js';
 import { CONTENT, DEFAULT_LAYOUT, contentOf, screenLabel } from './screens.js';
 import { Highlight } from './highlight.js';
-import { fpsCounter } from './fps.js';
+import { perfPanel, perfWatch, perfRow, perfStep } from './perf.js';
 
-fpsCounter(); // debug readout, ` toggles (see fps.js)
+perfPanel(); // frame rate readout; tap it or press ` for the performance panel (see perf.js)
 
 const EYE = 1.65;          // standing eye height, m
 const SEATED_EYE = 1.18;
@@ -63,7 +63,10 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.5 : 2));
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.autoClear = false; // outdoor.render() clears and draws the sky and sea first
+perfWatch(renderer); // ?perf=1 overlay, ?trace=1 markers (see perf.js)
 const scene = new THREE.Scene();
+scene.name = 'room';
+perfRow('sea look', () => outdoor ? `${outdoor.quality.level.toUpperCase()}${outdoor.quality.auto ? ' (auto)' : ''}` : '…');
 const camera = new THREE.PerspectiveCamera(70, 16 / 9, 0.03, 500);
 camera.rotation.order = 'YXZ';
 const highlight = new Highlight(scene, renderer, { width: coarse ? 3 : 2.5, frameOf: (name, from) => room.screenFrame(name, from) });
@@ -697,24 +700,24 @@ renderer.setAnimationLoop((now) => {
   const frame = (now - last) / 1000, dt = Math.min(frame, 0.05);
   last = now;
   if (!room) return;
-  update(dt);
-  for (const f of hooks.frame) f(dt, now);   // story mode (src/story/) steps here and may take the camera
+  perfStep('player', () => update(dt));
+  for (const f of hooks.frame) perfStep('story', () => f(dt, now));   // story mode (src/story/) steps here and may take the camera
   if (hooks.hidden) return;                  // behind the story's prologue: nothing to draw yet
   controls.step(dt);
   for (const key of switchKeys) key.material.color.copy(key.userData.scene === controls.scene ? KEY_ON : KEY_OFF);
-  outdoor.update(dt);
-  if (vessel) vessel.update(dt, outdoor);
-  if (birds) birds.tick(dt, outdoor);
+  perfStep('sky + sea', () => outdoor.update(dt));
+  if (vessel) perfStep('vessel', () => vessel.update(dt, outdoor));
+  if (birds) perfStep('seabirds', () => birds.tick(dt, outdoor));
   renderer.toneMappingExposure = outdoor.light.exposure;
   room.setLights(controls.ceiling * FULL_LIGHT, controls.screens ? 1 : 0);
   for (const [name, l] of Object.entries(lamps)) {
     l.w += ((l.on ? 1 : 0) - l.w) * Math.min(1, dt * 12); // a quick fade, like a bulb
     room.setLamp(name, l.w);
   }
-  room.setDaylight(outdoor.light, now / 1000);
+  perfStep('daylight + sun shadow', () => room.setDaylight(outdoor.light, now / 1000));
   room.setClock(outdoor.state.time); // the wall clock runs with the screens off too
-  if (controls.screens) room.updateScreens(now / 1000, outdoor.cctv);
-  if (controls.screens && cctv) cctv.update(now / 1000, room.feedsShown(), room.focusedFeed());
+  if (controls.screens) perfStep('screens', () => room.updateScreens(now / 1000, outdoor.cctv));
+  if (controls.screens && cctv) perfStep('cctv', () => cctv.update(now / 1000, room.feedsShown(), room.focusedFeed()));
   outdoor.render(renderer, camera, { reflect: hooks.reflect.length ? [scene, ...hooks.reflect] : scene });   // the vessel mirrored in the sea
   renderer.render(scene, camera);
   for (const f of hooks.render) f(renderer, camera); // the story's own lit pass (characters), over the same depth

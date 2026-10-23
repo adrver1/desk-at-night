@@ -9,9 +9,9 @@ import { Cctv } from './cctv.js';
 import { addVessel } from './vessel.js';
 import { addSeabirds } from './gulls.js';
 import { outdoorControls } from './outdoorControls.js';
-import { fpsCounter } from './fps.js';
+import { perfPanel, perfWatch, perfRow, perfStep } from './perf.js';
 
-fpsCounter(); // debug readout, ` toggles (see fps.js)
+perfPanel(); // frame rate readout; tap it or press ` for the performance panel (see perf.js)
 
 const $ = (id) => document.getElementById(id);
 const ui = {
@@ -29,8 +29,11 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.autoClear = false; // outdoor.render() clears, draws the sky and sea, then the room goes on top
+perfWatch(renderer); // ?perf=1 overlay, ?trace=1 markers (see perf.js)
 
 const scene = new THREE.Scene();
+scene.name = 'room';
+perfRow('sea look', () => outdoor ? `${outdoor.quality.level.toUpperCase()}${outdoor.quality.auto ? ' (auto)' : ''}` : '…');
 const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.02, 500);
 const controls = new OrbitControls(camera, ui.canvas);
 controls.enableDamping = true;
@@ -108,15 +111,15 @@ renderer.setAnimationLoop((now) => {
   const dt = Math.min((now - last) / 1000, 0.1);
   last = now;
   if (!room) return;
-  outdoor.update(dt);
-  if (vessel) vessel.update(dt, outdoor);
-  if (birds) birds.tick(dt, outdoor);
+  perfStep('sky + sea', () => outdoor.update(dt));
+  if (vessel) perfStep('vessel', () => vessel.update(dt, outdoor));
+  if (birds) perfStep('seabirds', () => birds.tick(dt, outdoor));
   renderer.toneMappingExposure = 2 ** userEv * outdoor.light.exposure;
   room.setLights(state.ceiling, state.screens, state.mode);
-  room.setDaylight(outdoor.light, now / 1000);
+  perfStep('daylight + sun shadow', () => room.setDaylight(outdoor.light, now / 1000));
   room.setClock(outdoor.state.time);
-  room.updateScreens(now / 1000, outdoor.cctv);
-  if (cctv) cctv.update(now / 1000, room.feedsShown(), room.focusedFeed());
+  perfStep('screens', () => room.updateScreens(now / 1000, outdoor.cctv));
+  if (cctv) perfStep('cctv', () => cctv.update(now / 1000, room.feedsShown(), room.focusedFeed()));
   controls.update();
   outdoor.render(renderer, camera, { reflect: scene });   // the vessel mirrored in the sea
   renderer.render(scene, camera);

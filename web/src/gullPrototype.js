@@ -13,9 +13,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Outdoor, WEATHER, PLATFORM_HEADING, windSpeed } from './outdoor.js';
 import { approachPose, floatOn } from './vessel.js';
 import { Seabirds, PlatformMap, SPECIES, birdGeometry, birdMaterial, birdLight } from './gulls.js';
-import { fpsCounter } from './fps.js';
+import { perfPanel, perfWatch } from './perf.js';
 
-fpsCounter();
+perfPanel();
 
 const q = new URLSearchParams(location.search);
 const B = (x, y, z) => new THREE.Vector3(x, z, -y); // Blender to three.js axes
@@ -34,6 +34,7 @@ const VARIANTS = {
 
 const canvas = document.querySelector('canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: q.has('shot') });
+perfWatch(renderer);
 const coarse = matchMedia('(pointer: coarse)').matches;
 renderer.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.5 : 2));
 renderer.toneMapping = THREE.AgXToneMapping;

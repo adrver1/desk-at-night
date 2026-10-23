@@ -14,9 +14,9 @@ import { approachPose, floatOn } from './vessel.js';
 import { Wake } from './wake.js';
 import { Helicopter } from './helicopter.js';
 import { Seabirds, PlatformMap } from './gulls.js';
-import { fpsCounter } from './fps.js';
+import { perfPanel, perfWatch, perfRow, perfStep } from './perf.js';
 
-fpsCounter(); // debug readout, ` toggles (see fps.js)
+perfPanel(); // frame rate readout; tap it or press ` for the performance panel (see perf.js)
 
 const q = new URLSearchParams(location.search);
 const BASE = 'intro/';
@@ -69,10 +69,13 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.autoClear = false;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
+perfWatch(renderer); // ?perf=1 overlay, ?trace=1 markers (see perf.js)
 
 const scene = new THREE.Scene();
+scene.name = 'platform';
 scene.fog = new THREE.FogExp2(0x000000, 0);
 const outdoor = new Outdoor(0, { heading: PLATFORM_HEADING });   // three's -z (the platform's +Y) points to true bearing 150°
+perfRow('sea look', () => `${outdoor.quality.level.toUpperCase()}${outdoor.quality.auto ? ' (auto)' : ''}`);
 outdoor.set({ clouds: 0.3, wind: 0.3, fog: 0.03, rain: 0, ...WEATHER[q.get('weather')], time: Number(q.get('time') ?? 11.0), speed: 0 });
 scene.add(outdoor.room);
 const hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
@@ -699,7 +702,7 @@ let last = performance.now(), landed = false, cut = q.get('view') === 'deck';
 function frame(now) {
   const dt = Math.max(0, Math.min(0.1, (now - last) / 1000)); // a first frame stamp can come before last
   last = now;
-  step(paused ? 0 : dt);
+  perfStep('flight', () => step(paused ? 0 : dt));
   outdoor.render(renderer, camera, { reflect: scene });
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
@@ -793,8 +796,8 @@ function step(dt) {
     deckCam.updateProjectionMatrix();
   }
 
-  outdoor.update(dt);
-  birds?.tick(dt, outdoor);
+  perfStep('sky + sea', () => outdoor.update(dt));
+  if (birds) perfStep('seabirds', () => birds.tick(dt, outdoor));
   const L = outdoor.light;
   renderer.toneMappingExposure = L.exposure;
   hemi.color.copy(L.sky).multiplyScalar(Math.PI);

@@ -53,6 +53,7 @@ export class Cast {
   constructor(game) {
     this.game = game;
     this.scene = new THREE.Scene();
+    this.scene.name = 'characters';   // names the pass in the perf overlay
     this.hemi = new THREE.HemisphereLight(0xfff6ea, 0x3a3f48, 2.2);
     this.key = new THREE.DirectionalLight(0xffffff, 1.6);
     this.key.position.set(0.5, 3, 1.5);

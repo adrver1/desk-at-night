@@ -128,6 +128,7 @@ export class Wake {
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4,
     });
     this.mesh = new THREE.Mesh(g, this.material);
+    this.mesh.name = 'wake';
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 1;
   }

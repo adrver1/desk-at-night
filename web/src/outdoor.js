@@ -713,6 +713,7 @@ export class Outdoor {
     u.uSeaTime = u.uTime;
     this.surfaceUniforms = { uWave: u.uWave, uWaveQ: u.uWaveQ, uSeaTime: u.uTime, uDisplace: u.uDisplace };
     this.scene = new THREE.Scene();
+    this.scene.name = 'sky + sea';   // pass names for the perf overlay (perf.js)
     this.camera = new THREE.PerspectiveCamera(50, 1, 1, 80000);
     this.sky = new THREE.Mesh(new THREE.SphereGeometry(1000, 32, 16),
       new THREE.ShaderMaterial({ vertexShader: skyVertex, fragmentShader: skyFragment, uniforms: u, side: THREE.BackSide, depthWrite: false, depthTest: false }));
@@ -755,6 +756,7 @@ export class Outdoor {
     // The half-resolution picture of the sky and sea, and the triangle that
     // scales it up to the screen (tone mapped on the way)
     this.half = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
+    this.half.texture.name = 'half-res';
     const blit = new THREE.BufferGeometry();
     blit.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3));
     this.blit = new THREE.Mesh(blit, new THREE.ShaderMaterial({
@@ -771,6 +773,8 @@ export class Outdoor {
     }));
     this.blit.frustumCulled = false;
     this.blitScene = new THREE.Scene().add(this.blit);
+    this.blitScene.name = 'sea upscale';
+    Object.assign(this.sky, { name: 'sky' }); Object.assign(this.ocean, { name: 'ocean' }); Object.assign(this.rain, { name: 'rain' }); Object.assign(this.blit, { name: 'upscale' });
     this.blitCamera = new THREE.Camera();
 
     // Which look: 'c' or 'b', stepped by the governor unless ?sea=c|b fixes it
@@ -803,6 +807,7 @@ export class Outdoor {
     mesh.position.y = this.seaLevel;
     mesh.renderOrder = -1;
     mesh.frustumCulled = false;
+    mesh.name = 'sea surface (depth)';
     this.surfaces.push(mesh);
     return mesh;
   }
@@ -838,6 +843,7 @@ export class Outdoor {
       uniforms: { uTime: this.uniforms.uTime, uRain: { value: 0 }, uWet: { value: 0 }, uZenith: this.uniforms.uZenith, uHorizon: this.uniforms.uHorizon },
     }));
     // Turned to face into the room (+x): the plane's x runs along -z
+    this.glass.name = 'window glass';
     this.glass.rotation.y = Math.PI / 2;
     this.glass.position.x = lo.x - 0.05;
     this.glass.visible = false;
@@ -997,7 +1003,10 @@ export class Outdoor {
     size.ceil();
     const id = out ? out.width : 0;
     let target = this.mirrorTargets.get(id);
-    if (!target) this.mirrorTargets.set(id, target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }));
+    if (!target) {
+      this.mirrorTargets.set(id, target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }));
+      target.texture.name = out ? 'cctv mirror' : 'mirror';
+    }
     if (target.width !== size.x || target.height !== size.y) target.setSize(size.x, size.y);
     this.uniforms.uMirror.value = target.texture;
     const m = this.mirrorCam, y = this.seaLevel, flip = (p) => { p.y = 2 * y - p.y; return p; };
