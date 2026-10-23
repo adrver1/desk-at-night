@@ -74,15 +74,65 @@ def east_side():
     block("YellowE", 51, 72, -55, -18, 12, "c5", 3, ("-x",), "slate", 4)
 
 
-def planters():
-    # Planters with young trees in rows along the edges of the square
-    for x, y in ([(-29, y) for y in (27, 18, 9, -10, -36)] + [(24, -60), (30, -72)]
+PLANTER_SPOTS = ([(-29, y) for y in (27, 18, 9, -10, -36)] + [(24, -60), (30, -72)]
                  + [(37, y) for y in (28, 18, 8, -10, -20, -32)] + [(x, 33) for x in (-20, -3, 8, 18, 29)]
-                 + [(x, -43.5) for x in (-18, -6, 4.5, 23, 33)]):
+                 + [(x, -43.5) for x in (-18, -6, 4.5, 23, 33)])
+
+
+def planters(style="v1"):
+    # Planters with young trees in rows along the edges of the square
+    if style == "v2":
+        return planters_v2()
+    for x, y in PLANTER_SPOTS:
         box("Planter", (x, y, 0.3), (2.6, 2.6, 0.6), "granite")
         cyl("Trunk", (x, y, 0.6), 0.12, 1.8, "trunk", 6)
         bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1.3, location=(x, y, 3.2))
         bpy.context.object.data.materials.append(M["tree"])
+
+
+def planters_v2():
+    """Today's planters (Adriaen's Kongens gate photo): a long box of dark grey stone with a
+    thick rim, a clipped box hedge filling it flush to just above the rim, and a young
+    linden on a pale trunk growing out of the hedge. Every third one holds a bed of yellow
+    flowers instead of the hedge, with a wooden bench along its side facing the square."""
+    for k, v in {"rim": ("#6f7375", 0.85), "hedge": ("#34502a", 1.0), "leaf": ("#6c8a3a", 1.0),
+                 "birch": ("#bdb6a6", 0.9), "bloom": ("#e2b93b", 0.9)}.items():
+        if k not in M:
+            M[k] = b.mat_flat("Trd" + k, srgb(v[0]), v[1])
+    L, W, H, T_ = 4.4, 2.6, 0.5, 0.35   # outer size, rim height and thickness
+    for n, (x, y) in enumerate(PLANTER_SPOTS):
+        along_x = y in (33, -43.5)   # the rows on the north and south edges
+        sx, sy = (L, W) if along_x else (W, L)
+        for dx, dy, wx, wy in ((0, (sy - T_) / 2, sx, T_), (0, -(sy - T_) / 2, sx, T_),
+                               ((sx - T_) / 2, 0, T_, sy - 2 * T_), (-(sx - T_) / 2, 0, T_, sy - 2 * T_)):
+            box("PlanterRim", (x + dx, y + dy, H / 2), (wx, wy, H), "rim")
+        flowers = n % 3 == 1
+        ix, iy = sx - 2 * T_, sy - 2 * T_
+        if flowers:
+            box("PlanterBed", (x, y, H - 0.1), (ix, iy, 0.2), "hedge")
+            for j in range(7):
+                fx, fy = (j * 0.618 % 1 - 0.5) * (ix - 0.4), ((j * 0.382 + 0.2) % 1 - 0.5) * (iy - 0.4)
+                bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=0.28, location=(x + fx, y + fy, H + 0.05))
+                bpy.context.object.scale.z = 0.6
+                bpy.context.object.data.materials.append(M["bloom"])
+            # the bench on the side toward the middle of the square
+            if along_x:
+                by, bx, rot = y + (-1 if y > 0 else 1) * (sy / 2 + 0.45), x, 0.0
+            else:
+                bx, by, rot = x + (1 if x < 0 else -1) * (sx / 2 + 0.45), y, math.pi / 2
+            box("BenchSeat", (bx, by, 0.45), (1.8, 0.45, 0.06), "wood", rot=rot)
+            off = -0.22 if (along_x and y > 0) or (not along_x and x < 0) else 0.22   # back away from the planter
+            box("BenchBack", (bx + (0 if along_x else -off), by + (off if along_x else 0), 0.75), (1.8, 0.05, 0.4), "wood", rot=rot)
+            for e in (-0.75, 0.75):
+                box("BenchLeg", (bx + (e if along_x else 0), by + (0 if along_x else e), 0.21), (0.06, 0.4, 0.42), "dark", rot=rot)
+        else:
+            box("PlanterHedge", (x, y, 0.55), (ix + 0.06, iy + 0.06, 0.9), "hedge")   # clipped flat a little over the rim
+        # the young linden, a little off centre
+        tx, ty = (x - 0.6, y) if along_x else (x, y - 0.6)
+        cyl("Trunk", (tx, ty, 0.5), 0.1, 2.6, "birch", 6)
+        for r, (ox, oy, oz) in ((1.5, (0, 0, 4.3)), (1.1, (0.5, 0.3, 5.3)), (1.0, (-0.4, -0.4, 3.6))):
+            bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=r, location=(tx + ox, ty + oy, oz))
+            bpy.context.object.data.materials.append(M["leaf"])
 
 
 def town(keep_clear):
@@ -260,16 +310,6 @@ def street_row(name, ya, yb, depth, h, mat, floors, roof=None, side="w"):
     poly_block(name, pts, h, mat, floors, (face,), roof, 4.0)
 
 
-def text(body, loc, a, size, mat):
-    """Upright lettering on a wall whose along-the-wall angle is a, facing outward."""
-    bpy.ops.object.text_add(location=loc, rotation=(math.pi / 2, 0, a))
-    o = bpy.context.object
-    o.data.body, o.data.size, o.data.extrude = body, size, 0.02
-    o.data.align_x, o.data.align_y = "CENTER", "CENTER"
-    o.data.materials.append(M[mat])
-    return o
-
-
 def skylight(roof, i, f, H, slope, inset=2.0, over=0.45):
     """A roof window lying on the slope above edge i of the roof outline, f along it."""
     (x0, y0), (ux, uy), L, (nx, ny), a = edge(roof, i)
@@ -285,8 +325,9 @@ def burger_king():
     """Munkegata 28: the two-storey orange wooden house right north of Føniks, Burger King
     on its ground floor. Its south front faces the open corner of the square in front of
     Føniks's north end, the long side follows Munkegata, and the corner between them is
-    acute (~75 degrees) with a narrow cut-off holding the round logo. Light grey hipped
-    roof with skylights, white trim, big shop windows on a grey stone plinth."""
+    acute (~75 degrees) with a narrow cut-off holding the door. Light grey hipped roof
+    with skylights, white trim bands, big shop windows on a grey stone plinth. No
+    lettering or logo (Adriaen)."""
     y0, y1, xw = FONIKS_SOUTH + FW + 0.1, 78.0, -52.0
     se = (w_north(y0), y0)
     pts = [(xw, y0), (se[0] - 1.6, y0), (w_north(y0 + 1.6), y0 + 1.6), (w_north(y1), y1), (xw, y1)]
@@ -300,11 +341,8 @@ def burger_king():
     for i, ss in ((1, (0.35, 0.65)), (0, (0.75,))):   # skylights flush on the east and south slopes
         for f in ss:
             skylight(roof, i, f, H, 4.8 / 4.85)
-    for i in (1, 3):   # the white corner boards
-        x, y = pts[i]
-        box("BurgerKingCorner", (x, y, H / 2), (0.35, 0.35, H), "frame")
     # The south front (only the part clear of Føniks shows) and the Munkegata side:
-    # shop windows below the sign band, sash windows in white frames above
+    # shop windows below the trim band, sash windows in white frames above
     for i, lo in ((0, FONIKS_FRONT + 0.6), (2, None)):
         (x0, y0_), (ux, uy), L, (nx, ny), a = edge(pts, i)
         s0 = (lo - x0) / ux if lo is not None else 0.6
@@ -315,16 +353,9 @@ def burger_king():
             box("BurgerKingShop", (x + nx * 0.06, y + ny * 0.06, 2.2), (2.5, 0.2, 2.6), "glass", rot=a)
             box("BurgerKingSashFrame", (x + nx * 0.05, y + ny * 0.05, 5.6), (1.5, 0.2, 2.1), "frame", rot=a)
             box("BurgerKingSash", (x + nx * 0.1, y + ny * 0.1, 5.6), (1.1, 0.2, 1.7), "glass", rot=a)
-        # the sign band between the floors, near the corner on both faces
-        at, size = (s0 + (L - s0) / 2, 0.45) if i == 0 else (5.0, 0.8)
-        text("BURGER KING", (x0 + ux * at + nx * 0.14, y0_ + uy * at + ny * 0.14, 4.4), a, size, "flag")
-    (x0, y0_), (ux, uy), L, (nx, ny), a = edge(pts, 1)   # the cut-off corner: door below, logo above
+    (x0, y0_), (ux, uy), L, (nx, ny), a = edge(pts, 1)   # the cut-off corner: door
     cx, cy = x0 + ux * L / 2, y0_ + uy * L / 2
     box("BurgerKingDoor", (cx + nx * 0.06, cy + ny * 0.06, 1.8), (1.2, 0.2, 2.4), "glass", rot=a)
-    bpy.ops.mesh.primitive_cylinder_add(vertices=16, radius=0.45, depth=0.08,
-                                        location=(cx + nx * 0.12, cy + ny * 0.12, 4.4), rotation=(math.pi / 2, 0, a))
-    bpy.context.object.name = "BurgerKingLogo"
-    bpy.context.object.data.materials.append(M["logo_orange"])
 
 
 def stiftsgarden():
@@ -383,7 +414,7 @@ def v2():
     for y in range(-64, -166, -10):   # trees along Munkegata south
         tree(e_south(y) - 3.5, y, 1.8)
     east_side()
-    planters()
+    planters("v2")
 
     def keep_clear(x, y):   # a box reaches up to 15 m from its centre
         if (-110 < x < 90 and -90 < y < 95) or (-90 < x < 45 and 0 < y < 175):
@@ -404,5 +435,8 @@ SHOTS = {
     "BK_street": ((-18.0, 52.0, 1.7), (-40.0, 66.0, 4.5), 22.0, 16 / 9),
     # From the square up Munkegata north and down Munkegata south
     "N_munkegata": ((-12.0, 25.0, 1.7), (-34.0, 110.0, 5.0), 26.0, 16 / 9),
+    # Like Adriaen's Kongens gate photo: along the planter rows on the west and south edges
+    "P_planters": ((-25.5, -15.0, 1.7), (-29.5, 30.0, 1.2), 26.0, 16 / 9),
+    "P_south_row": ((12.0, -38.5, 1.7), (-22.0, -44.5, 1.0), 26.0, 16 / 9),
     "S_munkegata": ((8.0, -25.0, 1.7), (31.0, -115.0, 5.0), 26.0, 16 / 9),
 }
