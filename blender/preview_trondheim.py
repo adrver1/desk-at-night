@@ -852,6 +852,12 @@ if args.glb:   # Føniks on its own for the spin-around viewer
     print("wrote", args.glb)
     sys.exit(0)
 
+# Onto true north at true size from Adriaen's GPS points (TRD_TRUE=0 keeps the square
+# axis-aligned, e.g. for overlays on the top-down screenshot); cameras follow below
+TRUE = os.environ.get("TRD_TRUE", "1") != "0"
+if TRUE:
+    trondheim_surroundings.true_world()
+
 SHOTS = {
     "B_wide": (B_POS, aim(B_POS, 303.3, 16.3), 24.0, 1.5),
     "B1_overcast": (B1_POS, aim(B1_POS, 318.4, 18.0), 24.0, 5 / 3),
@@ -890,6 +896,8 @@ for name, (pos, at, lens, aspect) in SHOTS.items():
     else:
         cam.data.lens = lens
     cam.data.clip_end = 3000
+    if TRUE:
+        pos, at = trondheim_surroundings.to_true(pos), trondheim_surroundings.to_true(at)
     cam.location = pos
     cam.rotation_euler = (Vector(at) - Vector(pos)).to_track_quat("-Z", "Y").to_euler()
     scene.collection.objects.link(cam)

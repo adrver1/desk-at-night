@@ -440,3 +440,35 @@ SHOTS = {
     "P_south_row": ((12.0, -38.5, 1.7), (-22.0, -44.5, 1.0), 26.0, 16 / 9),
     "S_munkegata": ((8.0, -25.0, 1.7), (31.0, -115.0, 5.0), 26.0, 16 / 9),
 }
+
+
+# Adriaen's GPS points (the statue, the phoenix, Føniks's stairs and south-east roof
+# corner) against the layout above, which was measured on a screenshot: it is 3.7% too
+# small, and the square is turned so that its own "north" faces true bearing ~5.6 degrees.
+# true_world() puts the built scene on true north at true size; to_true() does the same
+# for a single point such as a camera.
+TRUE_SCALE, TRUE_TURN = 1.037, math.radians(-5.6)
+
+
+def to_true(p):
+    c, s = math.cos(TRUE_TURN), math.sin(TRUE_TURN)
+    x, y = p[0] * TRUE_SCALE, p[1] * TRUE_SCALE
+    return (c * x - s * y, s * x + c * y, p[2])
+
+
+def true_world():
+    """Scale meshes horizontally (heights were measured separately) and turn the whole
+    scene; characters and other non-mesh roots are only moved and turned, lights stay."""
+    from mathutils import Matrix
+    R = Matrix.Rotation(TRUE_TURN, 4, "Z")
+    W = R @ Matrix.Diagonal((TRUE_SCALE, TRUE_SCALE, 1.0, 1.0))
+    for o in list(bpy.data.objects):
+        if o.parent is not None or o.type in ("LIGHT", "CAMERA"):
+            continue
+        if o.type == "MESH" and o.data.users == 1 and not o.children:
+            o.data.transform(o.matrix_world)
+            o.data.transform(W)
+            o.matrix_world = Matrix.Identity(4)
+        else:
+            old = o.matrix_world.translation.copy()
+            o.matrix_world = Matrix.Translation(W @ old) @ R @ Matrix.Translation(-old) @ o.matrix_world
