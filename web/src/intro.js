@@ -111,9 +111,12 @@ function load(name) {
   return loader.parseAsync(buf.buffer, '');
 }
 const info = window.INTRO_INFO ?? await fetch(BASE + 'intro.json').then((r) => r.json());
-const [platform, vessel, heliModel, pilotModel, ...people] = await Promise.all([
-  load('platform.glb'), load('vessel.glb').catch(() => null), load('heli.glb'), load('chars/heli_pilot_flying_headset.glb').catch(() => null), ...CAST.map((c) => load(`chars/${c}_${OUTFIT}.glb`).catch(() => load(`chars/${c}.glb`)).catch(() => null)),
+const [platform, vessel, heliModel, pilotModel, anims, ...people] = await Promise.all([
+  load('platform.glb'), load('vessel.glb').catch(() => null), load('heli.glb'), load('chars/heli_pilot_flying_headset.glb').catch(() => null),
+  load('chars/anims.glb').catch(() => null), ...CAST.map((c) => load(`chars/${c}_${OUTFIT}.glb`).catch(() => load(`chars/${c}.glb`)).catch(() => null)),
 ]);
+// The cast's clips, kept once in anims.glb (web/scripts/pack_chars.mjs); a model with its own plays those
+for (const m of [pilotModel, ...people]) if (m && !m.animations.length) m.animations = anims?.animations ?? [];
 
 scene.add(platform.scene);
 const glowing = [];

@@ -7,8 +7,15 @@ waiting by the fence (the cargo that missed the boat in Act 1).
 
     python blender/sola_apron.py           # write web/public/story/sola/sola.glb
     python blender/sola_apron.py --render  # also a preview still in blender/build/sola/
+    python blender/sola_apron.py --materials split --detail full   # the first version
 
-Low poly, one mesh per material, no textures. Origin is the helicopter's
+Low poly, flat colours. In the browser every colour is one 16 px cell of a
+small palette image (and a roughness image laid out the same way), so the
+whole apron is one material and draws in a handful of calls; the
+see-through fence mesh and IBC bottles keep their own materials, since
+sola.js changes those. --materials split exports one material per colour
+instead (28 draw calls). --detail full keeps the closed beam ends, post
+bottoms and the smoother sign letters that nobody sees. Origin is the helicopter's
 parking spot, +X east, +Y north, +Z up; the helicopter parks nose north.
 The parts the browser needs on their own are separate objects:
 
@@ -23,6 +30,7 @@ import math
 import os
 import random
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build as b  # noqa: E402  (imports bpy)
@@ -42,6 +50,11 @@ TERMINAL = (-34, 12, -48, -36)   # x0, x1, y0, y1
 HANGAR = (-78, -46, -8, 30)
 PALLET = Vector((5.0, -30.6, 0))  # by the fence, apron side
 IBC = (1.2, 1.0, 1.16)           # an IBC: length, width, height
+# Variants (asset library: both stay buildable)
+MATERIALS = "palette"            # "palette": one material for every flat colour; "split": one each
+DETAIL = "lean"                  # "lean": no hidden faces, simpler letters; "full": the first version
+KEEP = ("SolaFenceMesh", "SolaTank")   # own materials, made see-through by sola.js
+CELL, COLS = 16, 8               # palette cell size (px) and cells per row
 
 
 def materials():
@@ -73,6 +86,26 @@ def materials():
         "strap": f("SolaStrap", srgb("#d8261c"), 0.6),
         "sock": f("SolaSock", srgb("#ff6a1a"), 0.7),
     }
+
+
+def lean():
+    return DETAIL == "lean"
+
+
+def bar(g, mat, a, c, w):
+    """A beam that meets others at both ends: its end caps are hidden (lean)."""
+    g.beam(mat, a, c, w, caps=not lean())
+
+
+def post(g, mat, center, r, z0, z1, n):
+    """A vertical post standing on the ground: its bottom is hidden (lean)."""
+    if not lean():
+        g.prism(mat, center, r, z0, z1, n)
+        return
+    cx, cy = center
+    ring = [(cx + r * math.cos(2 * math.pi * i / n), cy + r * math.sin(2 * math.pi * i / n)) for i in range(n)]
+    vs = [Vector((x, y, z0)) for x, y in ring] + [Vector((x, y, z1)) for x, y in ring]
+    g.add(mat, vs, [(i, (i + 1) % n, n + (i + 1) % n, n + i) for i in range(n)] + [tuple(range(n, 2 * n))])
 
 
 def flat(g, mat, x0, x1, y0, y1, z):
@@ -149,21 +182,21 @@ def build_fence(g, m, mesh):
     h = 2.4
     x = x0
     while x < x1:
-        g.prism(m["steel"], (x, FENCE_Y), 0.04, 0, h + 0.3, 6)
+        post(g, m["steel"], (x, FENCE_Y), 0.04, 0, h + 0.3, 6)
         x += 3.0
     for (a, c) in ((x0, GATE[0]), (GATE[1], x1)):
-        g.beam(m["steel"], (a, FENCE_Y, h), (c, FENCE_Y, h), 0.05)
-        g.beam(m["steel"], (a, FENCE_Y, 0.1), (c, FENCE_Y, 0.1), 0.04)
+        bar(g, m["steel"], (a, FENCE_Y, h), (c, FENCE_Y, h), 0.05)
+        bar(g, m["steel"], (a, FENCE_Y, 0.1), (c, FENCE_Y, 0.1), 0.04)
         # The mesh, both ways round (one-sided faces would vanish from behind)
         vs = [Vector((a, FENCE_Y, 0.05)), Vector((c, FENCE_Y, 0.05)), Vector((c, FENCE_Y, h)), Vector((a, FENCE_Y, h))]
         mesh.add(m["mesh"], vs, [(0, 1, 2, 3), (3, 2, 1, 0)])
     # The gate leaves, swung open onto the apron
     for gx, s in ((GATE[0], 1), (GATE[1], -1)):
-        g.prism(m["steel"], (gx, FENCE_Y), 0.07, 0, h + 0.3, 8)
+        post(g, m["steel"], (gx, FENCE_Y), 0.07, 0, h + 0.3, 8)
         tip = Vector((gx + s * 0.4, FENCE_Y + 2.9, 0))
-        g.beam(m["steel"], (gx, FENCE_Y, h - 0.1), (tip.x, tip.y, h - 0.1), 0.05)
-        g.beam(m["steel"], (gx, FENCE_Y, 0.15), (tip.x, tip.y, 0.15), 0.05)
-        g.beam(m["steel"], (tip.x, tip.y, 0.15), (tip.x, tip.y, h - 0.1), 0.05)
+        bar(g, m["steel"], (gx, FENCE_Y, h - 0.1), (tip.x, tip.y, h - 0.1), 0.05)
+        bar(g, m["steel"], (gx, FENCE_Y, 0.15), (tip.x, tip.y, 0.15), 0.05)
+        bar(g, m["steel"], (tip.x, tip.y, 0.15), (tip.x, tip.y, h - 0.1), 0.05)
         mesh.add(m["mesh"], [Vector((gx, FENCE_Y, 0.15)), Vector((tip.x, tip.y, 0.15)), Vector((tip.x, tip.y, h - 0.1)), Vector((gx, FENCE_Y, h - 0.1))], [(0, 1, 2, 3), (3, 2, 1, 0)])
 
 
@@ -180,11 +213,11 @@ def build_terminal(g, m):
     g.span(m["glass"], gx - 1.6, gx + 1.6, y1, y1 + 0.08, 0, 2.6)
     g.span(m["roof"], gx - 3, gx + 3, y1, y1 + 3.5, 3.0, 3.25)
     for sx in (-2.8, 2.8):
-        g.prism(m["steel"], (gx + sx, y1 + 3.3), 0.08, 0, 3.0, 6)
+        post(g, m["steel"], (gx + sx, y1 + 3.3), 0.08, 0, 3.0, 6)
     # A covered walkway from the door to the gate
     for y in (y1 + 3.3, FENCE_Y - 0.3):
         for sx in (-1.5, 1.5):
-            g.prism(m["steel"], (gx + sx, y), 0.06, 0, 2.7, 6)
+            post(g, m["steel"], (gx + sx, y), 0.06, 0, 2.7, 6)
     g.span(m["roof"], gx - 1.8, gx + 1.8, FENCE_Y - 0.3, y1 + 3.3, 2.7, 2.85)
     # A tower for the heliport's control, at the east end
     g.span(m["wall"], x1 - 7, x1 - 2, y0 + 2, y0 + 7, 8.4, 14.0)
@@ -219,6 +252,7 @@ def build_sign(m, coll, text="SOLA HELIPORT"):
     cu.body = text
     cu.size = 1.6
     cu.extrude = 0.03
+    cu.resolution_u = 3 if lean() else 12   # curve steps per letter segment; 3 still reads round from the apron
     cu.align_x, cu.align_y = "CENTER", "CENTER"
     tmp = bpy.data.objects.new("SolaSignText", cu)
     coll.objects.link(tmp)
@@ -238,7 +272,7 @@ def build_sign(m, coll, text="SOLA HELIPORT"):
 
 def build_masts(g, m):
     for x, y in ((-36, 50), (44, 50), (44, -20)):
-        g.prism(m["steel"], (x, y), 0.25, 0, 20, 8)
+        post(g, m["steel"], (x, y), 0.25, 0, 20, 8)
         g.span(m["dark"], x - 1.2, x + 1.2, y - 0.4, y + 0.4, 19.6, 20.6)
         g.span(m["paint"], x - 1.1, x + 1.1, y - 0.42, y - 0.38, 19.7, 20.2)
 
@@ -252,7 +286,7 @@ def build_extras(g, m):
         g.add(m["orange"], [Vector((x + 0.15 * math.cos(2 * math.pi * i / 8), y + 0.15 * math.sin(2 * math.pi * i / 8), 0.05)) for i in range(8)] + [Vector((x, y, 0.75))],
               [(i, (i + 1) % 8, 8) for i in range(8)])
     # The windsock's pole and frame (the sock itself is its own object)
-    g.prism(m["steel"], (40, 22), 0.08, 0, 6.0, 8)
+    post(g, m["steel"], (40, 22), 0.08, 0, 6.0, 8)
 
 
 def build_sock(m, coll):
@@ -291,15 +325,15 @@ def build_ibc(g, m, c, yaw=0.0):
     for k in range(4):
         a, d = corners[k], corners[(k + 1) % 4]
         for z in (z0 + 0.02, z0 + (z1 - z0) / 3, z0 + 2 * (z1 - z0) / 3, z1):
-            g.beam(m["cage"], (a.x, a.y, z), (d.x, d.y, z), 0.022)
+            bar(g, m["cage"], (a.x, a.y, z), (d.x, d.y, z), 0.022)
         span = (d - a).length
         for i in range(1, int(span / 0.3) + 1):
             p = a.lerp(d, i / (int(span / 0.3) + 1))
-            g.beam(m["cage"], (p.x, p.y, z0), (p.x, p.y, z1), 0.018)
-        g.beam(m["cage"], (a.x, a.y, z0), (a.x, a.y, z1), 0.035)
+            bar(g, m["cage"], (p.x, p.y, z0), (p.x, p.y, z1), 0.018)
+        bar(g, m["cage"], (a.x, a.y, z0), (a.x, a.y, z1), 0.035)
     for i in range(1, 4):
         a, d = P(-L / 2 + i * L / 4, -W / 2, z1), P(-L / 2 + i * L / 4, W / 2, z1)
-        g.beam(m["cage"], a, d, 0.018)
+        bar(g, m["cage"], a, d, 0.018)
     # A product label and a hazard diamond on the long side
     side_ = rot @ Vector((1, 0, 0))
     lc = P(-0.22, W / 2 + 0.014, 0.15 + H * 0.55)
@@ -344,6 +378,87 @@ def build_apron(m, coll):
     return [g.single("SolaApron", coll, (0, 0, 0)), mesh.single("SolaFence", coll, (0, 0, 0))]
 
 
+def palette_material(mats):
+    """One material for all the flat colours mats: a colour image and a
+    roughness image (glTF's metallicRoughness: G roughness, B metal), one
+    CELL x CELL cell per colour, read with nearest filtering. Returns the
+    material and the cell centre (u, v) of each colour."""
+    rows = (len(mats) + COLS - 1) // COLS
+    w, h = COLS * CELL, rows * CELL
+    col, rough = [0.0] * (w * h * 4), [0.0] * (w * h * 4)
+    uv = {}
+
+    def enc(x):   # linear to sRGB: the colour image is stored as sRGB bytes
+        return x * 12.92 if x <= 0.0031308 else 1.055 * x ** (1 / 2.4) - 0.055
+    for k, mat in enumerate(mats):
+        bsdf = mat.node_tree.nodes["Principled BSDF"]
+        c, r = bsdf.inputs["Base Color"].default_value, bsdf.inputs["Roughness"].default_value
+        cx, cy = k % COLS, rows - 1 - k // COLS   # Blender images start at the bottom row
+        uv[mat.name] = ((cx + 0.5) / COLS, (cy + 0.5) / rows)
+        for y in range(cy * CELL, (cy + 1) * CELL):
+            for x in range(cx * CELL, (cx + 1) * CELL):
+                i = (y * w + x) * 4
+                col[i:i + 4] = (enc(c[0]), enc(c[1]), enc(c[2]), 1.0)
+                rough[i:i + 4] = (0.0, r, 0.0, 1.0)
+    pal = b.mat_flat("SolaPalette", (1, 1, 1))
+    # Double-sided like the split materials: some faces (the stand's ring, the hangar roof) are wound downwards
+    nt = pal.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    for name, px, link in (("SolaPaletteColor", col, None), ("SolaPaletteRough", rough, "Roughness")):
+        img = bpy.data.images.new(name, w, h)
+        if link:
+            img.colorspace_settings.name = "Non-Color"
+        img.pixels.foreach_set(px)
+        # On disk, not packed: the exporter reads a packed roughness image as missing (magenta)
+        img.filepath_raw = os.path.join(tempfile.gettempdir(), f"{name}.png")
+        img.file_format = "PNG"
+        img.save()
+        tex = nt.nodes.new("ShaderNodeTexImage")
+        tex.image, tex.interpolation = img, "Closest"
+        if link:
+            sep = nt.nodes.new("ShaderNodeSeparateColor")
+            nt.links.new(tex.outputs["Color"], sep.inputs["Color"])
+            nt.links.new(sep.outputs["Green"], bsdf.inputs["Roughness"])
+        else:
+            nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    return pal, uv
+
+
+def to_palette(objs):
+    """Swap every flat material on objs (but KEEP) for the palette material,
+    each face mapped onto the centre of its colour's cell."""
+    mats = []
+    for o in objs:
+        for mat in o.data.materials:
+            if mat.name not in KEEP and mat not in mats:
+                mats.append(mat)
+    pal, cells = palette_material(mats)
+    for o in objs:
+        me = o.data
+        old = list(me.materials)
+        new = [pal] if any(mat.name not in KEEP for mat in old) else []
+        new += [mat for mat in old if mat.name in KEEP]
+        if pal not in new:
+            continue
+        remap = [new.index(pal) if mat.name not in KEEP else new.index(mat) for mat in old]
+        idx = [0] * len(me.polygons)
+        me.polygons.foreach_get("material_index", idx)
+        while me.uv_layers:   # the sign's text comes with a UV map of its own
+            me.uv_layers.remove(me.uv_layers[0])
+        layer = me.uv_layers.new(name="UVMap")
+        uvs = [0.0] * (len(me.loops) * 2)
+        for poly, mi in zip(me.polygons, idx):
+            u, v = cells.get(old[mi].name, (0.0, 0.0))
+            for li in poly.loop_indices:
+                uvs[2 * li], uvs[2 * li + 1] = u, v
+        layer.data.foreach_set("uv", uvs)
+        me.materials.clear()   # (this resets the faces' material indices, so set them after)
+        for mat in new:
+            me.materials.append(mat)
+        me.polygons.foreach_set("material_index", [remap[i] for i in idx])
+    print(f"palette: {len(mats)} colours in one material, kept {', '.join(KEEP)}", flush=True)
+
+
 def export(m, path):
     coll = bpy.data.collections.new("Sola")
     bpy.context.scene.collection.children.link(coll)
@@ -351,12 +466,17 @@ def export(m, path):
     build_pallet(m, coll)
     build_sock(m, coll)
     build_sign(m, coll)
+    if MATERIALS == "palette":
+        to_palette(list(coll.objects))
+    for o in coll.objects:
+        o.data.calc_loop_triangles()
+    print(f"total: {sum(len(o.data.loop_triangles) for o in coll.objects)} triangles", flush=True)
     bpy.ops.object.select_all(action="DESELECT")
     for o in coll.objects:
         o.select_set(True)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     bpy.ops.export_scene.gltf(filepath=path, use_selection=True, export_apply=False, export_yup=True,
-                              export_texcoords=False, export_normals=True)
+                              export_texcoords=MATERIALS == "palette", export_normals=True)
     print("wrote", path, flush=True)
     return coll
 
@@ -390,12 +510,17 @@ def render(out):
 
 
 def main():
+    global MATERIALS, DETAIL
     p = argparse.ArgumentParser()
     p.add_argument("--render", action="store_true")
+    p.add_argument("--materials", choices=["palette", "split"], default=MATERIALS)
+    p.add_argument("--detail", choices=["lean", "full"], default=DETAIL)
+    p.add_argument("--out", default=os.path.join(OUT, "sola.glb"))
     args = p.parse_args()
+    MATERIALS, DETAIL = args.materials, args.detail
     bpy.ops.wm.read_factory_settings(use_empty=True)
     m = materials()
-    export(m, os.path.join(OUT, "sola.glb"))
+    export(m, args.out)
     if args.render:
         render(os.path.join(b.BUILD, "sola"))
 

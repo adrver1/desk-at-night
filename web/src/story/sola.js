@@ -62,11 +62,23 @@ export class Sola {
 
   load() {
     this.loaded ??= (async () => {
-      const [apron, heli, pilot, info, ...crew] = await Promise.all([
+      const [apron, heli, pilot, info, anims, ...crew] = await Promise.all([
         loadGltf('story/sola/sola.glb'), loadGltf('intro/heli.glb'), loadGltf('intro/chars/heli_pilot_flying_headset.glb').catch(() => null),
-        fetch('intro/intro.json').then((r) => r.json()),
+        fetch('intro/intro.json').then((r) => r.json()), loadGltf('intro/chars/anims.glb').catch(() => null),
         ...CREW.map((c) => loadGltf(`intro/chars/${c}_survival.glb`).catch(() => null)),
       ]);
+      // Everybody plays the one clip set in anims.glb (web/scripts/pack_chars.mjs)
+      // unless a model brings its own, and shares one palette material
+      for (const m of [pilot, ...crew]) if (m && !m.animations.length) m.animations = anims?.animations ?? [];
+      let palette = null;
+      const share = (root) => root.traverse((o) => {
+        if (!o.isSkinnedMesh) return;
+        palette ??= o.material;
+        if (o.material === palette || o.material.name !== palette.name) return;
+        o.material.map?.dispose();
+        o.material.dispose();
+        o.material = palette;
+      });
       const s = this.scene;
       // A clear spring morning: blue overhead, hazy at the horizon
       const sky = document.createElement('canvas');
@@ -102,11 +114,14 @@ export class Sola {
       const h = new THREE.Group();
       h.rotation.y = Math.PI / 2;
       h.add(heli.scene);
-      heli.scene.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } });
+      // Only the outside casts: the cabin's insides sit in the hull's shadow anyway, and the glass lets the sun through (as intro.js)
+      const inside = ['HeliCabin', 'HeliFloor', 'HeliSeat', 'HeliPanel', 'HeliLining', 'HeliScreen', 'HeliGround', 'HeliMapScreen', 'HeliCabinLamp', 'HeliClear'];
+      heli.scene.traverse((o) => { if (o.isMesh) { o.receiveShadow = true; o.castShadow = !inside.includes(o.material.name); } });
       this.rotor = new Helicopter(heli.scene, { running: true });
       this.rotor.setDoors(true);
       this.rotor.door = this.rotor.doorTarget = 1;
       if (pilot) {
+        share(pilot.scene);
         for (const [i, at] of (info.pilots ?? []).entries()) {
           const p = i ? (await import('three/addons/utils/SkeletonUtils.js')).clone(pilot.scene) : pilot.scene;
           p.rotation.y = -Math.PI / 2;
@@ -131,6 +146,7 @@ export class Sola {
       this.crew = crew.map((gltf, i) => {
         if (!gltf) return null;
         const p = gltf.scene;
+        share(p);
         const [row, place] = SEATING[i], sd = info.seats[row * 4 + place];
         const seat = new THREE.Vector3(sd[0], sd[1], sd[2]), face = sd[3];
         const up = new THREE.Vector3(seat.x + face * 0.35, floor, seat.z);
