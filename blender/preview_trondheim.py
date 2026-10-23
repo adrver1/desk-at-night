@@ -20,6 +20,7 @@ ROOT = b.ROOT
 p = argparse.ArgumentParser()
 p.add_argument("--samples", type=int, default=16)
 p.add_argument("--out", default=os.path.join(b.BUILD, "trondheim"))
+p.add_argument("--glb", help="export only Føniks (with its annex and fountain) to this .glb and stop")
 p.add_argument("--res", type=int, default=960)
 args = p.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
 os.makedirs(args.out, exist_ok=True)
@@ -43,7 +44,8 @@ M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "brick": ("#8e3b2e", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
     "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
     "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3a3d42", 0.7), "roof_light": ("#8f9498", 0.8),
-    "copper": ("#6e3a2c", 0.55), "travertine": ("#dcd2bf", 0.8), "orange": ("#c9583a", 0.8),
+    "copper": ("#6e3a2c", 0.55), "plinth": ("#59625d", 0.8), "door": ("#4a2c1e", 0.5),
+    "bronze_dark": ("#2f3a33", 0.45), "gold": ("#b8913a", 0.35), "travertine": ("#dcd2bf", 0.8), "orange": ("#c9583a", 0.8),
 }.items()}
 
 
@@ -254,7 +256,7 @@ def foniks():
     eave, depth = 16.8, 20.0
     cx = L / 2
     box("Foniks", (cx, depth / 2, eave / 2), (L, depth, eave), "phoenix")
-    box("FoniksPlinth", (cx, -0.12, 0.5), (L + 0.2, 0.3, 1.0), "granite")
+    box("FoniksPlinth", (cx, -0.12, 0.5), (L + 0.2, 0.3, 1.0), "plinth")   # dark green-grey base
     box("FoniksCornice", (cx, depth / 2, eave - 0.2), (L + 0.8, depth + 0.8, 0.45), "frame")
     frustum("FoniksMansard", (cx, depth / 2), eave, L + 0.6, depth + 0.6, L - 3.4, depth - 3.4, 3.6, "slate")
     frustum("FoniksRoof", (cx, depth / 2), eave + 3.6, L - 3.4, depth - 3.4, L - 14, 3, 2.6, "slate")
@@ -267,6 +269,10 @@ def foniks():
     bw = (mid1 - mid0) / 4
     for x in cols:
         box("BrickPanel", (x, -0.05, (5.2 + eave - 0.6) / 2), (bw - 1.4, 0.12, eave - 0.6 - 5.2), "brick")
+        box("Cartouche", (x, -0.14, 12.95), (1.3, 0.12, 0.7), "phoenix")   # carved relief between the upper windows
+    for i in range(5):   # capitals on the cream pilasters under the cornice
+        box("Capital", (mid0 + i * bw, -0.16, eave - 1.2), (1.9, 0.2, 0.7), "phoenix")
+    box("BayCanopy", (L - PIER - BAY / 2, -1.25, 5.0), (BAY + 0.4, 0.8, 0.2), "dark")   # curved canopy over the north bay window
     for bx in (PIER + BAY / 2, L - PIER - BAY / 2):   # the side bays come forward
         box("Bay", (bx, -0.45, eave / 2), (BAY, 0.9, eave - 0.4), "phoenix")
         box("Balcony", (bx, -1.3, 13.0), (BAY + 0.4, 1.0, 0.25), "frame")
@@ -311,15 +317,15 @@ def foniks():
         rail((x, -3.2), (x, -5.2), LAND, 0.0)
     for x in (d0, d1):
         box("DoorFrame", (x, -0.08, LAND + 1.8), (2.1, 0.14, 3.6), "frame")
-        box("Door", (x, -0.15, LAND + 1.4), (1.7, 0.12, 2.8), "wood")
+        box("Door", (x, -0.15, LAND + 1.4), (1.7, 0.12, 2.8), "door")
         box("Fanlight", (x, -0.15, LAND + 3.15), (1.7, 0.12, 0.6), "glass")
     for x in (cols[0], cols[3]):
         window(x, LAND + 1.7, -0.12, 1.5, 2.6)
     box("EntryBalcony", ((mid0 + mid1) / 2, -0.8, 5.3), (mid1 - mid0, 1.6, 0.3), "frame")
-    box("EntryRail", ((mid0 + mid1) / 2, -1.55, 6.45), (mid1 - mid0, 0.1, 0.08), "steel")
+    box("EntryRail", ((mid0 + mid1) / 2, -1.55, 6.45), (mid1 - mid0, 0.1, 0.08), "dark")   # black wrought iron
     n = int((mid1 - mid0) / 0.5)
     for i in range(n):
-        box("Baluster", (mid0 + 0.25 + i * (mid1 - mid0 - 0.5) / (n - 1), -1.55, 5.95), (0.04, 0.04, 0.9), "steel")
+        box("Baluster", (mid0 + 0.25 + i * (mid1 - mid0 - 0.5) / (n - 1), -1.55, 5.95), (0.04, 0.04, 0.9), "dark")
     for x in (cols[0], (d0 + d1) / 2, cols[3]):
         bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.16, location=(x, -0.9, 5.0))
         bpy.context.object.data.materials.append(M["lamp"])
@@ -381,7 +387,7 @@ def wing(name, root, side, scale=1.0):
     me.from_pydata(pts, [], [tuple(range(len(pts)))])
     o = bpy.data.objects.new(name, me)
     scene.collection.objects.link(o)
-    me.materials.append(M["bronze"])
+    me.materials.append(M["bronze_dark"])
     o.modifiers.new("Thick", "SOLIDIFY").thickness = 0.06
 
 
@@ -396,10 +402,10 @@ def phoenix_fountain(cx, cy):
     bpy.context.object.data.materials.append(M["granite"])
     cyl("Column", (cx, cy, 0), 0.3, 1.45, "tile", 12)
     cyl("Collar", (cx, cy, 1.45), 0.36, 0.12, "dark", 12)
-    cyl("Nest", (cx, cy, 1.57), 0.3, 0.28, "bronze", 10, 0.5)
+    cyl("Nest", (cx, cy, 1.57), 0.3, 0.28, "bronze_dark", 10, 0.5)
     for k in (-1, 0, 1):
         a = math.radians(-90 + k * 32)
-        box("LampArm", (cx + 0.25 * math.cos(a), cy + 0.25 * math.sin(a), 1.32), (0.5, 0.05, 0.05), "dark", a)
+        box("LampArm", (cx + 0.25 * math.cos(a), cy + 0.25 * math.sin(a), 1.32), (0.5, 0.05, 0.05), "gold", a)
     for k in (-1, 0, 1):   # three globe lamps on short arms at the front, below the bird
         a = math.radians(-90 + k * 32)
         x, y = cx + 0.5 * math.cos(a), cy + 0.5 * math.sin(a)
@@ -408,20 +414,24 @@ def phoenix_fountain(cx, cy):
         bpy.context.object.data.materials.append(M["lamp"])
     for k in range(7):   # the nest of flames it rises from
         t = k / 7 * math.tau
-        f = cyl("Flame", (cx + 0.2 * math.cos(t), cy + 0.2 * math.sin(t), 1.75), 0.08, 0.32, "bronze", 4, 0.0)
+        f = cyl("Flame", (cx + 0.2 * math.cos(t), cy + 0.2 * math.sin(t), 1.75), 0.08, 0.32, "gold", 4, 0.0)
         f.rotation_euler = (0.35 * math.sin(t), -0.35 * math.cos(t), 0)
-    tail = box("Tail", (cx, cy + 0.26, 1.95), (0.36, 0.05, 0.55), "bronze")
+    tail = box("Tail", (cx, cy + 0.26, 1.95), (0.36, 0.05, 0.55), "bronze_dark")
     tail.rotation_euler = (math.radians(-20), 0, 0)
     bpy.ops.mesh.primitive_uv_sphere_add(segments=12, ring_count=8, radius=0.26, location=(cx, cy, 2.25))
     bpy.context.object.scale = (1.0, 0.85, 1.55)   # stout upright body
-    bpy.context.object.data.materials.append(M["bronze"])
+    bpy.context.object.data.materials.append(M["bronze_dark"])
     bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=6, radius=0.13, location=(cx + 0.04, cy - 0.08, 2.74))
-    bpy.context.object.data.materials.append(M["bronze"])
-    cyl("Neck", (cx + 0.02, cy - 0.04, 2.5), 0.12, 0.22, "bronze", 8, 0.1)
-    beak = cyl("Beak", (cx + 0.16, cy - 0.12, 2.72), 0.045, 0.16, "bronze", 4, 0.0)
+    bpy.context.object.data.materials.append(M["bronze_dark"])
+    cyl("Neck", (cx + 0.02, cy - 0.04, 2.5), 0.12, 0.22, "bronze_dark", 8, 0.1)
+    beak = cyl("Beak", (cx + 0.16, cy - 0.12, 2.72), 0.045, 0.16, "bronze_dark", 4, 0.0)
     beak.rotation_euler = (0, math.radians(95), math.radians(-20))   # head turned to its left
     for side in (-1, 1):
         wing("Wing", (cx + side * 0.18, cy + 0.02, 2.4), side, 0.95)
+        for u, v in ((0.82, 0.95), (0.86, 0.75), (0.8, 0.55), (0.7, 0.36)):   # round bosses along each wing
+            bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.06,
+                                                 location=(cx + side * (0.18 + 1.19 * u), cy + 0.02 - 0.27 * u * u - 0.06, 2.4 + 0.855 * v))
+            bpy.context.object.data.materials.append(M["steel"])
 
 
 _before = set(bpy.data.objects)
@@ -440,7 +450,8 @@ def FL(x, y, z=0.0):
     return tuple(FONIKS @ Vector((x, y, z)))
 
 
-for o in set(bpy.data.objects) - _before:
+FONIKS_OBJS = set(bpy.data.objects) - _before
+for o in FONIKS_OBJS:
     if o.parent is None:
         o.matrix_world = FONIKS @ o.matrix_world
 
@@ -636,6 +647,16 @@ def aim(pos, bearing, pitch):
 # high over the south-east corner looking north-west; B1 = the overcast photo, lower
 B_POS, B1_POS = (79.3, -47.1, 48.1), (28.2, -48.1, 26.0)
 A_POS, A_AT = FL(10.0, -16.0, 1.7), FL(17.0, 0.0, 3.2)
+if args.glb:   # Føniks on its own for the spin-around viewer
+    bpy.ops.object.select_all(action="DESELECT")
+    keep = FONIKS_OBJS | {o for o in bpy.data.objects if o.name.startswith(("Foniks", "AnnexPlinth", "PergolaPost"))}
+    for o in keep:
+        if o.type == "MESH":
+            o.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=args.glb, use_selection=True, export_apply=True, export_yup=True)
+    print("wrote", args.glb)
+    sys.exit(0)
+
 SHOTS = {
     "B_wide": (B_POS, aim(B_POS, 303.3, 16.3), 24.0, 1.5),
     "B1_overcast": (B1_POS, aim(B1_POS, 318.4, 18.0), 24.0, 5 / 3),
