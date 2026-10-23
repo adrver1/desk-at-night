@@ -173,9 +173,6 @@ def paved(x0, x1, y0, y1, name="Paving", z=0.03):
 
 
 paved(SQ_W, SQ_E, SQ_S, SQ_N)                       # the square
-paved(-38, -6, SQ_N - 0.5, 140, "Munkegata", 0.036)   # Munkegata north, wide and pedestrian (a hair higher where it overlaps)
-paved(11.5, SQ_E, -70, SQ_S + 0.5, "SquareS", 0.036)       # the square runs on south, east of the yellow block
-paved(12, 34, -160, -69.5, "MunkegataS")           # Munkegata south toward the cathedral
 for k in range(16):   # the compass star in dark stone, long and short points
     a = k / 16 * math.tau + math.pi / 16
     r = 10.5 if k % 2 == 0 else 6.5
@@ -743,83 +740,10 @@ for i in range(6):
     box("PergolaPost", (ax0 + 1 + i * (ax1 - ax0 - 2) / 5, AS - 4.9, 1.5), (0.15, 0.15, 3.0), "dark")
 block("FoniksBack", FB - 22, FB, FONIKS_SOUTH + 20, FONIKS_SOUTH + FW, 15, "brick_dark", 4, (), None)
 box("FoniksAtrium", (FB - 6, FONIKS_SOUTH + 12, 16.5), (10, 18, 3.8), "glass_block")   # glass atrium behind the joint
-# West of the annex: a block clad in copper-brown fins on a tight window grid
-block("BrickW", -108, FB - 22, 13, 32, 17, "copper", 6, ("-y",), None)
-# Right after Føniks at its north end, facing the square: the small pink wooden house
-# with a steep grey roof and a cross gable, more old houses north of it on Munkegata
-PH = (FONIKS_SOUTH + FW, FONIKS_SOUTH + FW + 22)   # a long low house on the square
-block("PinkHouse", FONIKS_FRONT - 12, FONIKS_FRONT + 5, PH[0], PH[1], 8, "orange", 2, ("+x", "-y"), None)
-frustum("PinkRoof", (FONIKS_FRONT - 3.5, (PH[0] + PH[1]) / 2), 8, 17.6, PH[1] - PH[0] + 0.6, 3, PH[1] - PH[0] - 9, 5.5, "roof_light")   # hipped, light grey
-block("OldN", FONIKS_FRONT - 18, FONIKS_FRONT + 3, PH[1] + 1, PH[1] + 40, 12, "c1", 4, ("+x",), "slate", 4)
-# North side east of Munkegata: the dark modern block with ribbon windows under a dark
-# mansard and café awnings along its front, a white block beside it
-block("GlassN", -6, 22, SQ_N + 0.5, 85, 15, "glass_block", 5, ("-y", "-x"), "slate", 3)
-for i in range(6):
-    box("CafeAwning", (-3 + i * 4.2, SQ_N - 2.2, 2.6), (3.8, 3.4, 0.15), "frame")
-block("WhiteN", 22, 44, SQ_N + 0.5, 82, 14, "c3", 4, ("-y",), "slate", 4)
-# Munkegata north runs off toward the fjord between tree rows
-for y in range(50, 140, 9):
-    for x in (-33, -12):
-        cyl("Trunk", (x, y, 0), 0.15, 2.2, "trunk", 6)
-        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=2.2, location=(x, y, 4.4))
-        bpy.context.object.data.materials.append(M["tree"])
-# West side south of Kongens gate: Trondheim Torg, beige with tall window strips, the
-# red sign high up, shop windows and McDonald's at street level, a big screen; the
-# green pavilion drum on its short post in front
-TX, TY = -42.0, -32.0   # front line; Kongens gate (bus stops) lies between it and Føniks
-box("Torg", (TX - 20, TY, 8), (40, 34, 16), "torg")
-box("TorgTop", (TX - 22, TY, 17.5), (34, 32, 3), "glass_block")
-box("TorgRoof", (TX - 20, TY, 16.1), (40.6, 34.6, 0.3), "dark")
-box("TorgShops", (TX + 0.1, TY, 2.2), (0.3, 32, 4.0), "glass")
-box("TorgFascia", (TX + 0.3, TY, 4.6), (0.3, 32, 0.6), "red")
-for i in range(12):
-    box("TorgStrip", (TX + 0.1, -47 + i * 2.7, 10.5), (0.25, 1.1, 10.0), "glass")
-box("TorgSign", (TX + 0.4, -21, 15.2), (0.3, 10, 1.4), "red")
-box("TorgScreen", (TX + 0.4, -36, 9.0), (0.3, 6, 3.0), "red")
-cyl("PavilionPost", (-25, -21, 0), 1.2, 3.0, "frame", 12)
-cyl("Pavilion", (-25, -21, 3.0), 5.5, 2.8, "verdigris", 32)
-cyl("PavilionLid", (-25, -21, 5.8), 5.5, 0.15, "dark", 32)
-# South side: the yellow 1950s office block facing north over the square, Munkegata
-# running south past its east end
-block("YellowS", -62, 11, -80, SQ_S, 18, "c5", 6, ("+y", "+x"), None)
-block("SouthE", 39, 70, -100, -57, 10, "c2", 3, ("+y", "-x"), "roof", 4)
-block("SouthW", -30, 10, -120, -86, 9, "brick_dark", 3, ("+y", "+x"), "slate", 4)
-# East side: a white modern block with vertical fins (cafés in front), the yellow
-# older house with dormers at the south-east corner
-block("OfficeE", 51, 76, 18, 60, 16, "c3", 5, ("-x",), None)
-for i in range(14):
-    box("Fin", (50.8, 19.5 + i * 3.0, 9), (0.4, 0.3, 13), "frame")
-block("YellowE", 51, 72, -55, -18, 12, "c5", 3, ("-x",), "slate", 4)
-# Planters with young trees in rows along the edges of the square
-for x, y in ([(-29, y) for y in (27, 18, 9, -10, -36)] + [(24, -60), (30, -72)]
-             + [(37, y) for y in (28, 18, 8, -10, -20, -32)] + [(x, 33) for x in (-20, -3, 8, 18, 29)]
-             + [(x, -43.5) for x in (-18, -6, 4.5, 23, 33)]):
-    box("Planter", (x, y, 0.3), (2.6, 2.6, 0.6), "granite")
-    cyl("Trunk", (x, y, 0.6), 0.12, 1.8, "trunk", 6)
-    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=1.3, location=(x, y, 3.2))
-    bpy.context.object.data.materials.append(M["tree"])
-# The town behind: low roofs filling the blocks out to the fjord, so the horizon
-# isn't empty street, then the fjord and the hills
-import random
-random.seed(7)
-for _ in range(220):
-    x, y = random.uniform(-320, 260), random.uniform(-260, 330)
-    if -110 < x < 90 and -90 < y < 95:
-        continue
-    if -40 < x < -4 and y < 160:
-        continue
-    if math.hypot(x - 79, y + 47) < 140:   # keep the drone's own foreground clear
-        continue
-    w, d, h = random.uniform(12, 30), random.uniform(10, 26), random.uniform(8, 18)
-    box("Town", (x, y, h / 2), (w, d, h), random.choice(("c1", "c3", "c4", "c5", "pink", "brick_dark")))
-    box("TownRoof", (x, y, h + 0.6), (w + 0.4, d + 0.4, 1.2), random.choice(("slate", "roof", "brick")))
-box("Fjord", (0, 560, -0.2), (1600, 500, 0.1), "water")
-box("FjordW", (-700, 260, -0.22), (700, 500, 0.1), "water")   # the bay opens to the north-west
-for x, y, sx, sz in [(-700, -150, 260, 120), (-500, 700, 400, 60), (300, 900, 500, 50)]:
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=8, radius=1, location=(x, y, -5))
-    bpy.context.object.scale = (sx, 80, sz)
-    bpy.context.object.data.materials.append(M["hill"])
-    bpy.context.object.visible_shadow = False   # far away; their shadows only blacken the fjord
+# Everything around the square except Føniks lives in trondheim_surroundings.py, in
+# variants side by side; TRD_SURROUND=v1 is round 6 with every street square to the square
+import trondheim_surroundings  # noqa: E402
+trondheim_surroundings.build(globals(), os.environ.get("TRD_SURROUND", "v2"))
 
 
 def load_char(name, loc, yaw, mat=None, scale=1.0, pose=None):
@@ -954,6 +878,7 @@ SHOTS = {
     # Straight down, orthographic (lens < 0 = ortho width in metres), for the satellite check
     "T_top": ((0.0, 10.0, 300.0), (0.0, 10.001, 0.0), -160.0, 1.0),
 }
+SHOTS.update(trondheim_surroundings.SHOTS)
 only = [s for s in os.environ.get("SHOTS", "").split(",") if s]
 for name, (pos, at, lens, aspect) in SHOTS.items():
     if only and name not in only:
