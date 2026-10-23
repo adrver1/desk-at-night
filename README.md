@@ -209,6 +209,18 @@ outdoor panel has a button to call it in (or send it away); the URL takes
 `?vessel=call`, `?vessel=alongside` or `?vessel=off`. The crane camera
 (`craneCam` in `cctv_platform.py`) shows its deck on the TV beside the band.
 
+Seabirds (`web/src/gulls.js`): the four species of the northern North Sea
+(kittiwake, fulmar, herring gull, great black-backed gull) as low-poly
+instanced meshes, 48 triangles each and one draw per species, whose wings flap
+and fold in the vertex shader. A small flock simulation (30 birds, about
+0.2 ms a frame) has kittiwakes sitting on deck edges, fulmars gliding low over
+the waves, big gulls soaring over the platform and the supply vessel and
+hanging in the updraft outside the control room window; at night most roost,
+and they get out of the helicopter's way in the intro. One simulation is
+drawn through the window and on the CCTV. `?birds=off`, or `boids` and
+`flight` for the other library options; `web/gull-prototype.html` compares
+them.
+
 ## Run the viewer
 
 ```bash

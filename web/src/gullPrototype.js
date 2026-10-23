@@ -12,7 +12,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Outdoor, WEATHER, PLATFORM_HEADING, windSpeed } from './outdoor.js';
 import { approachPose, floatOn } from './vessel.js';
-import { Seabirds, PlatformMap, SPECIES, birdGeometry, birdMaterial } from './gulls.js';
+import { Seabirds, PlatformMap, SPECIES, birdGeometry, birdMaterial, birdLight } from './gulls.js';
 import { fpsCounter } from './fps.js';
 
 fpsCounter();
@@ -71,7 +71,7 @@ platform.scene.traverse((o) => {
   if (o.material.name === 'PlatGlass') { o.material.transparent = true; o.material.opacity = 0.5; }
   if (o.material.emissive?.getHex() && o.material.name !== 'PlatFlare') o.material.emissiveIntensity = 0.05;
 });
-const map = new PlatformMap(platform.scene);
+const map = new PlatformMap(platform.scene, { avoid: [{ centre: new THREE.Vector3(...info.helideck.centre), radius: 13 }] });
 
 // The supply vessel alongside, floating
 const berth = info.berth && { x: info.berth.position[0], y: info.berth.position[1], yaw: info.berth.yaw };
@@ -94,6 +94,7 @@ showcase.position.set(map.centre.x, 45, map.box.max.z + 40);
 showcase.visible = false;
 scene.add(showcase);
 let shown = [];
+const showLight = birdLight();
 function buildShowcase(look) {
   for (const s of shown) { showcase.remove(s.mesh); s.mesh.geometry.dispose(); s.mesh.material.dispose(); }
   shown = [];
@@ -102,7 +103,7 @@ function buildShowcase(look) {
     for (const sit of [0, 1]) {
       const g = birdGeometry(sp, look);
       g.setAttribute('aPose', new THREE.InstancedBufferAttribute(new Float32Array(3), 3));
-      const mesh = new THREE.InstancedMesh(g, birdMaterial(g), 1);
+      const mesh = new THREE.InstancedMesh(g, birdMaterial(g, showLight), 1);
       mesh.frustumCulled = false;
       const m = new THREE.Matrix4().makeRotationY(sit ? -0.9 : 1.0).setPosition((i - (list.length - 1) / 2) * 1.7, sit ? -1.1 : 0.25, 0);
       mesh.setMatrixAt(0, m);
@@ -122,7 +123,7 @@ function animateShowcase(t) {
 }
 
 // Where big gulls hang in the updraft: just outside the control room's window
-const HANG = new THREE.Vector3(30, 56, 33);
+const HANG = new THREE.Vector3(32, 57, 32);
 
 let birds = null;
 function build() {
@@ -130,9 +131,10 @@ function build() {
   if (birds) { scene.remove(birds.group); for (const m of Object.values(birds.meshes)) { m.geometry.dispose(); m.material.dispose(); } }
   for (const p of map.perches) p.taken = false;
   const v = VARIANTS[state.variant];
-  birds = new Seabirds({ map, sea: (x, z) => outdoor.heightAt(x, z), anchors, hang: [HANG], look: v.look, behaviour: v.behaviour });
+  birds = new Seabirds({ map, sea: (x, z) => outdoor.heightAt(x, z), anchors, hang: [{ position: HANG, spread: new THREE.Vector3(8, 3, 4) }], look: v.look, behaviour: v.behaviour });
   scene.add(birds.group);
   // a few seconds of flight so they are spread out from the start
+  birds.tick(0, outdoor);
   for (let i = 0; i < 60; i++) birds.update(0.1, i * 0.1);
   state.follow = 0;
 }
@@ -259,12 +261,9 @@ function frame(now) {
   sun.position.copy(L.sunDir).multiplyScalar(100);
   scene.fog.color.copy(L.fog);
   scene.fog.density = Math.LN2 / L.fogDistance;
-  // the wind blows from windFrom (true bearing), in this frame
-  const to = THREE.MathUtils.degToRad(outdoor.state.windFrom + 180), hd = THREE.MathUtils.degToRad(PLATFORM_HEADING);
-  const east = Math.sin(to), north = Math.cos(to);
-  birds.wind.set(east * Math.cos(hd) - north * Math.sin(hd), 0, -(north * Math.cos(hd) + east * Math.sin(hd)));
   moveVessel();
-  birds.update(dt, clock);
+  birds.tick(dt, outdoor);
+  for (const k of Object.keys(showLight)) showLight[k].value = birds.light[k].value;
   if (showcase.visible) animateShowcase(clock);
   if (state.view === 'follow') follow(dt);
   else { controls.update(); tag.textContent = `${VIEWS[state.view].name} · ${birds.flying} of ${birds.birds.length} flying · wind ${windSpeed(outdoor.state.wind).toFixed(0)} m/s`; }
@@ -280,5 +279,5 @@ requestAnimationFrame(frame);
 // for screenshots: jump the flock forward, pick a bird
 window.lab = {
   state, birds: () => birds, setView,
-  run(seconds) { for (let t = 0; t < seconds; t += 0.05) { birds.update(0.05, clock += 0.05); } },
+  run(seconds) { for (let t = 0; t < seconds; t += 0.05) { birds.tick(0.05, outdoor); } },
 };

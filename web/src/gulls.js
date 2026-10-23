@@ -118,45 +118,77 @@ export function birdGeometry(sp, look = 'detailed') {
   return g;
 }
 
-// Lambert with the wing joints: per bird (aPose) the shoulder angle, the
-// extra bend at the wrist and how far the wings are folded on the back
-export function birdMaterial(geometry) {
-  const m = new THREE.MeshLambertMaterial({ vertexColors: true });
-  const { root, elbow } = geometry.userData;
-  m.onBeforeCompile = (s) => {
-    s.uniforms.uRoot = { value: root };
-    s.uniforms.uElbow = { value: elbow };
-    s.vertexShader = s.vertexShader
-      .replace('#include <common>', /* glsl */ `#include <common>
-        attribute float wing;
-        attribute vec3 aPose;
-        uniform float uRoot, uElbow;`)
-      .replace('#include <beginnormal_vertex>', /* glsl */ `#include <beginnormal_vertex>
-        if (wing > 0.5) {
-          float th = -sign(position.z) * (wing > 1.5 ? aPose.x + aPose.y : aPose.x), c = cos(th), s = sin(th);
-          objectNormal = vec3(objectNormal.x, objectNormal.y * c - objectNormal.z * s, objectNormal.y * s + objectNormal.z * c);
-          objectNormal = normalize(mix(objectNormal, vec3(0.0, sign(objectNormal.y), 0.0), aPose.z));
-        }`)
-      .replace('#include <begin_vertex>', /* glsl */ `#include <begin_vertex>
-        if (wing > 0.5) {
-          float sz = sign(position.z), d = max(abs(position.z) - uRoot, 0.0), e = uElbow - uRoot;
-          float d1 = min(d, e), d2 = max(d - e, 0.0), a1 = aPose.x, a2 = aPose.x + aPose.y;
-          vec3 flap = vec3(position.x, position.y + d1 * sin(a1) + d2 * sin(a2), sz * (uRoot + d1 * cos(a1) + d2 * cos(a2)));
-          // folded: laid back along the body, the tips crossing over the tail
-          vec3 fold = vec3(0.3 * position.x - 0.55 * d, position.y + 0.5 * uRoot, sz * uRoot * (0.95 - 0.3 * d / (e + e)));
-          transformed = mix(flap, fold, aPose.z);
-        }`);
+// The wing joints, per bird (aPose): the shoulder angle, the extra bend at
+// the wrist, and how far the wings are folded on the back. Lit by its own
+// uniforms (`light`: sky, sun and fog from outdoor.js, see Seabirds.setLight)
+// rather than the scene's lights and fog, so the same birds look the same in
+// the room's scene (which has neither), the CCTV's and the intro's.
+const birdVertex = /* glsl */ `
+  attribute float wing;
+  attribute vec3 aPose;
+  uniform float uRoot, uElbow;
+  varying vec3 vColor, vNormal;
+  varying float vDist;
+  void main() {
+    vec3 p = position, n = normal;
+    if (wing > 0.5) {
+      float sz = sign(p.z), d = max(abs(p.z) - uRoot, 0.0), e = uElbow - uRoot;
+      float d1 = min(d, e), d2 = max(d - e, 0.0), a1 = aPose.x, a2 = aPose.x + aPose.y;
+      vec3 flap = vec3(p.x, p.y + d1 * sin(a1) + d2 * sin(a2), sz * (uRoot + d1 * cos(a1) + d2 * cos(a2)));
+      // folded: laid back along the body, the tips crossing over the tail
+      vec3 fold = vec3(0.3 * p.x - 0.55 * d, p.y + 0.5 * uRoot, sz * uRoot * (0.95 - 0.3 * d / (e + e)));
+      p = mix(flap, fold, aPose.z);
+      float th = -sz * (wing > 1.5 ? a2 : a1), c = cos(th), s = sin(th);
+      n = vec3(n.x, n.y * c - n.z * s, n.y * s + n.z * c);
+      n = normalize(mix(n, vec3(0.0, sign(n.y), 0.0), aPose.z));
+    }
+    mat4 m = modelMatrix * instanceMatrix;
+    vNormal = normalize(mat3(m) * n);
+    vColor = color;
+    vec4 mv = viewMatrix * m * vec4(p, 1.0);
+    vDist = -mv.z;
+    gl_Position = projectionMatrix * mv;
+  }`;
+const birdFragment = /* glsl */ `
+  uniform vec3 uSky, uSun, uSunDir, uFogColor;
+  uniform float uFogDensity;
+  varying vec3 vColor, vNormal;
+  varying float vDist;
+  void main() {
+    vec3 n = normalize(vNormal);
+    // as the scenes' hemisphere light (sky above, a third of it from below) and sun
+    vec3 light = mix(uSky * 0.3, uSky, 0.5 + 0.5 * n.y) + uSun * max(dot(n, uSunDir), 0.0);
+    float fog = 1.0 - exp(-uFogDensity * uFogDensity * vDist * vDist);
+    gl_FragColor = vec4(mix(vColor * light, uFogColor, fog), 1.0);
+    #include <tonemapping_fragment>
+    #include <colorspace_fragment>
+  }`;
+
+export function birdLight() {
+  return {
+    uSky: { value: new THREE.Color(0.3, 0.3, 0.3) }, uSun: { value: new THREE.Color(1, 1, 1) }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+    uFogColor: { value: new THREE.Color() }, uFogDensity: { value: 0 },
   };
-  return m;
+}
+
+export function birdMaterial(geometry, light = birdLight()) {
+  const { root, elbow } = geometry.userData;
+  return new THREE.ShaderMaterial({
+    vertexShader: birdVertex, fragmentShader: birdFragment, vertexColors: true,
+    uniforms: { ...light, uRoot: { value: root }, uElbow: { value: elbow } },
+  });
 }
 
 // ---------------------------------------------------------------- the platform, as birds see it
 
 // The platform's tops on a 2 m grid (for flying over it, not into it) and
-// perches: level spots on deck edges, roofs and booms with a drop beside them
+// perches: level spots on deck edges, roofs and booms with a drop beside them,
+// 18 m or more over the sea (seaLevel: its height in the model's frame)
 export class PlatformMap {
-  constructor(object, { cell = 2, perches = 260 } = {}) {
+  // avoid: [{ centre, radius }] where none sit (the helideck)
+  constructor(object, { cell = 2, perches = 260, seaLevel = 0, avoid = [] } = {}) {
     object.updateMatrixWorld(true);
+    this.seaLevel = seaLevel;
     const box = new THREE.Box3().setFromObject(object);
     this.box = box; this.cell = cell;
     this.x0 = box.min.x - 4; this.z0 = box.min.z - 4;
@@ -182,7 +214,7 @@ export class PlatformMap {
           p.copy(a).multiplyScalar(1 - u - w).addScaledVector(b, u).addScaledVector(c, w);
           const k = this.index(p.x, p.z);
           if (k >= 0 && p.y > this.top[k]) this.top[k] = p.y;
-          if (Math.abs(n.y) > 0.92 && p.y > 18 && area > 0.05) level.push(p.x, p.y, p.z);
+          if (Math.abs(n.y) > 0.92 && p.y > seaLevel + 18 && area > 0.05) level.push(p.x, p.y, p.z);
         }
       }
     });
@@ -194,7 +226,8 @@ export class PlatformMap {
       if (y < this.height(x, z) - 0.3) continue;   // under another deck
       let edge = false;
       for (const [dx, dz] of [[cell, 0], [-cell, 0], [0, cell], [0, -cell]]) if (this.height(x + dx, z + dz) < y - 3) edge = true;
-      if (edge) candidates.push(new THREE.Vector3(x, y, z));
+      const q = new THREE.Vector3(x, y, z);
+      if (edge && avoid.every((a) => a.centre.distanceTo(q) > a.radius)) candidates.push(q);
     }
     for (let i = candidates.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [candidates[i], candidates[j]] = [candidates[j], candidates[i]]; }
     this.perches = [];
@@ -223,10 +256,17 @@ const UP = new THREE.Vector3(0, 1, 0);
 export class Seabirds {
   // map: a PlatformMap; sea: (x, z) => the sea's height there; anchors:
   // () => [{ position, weight }] of what the gulls like to circle (the
-  // platform, the supply vessel); hang: spots by the quarters' windows
-  // where big gulls hang still in the updraft; counts: birds per species
-  constructor({ map, sea = () => 0, anchors = null, hang = [], look = 'detailed', behaviour = 'living', counts = null }) {
-    this.map = map; this.sea = sea; this.look = look; this.behaviour = behaviour; this.hangSpots = hang;
+  // platform, the supply vessel); hang: [{ position, spread }] spots by
+  // the quarters' windows where big gulls hang still in the updraft (spread:
+  // how far round it, m, each way); counts: birds per species. The sea's
+  // level comes from the map.
+  // threat: () => a position birds flee (the helicopter), or null
+  constructor({ map, sea = null, anchors = null, hang = [], threat = null, look = 'detailed', behaviour = 'living', counts = null }) {
+    this.map = map; this.threat = threat; this.look = look; this.behaviour = behaviour; this.hangSpots = hang;
+    this.seaLevel = map.seaLevel;
+    this.sea = sea ?? (() => this.seaLevel);
+    this.light = birdLight();
+    this.night = 0;
     this.anchors = anchors ?? (() => [{ position: map.centre, weight: 1 }]);
     this.group = new THREE.Group();
     counts ??= look === 'silhouette' ? { herring: 24 } : { kittiwake: 14, fulmar: 6, herring: 7, blackback: 3 };
@@ -238,7 +278,7 @@ export class Seabirds {
       const pose = new THREE.InstancedBufferAttribute(new Float32Array(n * 3), 3);
       pose.setUsage(THREE.DynamicDrawUsage);
       geometry.setAttribute('aPose', pose);
-      const mesh = new THREE.InstancedMesh(geometry, birdMaterial(geometry), n);
+      const mesh = new THREE.InstancedMesh(geometry, birdMaterial(geometry, this.light), n);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.frustumCulled = false;
       this.group.add(mesh);
@@ -266,7 +306,7 @@ export class Seabirds {
     };
     this.orbit(b);
     const a = Math.random() * 6.3;
-    b.p.set(b.centre.x + Math.cos(a) * b.radius, b.alt, b.centre.z + Math.sin(a) * b.radius);
+    b.p.set(b.centre.x + Math.cos(a) * b.radius, this.seaLevel + b.alt, b.centre.z + Math.sin(a) * b.radius);
     b.v.set(-Math.sin(a), 0, Math.cos(a)).multiplyScalar(sp.speed * b.dir);
     return b;
   }
@@ -304,7 +344,7 @@ export class Seabirds {
   }
 
   perch(b, now = false) {
-    const free = this.map.perches.filter((x) => !x.taken && (b.key !== 'kittiwake' || x.position.y < 45));
+    const free = this.map.perches.filter((x) => !x.taken && (b.key !== 'kittiwake' || x.position.y < this.seaLevel + 45));
     if (!free.length) return;
     // kittiwakes like company: next to another one if they can
     let spot = pick(free);
@@ -330,8 +370,8 @@ export class Seabirds {
 
   // Hold station in the wind by the windows: no wingbeats, small corrections
   hang(b) {
-    const spot = pick(this.hangSpots);
-    b.target = { position: spot.clone().add(new THREE.Vector3(rand(-8, 8), rand(-2, 4), rand(-3, 5))) };
+    const { position, spread } = pick(this.hangSpots);
+    b.target = { position: position.clone().add(new THREE.Vector3(rand(-1, 1) * spread.x, rand(-0.5, 1) * spread.y, rand(-1, 1) * spread.z)) };
     b.mode = 'toHang'; b.timer = rand(12, 40);
   }
 
@@ -340,6 +380,48 @@ export class Seabirds {
     b.target = null; b.mode = 'fly'; b.flapping = true; b.bout = rand(2, 4);
     b.v.copy(b.heading).multiplyScalar(3).addScaledVector(UP, 2.5);
     this.orbit(b);
+  }
+
+  // Each frame: follow outdoor.js (light, fog, time of day, the wind in the
+  // frame's axes) and move on dt seconds
+  tick(dt, outdoor) {
+    this.setLight(outdoor.light);
+    const b = THREE.MathUtils.degToRad(outdoor.state.windFrom + 180), h = outdoor.heading;
+    const east = Math.sin(b), north = Math.cos(b);
+    this.wind.set(east * Math.cos(h) - north * Math.sin(h), 0, -(north * Math.cos(h) + east * Math.sin(h)));
+    this.clock = (this.clock ?? 0) + dt;
+    this.update(dt, this.clock);
+  }
+
+  // Light, fog and the time of day from outdoor.js's light (Outdoor.light)
+  setLight(L) {
+    const u = this.light;
+    u.uSky.value.copy(L.sky); u.uSun.value.copy(L.sun); u.uSunDir.value.copy(L.sunDir);
+    u.uFogColor.value.copy(L.fog); u.uFogDensity.value = Math.LN2 / L.fogDistance;
+    const lsky = L.sky.r * 0.2126 + L.sky.g * 0.7152 + L.sky.b * 0.0722;
+    this.night = 1 - THREE.MathUtils.smoothstep(lsky, 0.01, 0.15);
+    // Starting at night: most are already roosting
+    if (!this.lit && this.night > 0.5 && this.behaviour === 'living') {
+      for (const b of this.birds) {
+        if (b.mode !== 'fly' || Math.random() < 0.2) continue;
+        if (b.key === 'fulmar') this.land(b, true); else this.perch(b, true);
+        b.timer *= 5;
+      }
+    }
+    this.lit = true;
+  }
+
+  // The same birds for another scene (the CCTV's): sharing the geometry,
+  // material and instance matrices, so it costs only the draws
+  copy() {
+    const group = new THREE.Group();
+    for (const m of Object.values(this.meshes)) {
+      const c = new THREE.InstancedMesh(m.geometry, m.material, m.count);
+      c.instanceMatrix = m.instanceMatrix;
+      c.frustumCulled = false;
+      group.add(c);
+    }
+    return group;
   }
 
   update(dt, time) {
@@ -360,7 +442,8 @@ export class Seabirds {
         b.p.addScaledVector(this.wind, dt * 0.15);
         b.p.y = this.sea(b.p.x, b.p.z) + 0.04;
       }
-      if ((b.timer -= dt) < 0) this.takeOff(b);
+      const danger = this.threat?.();
+      if ((b.timer -= dt) < 0 || (danger && danger.distanceTo(b.p) < 35)) this.takeOff(b);
       return;
     }
     b.fold = Math.max(0, b.fold - dt * 3);
@@ -389,7 +472,7 @@ export class Seabirds {
       if (d < 0.35) {
         b.p.copy(goal); b.v.set(0, 0, 0);
         b.mode = b.mode === 'toPerch' ? 'perch' : 'sea';
-        b.timer = rand(20, 120);
+        b.timer = rand(20, 120) * (1 + 4 * this.night);   // most of the night roosting
         b.heading.copy(this.wind).negate();
         return;
       }
@@ -397,7 +480,8 @@ export class Seabirds {
       if ((b.retarget -= dt) < 0) {
         const r = Math.random();
         const big = b.key === 'herring' || b.key === 'blackback';
-        if (big && this.behaviour !== 'boids' && this.hangSpots.length && Math.random() < 0.45) this.hang(b);
+        if (this.behaviour === 'living' && this.night > 0.5 && Math.random() < 0.85) b.key === 'fulmar' ? this.land(b) : this.perch(b);
+        else if (big && this.behaviour !== 'boids' && this.hangSpots.length && Math.random() < 0.45) this.hang(b);
         else if (this.behaviour === 'living' && b.key === 'kittiwake' && r < 0.45) this.perch(b);
         else if (this.behaviour === 'living' && b.key !== 'kittiwake' && r < 0.25) b.key === 'fulmar' || r < 0.1 ? this.land(b) : this.perch(b);
         else this.orbit(b);
@@ -407,7 +491,7 @@ export class Seabirds {
       const rx = b.p.x - b.centre.x, rz = b.p.z - b.centre.z, d = Math.hypot(rx, rz) || 1;
       const pull = THREE.MathUtils.clamp((b.radius - d) * 0.15, -1.2, 1.2);
       desired.set(-rz / d * b.dir + rx / d * pull, 0, rx / d * b.dir + rz / d * pull).normalize().multiplyScalar(speed);
-      let alt = b.alt;
+      let alt = this.seaLevel + b.alt;
       if (b.key === 'fulmar' && this.behaviour !== 'boids') {   // shearwater-style arcs up and down over the swell
         alt = this.sea(b.p.x, b.p.z) + b.alt * 0.3 + b.alt * Math.max(0, Math.sin(time * 0.7 + b.seed));
       } else alt += 6 * Math.sin(time * 0.15 + b.seed);
@@ -416,7 +500,7 @@ export class Seabirds {
     }
 
     // Over the platform, not into it: look ahead and climb over what's there
-    if (b.mode === 'fly') {
+    if (b.mode === 'fly' || (b.mode === 'toHang' && b.target.position.distanceTo(b.p) > 10)) {
       const ax = b.p.x + b.v.x * 1.5, az = b.p.z + b.v.z * 1.5;
       const top = Math.max(this.map.height(ax, az), this.map.height(b.p.x, b.p.z));
       if (b.p.y < top + 6) { desired.y += (top + 6 - b.p.y) * 1.5; climb = Math.max(climb, desired.y); }
@@ -433,6 +517,12 @@ export class Seabirds {
       if (this.behaviour === 'boids' && d2 < 400) { align.add(o.v); mid.add(o.p); n++; }
     }
     desired.addScaledVector(near, 4);
+    // Out of the helicopter's way: away from it, and up off a perch
+    const danger = this.threat?.();
+    if (danger) {
+      const away = b.p.clone().sub(danger), d = away.length();
+      if (d < 45) desired.addScaledVector(away.normalize(), (45 - d) * 0.5);
+    }
     if (n) {
       desired.addScaledVector(align.divideScalar(n).sub(b.v), 0.4);
       desired.addScaledVector(mid.divideScalar(n).sub(b.p), 0.08);
@@ -484,4 +574,37 @@ export class Seabirds {
   }
 
   get flying() { return this.birds.filter((b) => b.mode !== 'perch' && b.mode !== 'sea').length; }
+}
+
+// ---------------------------------------------------------------- in the game
+
+// The flock for the control room pages (control.html, play.html): in the
+// room's frame, round the platform model the CCTV draws (cctv.js), seen
+// through the window and on the cameras. Big gulls hang in the updraft
+// outside the window. ?birds=off|boids|flight|living (living by default).
+// Resolves to the Seabirds, for tick(), or null without the CCTV's model.
+export async function addSeabirds({ scene, room, outdoor, cctv, vessel = () => null }) {
+  const mode = new URLSearchParams(location.search).get('birds') ?? 'living';
+  if (mode === 'off') return null;
+  const c = await cctv;
+  if (!c) return null;
+  const sea = room.seaLevel;
+  // the helideck, in the room's frame (platform x 65.5, 57.5 m up, by vessel.json's toRoom)
+  const map = new PlatformMap(c.model, { seaLevel: sea, avoid: [{ centre: new THREE.Vector3(13.1, sea + 57.5, 29.1), radius: 13 }] });
+  const w = room.window, mid = w.lo.clone().add(w.hi).multiplyScalar(0.5);
+  const birds = new Seabirds({
+    map, behaviour: mode === 'boids' || mode === 'flight' ? mode : 'living', look: mode === 'boids' ? 'silhouette' : 'detailed',
+    sea: (x, z) => sea + outdoor.heightAt(x, z),
+    anchors: () => {
+      const v = vessel(), list = [{ position: map.centre, weight: 0.6 }];
+      if (v && v.phase !== 'away' && v.copies[0]) list.push({ position: new THREE.Vector3().setFromMatrixPosition(v.copies[0].root.matrix), weight: 0.4 });
+      return list;
+    },
+    hang: [{ position: new THREE.Vector3(w.lo.x - 14, mid.y + 3, mid.z), spread: new THREE.Vector3(4, 3, 10) }],
+  });
+  birds.tick(0, outdoor);
+  for (let i = 0; i < 60; i++) birds.update(0.1, i * 0.1);   // spread out from the start
+  scene.add(birds.group);
+  c.scene.add(birds.copy());
+  return birds;
 }
