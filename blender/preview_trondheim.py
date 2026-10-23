@@ -292,6 +292,34 @@ def sweep(name, path, profile, side, mat):
     return o
 
 
+def dormer(u, face, eave, side):
+    """A mansard dormer as on the close-up: cream cheeks, a shallow arched hood, a tall
+    two-pane window in a white frame with one vertical bar. Faces -y (or -x with
+    side=True); u runs along the wall, face is where its front stands."""
+    def P(along, out, z):   # along the wall, out from the front (negative = forward)
+        return (face + out, along, z) if side else (along, face + out, z)
+    def B(name, along, out, z, w, d, h, mat):
+        box(name, P(along, out, z), (d, w, h) if side else (w, d, h), mat)
+    B("Dormer", u, 0.8, eave + 1.6, 1.9, 1.6, 2.0, "phoenix")             # z eave+0.6 .. +2.6
+    B("DormerFrame", u, -0.02, eave + 1.55, 1.45, 0.06, 1.95, "frame")
+    B("DormerWin", u, -0.06, eave + 1.55, 1.25, 0.06, 1.8, "glass")
+    B("DormerBar", u, -0.1, eave + 1.55, 0.09, 0.06, 1.8, "frame")
+    # the hood: a shallow segmental arch, extruded back into the roof
+    n, w, rise, z0 = 8, 1.95, 0.42, eave + 2.6
+    arc = [(-w / 2 + w * k / n, z0 + rise * (1 - (2 * k / n - 1) ** 2)) for k in range(n + 1)]
+    ring = lambda out: [P(u + a_, out, z) for a_, z in arc]   # closes along its flat base
+    front, back = ring(-0.05), ring(1.6)
+    m = len(front)
+    faces = [tuple(range(m)), tuple(range(2 * m - 1, m - 1, -1))]
+    faces += [(i, i + 1, m + i + 1, m + i) for i in range(n)] + [(0, m, 2 * m - 1, n)]   # top, then base
+    me = bpy.data.meshes.new("DormerHood")
+    me.from_pydata(front + back, [], faces)
+    me.validate()
+    o = bpy.data.objects.new("DormerHood", me)
+    scene.collection.objects.link(o)
+    me.materials.append(M["phoenix"])
+
+
 def skylight(loc, r=0.45):
     """A round roof light: a flat white disc lying on the roof."""
     bpy.ops.mesh.primitive_circle_add(vertices=8, radius=r, fill_type="NGON", location=loc)
@@ -342,18 +370,23 @@ def foniks():
         box("Capital", (mid0 + i * bw, -0.16, eave - 1.2), (1.9, 0.2, 0.7), "phoenix")
     box("BayCanopy", (L - PIER - BAY / 2, -1.25, 5.0), (BAY + 0.4, 0.8, 0.2), "dark")   # curved canopy over the north bay window
     for bx in (PIER + BAY / 2, L - PIER - BAY / 2):   # the side bays come forward
-        box("Bay", (bx, -0.45, eave / 2), (BAY, 0.9, eave - 0.4), "phoenix")
-        box("Balcony", (bx, -1.3, 13.0), (BAY + 0.4, 1.0, 0.25), "frame")
-        box("BalconyRail", (bx, -1.75, 13.5), (BAY + 0.4, 0.08, 0.8), "dark")
+        box("Bay", (bx, -0.45, 12.7 / 2), (BAY, 0.9, 12.7), "phoenix")   # stops a floor short of the eave
+        box("BayCornice", (bx, -0.5, 12.75), (BAY + 0.3, 1.1, 0.2), "frame")
+        box("BayParapet", (bx, -0.45, 13.35), (BAY, 0.9, 1.0), "phoenix")   # a solid parapet with small slots
+        for k in range(6):
+            box("ParapetSlot", (bx - BAY / 2 + 0.6 + k * (BAY - 1.2) / 5, -0.92, 13.35), (0.25, 0.06, 0.35), "dark")
     rows = (8.1, 11.3, 14.6)
     for z in rows:
         for x in (PIER / 2, L - PIER / 2):
             window(x, z, -0.12)
         for bx in (PIER + BAY / 2, L - PIER - BAY / 2):
             for dx in (-1.6, 1.6):
-                window(bx + dx, z, -0.9)
+                window(bx + dx, z, -0.9 if z < 12.7 else -0.12)
         for x in cols:
-            window(x, z, -0.12, arch=(z == rows[0]))
+            if z == rows[0]:   # tall arched doors out onto the balcony
+                window(x, 7.33, -0.12, 1.5, 3.65, arch=True)
+            else:
+                window(x, z, -0.12)
     for x in (L - PIER / 2, L - PIER - BAY / 2 - 1.6, L - PIER - BAY / 2 + 1.6):   # (none behind the restaurant)
         window(x, 3.4, -0.9 if abs(x - (L - PIER - BAY / 2)) < 2 else -0.12, 1.4, 2.4)
     # Entrance: landing 0.9 m up in front of the middle bays, stairs in front of the
@@ -361,14 +394,21 @@ def foniks():
     # fanlights, tall windows either side, the balcony with balusters across above
     LAND = 0.9
     d0, d1 = cols[1], cols[2]
-    box("Landing", ((mid0 + mid1) / 2 + 1.5, -1.6, LAND / 2), (mid1 - mid0 + 3.0, 3.2, LAND), "granite")
-    for i in range(5):
-        box("Stair", ((d0 + d1) / 2, -3.2 - 0.2 - i * 0.4, (LAND - i * 0.18) / 2), (d1 - d0 + 3.4, 0.4, LAND - i * 0.18), "granite")
-    r0, r1 = (d0 + d1) / 2 + (d1 - d0 + 3.4) / 2, (d0 + d1) / 2 + (d1 - d0 + 3.4) / 2 + 7.0   # ramp: rises from the north to the landing
-    ramp = frustum("Ramp", ((r0 + r1) / 2, -3.9), 0, r1 - r0, 1.4, r1 - r0, 1.4, 0.02, "granite")
+    # (2025 street photos: a raised terrace along the front from the restaurant to
+    # past the doors, wide steps down to the square, and the ramp running up along
+    # the restaurant's glass front onto the terrace)
+    cw = mid0 + 0.6            # where the restaurant's front arm ends
+    TD, t1 = 4.5, mid1 + 3.0   # terrace depth, its north end
+    box("Landing", ((cw + t1) / 2, -TD / 2, LAND / 2), (t1 - cw, TD, LAND), "granite")
+    box("RampTop", (cw + 0.8, -(TD + 8.6) / 2, LAND / 2), (1.6, 8.6 - TD, LAND), "granite")
+    for i in range(4):
+        box("Stair", ((cw + 1.6 + t1) / 2, -TD - 0.2 - i * 0.4, (LAND - i * 0.22) / 2),
+            (t1 - cw - 1.6, 0.4, LAND - i * 0.22), "granite")
+    r0, r1 = cw - 8.0, cw   # ramp: up along the restaurant front, high end at the terrace
+    ramp = frustum("Ramp", ((r0 + r1) / 2, -7.9), 0, r1 - r0, 1.4, r1 - r0, 1.4, 0.02, "granite")
     for v in ramp.data.vertices:
         if v.co.z > 0.01:
-            v.co.z = 0.02 + LAND * (r1 - v.co.x) / (r1 - r0)
+            v.co.z = 0.02 + LAND * (v.co.x - r0) / (r1 - r0)
 
     def rail(p0, p1, z0, z1):
         n = max(2, int((Vector(p1) - Vector(p0)).length / 1.2) + 1)
@@ -378,11 +418,11 @@ def foniks():
         a, c = Vector((*p0, z0 + 1.0)), Vector((*p1, z1 + 1.0))
         r = box("Handrail", (a + c) / 2, (0.05, 0.05, (c - a).length), "steel")
         r.rotation_euler = (c - a).to_track_quat("Z", "Y").to_euler()
-    rail((r0, -4.6), (r1, -4.6), 0.02, LAND)
-    rail((r0, -3.2), (r1, -3.2), 0.02, LAND)
-    rail(((d0 + d1) / 2 + (d1 - d0 + 3.4) / 2, -3.2), (mid1 + 3.0, -3.2), LAND, LAND)
-    for x in ((d0 + d1) / 2 - (d1 - d0 + 3.4) / 2 + 0.3, (d0 + d1) / 2 + (d1 - d0 + 3.4) / 2 - 0.3):
-        rail((x, -3.2), (x, -5.2), LAND, 0.0)
+    rail((r0, -8.6), (r1, -8.6), 0.02, LAND)
+    rail((r0, -7.2), (r1, -7.2), 0.02, LAND)
+    rail((cw + 1.6, -8.6), (cw + 1.6, -TD), LAND, LAND)
+    for x in (d0 - 1.2, d1 + 1.2):   # hand rails down the middle of the steps
+        rail((x, -TD), (x, -TD - 1.6), LAND, 0.0)
     for x in (d0, d1):
         box("DoorFrame", (x, -0.08, LAND + 1.8), (2.1, 0.14, 3.6), "frame")
         box("Door", (x, -0.15, LAND + 1.4), (1.7, 0.12, 2.8), "door")
@@ -397,14 +437,13 @@ def foniks():
     for x in (cols[0], (d0 + d1) / 2, cols[3]):
         bpy.ops.mesh.primitive_uv_sphere_add(segments=6, ring_count=4, radius=0.16, location=(x, -0.9, 5.0))
         bpy.context.object.data.materials.append(M["lamp"])
-    for x in (d0 - 2.6, d0 - 0.4, d1 + 0.4, d1 + 2.6):   # four masts, two each side of the stairs
-        flag_mast(x, -5.6)
+    for x in (d0 - 2.6, d0 - 0.4, d1 + 0.4, d1 + 2.6):   # four masts along the terrace edge
+        flag_mast(x, -TD + 0.4)
     # The glass restaurant, L-shaped round the south-east corner (2024 photos): a
     # granite plinth, clear glazing in dark frames, the glass curving over at the eaves
     # in a quarter round that meets in a mitred hip at the corner, a flat dark roof
     # dotted with round skylights, a second curved glass strip leaning on the building,
     # and the door in a little arched porch on the corner with steps down to the square
-    cw = mid0 + 0.6            # the front arm runs past the south side bay
     RD, RS = 7.0, 6.0          # depth of the front arm, of the south arm
     WT, R, RI = 3.0, 1.4, 1.1  # wall top, eave radius, radius of the strip on the building
     outer = [(cw, -RD), (-RS, -RD), (-RS, depth)]            # street edge, corner in the middle
@@ -419,7 +458,7 @@ def foniks():
         box("RestaurantPlinth", (cxa, cya, 0.35), (wx, wy, 0.7), "granite")
         box("Restaurant", (cxa, cya, (0.7 + WT) / 2), (wx - 0.1, wy - 0.1, WT - 0.7), "amber")
         ux0, uy0 = x0 + R, y0 + (R if y0 < 0 else 0.0)   # the roof sits inside the eave
-        box("RestaurantUpper", ((ux0 + x1) / 2, (uy0 + y1) / 2, WT + R / 2), (x1 - ux0, y1 - uy0, R), "dark")
+        box("RestaurantUpper", ((ux0 + x1) / 2, (uy0 + y1) / 2, WT + R / 2), (x1 - ux0, y1 - uy0, R), "amber")   # glazed where an arm ends
         box("RestaurantRoof", ((ux0 + x1) / 2, (uy0 + y1) / 2, WT + R), (x1 - ux0, y1 - uy0, 0.2), "dark")
     for x in [cw - 0.05 - i * 1.6 for i in range(int((cw + RS) / 1.6) + 1) if cw - 0.05 - i * 1.6 > -RS + 0.3]:   # frames on the street faces
         box("Mullion", (x, -RD, (0.7 + WT) / 2), (0.1, 0.12, WT - 0.7), "dark")
@@ -448,21 +487,13 @@ def foniks():
     # Eight round-topped dormers
     for i in range(8):
         x = 4.0 + i * (L - 8.0) / 7
-        box("Dormer", (x, 1.3, eave + 1.7), (1.9, 1.6, 2.2), "frame")
-        box("DormerWin", (x, 0.48, eave + 1.6), (1.1, 0.1, 1.5), "glass")
-        bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.95, depth=1.6,
-                                            location=(x, 1.3, eave + 2.8), rotation=(math.pi / 2, 0, 0))
-        bpy.context.object.data.materials.append(M["frame"])
+        dormer(x, 0.5, eave, False)
     # The south side along Kongens gate (build -x face) is red brick, with the same
     # white-framed windows with crosses
     box("SouthBrick", (-0.04, depth / 2, (5.0 + eave - 1.2) / 2), (0.08, depth, eave - 1.2 - 5.0), "brick")   # cream ground floor, tan band under the eave
     box("SouthBand", (-0.1, depth / 2, eave - 0.6), (0.12, depth, 1.2), "phoenix")
     for y in (4.5, 10.0, 15.5):   # three round-topped dormers on the south slope
-        box("Dormer", (1.3, y, eave + 1.7), (1.6, 1.9, 2.2), "frame")
-        box("DormerWin", (0.48, y, eave + 1.6), (0.1, 1.1, 1.5), "glass")
-        bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.95, depth=1.6,
-                                            location=(1.3, y, eave + 2.8), rotation=(0, math.pi / 2, 0))
-        bpy.context.object.data.materials.append(M["frame"])
+        dormer(y, 0.5, eave, True)
     for y in (0.7, depth - 0.7):   # cream quoins at both corners
         box("Quoin", (-0.09, y, eave / 2), (0.1, 1.4, eave - 0.6), "phoenix")
     for z in rows:
@@ -530,7 +561,7 @@ def phoenix_fountain(cx, cy):
 
 _before = set(bpy.data.objects)
 foniks()
-phoenix_fountain(FW / 2, -8.0)   # on the axis of the doors, in front of the stairs
+phoenix_fountain(FW / 2, -9.6)   # on the axis of the doors, at the foot of the steps
 from mathutils import Matrix
 # Built facing -y with its south end at build x = 0; a quarter turn to the left makes
 # it face EAST, then it slides onto the square: front at FONIKS_FRONT, south end at
@@ -723,7 +754,7 @@ bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.35, loca
 bpy.context.object.scale.z = 1.3   # the stone by his left foot
 bpy.context.object.data.materials.append(M["bronze"])
 # The bearded character (Adriaen, one year ago) at the Føniks entrance, by the fountain
-me, _ = load_char("bearded_operator", FL(14.6, -7.0), math.radians(200) + TURN)
+me, _ = load_char("bearded_operator", FL(14.6, -9.6), math.radians(200) + TURN)
 # Light: low autumn sun, overcast sky
 world = bpy.data.worlds.new("Sky")
 world.use_nodes = True
@@ -787,13 +818,15 @@ SHOTS = {
     "A_street": (A_POS, A_AT, 28.0, 16 / 9),
     # R: the restaurant corner from above the square (Adriaen's aerial photo)
     "R_restaurant": (FL(-24.0, -30.0, 24.0), FL(7.0, 4.0, 7.0), 32.0, 3 / 4),
+    # T: along the front from the restaurant: the ramp, the terrace and the balcony doors
+    "T_terrace": (FL(2.0, -14.0, 1.7), FL(20.0, -2.0, 5.0), 24.0, 3 / 4),
     # S: across Kongens gate, Føniks's brick south wall and the annex (Adriaen's winter photo)
     "S_kongens_street": ((FB - 2.0, FONIKS_SOUTH - 34.0, 1.7), (FB - 2.0, FONIKS_SOUTH, 9.5), 20.0, 4 / 3),
     "E_entrance": (FL(18.0, -19.0, 2.0), FL(18.0, 0.0, 4.2), 30.0, 16 / 9),
-    "F_phoenix": (FL(16.6, -14.6, 2.3), FL(18.0, -10.0, 2.4), 40.0, 16 / 9),
+    "F_phoenix": (FL(16.6, -16.4, 2.3), FL(18.6, -9.6, 2.4), 40.0, 16 / 9),
     "D_statue_close": ((-6.5, -6, 16.2), (0, 0, 15.8), 50.0, 16 / 9),
     # C: over the character's shoulder at the door, looking back at the statue
-    "C_statue": (FL(14.0, -4.6, 1.75), (2, 0, 10), 26.0, 16 / 9),
+    "C_statue": (FL(14.0, -4.0, 2.65), (2, 0, 10), 26.0, 16 / 9),
     # Like Adriaen's Google 3D view: over Kongens gate, Føniks's brick south wall and its annex
     "K_kongens": ((-12.0, -22.0, 38.0), (-46.0, 24.0, 6.0), 30.0, 16 / 9),
     # Straight down, orthographic (lens < 0 = ortho width in metres), for the satellite check
