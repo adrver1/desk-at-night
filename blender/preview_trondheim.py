@@ -44,7 +44,7 @@ M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "brick": ("#8e3b2e", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
     "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
     "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3a3d42", 0.7), "roof_light": ("#8f9498", 0.8),
-    "copper": ("#6e3a2c", 0.55), "plinth": ("#59625d", 0.8), "amber": ("#4a5258", 0.12),   # restaurant glazing, warm interior faintly behind "door": ("#4a2c1e", 0.5),
+    "copper": ("#6e3a2c", 0.55), "plinth": ("#59625d", 0.8), "amber": ("#4a5258", 0.12), "door": ("#4a2c1e", 0.5),
     "bronze_dark": ("#2f3a33", 0.45), "gold": ("#b8913a", 0.35), "travertine": ("#dcd2bf", 0.8), "orange": ("#c9583a", 0.8),
 }.items()}
 
