@@ -723,7 +723,7 @@ FB = FONIKS_FRONT - 12.8   # Føniks's back wall (GPS: SW roof corner)
 AS, JW = FONIKS_SOUTH - 1.0, 2.2   # annex street face, joint width
 ax0, ax1 = FB - JW - 17.7, FB - JW   # 17.7 m wide (GPS pins on both street corners)
 acx = (ax0 + ax1) / 2
-box("FoniksAnnex", (acx, AS + 10.5, 9.8), (ax1 - ax0, 21, 19.6), "travertine")
+box("FoniksAnnex", (acx, AS + 10.5, 8.4), (ax1 - ax0, 21, 16.8), "travertine")   # the copper top floor sits on it
 box("FoniksAnnexBase", (acx, AS - 0.05, 2.65), (ax1 - ax0 - 0.4, 0.12, 5.3), "glass")
 for i in range(6):
     box("FoniksAnnexPier", (ax0 + 0.4 + i * (ax1 - ax0 - 0.8) / 5, AS - 0.12, 2.65), (0.5, 0.2, 5.3), "copper")
@@ -951,6 +951,13 @@ SHOTS = {
     "C_statue": (FL(21.5, -1.2, 3.0), (2, 0, 10), 26.0, 16 / 9),
     # Like Adriaen's Google 3D view: over Kongens gate, Føniks's brick south wall and its annex
     "K_kongens": ((-12.0, -22.0, 38.0), (-46.0, 24.0, 6.0), 30.0, 16 / 9),
+    # P_*: from the spots of Adriaen's 2025 photos, for side-by-side checks
+    "P_front_close": ((-32.0, 39.5, 1.6), (-44.5, 39.5, 9.0), 20.0, 0.61),
+    "P_corner": ((-24.0, 12.0, 1.6), (-47.0, 30.0, 9.0), 20.0, 1.5),
+    "P_kongens": ((-60.0, -1.5, 1.7), (-60.0, 20.5, 9.0), 22.0, 1.34),
+    "P_fountain_steps": ((-30.0, 43.0, 1.6), (-44.5, 39.0, 3.5), 26.0, 0.97),
+    "P_ramp_terrace": ((-30.0, 31.0, 1.6), (-44.5, 40.0, 6.0), 20.0, 0.56),
+    "P_north_bay": ((-33.0, 46.0, 1.6), (-44.5, 52.0, 6.0), 22.0, 0.65),
     # Straight down, orthographic (lens < 0 = ortho width in metres), for the satellite check
     "T_top": ((0.0, 10.0, 300.0), (0.0, 10.001, 0.0), -160.0, 1.0),
 }
