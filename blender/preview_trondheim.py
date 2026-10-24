@@ -260,20 +260,20 @@ def window(x, z, y, w=1.35, h=2.1, arch=False, side=False, panes=2):
     """A white-framed window with the white cross (mullion + transom) of the old hotel,
     or with two mullions for three panes. Faces -y, or -x with side=True (then x is
     along the wall and y is the wall line)."""
-    # flat quads laid on the wall a few millimetres apart (Adriaen: no depth needed, and
-    # they must sit on the wall, not float in front of it)
+    # flat quads laid on the wall a centimetre apart (Adriaen: no depth needed, and they
+    # must sit on the wall, not float; closer than ~1 cm flickers on a phone's depth buffer)
     def B(name, cx, cz, sx, sz, dy, mat):
         return pane(name, "w" if side else "s", cx, cz, sx, sz, y - dy, mat)
-    B("WinFrame", x, z, w + 0.3, h + 0.3, 0.004, "frame")
-    B("Win", x, z, w, h, 0.008, "glass")
+    B("WinFrame", x, z, w + 0.3, h + 0.3, 0.01, "frame")
+    B("Win", x, z, w, h, 0.02, "glass")
     for u in ((x,) if panes == 2 else (x - w / 6, x + w / 6)):
-        B("Mullion", u, z, 0.1, h, 0.016, "frame")
+        B("Mullion", u, z, 0.1, h, 0.04, "frame")
     # a hair behind the mullion: coplanar faces where the two cross render as a black spot
-    B("Transom", x, z + h * 0.2, w, 0.1, 0.012, "frame")
+    B("Transom", x, z + h * 0.2, w, 0.1, 0.03, "frame")
     if arch:   # a rectangular window under a round white surround filled with render
         # each a hair proud of the one behind: a face flush with the frame's front renders black
-        halfdisc("WinFrame", x, z + h / 2, w / 2 + 0.15, y - 0.002, "frame", side=side)
-        halfdisc("ArchFill", x, z + h / 2 + 0.12, w / 2 - 0.1, y - 0.006, "phoenix", side=side)
+        halfdisc("WinFrame", x, z + h / 2, w / 2 + 0.15, y - 0.005, "frame", side=side)
+        halfdisc("ArchFill", x, z + h / 2 + 0.12, w / 2 - 0.1, y - 0.015, "phoenix", side=side)
 
 
 def halfdisc(name, cx, cz, r, y, mat, n=8, side=False):
@@ -293,19 +293,19 @@ def balcony_door(x, z, w=1.5, h=3.65):
     """A tall door onto the front balcony (2025 photo): set in the brick under a cream
     arch with a keystone, a round sunburst fanlight over the white double door."""
     top = z + h / 2
-    pane("DoorArch", "s", x, (z - h / 2 + top) / 2, w + 0.7, h, -0.004, "phoenix")   # all laid flat on the brick
-    halfdisc("DoorArch", x, top, w / 2 + 0.35, -0.004, "phoenix")
-    pane("Keystone", "s", x, top + w / 2 + 0.2, 0.32, 0.5, -0.006, "phoenix")
-    window(x, z, -0.008, w, h)
-    halfdisc("WinFrame", x, top, w / 2 + 0.12, -0.01, "frame")
-    halfdisc("Win", x, top, w / 2, -0.014, "glass")
+    pane("DoorArch", "s", x, (z - h / 2 + top) / 2, w + 0.7, h, -0.02, "phoenix")   # all laid flat on the brick
+    halfdisc("DoorArch", x, top, w / 2 + 0.35, -0.02, "phoenix")
+    pane("Keystone", "s", x, top + w / 2 + 0.2, 0.32, 0.5, -0.03, "phoenix")
+    window(x, z, -0.03, w, h)
+    halfdisc("WinFrame", x, top, w / 2 + 0.12, -0.035, "frame")
+    halfdisc("Win", x, top, w / 2, -0.045, "glass")
     for k in (1, 2, 3):   # the sunburst bars
         a = math.pi * k / 4
         # not "Mullion": their inner ends bury each other, which fronts_only would
         # take for a buried back and leave only the outer end square
-        b = box("Sunburst", (x + 0.27 * w * math.cos(a), -0.03, top + 0.27 * w * math.sin(a)), (0.54 * w, 0.01, 0.06), "frame")
+        b = box("Sunburst", (x + 0.27 * w * math.cos(a), -0.085, top + 0.27 * w * math.sin(a)), (0.54 * w, 0.01, 0.06), "frame")
         b.rotation_euler = (0, -a, 0)
-    box("SunHub", (x, -0.04, top + 0.03), (0.16, 0.01, 0.16), "frame")   # covers where the bars meet
+    box("SunHub", (x, -0.095, top + 0.03), (0.16, 0.01, 0.16), "frame")   # covers where the bars meet
 
 
 def rib(path, leg, at, quarter, r, z0, side):
@@ -377,8 +377,8 @@ def dormer(u, face, eave, side):
     # roof tiles show between the cornice and the dormer; the window stands on a sill shelf
     B("Dormer", u, 0.8, eave + 1.5, 1.6, 1.6, 1.8, "phoenix")             # z eave+0.6 .. +2.4
     B("DormerSill", u, -0.08, eave + 0.68, 1.5, 0.3, 0.12, "frame")
-    for name, d, w, h, mat in (("DormerFrame", 0.004, 1.2, 1.56, "frame"), ("DormerWin", 0.008, 1.02, 1.42, "glass"),
-                               ("DormerBar", 0.012, 0.08, 1.42, "frame")):   # flat quads on its face
+    for name, d, w, h, mat in (("DormerFrame", 0.01, 1.2, 1.56, "frame"), ("DormerWin", 0.02, 1.02, 1.42, "glass"),
+                               ("DormerBar", 0.03, 0.08, 1.42, "frame")):   # flat quads on its face
         pane(name, "w" if side else "s", u, eave + 1.52, w, h, face - d, mat)
     # the hood: a round-topped arch, extruded back into the roof
     n, w, rise, z0 = 6, 1.65, 0.55, eave + 2.4
@@ -436,17 +436,17 @@ def foniks():
     # Cream corners and pilasters, red brick panels between the middle pilasters
     # from above the ground floor up (2024 photos); brick and reliefs are quads laid
     # on the cream wall (WY: the face windows sit on)
-    WY = -0.004
+    WY = -0.02
     mid0, mid1 = PIER + BAY, L - PIER - BAY
     cols = [(mid0 + (i + 0.5) * (mid1 - mid0) / 4) for i in range(4)]
     bw = (mid1 - mid0) / 4
     for x0 in (0.0, L - PIER):   # brick corner piers, as on the south wall (aerial photo)
-        pane("BrickPier", "s", x0 + PIER / 2, (5.0 + eave - 1.2) / 2, PIER, eave - 1.2 - 5.0, -0.002, "brick")
+        pane("BrickPier", "s", x0 + PIER / 2, (5.0 + eave - 1.2) / 2, PIER, eave - 1.2 - 5.0, -0.01, "brick")
     for x in (PIER - 0.35, L - PIER + 0.35):   # a cream strip between each pier and its bay
-        pane("PierStrip", "s", x, (5.0 + eave - 1.2) / 2, 0.7, eave - 1.2 - 5.0, -0.003, "phoenix")
+        pane("PierStrip", "s", x, (5.0 + eave - 1.2) / 2, 0.7, eave - 1.2 - 5.0, -0.02, "phoenix")
     for x in cols:
-        pane("BrickPanel", "s", x, (5.45 + eave - 1.2) / 2, bw - 0.75, eave - 1.2 - 5.45, -0.002, "brick")   # pilasters ~0.75 m
-        pane("Cartouche", "s", x, 12.15, 1.3, 0.7, -0.004, "phoenix")   # carved relief between the upper windows (rows 2 and 3)
+        pane("BrickPanel", "s", x, (5.45 + eave - 1.2) / 2, bw - 0.75, eave - 1.2 - 5.45, -0.01, "brick")   # pilasters ~0.75 m
+        pane("Cartouche", "s", x, 12.15, 1.3, 0.7, -0.02, "phoenix")   # carved relief between the upper windows (rows 2 and 3)
     for i in range(5):   # capitals on the cream pilasters under the cornice
         box("Capital", (mid0 + i * bw, -0.16, eave - 1.2), (1.9, 0.2, 0.7), "phoenix")
     # The north bay's ground floor steps out again into a half-octagon with big
@@ -571,9 +571,9 @@ def foniks():
     rail((s1 + 0.2, -PD - 0.1), (t1, -PD - 0.1), LAND, LAND)
     for x in (d0, d1):
         # top-aligned with the windows either side
-        pane("DoorFrame", "s", x, LAND + 1.575, 2.1, 3.15, -0.004, "frame")
-        pane("Door", "s", x, LAND + 1.2, 1.7, 2.4, -0.008, "door")
-        pane("Fanlight", "s", x, LAND + 2.725, 1.7, 0.55, -0.008, "glass")
+        pane("DoorFrame", "s", x, LAND + 1.575, 2.1, 3.15, -0.01, "frame")
+        pane("Door", "s", x, LAND + 1.2, 1.7, 2.4, -0.02, "door")
+        pane("Fanlight", "s", x, LAND + 2.725, 1.7, 0.55, -0.02, "glass")
     for x in (cols[0], cols[3]):
         window(x, LAND + 1.7, WY, 1.5, 2.6)
     box("EntryBalcony", ((mid0 + mid1) / 2, -0.8, 5.3), (mid1 - mid0, 1.6, 0.3), "phoenix")
@@ -644,13 +644,13 @@ def foniks():
     # white-framed windows with crosses
     # the brick and the tan band are single quads laid on the cream wall (no slab of their
     # own), and the windows sit on the brick
-    pane("SouthBrick", "w", depth / 2, (5.0 + eave - 1.2) / 2, depth, eave - 1.2 - 5.0, -0.002, "brick")   # cream ground floor
-    pane("SouthBand", "w", depth / 2, eave - 0.6, depth, 1.2, -0.002, "phoenix")   # tan band under the eave
+    pane("SouthBrick", "w", depth / 2, (5.0 + eave - 1.2) / 2, depth, eave - 1.2 - 5.0, -0.01, "brick")   # cream ground floor
+    pane("SouthBand", "w", depth / 2, eave - 0.6, depth, 1.2, -0.01, "phoenix")   # tan band under the eave
     for y in SOUTH_COLS:   # three round-topped dormers on the south slope
         dormer(y, -0.2, eave, True)
     for z in rows:
         for y in SOUTH_COLS:
-            window(y, z, -0.002, side=True, h=1.7 if z in rows[:2] else 2.1, arch=z in rows[:2])
+            window(y, z, -0.01, side=True, h=1.7 if z in rows[:2] else 2.1, arch=z in rows[:2])
 
 
 # A half-folded wing (Adriaen's close photo): a rounded shoulder just above the head,
@@ -868,11 +868,11 @@ def annex_win(c, z, w, h, face, mat="glass"):
     """A window on the annex: slim dark bronze frame flush on the wall (a raised
     one cast a shadow that read as a wireframe), glass (or lowered blinds) on it. face "s" = on the box's street face (c = x), "w" = on the west wall (c = y)."""
     if face == "s":
-        pane("FoniksAnnexFrame", "s", c, z, w + 0.12, h + 0.12, AS - 1.004, "bronze_dark")
-        pane("FoniksAnnexWin", "s", c, z, w, h, AS - 1.008, mat)
+        pane("FoniksAnnexFrame", "s", c, z, w + 0.12, h + 0.12, AS - 1.01, "bronze_dark")
+        pane("FoniksAnnexWin", "s", c, z, w, h, AS - 1.02, mat)
     else:
-        pane("FoniksAnnexFrame", "w", c, z, w + 0.12, h + 0.12, ax0 - 0.004, "bronze_dark")
-        pane("FoniksAnnexWin", "w", c, z, w, h, ax0 - 0.008, mat)
+        pane("FoniksAnnexFrame", "w", c, z, w + 0.12, h + 0.12, ax0 - 0.01, "bronze_dark")
+        pane("FoniksAnnexWin", "w", c, z, w, h, ax0 - 0.02, mat)
 
 
 # The travertine box: six window columns, the first well in from the west corner; the
@@ -886,10 +886,10 @@ for z, h, mat in ROWS:
     # into the first west window
     # one glass strip per face, meeting at the corner; frames only on the far edges
     cx0, cx1, cy1 = ax0, ax0 + 1.25, AS + 1.2
-    pane("FoniksAnnexFrame", "s", (cx0 + cx1) / 2 + 0.06, z, cx1 - cx0, h + 0.12, AS - 1.004, "bronze_dark")
-    pane("FoniksAnnexWin", "s", (cx0 + cx1) / 2 - 0.004, z, cx1 - cx0 + 0.008, h, AS - 1.008, mat)
-    pane("FoniksAnnexFrame", "w", (AS - 1.004 + cy1) / 2 + 0.06, z, cy1 - AS + 1.004, h + 0.12, cx0 - 0.004, "bronze_dark")
-    pane("FoniksAnnexWin", "w", (AS - 1.008 + cy1) / 2, z, cy1 - AS + 1.008, h, cx0 - 0.008, mat)
+    pane("FoniksAnnexFrame", "s", (cx0 + cx1) / 2 + 0.06, z, cx1 - cx0, h + 0.12, AS - 1.01, "bronze_dark")
+    pane("FoniksAnnexWin", "s", (cx0 + cx1) / 2 - 0.01, z, cx1 - cx0 + 0.02, h, AS - 1.02, mat)
+    pane("FoniksAnnexFrame", "w", (AS - 1.01 + cy1) / 2 + 0.06, z, cy1 - AS + 1.01, h + 0.12, cx0 - 0.01, "bronze_dark")
+    pane("FoniksAnnexWin", "w", (AS - 1.02 + cy1) / 2, z, cy1 - AS + 1.02, h, cx0 - 0.02, mat)
 for x in [ax0 + 3.5 + i * 2.5 for i in range(6)]:
     box("FoniksAnnexRail", (x, AS - 1.1, 13.1), (1.2, 0.04, 0.9), "skylight")
 box("FoniksAnnexRail", ((cx0 + cx1) / 2, AS - 1.1, 13.1), (cx1 - cx0, 0.04, 0.9), "skylight")
@@ -966,9 +966,9 @@ for fc in (tx0 + 0.6, acx, tx1 - 0.6):
 for g0, g1 in ((tx0 + 1.2, acx - 0.6), (acx + 0.6, tx1 - 1.2)):
     for k in range(3):
         w = (g1 - g0 - 0.6) / 3
-        pane("FoniksAnnexTopWin", "s", g0 + w / 2 + k * (w + 0.3), 18.45, w, 2.3, ty0 - 0.008, "blind" if k == 1 else "glass")
+        pane("FoniksAnnexTopWin", "s", g0 + w / 2 + k * (w + 0.3), 18.45, w, 2.3, ty0 - 0.02, "blind" if k == 1 else "glass")
 for y in [AS + 2.6, AS + 5.6] + [AS + 9.0 + 3.2 * k for k in range(int((CE - AS - 10.5) / 3.2))]:
-    pane("FoniksAnnexTopWin", "w", y, 18.45, 2.2, 2.3, tx0 - 0.008, "glass")
+    pane("FoniksAnnexTopWin", "w", y, 18.45, 2.2, 2.3, tx0 - 0.02, "glass")
 # The copper-clad joint onto Føniks: a tall glazed entrance, two windows above, rising
 # past Føniks's eave; the glass atrium roof stands up behind it (winter photo)
 box("FoniksAnnexJoint", (FB - JW / 2, AS + 10.8, TT / 2), (JW, 21, TT), "copper")   # set back a little, up under the top floor
