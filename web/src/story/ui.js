@@ -3,7 +3,8 @@
 // the alarm banner, the org chart with the knowledge graph, and labels
 // pinned to things in the room. Plain DOM, styled by story.css; main.js says
 // what to show.
-import { SPEAKERS, CLIPBOARD, STAR_DIMS, STARS, STAR_ROWS, SAFETY_LINE, CARDS, LEVELS, VOTES, VOTE_URL, SLIDES, LOGS, NOTICES, AGENTS, ORG, NEVER, PLAIN_CARDS, SEARCH } from './content.js';
+import { SPEAKERS, CLIPBOARD, STAR_DIMS, STARS, STAR_ROWS, SAFETY_LINE, CARDS, LEVELS, VOTES, VOTE_URL, SLIDES, LOGS, NOTICES, AGENTS, ORG, NEVER, PLAIN_CARDS, SEARCH, SLIDE_ORDER } from './content.js';
+import { T } from './lang.js';
 import { drawGraph } from './graph.js';
 
 const h = (tag, cls, html) => {
@@ -35,7 +36,7 @@ export class StoryUI {
     this.slideImages = {};
     // The org chart and the graph behind it
     this.graphCanvas = h('canvas', 'graph');
-    this.el.org.append(this.graphCanvas, this.orgChart(), h('div', 'graph-title', 'One knowledge base · many agentic experts'));
+    this.el.org.append(this.graphCanvas, this.orgChart(), h('div', 'graph-title', T('Én kunnskapsbase · mange agentiske eksperter', 'One knowledge base · many agentic experts')));
   }
 
   // ------------------------------------------------------------ titles
@@ -233,11 +234,11 @@ export class StoryUI {
 
   showSlide(id) {
     const s = SLIDES[id], e = this.el.slide;
-    const ids = Object.keys(SLIDES), n = ids.indexOf(id) + 1;
+    const ids = SLIDE_ORDER, n = ids.indexOf(id) + 1;
     e.innerHTML = `<div class="num">${n} / ${ids.length}</div>`;
     const img = this.slideImages[id];
     if (img) e.append(img);
-    else e.insertAdjacentHTML('afterbegin', `<h2>${esc(s.title)}</h2><ul>${s.bullets.map((b) => `<li class="${b.startsWith('TODO') ? 'todo' : ''}">${esc(b)}</li>`).join('')}</ul>${s.placeholder ? '<div class="tag">Placeholder · Adriaen\'s slide goes here</div>' : '<div></div>'}`);
+    else e.insertAdjacentHTML('afterbegin', `<h2>${esc(s.title)}</h2><ul>${s.bullets.map((b) => `<li class="${b.startsWith('TODO') ? 'todo' : ''}">${esc(b)}</li>`).join('')}</ul>${s.placeholder ? `<div class="tag">${T('Plassholder · Adriaens lysbilde kommer her', 'Placeholder · Adriaen\'s slide goes here')}</div>` : '<div></div>'}`);
     fadeIn(e);
   }
 

@@ -78,6 +78,18 @@ export class Shots {
       }
       case 'table': return this.look(new THREE.Vector3(-0.35, 1.62, 0.15), new THREE.Vector3(2.0, 1.3, 2.3), 62);
       case 'epilogue': return this.custom?.() ?? this.target('desk');
+      // Tomorrow's room: the whole room from the back corner; over Brage's
+      // shoulder at the band; Brage from the band side; over Adriaen's
+      // shoulder at his monitors; Adriaen side on
+      case 'wideRoom': return this.look(new THREE.Vector3(3.3, 2.15, 2.6), new THREE.Vector3(-0.6, 1.2, -2.6), 68);
+      case 'brageBand': return this.look(new THREE.Vector3(2.8, 1.7, 2.6), new THREE.Vector3(-0.2, 1.6, -4), 45);
+      case 'brage': {
+        const head = headOf('supervisor');
+        if (head) return this.look(new THREE.Vector3(0.45, 1.55, -0.7), head.clone().add(new THREE.Vector3(0, -0.12, 0)), 45);
+        return this.target('brageBand');
+      }
+      case 'adriaenDesk': return this.look(new THREE.Vector3(0.3, 1.8, -0.8), new THREE.Vector3(1.9, 1.0, -2.2), 45);
+      case 'adriaen': return this.look(new THREE.Vector3(2.5, 1.45, -0.35), new THREE.Vector3(1.45, 1.1, -1.95), 55);   // his profile, the monitors beyond
       default: break;
     }
     if (name.startsWith('monitor:')) {

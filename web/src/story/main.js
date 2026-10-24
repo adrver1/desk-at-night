@@ -7,10 +7,12 @@
 // Keys: Space or → next, ← back, 1-9 chapter, F free mode (and back), P
 // presenter notes, O debug overlay (free mode). A presentation clicker sends
 // the same keys. URL: ?chapter=N, ?mode=free, ?sola=1 (the optional Sola
-// apron scene before the flight), ?nofs (no fullscreen on start).
+// apron scene before the flight), ?nofs (no fullscreen on start),
+// ?story=full (the three-act version), ?lang=en|no (on-screen language).
 import * as THREE from 'three';
 import '../play.js';
 import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS } from './content.js';
+import { FULL, LANG, T } from './lang.js';
 import lines from './lines.json';
 import { StoryUI } from './ui.js';
 import { Sound } from './sound.js';
@@ -21,11 +23,15 @@ import { DEFAULT_LAYOUT, contentOf } from '../screens.js';
 import { Shots } from './shots.js';
 import { Epilogue } from './epilogue.js';
 import { Sola } from './sola.js';
+import { Trondheim } from './trondheim.js';
 
 const game = window.__game;
 const q = new URLSearchParams(location.search);
 const PRIVATE = 'story/private/';
 const MUSIC = 'story/music/flight.mp3';   // from the Sola opening (or the flight) until 'press Space'
+// Colour grades per act (sepia yesterday and one year ago, blue tomorrow):
+// off since 2026-10-24 (Adriaen), kept behind ?grade=1
+const GRADES = q.get('grade') === '1';
 addStoryScreens();
 
 const host = document.getElementById('game');
@@ -35,6 +41,7 @@ const NAV = new URLSearchParams(location.search).get('nav') ?? 'b';
 if (NAV !== '0') ui.nav(CHAPTERS, NAV, (c, i) => (c === 'next' ? next() : c === 'back' ? back() : enter(c, i, { instant: true })));
 const sound = new Sound();
 const call = new Call(ui.el.call);
+const trondheim = new Trondheim(host);
 let cast = null, shots = null, epilogue = null;
 // The Sola opening (?sola=1) and its callback stills in Acts 1 and 3
 // (?solastills=1, on with ?sola=1 unless ?solastills=0). Both off by default.
@@ -57,7 +64,7 @@ function applyOverrides(o) {
   });
 }
 if (PRIVATE_ON) ui.findSlides();
-if (PRIVATE_ON) for (const id of ['stepTest', 'riser', 'antiSlug', 'scd']) {
+if (PRIVATE_ON) for (const id of ['stepTest', 'riser', 'antiSlug', 'scd', 'govDocs']) {
   const img = new Image();
   img.onload = () => { S.images[id] = img; };
   img.src = `${PRIVATE}tools/${id}.png`;
@@ -85,7 +92,7 @@ const merge = (a, b) => {
 // earlier beat's set and end, then its own set
 function stateAt(c, i) {
   const ch = CHAPTERS[c];
-  let s = merge({ act: 0, graph: 0, alarms: null, overlay: null, boatLabel: null, org: null, tool: null, sound: 'room' }, ch.base);
+  let s = merge({ act: 0, graph: 0, alarms: null, overlay: null, boatLabel: null, org: null, tool: null, chats: null, place: null, sound: 'room' }, ch.base);
   for (let k = 0; k < i; k++) s = merge(merge(s, ch.beats[k].set), ch.beats[k].end);
   return merge(s, ch.beats[i].set);
 }
@@ -97,7 +104,7 @@ function apply(s, { instant = false } = {}) {
   const prev = state;
   state = s;
   // Colour grade per act
-  if (lastGrade !== s.act) { host.classList.remove(`grade-${lastGrade}`); host.classList.add(`grade-${s.act}`); lastGrade = s.act; }
+  if (GRADES && lastGrade !== s.act) { host.classList.remove(`grade-${lastGrade}`); host.classList.add(`grade-${s.act}`); lastGrade = s.act; }
   // Game time (the red clock, the sun, the vessel's schedule)
   if (s.time !== undefined && (instant || s.time !== prev.time)) setTime(s.time);
   // Screens: the default layout plus this state's changes
@@ -110,6 +117,11 @@ function apply(s, { instant = false } = {}) {
   if ((s.graph ?? 0) !== S.graph) { S.graph = s.graph ?? 0; S.graphAt = instant ? -99 : S.now; }
   if (s.tool !== prev.tool) S.toolAt = S.now;
   S.tool = s.tool;
+  // Chats: as many messages as the state says, the newest already typed
+  for (const [id, n] of Object.entries(s.chats ?? {})) if (S.chats[id] !== n) { S.chats[id] = n; S.chatAt[id] = -99; }
+  // Somewhere else than the control room (one year ago: Trondheim)
+  if (s.place === 'trondheim' && !trondheim.on) { trondheim.show(); game.hooks.hidden = true; }
+  if (s.place !== 'trondheim' && trondheim.on) { trondheim.hide(); game.hooks.hidden = false; }
   cast?.place(s.cast);
   ui.clipboard(s.clipboard);
   ui.clipAway(Boolean(s.shot?.startsWith('monitor:') || s.overlay?.startsWith('slide:') || s.overlay?.startsWith('log:') || s.overlay?.startsWith('vote:') || s.overlay?.startsWith('card:') || s.graphOn === 'overlay'));
@@ -126,6 +138,7 @@ function apply(s, { instant = false } = {}) {
 let roomVolume = 40;
 
 function setTime(h) {
+  h = ((h % 24) + 24) % 24;
   game.outdoor({ time: h });
   S.clock = `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 60)).padStart(2, '0')}`;
 }
@@ -152,6 +165,8 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
   apply(stateAt(c, i), { instant });
   if (b.sola && sola) { ui.clipAway(true); sola.still(b.sola, ui); }
   if (b.title) ui.title({ eyebrow: `Act ${b.title}`, text: ACTS[b.title].name, sub: ACTS[b.title].sub, solid: true });
+  if (b.card) ui.title(b.card);
+  host.classList.remove('rewinding', 'forwarding');
   showHud();
   ui.notes(b.notes, notesOn);
   running = true; waiting = false;
@@ -165,6 +180,7 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
   if (my !== token) return;
   running = false; waiting = true;
   showHud();
+  if (b.auto && !skipDo && !free) next();
 }
 
 const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
@@ -183,6 +199,15 @@ async function run(step, my) {
     S.notices.push([...NOTICES[step.notice], S.now]);
     return sleep(0.6);
   }
+  if (step.chat) {
+    const id = step.chat, n = (state.chats?.[id] ?? 0) + 1;
+    state.chats = { ...state.chats, [id]: n };
+    S.chats[id] = n; S.chatAt[id] = S.now;
+    return sleep(0.3);
+  }
+  if (step.card !== undefined) { ui.title(step.card); return; }
+  if (step.rewind) return rewind(step.rewind, my, -1);
+  if (step.forward) return rewind(step.forward, my, 1);
   if (step.graph) { apply(merge(state, { graph: step.graph })); S.graphAt = S.now; return; }
   if (step.tick) {
     const [k, v] = step.tick, cb = state.clipboard;
@@ -221,10 +246,37 @@ async function run(step, my) {
   }
 }
 
+// The rewind (dir -1) to one year ago, or the fast forward (dir 1) back to
+// tomorrow: the clock races round, the picture judders like a tape, and on
+// the way back the screens go out one by one (and with ?grade=1 the colour
+// drains to sepia).
+// The state lands where the beat's `end` says (or the next chapter's base).
+async function rewind(over, my, dir) {
+  const t0 = performance.now(), from = state.time ?? 12, span = 24 * 3;
+  const screens = Object.keys(state.screens ?? {}).concat(Object.keys(DEFAULT_LAYOUT)).filter((n, i, a) => a.indexOf(n) === i);
+  host.classList.add(dir < 0 ? 'rewinding' : 'forwarding');
+  sound.cut();
+  let off = 0;
+  while (performance.now() - t0 < over * 1000) {
+    if (my !== token) { host.classList.remove('rewinding', 'forwarding'); return; }
+    const k = (performance.now() - t0) / (over * 1000);
+    setTime(from + dir * span * k * k * (3 - 2 * k));
+    if (dir < 0) {
+      // Screens out, a few at a time
+      const want = Math.floor(smoothstep(k / 0.7) * screens.length);
+      for (; off < want; off++) game.room?.setContent(screens[off], 'blank');
+      if (GRADES && k > 0.45 && lastGrade !== 5) { host.classList.remove(`grade-${lastGrade}`); host.classList.add('grade-5'); lastGrade = 5; }
+    }
+    await sleep(1 / 30);
+  }
+  host.classList.remove('rewinding', 'forwarding');
+}
+const smoothstep = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
+
 async function say(id, my) {
   const line = lines[id];
   if (!line) return;
-  ui.subs(line.who, line.text);
+  ui.subs(line.name ?? line.who, LANG === 'no' ? line.no ?? line.text : line.text);
   const mouth = sound.index[id]?.mouth ?? '';
   cast?.talk(line.who, mouth);
   call.talk(line.who, mouth);
@@ -332,6 +384,7 @@ function debugPanel() {
 // its clock (same origin) to cue the title, credits and the pilot.
 
 function startPrologue() {
+  trondheim.hide();
   game.hooks.hidden = true;
   ui.clipboard(null); ui.stars(null); ui.banner(null); ui.overlay(null, { call }); ui.org(null); ui.clearNotices(); ui.clock(null);
   host.classList.remove(`grade-${lastGrade}`); lastGrade = 0;
@@ -428,7 +481,7 @@ function prologueFrame() {
   cue('p4', intro.T_LAND + 1.5, () => say('pro.pilot4', token));
   cue('end', intro.T_END - 1, () => {
     prologue.ended = true;
-    ui.title({ text: 'Click or press Space to continue', small: true });
+    ui.title({ text: T('Klikk eller trykk mellomrom for å fortsette', 'Click or press Space to continue'), small: true });
     showHudWaiting();
   });
 }
@@ -454,7 +507,7 @@ function frame(dt, now) {
       if (p) ui.boat(state.boatLabel, p.x, p.y, /No /.test(state.boatLabel) ? 'bad' : 'good'); else ui.boat(null);
     } else ui.boat(null);
     if (state.org || state.graphOn === 'overlay') ui.org(state.graphOn === 'overlay' ? 'graph' : state.org, S.graph, S.now - S.graphAt, S.now);
-    ui.clock(CHAPTERS[chapter]?.prologue ? null : S.clock);
+    ui.clock(CHAPTERS[chapter]?.prologue || state.place ? null : S.clock);
   }
   cast?.update(dt, game.camera, S.now);
   epilogue?.update(dt);
@@ -476,10 +529,11 @@ requestAnimationFrame(loop);
 
 const begin = document.createElement('div');
 begin.className = 'begin';
-begin.innerHTML = `<div class="inner"><p class="eyebrow">Story mode</p><h1>${TITLE}</h1>
-  <p>A day on the platform, three times: yesterday, today and tomorrow. It waits for you at every step.</p>
-  <dl class="keys"><dt>Space / →</dt><dd>next</dd><dt>←</dt><dd>back</dd><dt>1 – 9</dt><dd>jump to a chapter</dd><dt>F</dt><dd>free mode and back</dd><dt>P</dt><dd>presenter notes</dd></dl>
-  <button type="button" id="storyGo" disabled>Loading the control room…</button></div>`;
+begin.innerHTML = `<div class="inner"><p class="eyebrow">${T('Fortellermodus', 'Story mode')}</p><h1>${TITLE}</h1>
+  <p>${FULL ? 'A day on the platform, three times: yesterday, today and tomorrow. It waits for you at every step.'
+    : T('Kontrollrommet i morgen, og veien dit. Den venter på deg ved hvert steg.', 'The control room of tomorrow, and the road there. It waits for you at every step.')}</p>
+  <dl class="keys"><dt>${T('Mellomrom', 'Space')} / →</dt><dd>${T('neste', 'next')}</dd><dt>←</dt><dd>${T('tilbake', 'back')}</dd><dt>1 – ${CHAPTERS.length}</dt><dd>${T('hopp til et kapittel', 'jump to a chapter')}</dd><dt>F</dt><dd>${T('fri modus og tilbake', 'free mode and back')}</dd><dt>P</dt><dd>${T('presentatørnotater', 'presenter notes')}</dd></dl>
+  <button type="button" id="storyGo" disabled>${T('Laster kontrollrommet…', 'Loading the control room…')}</button></div>`;
 host.append(begin);
 ui.onCover = (on) => { game.hooks.covered = on; };   // solid act titles: nothing to draw behind them
 game.hooks.hidden = true;   // the Begin screen is opaque: no need to draw the room behind it (it still warms its shaders, see play.js)
@@ -493,7 +547,7 @@ game.ready.then(async () => {
   game.hooks.frame.push(frame);
   await Promise.all([cast.load(), sound.loadIndex()]);
   go.disabled = false;
-  go.textContent = 'Begin';
+  go.textContent = T('Start', 'Begin');
   if (!begin.parentNode) enter(chapter, beat, { instant: true });
 }).catch((e) => { go.textContent = `Could not load: ${e.message}`; console.error(e); });
 sound.loadIndex();
@@ -523,6 +577,6 @@ window.__story = {
   start, next, back, enter: (key, i = 0, o) => enter(CHAPTERS.findIndex((ch) => ch.key === key), i, o),
   get state() { return { chapter: CHAPTERS[chapter].id, beat: CHAPTERS[chapter].beats[beat]?.id, running, waiting, free, s: state }; },
   beats: (key) => CHAPTERS.find((ch) => ch.key === key)?.beats.length ?? 0,
-  sola: () => sola, epilogue: () => epilogue,
+  sola: () => sola, epilogue: () => epilogue, trondheim,
   ui, cast: () => cast, shots: () => shots, S, sound, toggleFree, SPEAKERS,
 };
