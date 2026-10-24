@@ -28,6 +28,9 @@ const game = window.__game;
 const q = new URLSearchParams(location.search);
 const PRIVATE = 'story/private/';
 const MUSIC = 'story/music/flight.mp3';   // from the Sola opening (or the flight) until 'press Space'
+// Colour grades per act (sepia yesterday and one year ago, blue tomorrow):
+// off since 2026-10-24 (Adriaen), kept behind ?grade=1
+const GRADES = q.get('grade') === '1';
 addStoryScreens();
 
 const host = document.getElementById('game');
@@ -99,7 +102,7 @@ function apply(s, { instant = false } = {}) {
   const prev = state;
   state = s;
   // Colour grade per act
-  if (lastGrade !== s.act) { host.classList.remove(`grade-${lastGrade}`); host.classList.add(`grade-${s.act}`); lastGrade = s.act; }
+  if (GRADES && lastGrade !== s.act) { host.classList.remove(`grade-${lastGrade}`); host.classList.add(`grade-${s.act}`); lastGrade = s.act; }
   // Game time (the red clock, the sun, the vessel's schedule)
   if (s.time !== undefined && (instant || s.time !== prev.time)) setTime(s.time);
   // Screens: the default layout plus this state's changes
@@ -240,7 +243,8 @@ async function run(step, my) {
 
 // The rewind (dir -1) to one year ago, or the fast forward (dir 1) back to
 // tomorrow: the clock races round, the picture judders like a tape, and on
-// the way back the screens go out one by one and the colour drains to sepia.
+// the way back the screens go out one by one (and with ?grade=1 the colour
+// drains to sepia).
 // The state lands where the beat's `end` says (or the next chapter's base).
 async function rewind(over, my, dir) {
   const t0 = performance.now(), from = state.time ?? 12, span = 24 * 3;
@@ -256,7 +260,7 @@ async function rewind(over, my, dir) {
       // Screens out, a few at a time
       const want = Math.floor(smoothstep(k / 0.7) * screens.length);
       for (; off < want; off++) game.room?.setContent(screens[off], 'blank');
-      if (k > 0.45 && lastGrade !== 5) { host.classList.remove(`grade-${lastGrade}`); host.classList.add('grade-5'); lastGrade = 5; }
+      if (GRADES && k > 0.45 && lastGrade !== 5) { host.classList.remove(`grade-${lastGrade}`); host.classList.add('grade-5'); lastGrade = 5; }
     }
     await sleep(1 / 30);
   }

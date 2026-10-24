@@ -29,7 +29,7 @@ WASD and the mouse, for questions and for debugging.
 
 URL options: `?chapter=N` (or `#chapter.beat`), `?mode=free`, `?nofs` (no
 fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
-`?sola=1` (the Sola apron opening, see below), `?story=full`, `?lang=en|no`.
+`?sola=1` (the Sola apron opening, see below), `?story=full`, `?lang=en|no`, `?grade=1` (the old colour grades per act, off by default).
 
 ## Files
 

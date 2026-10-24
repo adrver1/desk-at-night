@@ -22,7 +22,7 @@ import { FULL, T } from './lang.js';
 //
 // `set` keys (all optional, merged in order):
 //   act      0 prologue, 1 Yesterday, 2 Today, 3 Tomorrow, 4 epilogue,
-//            5 one year ago (strong sepia): colour grade
+//            5 one year ago (strong sepia): colour grade, only with ?grade=1
 //   time     game clock, hours
 //   shot     camera: desk, band, clock, window, boat, supervisor, table, link,
 //            monitor:<screen>, wideRoom, epilogue
@@ -512,7 +512,7 @@ const SHORT_CHAPTERS = [
       { id: 't.question', auto: true, set: { shot: 'adriaen' }, do: [{ wait: 1 }, { card: { text: T('Hvordan kom vi hit?', 'How did we get here?') } }, { wait: 4 }, { card: null }],
         notes: 'The question. Let it hang for a moment.' },
       { id: 't.rewind', auto: true, do: [{ rewind: 6 }], end: { act: 5, time: 8.5, screens: BLANK, chats: { plan: 0, slug: 0 }, cast: {}, tool: null, shot: 'desk', graph: 0 },
-        notes: 'The rewind: the clock spins backwards, the screens empty, the picture goes sepia.' },
+        notes: 'The rewind: the clock spins backwards, the screens empty.' },
     ],
   },
   {
@@ -522,7 +522,7 @@ const SHORT_CHAPTERS = [
       { id: 'y.card', card: { text: T('Ett år tidligere', 'One year ago'), solid: true }, notes: 'One year ago. From here on you talk; Space moves on.' },
       { id: 'y.trondheim', set: { overlay: 'slide:y-01' }, notes: 'TODO: the Trondheim scene (thread "Trondheim Torvet scene"): drone over Torvet gliding down to you at the Føniks door. A placeholder slide until it lands.' },
       { id: 'y.steep', set: { overlay: 'slide:y-02' }, notes: 'Onboarding is steep. TODO(Adriaen): your talking points.' },
-      { id: 'y.room', set: { overlay: null, shot: 'band', screens: null }, notes: 'The room as it was to a newcomer, still in sepia: screens full of things you have yet to learn.' },
+      { id: 'y.room', set: { overlay: null, shot: 'band', screens: null }, notes: 'The room as it was to a newcomer: screens full of things you have yet to learn.' },
     ],
   },
   {
