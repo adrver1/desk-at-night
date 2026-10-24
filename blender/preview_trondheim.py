@@ -1034,6 +1034,10 @@ gn = [(FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1), (FB, gz0 + (gz1 - gz0)
 me.from_pydata([(x, gy1 + 0.02, z) for x, z in gn], [], [tuple(range(len(gn)))[::-1]])
 me.materials.append(M["glass"])
 scene.collection.objects.link(bpy.data.objects.new("FoniksAtriumWall", me))
+# Føniks's west wall shows over the joint up to the atrium: brick with the tan band
+# under the eave, like the south wall (Adriaen)
+pane("FoniksWestBrick", "w", (JY + gy0) / 2, (JH + 15.6) / 2, gy0 - JY, 15.6 - JH, FB - 0.01, "brick")
+pane("FoniksWestBand", "w", (JY + gy0) / 2, 16.2, gy0 - JY, 1.2, FB - 0.01, "phoenix")
 # Summer: a dark pergola with a canvas top over the glass bays (drone photos)
 AWE = EX - 1.2   # the canvas runs on almost to the entrance, a strip of travertine short of it (Adriaen)
 if os.environ.get("TRD_ANNEX_AWNING", "canvas") == "canvas":
