@@ -43,7 +43,7 @@ M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "trunk": ("#4a3a2c", 1.0), "c1": ("#c9a77c", 0.8), "c2": ("#b46a4f", 0.8),
     "c3": ("#e2ddcf", 0.8), "c4": ("#8f9b8a", 0.8), "c5": ("#c7b07a", 0.8),
     "brick": ("#8a5442", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
-    "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8), "rust": ("#8b4a2b", 0.85),
+    "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
     "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3e3738", 0.7), "roof_light": ("#8f9498", 0.8),
     "canvas": ("#e4dac2", 0.9), "copper": ("#7f4c45", 0.55), "blind": ("#a9aeb0", 0.7), "blind_green": ("#8fb3a3", 0.7), "plinth": ("#59625d", 0.8), "amber": ("#61798a", 0.08), "glass_curve": ("#86a3b8", 0.06), "skylight": ("#c9cdcf", 0.5), "door": ("#4a2c1e", 0.5),
     "bronze_dark": ("#2f3a33", 0.45), "gold": ("#b8913a", 0.35), "travertine": ("#dcd2bf", 0.8), "orange": ("#c9583a", 0.8),
@@ -987,7 +987,7 @@ US = AS + 8.3   # the south utility room's south face, just clear of the bar's t
 for (x0_, y0_), (x1_, y1_) in (((tx0 + 0.1, CE - 4.0), (tx0 + 0.1, ty0 + 0.1)), ((tx0 + 0.1, CE - 4.0), (FC[0] - FR, CE - 4.0)),   # on to the north room, turning in to its wall (Adriaen)
                                ((tx0 + 0.1, ty0 + 0.1), (tx1 - 0.1, ty0 + 0.1)),
                                ((tx1 - 0.1, ty0 + 0.1), (tx1 - 0.1, US))):
-    box("RoofBarEdgeFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (abs(x1_ - x0_) + 0.06, abs(y1_ - y0_) + 0.06, 1.1), "rust")   # weathering steel (Adriaen)
+    box("RoofBarEdgeFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (abs(x1_ - x0_) + 0.06, abs(y1_ - y0_) + 0.06, 1.1), "copper")   # the same rusty copper as the annex cladding (Adriaen)
 # a flag pole on the roof's south-east corner, outside the bar (Adriaen)
 # with the Aker BP banner like the masts out front (Adriaen)
 _pre = set(bpy.data.objects)
@@ -1012,8 +1012,8 @@ for run in (((fence[-1][0], fence[-1][1]), (tx1 - 0.1, fence[-1][1])),
 for ux0, ux1, uy0, uy1, uh in ((ax0 + 11.0, tx1, US, AS + 18.5, 3.0), (ax0 + 7.0, tx1, AS + 18.5, CE - 6.0, 3.4),
                                (FC[0] - FR, ax0 + 15.0, CE - 6.0, CE - 1.5, 2.6)):   # the small west one is gone, the north one reaches out to the bar's fence (Adriaen)
     if uy0 == US:   # the south one is open to the sky: just walls round fans, ducts and pipes (Adriaen, Google Earth)
-        WT = 0.2
-        for cx_, cy_, sx_, sy_ in (((ux0 + ux1) / 2, uy0 + WT / 2, ux1 - ux0, WT), (ux0 + WT / 2, (uy0 + uy1) / 2, WT, uy1 - uy0),
+        WT = 0.5   # chunky parapet walls (Adriaen)
+        for cx_, cy_, sx_, sy_ in (((ux0 + ux1) / 2, uy0 + WT / 2, ux1 - ux0 - 2 * WT, WT), (ux0 + WT / 2, (uy0 + uy1) / 2, WT, uy1 - uy0),
                                    (ux1 - WT / 2, (uy0 + uy1) / 2, WT, uy1 - uy0)):   # the north side is the next room's wall
             box("FoniksAnnexUtility", (cx_, cy_, TT + uh / 2), (sx_, sy_, uh), "roof_light")
         box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + 0.05), (ux1 - ux0 - 0.1, uy1 - uy0 - 0.1, 0.1), "roof_light")   # felt floor over the deck
