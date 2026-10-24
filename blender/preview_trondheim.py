@@ -601,9 +601,9 @@ def foniks():
     wall = [(cw, 0.0), (0.0, 0.0), (0.0, depth)]             # the building's walls
     quarter = [(math.cos(t), math.sin(t)) for t in (k / 6 * math.pi / 2 for k in range(7))]
     # eave: from upright at the wall top to flat at the roof, inward from the street edge
-    sweep("RestaurantEave", outer, [(R - R * c, WT + R * sn) for c, sn in quarter], -1, "glass_curve")
+    sweep("RestaurantEave", outer, [(R - R * c, WT + R * sn) for c, sn in quarter], -1, "glass")
     # strip on the building: rises off the roof RI out from the wall and leans in onto it
-    sweep("RestaurantLean", wall, [(RI * c, WT + R + RI * sn) for c, sn in quarter], 1, "glass_curve")
+    sweep("RestaurantLean", wall, [(RI * c, WT + R + RI * sn) for c, sn in quarter], 1, "glass")   # one glass everywhere (Adriaen)
     for x0, x1, y0, y1 in ((-RS, cw, -RD, 0.0), (-RS, 0.0, 0.0, depth)):
         cxa, cya, wx, wy = (x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0
         box("RestaurantPlinth", (cxa, cya, 0.35), (wx, wy, 0.7), "granite")
