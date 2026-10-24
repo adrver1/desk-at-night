@@ -474,7 +474,7 @@ def foniks():
         # the bays come out as far as the middle balcony and stop a floor short of
         # the eave; their tops are balconies behind a solid parapet with small slots
         box("Bay", (bx, -BD / 2, 12.7 / 2), (BAY, BD, 12.7), "phoenix")
-        box("BayCornice", (bx, -BD / 2 - 0.05, 12.75), (BAY + 0.3, BD + 0.2, 0.2), "frame")
+        box("BayCornice", (bx, -BD / 2 - 0.05, 12.75), (BAY + 0.3, BD + 0.2, 0.2), "phoenix")   # tan (Adriaen)
         box("BayParapet", (bx, -BD + 0.1, 13.35), (BAY, 0.2, 1.0), "phoenix")
         for sx in (-1, 1):
             # stop at the front parapet's back: a shared front face renders as a black stripe
