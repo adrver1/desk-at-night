@@ -1007,7 +1007,7 @@ for k in range(10):
     bar = box("FoniksAtriumBar", ((gx0 + gx1) / 2, y_, TT + 1.06), (math.hypot(gx1 - gx0, 1.4), 0.08, 0.08), "dark")
     bar.rotation_euler.y = -math.atan2(1.4, gx1 - gx0)
 # Summer: a dark pergola with a canvas top over the glass bays (drone photos)
-AWE = EX - 0.3   # the canvas runs on almost to the entrance (Adriaen)
+AWE = EX - 1.2   # the canvas runs on almost to the entrance, a strip of travertine short of it (Adriaen)
 if os.environ.get("TRD_ANNEX_AWNING", "canvas") == "canvas":
     # it slopes from a cassette on the wall under the travertine box down to the front beam
     # (Adriaen's street photo)
