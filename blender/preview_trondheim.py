@@ -69,11 +69,13 @@ def box(name, loc, size, mat, rot=0.0):
 
 def pane(name, face, c, z, w, h, at, mat):
     """A single quad facing out of a wall: face "s" faces -y (c = x, at = y), "w" faces
-    -x (c = y, at = x). For flat things on a wall (glass, frames): 2 triangles, and as an
+    -x (c = y, at = x), "e" faces +x. For flat things on a wall (glass, frames): 2 triangles, and as an
     open sheet strip_hidden() never mistakes it for buried."""
     u0, u1, z0, z1 = c - w / 2, c + w / 2, z - h / 2, z + h / 2
     if face == "s":
         v = [(u0, at, z0), (u1, at, z0), (u1, at, z1), (u0, at, z1)]
+    elif face == "e":
+        v = [(at, u0, z0), (at, u1, z0), (at, u1, z1), (at, u0, z1)]
     else:
         v = [(at, u1, z0), (at, u0, z0), (at, u0, z1), (at, u1, z1)]
     me = bpy.data.meshes.new(name)
@@ -647,6 +649,11 @@ def foniks():
     # own), and the windows sit on the brick
     pane("SouthBrick", "w", depth / 2, (5.0 + eave - 1.2) / 2, depth, eave - 1.2 - 5.0, -0.01, "brick")   # cream ground floor
     pane("SouthBand", "w", depth / 2, eave - 0.6, depth, 1.2, -0.01, "phoenix")   # tan band under the eave
+    # the north end (+x face) the same as the other sides (Adriaen): dark plinth, cream
+    # ground floor, brick, tan band under the eave
+    pane("NorthBrick", "e", depth / 2, (5.0 + eave - 1.2) / 2, depth, eave - 1.2 - 5.0, L + 0.01, "brick")
+    pane("NorthBand", "e", depth / 2, eave - 0.6, depth, 1.2, L + 0.01, "phoenix")
+    box("FoniksPlinth", (L + 0.12, depth / 2, 0.5), (0.3, depth, 1.0), "plinth")
     for y in SOUTH_COLS:   # three round-topped dormers on the south slope
         dormer(y, -0.2, eave, True)
     for z in rows:
@@ -1108,7 +1115,7 @@ def export_glb():
     keep = [o for o in keep if o.type == "MESH"]
     mesh_cleanup.strip_hidden(keep)
     mesh_cleanup.fronts_only(keep, {"Win", "Mullion", "Transom", "Cartouche", "DormerWin", "Capital", "FoniksAnnexWin",
-                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "FoniksAnnexFrame", "FoniksAnnexRail", "FoniksAnnexFinBack", "FoniksAnnexGrille", "FoniksAnnexBalustrade", "Fanlight", "Door", "BrickPanel", "SouthBand",
+                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "FoniksAnnexFrame", "FoniksAnnexRail", "FoniksAnnexFinBack", "FoniksAnnexGrille", "FoniksAnnexBalustrade", "Fanlight", "Door", "BrickPanel", "SouthBand", "NorthBand",
                                     "ParapetSlot", "PierStrip", "Keystone", "DoorArch", "SunHub", "ArchFill"})
     if os.environ.get("TRD_STATS"):   # triangles left per part, biggest first
         import collections, re
