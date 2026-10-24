@@ -640,13 +640,15 @@ def foniks():
         dormer(x, -0.2, eave, False)
     # The south side along Kongens gate (build -x face) is red brick, with the same
     # white-framed windows with crosses
-    box("SouthBrick", (-0.04, depth / 2, (5.0 + eave - 1.2) / 2), (0.08, depth, eave - 1.2 - 5.0), "brick")   # cream ground floor, tan band under the eave
-    box("SouthBand", (-0.1, depth / 2, eave - 0.6), (0.12, depth, 1.2), "phoenix")
+    # the brick and the tan band are single quads laid on the cream wall (no slab of their
+    # own), and the windows sit on the brick
+    pane("SouthBrick", "w", depth / 2, (5.0 + eave - 1.2) / 2, depth, eave - 1.2 - 5.0, -0.002, "brick")   # cream ground floor
+    pane("SouthBand", "w", depth / 2, eave - 0.6, depth, 1.2, -0.002, "phoenix")   # tan band under the eave
     for y in SOUTH_COLS:   # three round-topped dormers on the south slope
         dormer(y, -0.2, eave, True)
     for z in rows:
         for y in SOUTH_COLS:
-            window(y, z, 0.0, side=True, h=1.7 if z in rows[:2] else 2.1, arch=z in rows[:2])
+            window(y, z, -0.002, side=True, h=1.7 if z in rows[:2] else 2.1, arch=z in rows[:2])
 
 
 # A half-folded wing (Adriaen's close photo): a rounded shoulder just above the head,
