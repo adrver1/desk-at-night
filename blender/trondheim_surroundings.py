@@ -916,6 +916,12 @@ SHOTS = {
     "T_west": ((-50.0, 20.0, 300.0), (-50.0, 20.001, 0.0), -80.0, 1.0),
     "T_north": ((-40.0, 80.0, 300.0), (-40.0, 80.001, 0.0), -80.0, 1.0),
     "S_munkegata": ((8.0, -25.0, 1.7), (31.0, -115.0, 5.0), 26.0, 16 / 9),
+    # Close-ups of Olav and his column (he faces south down Munkegata)
+    "O_front": ((0.0, -7.5, 16.0), (0.0, 0.0, 15.6), 50.0, 3 / 4),
+    "O_side": ((7.0, -2.5, 15.2), (0.0, 0.0, 15.7), 50.0, 3 / 4),
+    "O_top": ((-3.5, -5.0, 13.8), (0.0, 0.0, 13.6), 35.0, 16 / 9),
+    "O_base": ((5.5, -8.0, 1.6), (0.0, 0.0, 2.6), 28.0, 16 / 9),
+    "O_full": ((12.0, -20.0, 1.7), (0.0, 0.0, 9.0), 24.0, 3 / 4),
     # Stiftsgården's long front on Munkegata north, from across the street
     "N_stift": ((-40.0, 92.0, 1.7), (-14.0, 122.0, 7.0), 24.0, 16 / 9),
     # v3: high over the harbour looking south over Midtbyen to the square, and straight
