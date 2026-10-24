@@ -895,7 +895,7 @@ for name, (pos, at, lens, aspect) in SHOTS.items():
         cam.data.type, cam.data.ortho_scale = "ORTHO", -lens
     else:
         cam.data.lens = lens
-    cam.data.clip_end = 3000
+    cam.data.clip_end = 30000   # the wide terrain reaches ~14 km
     if TRUE:
         pos, at = trondheim_surroundings.to_true(pos), trondheim_surroundings.to_true(at)
     cam.location = pos

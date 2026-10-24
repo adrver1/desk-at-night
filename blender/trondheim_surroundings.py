@@ -656,7 +656,15 @@ def map_ground(data):
         bpy.data.objects.remove(bpy.data.objects["Ground"])
     if "land" not in M:
         M["land"] = b.mat_flat("Trdland", srgb("#6d7660"), 1.0)
+        M["felt"] = b.mat_flat("Trdfelt", srgb("#6a6c6c"), 0.9)
     t = map_mesh("Terrain", data["terrain"], [M["pavement"], M["land"]], -0.03)
+    if os.path.exists(WIDE):   # the horizon comes from the wide map data instead
+        map_wide()
+        map_mesh("MapRoads", data["roads"], [M["road"]], 0.0)
+        map_mesh("MapParks", data["green"], [M["grass"]], 0.005)
+        map_mesh("MapRiver", data["water"], [M["water"]], 0.15)
+        box("Sea", (0, 0, SEA), (40000, 40000, 0.1), "water")
+        return
     bm = bmesh.new()
     bm.from_mesh(t.data)
     rim = [e for e in bm.edges if e.is_boundary]
@@ -695,6 +703,107 @@ def map_ground(data):
     box("Sea", (0, 0, SEA), (8000, 8000, 0.1), "water")
 
 
+WIDE = os.path.join(os.path.dirname(DATA), "trondheim_wide.json.gz")
+GROUND = 9.55   # metres above sea at the column
+
+
+def map_wide():
+    """Outside the 1 km core (trondheim_widedata.py): terrain out to ~14 km so the real
+    hills and fjord shores make the horizon, and Overture's building outlines out to
+    ~4 km as plain blocks, gabled where they are houses."""
+    with gzip.open(WIDE, "rt") as f:
+        wide = json.load(f)
+    if "forest" not in M:
+        M["forest"] = b.mat_flat("Trdforest", srgb("#3f5a33"), 1.0)
+    T_, n, S = wide["terrain"]["dm"], wide["terrain"]["n"], wide["terrain"]["step"]
+    h0 = (n - 1) // 2
+    cx0, cx1, cy0, cy1 = wide["core"]
+
+    def z_at(x, y):   # metres relative to the column's ground
+        u, v = x / S + h0, y / S + h0
+        i, j = min(max(int(u), 0), n - 2), min(max(int(v), 0), n - 2)
+        fu, fv = u - i, v - j
+        z = (T_[j * n + i] * (1 - fu) * (1 - fv) + T_[j * n + i + 1] * fu * (1 - fv)
+             + T_[(j + 1) * n + i] * (1 - fu) * fv + T_[(j + 1) * n + i + 1] * fu * fv)
+        return level(x, y, z / 10 - GROUND)
+
+    # terrain grid with a hole where the core lies; cells reaching into it sit a little
+    # lower so the core's own terrain wins there
+    verts, faces, mats = [], [], []
+    for j in range(n):
+        for i in range(n):
+            x, y = (i - h0) * S, (j - h0) * S
+            verts.append((*from_true(x, y), level(x, y, T_[j * n + i] / 10 - GROUND)))
+    for j in range(n - 1):
+        for i in range(n - 1):
+            x, y = (i - h0) * S, (j - h0) * S
+            if cx0 < x and x + S < cx1 and cy0 < y and y + S < cy1:
+                continue
+            q = (j * n + i, j * n + i + 1, (j + 1) * n + i + 1, (j + 1) * n + i)
+            faces.append(q)
+            mats.append(1 if sum(T_[k] for k in q) / 40 > 70 else 0)
+    for q in faces:
+        if any(cx0 - S < (k % n - h0) * S < cx1 + S and cy0 - S < (k // n - h0) * S < cy1 + S for k in q):
+            for k in q:
+                x, y, z = verts[k]
+                verts[k] = (x, y, z - 0.6)
+    me = bpy.data.meshes.new("WideTerrain")
+    me.from_pydata(verts, [], faces)
+    me.materials.append(M["land"])
+    me.materials.append(M["forest"])
+    for p, m in zip(me.polygons, mats):
+        p.material_index = m
+    o = bpy.data.objects.new("WideTerrain", me)
+    scene.collection.objects.link(o)
+
+    # buildings: walls in town colours (shader windows), flat felt tops or gabled roofs
+    walls = list(dict.fromkeys(WALLS))
+    roofs = ("slate", "roof", "brick", "slate")
+    mat_list = [windowed(w) for w in walls] + [M[r] for r in roofs] + [M["felt"]]
+    V, F, MI = [], [], []
+    rnd = random.Random(5)
+    for bd in wide["buildings"]:
+        h, gable, ring = bd[0], bd[1], bd[2:]
+        pts = [(ring[i] / 10, ring[i + 1] / 10) for i in range(0, len(ring), 2)]
+        k = len(pts)
+        z0 = min(z_at(x, y) for x, y in pts) - 0.3
+        if z0 < SEA:
+            continue
+        wall, roof = rnd.randrange(len(walls)), len(walls) + rnd.randrange(len(roofs))
+        o = len(V)
+        mp = [from_true(x, y) for x, y in pts]
+        V += [(x, y, z0) for x, y in mp] + [(x, y, z0 + h) for x, y in mp]
+        for i in range(k):
+            F.append((o + i, o + (i + 1) % k, o + k + (i + 1) % k, o + k + i))
+            MI.append(wall)
+        if gable and k == 4:
+            # ridge along the long side, over the middle of the two short edges
+            e = [math.dist(mp[i], mp[(i + 1) % 4]) for i in range(4)]
+            s0 = 0 if e[0] + e[2] < e[1] + e[3] else 1           # the short edges: s0 and s0 + 2
+            short = (e[s0] + e[s0 + 2]) / 2
+            a, b2 = mp[s0], mp[s0 + 1]
+            c, d = mp[s0 + 2], mp[(s0 + 3) % 4]
+            r1 = ((a[0] + b2[0]) / 2, (a[1] + b2[1]) / 2, z0 + h + short * 0.32)
+            r2 = ((c[0] + d[0]) / 2, (c[1] + d[1]) / 2, z0 + h + short * 0.32)
+            ia, ib, ic, id_ = (o + k + s0, o + k + s0 + 1, o + k + s0 + 2, o + k + (s0 + 3) % 4)
+            V += [r1, r2]
+            R1, R2 = len(V) - 2, len(V) - 1
+            F += [(ia, ib, R1), (ic, id_, R2), (ib, ic, R2, R1), (id_, ia, R1, R2)]
+            MI += [wall, wall, roof, roof]
+        else:
+            F.append(tuple(range(o + k, o + 2 * k)))
+            MI.append(len(mat_list) - 1)
+    me = bpy.data.meshes.new("WideTown")
+    me.from_pydata(V, [], F)
+    for m in mat_list:
+        me.materials.append(m)
+    for p, m in zip(me.polygons, MI):
+        p.material_index = m
+    o = bpy.data.objects.new("WideTown", me)
+    scene.collection.objects.link(o)
+    print(f"v3 wide: {len(F)} faces, terrain {n}x{n}")
+
+
 def v3():
     with gzip.open(DATA, "rt") as f:
         data = json.load(f)
@@ -709,6 +818,8 @@ def v3():
     burger_king()
     torg_and_pavilion()
     planters("v2")
+    if os.path.exists(WIDE):
+        return   # the real hills are in the wide terrain
     # far hills round the fjord, down at sea level
     for x, y, sx, sz in [(-1900, -400, 700, 260), (-1500, 1900, 1000, 160), (900, 2400, 1300, 140),
                          (2400, -600, 900, 220)]:
