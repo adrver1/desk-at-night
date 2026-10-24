@@ -861,7 +861,7 @@ for i in range(5):
     box("FoniksAnnexPier", (ax0 + 0.25 + i * (gx - ax0 - 0.5) / 4, AS - 0.14, 2.95), (0.5, 0.28, 4.7), "copper")
 box("FoniksAnnexGroundPier", (gx + 2.1, AS - 0.5, 2.65), (4.2, 1.0, 5.3), "travertine")
 box("FoniksAnnexBase", ((gx + 4.2 + ax1) / 2, AS - 0.05, 2.65), (ax1 - gx - 4.2, 0.12, 5.3), "glass")
-box("FoniksAnnexBox", (acx + 0.15, AS - 0.5, 11.05), (ax1 - ax0 + 0.3, 1.0, 11.5), "travertine")   # stands proud of the street, flush with the west wall
+box("FoniksAnnexBox", (acx, AS - 0.5, 11.05), (ax1 - ax0, 1.0, 11.5), "travertine")   # stands proud of the street, flush with the west wall and the annex's east side
 
 
 def annex_win(c, z, w, h, face, mat="glass"):
