@@ -888,29 +888,34 @@ for z, row in BAYS.items():
         y += w + 0.55
 
 
-# Copper top floor (the cantina), set back, over the whole annex
-# (summer street photos: nearly flush with the travertine box, a good third of its
-# height, and reaching on over part of the joint)
-tx0, tx1, ty0, ty1 = ax0 + 0.1, ax1 + 1.0, AS - 0.6, AS + 20.2
+# Copper top floor (the cantina), set back about a metre from the travertine box on
+# both streets (Adriaen, Google 3D), a good third of the box's height, reaching on
+# over part of the joint
+tx0, tx1, ty0, ty1 = ax0 + 0.9, ax1 + 1.0, AS + 0.0, AS + 20.2
 TT = 20.2
 box("FoniksAnnexTop", ((tx0 + tx1) / 2, (ty0 + ty1) / 2, (16.75 + TT) / 2), (tx1 - tx0, ty1 - ty0, TT - 16.75), "copper")
-# On its roof a roof bar (Adriaen, Google 3D): a deck along the street and the joint side
-# with tables and parasols behind a glass balustrade, round a curved plant-room block at
-# the back with HVAC units and the stair and lift housing
-rx, ry = 11.0, ty1 - (AS + 9.0)   # the plant block fills the back corner on the Føniks side
-arc = [(tx1 + rx * math.cos(math.pi + k * math.pi / 16), ty1 + ry * math.sin(math.pi + k * math.pi / 16)) for k in range(9)]
-prism("FoniksAnnexPlant", [(tx1, ty1)] + arc, TT, TT + 2.4, "roof_light")
-box("FoniksAnnexBalustrade", (acx, ty0 + 0.1, TT + 0.55), (tx1 - tx0 - 0.2, 0.05, 1.1), "skylight")
-box("FoniksAnnexBalustrade", (tx0 + 0.1, (ty0 + ty1) / 2, TT + 0.55), (0.05, ty1 - ty0 - 0.2, 1.1), "skylight")
-for px_, py_ in ((tx0 + 3.0, ty0 + 3.0), (tx0 + 7.5, ty0 + 3.0), (tx1 - 3.0, ty0 + 3.0), (tx0 + 3.0, ty0 + 8.0), (tx0 + 3.0, ty0 + 13.0)):
-    box("RoofBarTable", (px_, py_, TT + 0.73), (0.8, 0.8, 0.04), "dark")
-    box("RoofBarTable", (px_, py_, TT + 0.36), (0.08, 0.08, 0.72), "dark")
-    box("RoofBarPole", (px_, py_, TT + 1.25), (0.05, 0.05, 2.5), "dark")
-    o = cyl("RoofBarParasol", (px_, py_, TT + 2.05), 1.6, 0.4, "canvas", 4, 0.04)
+# Its roof (Adriaen, Google 3D): a rooftop bar inside a curved fence that sweeps from
+# the Bersvendveita side round to the street side, plain roof outside it along both
+# streets, utility rooms with white doors (HVAC on top) at the back of the bar, and a
+# glass roof bridging across to Føniks
+FC, FR = (ax0 + 14.9, AS + 18.0), 11.0   # the fence's centre and radius
+fence = [(FC[0] + FR * math.cos(math.pi + k * math.pi / 16), FC[1] + FR * math.sin(math.pi + k * math.pi / 16)) for k in range(9)]
+for (x0_, y0_), (x1_, y1_) in zip(fence, fence[1:]):
+    seg = box("RoofBarFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.6), (math.hypot(x1_ - x0_, y1_ - y0_) + 0.05, 0.06, 1.2), "dark")
+    seg.rotation_euler.z = math.atan2(y1_ - y0_, x1_ - x0_)
+prism("RoofBarDeck", [FC] + fence, TT, TT + 0.06, "wood")   # decking inside the fence
+for a_, r_ in ((200, 7.5), (225, 5.0), (250, 7.5), (215, 9.3), (240, 9.3)):
+    px_, py_ = FC[0] + r_ * math.cos(math.radians(a_)), FC[1] + r_ * math.sin(math.radians(a_))
+    box("RoofBarTable", (px_, py_, TT + 0.79), (0.8, 0.8, 0.04), "dark")
+    box("RoofBarTable", (px_, py_, TT + 0.42), (0.08, 0.08, 0.72), "dark")
+    box("RoofBarPole", (px_, py_, TT + 1.31), (0.05, 0.05, 2.5), "dark")
+    o = cyl("RoofBarParasol", (px_, py_, TT + 2.11), 1.6, 0.4, "canvas", 4, 0.04)
     o.rotation_euler.z = math.pi / 4
-for hx, hy, hw, hd in ((tx1 - 2.5, ty1 - 3.0, 2.4, 1.6), (tx1 - 6.0, ty1 - 2.0, 1.8, 1.8)):
-    box("FoniksAnnexHVAC", (hx, hy, TT + 3.0), (hw, hd, 1.2), "steel")
-box("FoniksAnnexLift", (tx0 + 2.0, ty1 - 1.8, TT + 1.4), (2.6, 3.0, 2.8), "copper")
+for ux0, ux1, uy0, uy1, uh in ((ax0 + 9.5, ax0 + 16.0, AS + 12.0, AS + 18.5, 3.0), (ax0 + 5.0, ax0 + 13.5, AS + 18.5, ty1 - 0.2, 2.6)):
+    box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh / 2), (ux1 - ux0, uy1 - uy0, uh), "roof_light")
+    box("FoniksAnnexUtilDoor", (ux0 + 1.2, uy0 - 0.03, TT + 1.05), (0.9, 0.06, 2.1), "frame")   # white doors onto the bar
+    box("FoniksAnnexUtilDoor", (ux0 - 0.03, uy0 + 1.6, TT + 1.05), (0.06, 0.9, 2.1), "frame")
+    box("FoniksAnnexHVAC", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh + 0.5), (2.2, 1.6, 1.0), "steel")
 # its street face: copper fins at both ends and the middle, two runs of three windows
 for fc in (tx0 + 0.6, acx, tx1 - 0.6):
     box("FoniksAnnexFinBack", (fc, ty0 - 0.02, 18.5), (1.2, 0.06, 3.1), "bronze_dark")
@@ -924,13 +929,19 @@ for y in (AS + 2.6, AS + 5.6):
     box("FoniksAnnexTopWin", (tx0 - 0.05, y, 18.45), (0.12, 2.2, 2.3), "glass")
 # The copper-clad joint onto Føniks: a tall glazed entrance, two windows above, rising
 # past Føniks's eave; the glass atrium roof stands up behind it (winter photo)
-box("FoniksAnnexJoint", (FB - JW / 2, AS + 10.8, 9.2), (JW, 21, 18.4), "copper")   # set back a little, up under the top floor
+box("FoniksAnnexJoint", (FB - JW / 2, AS + 10.8, TT / 2), (JW, 21, TT), "copper")   # set back a little, up under the top floor
 box("FoniksAnnexJointWin", (FB - JW / 2, AS + 0.25, 2.65), (JW - 0.5, 0.12, 4.9), "glass")
 box("FoniksAnnexJointWin", (FB - JW / 2, AS + 0.25, 7.0), (JW - 0.5, 0.12, 2.3), "glass")
 box("FoniksAnnexJointWin", (FB - JW / 2, AS + 0.25, 10.4), (JW - 0.5, 0.12, 2.3), "blind")
-box("FoniksAtrium", (FB - 1.4, AS + 12.0, 17.75), (3.2, 19.0, 7.5), "glass_block")
-for x in (FB - 2.6, FB - 1.4, FB - 0.2):
-    box("FoniksAtriumBar", (x, AS + 2.47, 19.9), (0.1, 0.06, 3.2), "dark")
+# the glass roof bridging the annex and Føniks: a mono-pitch skylight on dark bars
+gx0, gx1, gy0, gy1 = ax1 - 1.0, FB + 0.5, AS + 3.0, ty1
+glass = prism("FoniksAtrium", [(gx0, gy0), (gx1, gy0), (gx1, gy1), (gx0, gy1)], 0, 0.1, "glass_block")
+for v in glass.data.vertices:
+    v.co.z += TT + 0.2 + 1.4 * (v.co.x - gx0) / (gx1 - gx0)
+for k in range(10):
+    y_ = gy0 + 0.2 + k * (gy1 - gy0 - 0.4) / 9
+    bar = box("FoniksAtriumBar", ((gx0 + gx1) / 2, y_, TT + 1.06), (math.hypot(gx1 - gx0, 1.4), 0.08, 0.08), "dark")
+    bar.rotation_euler.y = -math.atan2(1.4, gx1 - gx0)
 # Summer: a dark pergola with a canvas top over the glass bays (drone photos)
 if os.environ.get("TRD_ANNEX_AWNING", "canvas") == "canvas":
     box("FoniksAnnexAwning", ((ax0 + gx) / 2, AS - 3.0, 3.0), (gx - ax0, 4.0, 0.12), "canvas")
@@ -1111,7 +1122,7 @@ if args.glb:   # Føniks on its own for the spin-around viewer
     keep = [o for o in keep if o.type == "MESH"]
     mesh_cleanup.strip_hidden(keep)
     mesh_cleanup.fronts_only(keep, {"Win", "Mullion", "Transom", "Cartouche", "DormerWin", "Capital", "FoniksAnnexWin",
-                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "FoniksAnnexFrame", "FoniksAnnexRail", "FoniksAnnexFinBack", "FoniksAtriumBar", "FoniksAnnexGrille", "FoniksAnnexBalustrade", "Fanlight", "Door", "BrickPanel", "SouthBand",
+                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "FoniksAnnexFrame", "FoniksAnnexRail", "FoniksAnnexFinBack", "FoniksAnnexGrille", "FoniksAnnexBalustrade", "Fanlight", "Door", "BrickPanel", "SouthBand",
                                     "ParapetSlot", "PierStrip", "Keystone", "DoorArch", "SunHub", "ArchFill"})
     if os.environ.get("TRD_STATS"):   # triangles left per part, biggest first
         import collections, re
