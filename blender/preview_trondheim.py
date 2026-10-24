@@ -1033,8 +1033,8 @@ fy0, fy1 = AS - 5.2, FONIKS_SOUTH - REST_RS - 3.8   # from the awning's posts ou
 fx0, fx1 = ax0 + 0.6, AWE
 fym = (fy0 + fy1) / 2
 box("Windscreen", ((fx0 + fx1) / 2, fy1, 0.5), (fx1 - fx0, 0.05, 1.0), "dark")
-for x in (fx0, fx1):
-    box("Windscreen", (x, fym, 0.5), (0.05, fy0 - fy1, 1.0), "dark")
+for x, yw in ((fx0, AS - 0.25), (fx1, AS - 1.0)):   # the sides run back to the wall (Adriaen): the plinth, the travertine pier
+    box("Windscreen", (x, (yw + fy1) / 2, 0.5), (0.05, yw - fy1, 1.0), "dark")
 for x, y in ((fx0, fy1), (fx1, fy1)):
     planter(x, y)
 NF = 5
@@ -1071,7 +1071,10 @@ def export_glb():
             cnt[re.sub(r"\.\d+$", "", o.name)] += 1
         for k, v in tri.most_common(int(os.environ.get("TRD_STATS_N", 30))):
             print(f"  {k:24s}{v:6d}  x{cnt[k]}")
-    for o in mesh_cleanup.merge_by_material(keep):
+    merged = mesh_cleanup.merge_by_material(keep)
+    import facade_textures   # TRD_TEX=lines|varied|none
+    facade_textures.apply(merged, os.environ.get("TRD_TEX", "none"), os.path.join(os.path.dirname(os.path.abspath(args.glb)), "tex"))
+    for o in merged:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=args.glb, use_selection=True, export_apply=True, export_yup=True)
     print("wrote", args.glb)
