@@ -973,10 +973,11 @@ for k in range(7):   # seven tables round the fence, no parasols (Adriaen)
         cx_, cy_ = px_ - side * 0.65 * math.sin(a_), py_ + side * 0.65 * math.cos(a_)
         box("RoofBarChair", (cx_, cy_, TT + 0.45), (0.42, 0.42, 0.04), "dark", a_)
         box("RoofBarChair", (cx_ - side * 0.2 * -math.sin(a_), cy_ - side * 0.2 * math.cos(a_), TT + 0.45), (0.42, 0.04, 0.9), "dark", a_)
-# and a railing round the roof edge: the whole Bersvendveita side, the street side and
+# and a railing round the roof edge: the Bersvendveita side beside the bar, the street side and
 # the joint side up to the utility rooms (Adriaen)
 US = AS + 8.3   # the south utility room's south face, just clear of the bar's tables
-for (x0_, y0_), (x1_, y1_) in (((tx0 + 0.1, ty1 - 0.1), (tx0 + 0.1, ty0 + 0.1)), ((tx0 + 0.1, ty0 + 0.1), (tx1 - 0.1, ty0 + 0.1)),
+for (x0_, y0_), (x1_, y1_) in (((tx0 + 0.1, FC[1]), (tx0 + 0.1, ty0 + 0.1)),   # north of the arc the bar's own fence does (Adriaen)
+                               ((tx0 + 0.1, ty0 + 0.1), (tx1 - 0.1, ty0 + 0.1)),
                                ((tx1 - 0.1, ty0 + 0.1), (tx1 - 0.1, US))):
     box("RoofBarEdgeFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (abs(x1_ - x0_) + 0.06, abs(y1_ - y0_) + 0.06, 1.1), "dark")
 # and fences closing the bar off from the rest of the roof (Adriaen): the arc's south end
@@ -993,7 +994,8 @@ for ux0, ux1, uy0, uy1, uh in ((ax0 + 11.0, tx1, US, AS + 18.5, 3.0), (ax0 + 7.0
                                (FC[0] - FR, ax0 + 15.0, CE - 6.0, CE - 1.5, 2.6)):   # the small west one is gone, the north one reaches out to the bar's fence (Adriaen)
     box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh / 2), (ux1 - ux0, uy1 - uy0, uh), "roof_light")
     box("FoniksAnnexUtilDoor", (ux0 + 1.2, uy0 - 0.03, TT + 1.05), (0.9, 0.06, 2.1), "frame")   # white doors onto the bar
-    box("FoniksAnnexUtilDoor", (ux0 - 0.03, uy0 + 1.6, TT + 1.05), (0.06, 0.9, 2.1), "frame")
+    if uy1 < CE - 2:   # the north room has no door onto the plain roof (Adriaen)
+        box("FoniksAnnexUtilDoor", (ux0 - 0.03, uy0 + 1.6, TT + 1.05), (0.06, 0.9, 2.1), "frame")
     box("FoniksAnnexHVAC", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh + 0.5), (2.2, 1.6, 1.0), "steel")
 # its street face: copper fins at both ends and the middle, two runs of three windows
 for fc in (tx0 + 0.6, acx, tx1 - 0.6):
