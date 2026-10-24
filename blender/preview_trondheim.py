@@ -23,6 +23,8 @@ p.add_argument("--samples", type=int, default=16)
 p.add_argument("--out", default=os.path.join(b.BUILD, "trondheim"))
 p.add_argument("--glb", help="export only Føniks (with its annex and fountain) to this .glb and stop")
 p.add_argument("--res", type=int, default=960)
+p.add_argument("--web", nargs="?", const=os.path.join(ROOT, "web", "public", "story", "trondheim", "torvet.glb"),
+               help="export the dream square WITHOUT Føniks (story mode's torvet.glb) and stop")
 args = p.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
 os.makedirs(args.out, exist_ok=True)
 
@@ -743,7 +745,7 @@ box("FoniksAtrium", (FB - 6, FONIKS_SOUTH + 12, 16.5), (10, 18, 3.8), "glass_blo
 # Everything around the square except Føniks lives in trondheim_surroundings.py, in
 # variants side by side; TRD_SURROUND=v1 is round 6 with every street square to the square
 import trondheim_surroundings  # noqa: E402
-trondheim_surroundings.build(globals(), os.environ.get("TRD_SURROUND", "v2"))
+trondheim_surroundings.build(globals(), "dream" if args.web else os.environ.get("TRD_SURROUND", "v2"))
 
 
 def load_char(name, loc, yaw, mat=None, scale=1.0, pose=None, glb=None):
@@ -899,6 +901,41 @@ if args.glb:   # Føniks on its own for the spin-around viewer
     bpy.ops.export_scene.gltf(filepath=args.glb, use_selection=True, export_apply=True, export_yup=True)
     print("wrote", args.glb)
     sys.exit(0)
+
+if args.web:   # story mode: the dream square without Føniks, square-aligned, column at the origin
+    import mesh_cleanup
+    foniks_parts = FONIKS_OBJS | {o for o in bpy.data.objects if o.name.startswith(("Foniks", "PergolaPost"))}
+    bpy.ops.object.select_all(action="DESELECT")
+    rigs = [o for o in bpy.data.objects if o.type == "ARMATURE"]
+    for o in bpy.data.objects:   # bake the statue's pose into plain meshes, then drop the rigs
+        if o.type == "MESH" and o.parent in rigs:
+            o.select_set(True)
+    bpy.context.view_layer.objects.active = next(iter(bpy.context.selected_objects))
+    bpy.ops.object.convert(target="MESH")
+    for o in list(bpy.context.selected_objects):
+        mw = o.matrix_world.copy()
+        o.parent = None
+        o.matrix_world = mw
+    for r in rigs:
+        bpy.data.objects.remove(r)
+    bpy.ops.object.select_all(action="DESELECT")
+    keep = [o for o in bpy.data.objects if o.type == "MESH" and o not in foniks_parts
+            and not any(m and m.name.startswith("M_CharacterPalette") for m in o.data.materials)]   # story places people
+    # The ground's distance fade is a shader the web can't read: flat mid grey here,
+    # the story page fades it with fog instead
+    flat = b.mat_flat("TrdDreamGroundFlat", srgb(trondheim_surroundings.DREAM_GROUND), 0.9)
+    for o in keep:
+        if any(m and m.name.startswith("TrdDreamGround") for m in o.data.materials):
+            o.data.materials.clear()
+            o.data.materials.append(flat)
+    mesh_cleanup.strip_hidden(keep)
+    for o in mesh_cleanup.merge_by_material(keep):
+        o.select_set(True)
+    os.makedirs(os.path.dirname(args.web), exist_ok=True)
+    bpy.ops.export_scene.gltf(filepath=args.web, use_selection=True, export_apply=True, export_yup=True)
+    print("wrote", args.web, sum(len(p.vertices) - 2 for o in bpy.context.selected_objects for p in o.data.polygons), "tris")
+    sys.exit(0)
+
 
 # Onto true north at true size from Adriaen's GPS points (TRD_TRUE=0 keeps the square
 # axis-aligned, e.g. for overlays on the top-down screenshot); cameras follow below
