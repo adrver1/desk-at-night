@@ -50,11 +50,20 @@ M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
 }.items()}
 
 
+_CUBE_V = [(-.5, -.5, -.5), (.5, -.5, -.5), (.5, .5, -.5), (-.5, .5, -.5),
+           (-.5, -.5, .5), (.5, -.5, .5), (.5, .5, .5), (-.5, .5, .5)]
+_CUBE_F = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+
+
 def box(name, loc, size, mat, rot=0.0):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=(0, 0, rot))
-    o = bpy.context.object
-    o.name, o.scale = name, size
-    o.data.materials.append(M[mat])
+    """A unit cube scaled to size. Built through the data API: bpy.ops primitives cost
+    ~50 ms each (a scene update per call), which made up most of a Føniks export."""
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(_CUBE_V, [], _CUBE_F)
+    me.materials.append(M[mat])
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
+    o.location, o.rotation_euler, o.scale = loc, (0, 0, rot), size
     return o
 
 
@@ -791,6 +800,7 @@ def FL(x, y, z=0.0):
 
 
 FONIKS_OBJS = set(bpy.data.objects) - _before
+bpy.context.view_layer.update()   # box() objects only get their matrix_world here
 for o in FONIKS_OBJS:
     if o.parent is None:
         o.matrix_world = FONIKS @ o.matrix_world
@@ -964,6 +974,37 @@ for i in range(5):
     box("PergolaPost", (ax0 + 0.5 + i * (gx - ax0 - 1.0) / 4, AS - 4.9, 1.5), (0.15, 0.15, 3.0), "dark")
 box("FoniksBack", ((ax0 + FB) / 2, (AS + 21 + CE) / 2, 8.4), (FB - ax0, CE - AS - 21, 16.8), "copper")   # the same building on along Bersvendveita
 block("YellowBers", ax0, FB, CE, BE, 15.5, "c5", 5, ("-x",), None)   # then the yellow brick neighbour
+
+
+def export_glb():
+    """Føniks on its own for the spin-around viewer and story mode. Called as soon as
+    Føniks and its annex are built, so the square, the town, the statue and the
+    characters are never built for an export."""
+    bpy.ops.object.select_all(action="DESELECT")
+    keep = FONIKS_OBJS | {o for o in bpy.data.objects if o.name.startswith(("Foniks", "PergolaPost", "RoofBar"))}
+    # Lean export: drop buried and flush-hidden faces, then one mesh per material
+    import mesh_cleanup
+    keep = [o for o in keep if o.type == "MESH"]
+    mesh_cleanup.strip_hidden(keep)
+    mesh_cleanup.fronts_only(keep, {"Win", "Mullion", "Transom", "Cartouche", "DormerWin", "Capital", "FoniksAnnexWin",
+                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "FoniksAnnexFrame", "FoniksAnnexRail", "FoniksAnnexFinBack", "FoniksAnnexGrille", "FoniksAnnexBalustrade", "Fanlight", "Door", "BrickPanel", "SouthBand",
+                                    "ParapetSlot", "PierStrip", "Keystone", "DoorArch", "SunHub", "ArchFill"})
+    if os.environ.get("TRD_STATS"):   # triangles left per part, biggest first
+        import collections, re
+        tri = collections.Counter()
+        for o in keep:
+            tri[re.sub(r"\.\d+$", "", o.name)] += sum(len(p.vertices) - 2 for p in o.data.polygons)
+        for k, v in tri.most_common(int(os.environ.get("TRD_STATS_N", 30))):
+            print(f"  {k:24s}{v:6d}")
+    for o in mesh_cleanup.merge_by_material(keep):
+        o.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=args.glb, use_selection=True, export_apply=True, export_yup=True)
+    print("wrote", args.glb)
+    sys.exit(0)
+
+
+if args.glb:
+    export_glb()
 # West of the annex: a block clad in copper-brown fins on a tight window grid
 block("BrickW", -108, FB - 22, 13, 32, 17, "copper", 6, ("-y",), None)
 # Right after Føniks at its north end, facing the square: the small pink wooden house
@@ -1126,28 +1167,6 @@ def aim(pos, bearing, pitch):
 # high over the south-east corner looking north-west; B1 = the overcast photo, lower
 B_POS, B1_POS = (79.3, -47.1, 48.1), (28.2, -48.1, 26.0)
 A_POS, A_AT = FL(10.0, -16.0, 1.7), FL(17.0, 0.0, 3.2)
-if args.glb:   # Føniks on its own for the spin-around viewer
-    bpy.ops.object.select_all(action="DESELECT")
-    keep = FONIKS_OBJS | {o for o in bpy.data.objects if o.name.startswith(("Foniks", "PergolaPost", "RoofBar"))}
-    # Lean export: drop buried and flush-hidden faces, then one mesh per material
-    import mesh_cleanup
-    keep = [o for o in keep if o.type == "MESH"]
-    mesh_cleanup.strip_hidden(keep)
-    mesh_cleanup.fronts_only(keep, {"Win", "Mullion", "Transom", "Cartouche", "DormerWin", "Capital", "FoniksAnnexWin",
-                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "FoniksAnnexFrame", "FoniksAnnexRail", "FoniksAnnexFinBack", "FoniksAnnexGrille", "FoniksAnnexBalustrade", "Fanlight", "Door", "BrickPanel", "SouthBand",
-                                    "ParapetSlot", "PierStrip", "Keystone", "DoorArch", "SunHub", "ArchFill"})
-    if os.environ.get("TRD_STATS"):   # triangles left per part, biggest first
-        import collections, re
-        tri = collections.Counter()
-        for o in keep:
-            tri[re.sub(r"\.\d+$", "", o.name)] += sum(len(p.vertices) - 2 for p in o.data.polygons)
-        for k, v in tri.most_common(30):
-            print(f"  {k:24s}{v:6d}")
-    for o in mesh_cleanup.merge_by_material(keep):
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=args.glb, use_selection=True, export_apply=True, export_yup=True)
-    print("wrote", args.glb)
-    sys.exit(0)
 
 SHOTS = {
     "B_wide": (B_POS, aim(B_POS, 303.3, 16.3), 24.0, 1.5),
