@@ -38,7 +38,7 @@ def srgb(h):
 
 M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "cobble": ("#8a8780", 0.95), "granite": ("#a7a49d", 0.8), "dark": ("#3b3e41", 0.6),
-    "bronze": ("#4f6b5d", 0.45), "glass": ("#5b7283", 0.15), "phoenix": ("#d9c49c", 0.75),
+    "bronze": ("#4f6b5d", 0.45), "glass": ("#33434f", 0.15), "phoenix": ("#d9c49c", 0.75),
     "roof": ("#5e4b40", 0.8), "road": ("#505356", 0.9), "tree": ("#4f6a35", 1.0),
     "trunk": ("#4a3a2c", 1.0), "c1": ("#c9a77c", 0.8), "c2": ("#b46a4f", 0.8),
     "c3": ("#e2ddcf", 0.8), "c4": ("#8f9b8a", 0.8), "c5": ("#c7b07a", 0.8),
