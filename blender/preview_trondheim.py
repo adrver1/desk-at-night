@@ -606,9 +606,9 @@ def foniks():
     for x0, x1, y0, y1 in ((-RS, cw, -RD, 0.0), (-RS, 0.0, 0.0, depth)):
         cxa, cya, wx, wy = (x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0
         box("RestaurantPlinth", (cxa, cya, 0.35), (wx, wy, 0.7), "granite")
-        box("Restaurant", (cxa, cya, (0.7 + WT) / 2), (wx - 0.1, wy - 0.1, WT - 0.7), "amber")
+        box("Restaurant", (cxa, cya, (0.7 + WT) / 2), (wx - 0.1, wy - 0.1, WT - 0.7), "glass")   # one window glass for all of Føniks (Adriaen)
         ux0, uy0 = x0 + R, y0 + (R if y0 < 0 else 0.0)   # the roof sits inside the eave
-        box("RestaurantUpper", ((ux0 + x1) / 2, (uy0 + y1) / 2, WT + R / 2), (x1 - ux0, y1 - uy0, R), "amber")   # glazed where an arm ends
+        box("RestaurantUpper", ((ux0 + x1) / 2, (uy0 + y1) / 2, WT + R / 2), (x1 - ux0, y1 - uy0, R), "glass")   # glazed where an arm ends
         box("RestaurantRoof", ((ux0 + x1) / 2, (uy0 + y1) / 2, WT + R), (x1 - ux0, y1 - uy0, 0.2), "dark")
     for x in [cw - 0.05 - i * 1.6 for i in range(int((cw + RS) / 1.6) + 1) if cw - 0.05 - i * 1.6 > -RS + 0.3]:   # frames on the street faces
         box("Mullion", (x, -RD, (0.7 + WT) / 2), (0.1, 0.12, WT - 0.7), "dark")
@@ -977,7 +977,7 @@ box("FoniksAnnexJointWin", (FB - JW / 2, AS + 0.25, 7.0), (JW - 0.5, 0.12, 2.3),
 box("FoniksAnnexJointWin", (FB - JW / 2, AS + 0.25, 10.4), (JW - 0.5, 0.12, 2.3), "blind")
 # the glass roof bridging the annex and Føniks: a mono-pitch skylight on dark bars
 gx0, gx1, gy0, gy1 = ax1 - 1.0, FB + 0.5, AS + 3.0, AS + 20.2
-glass = prism("FoniksAtrium", [(gx0, gy0), (gx1, gy0), (gx1, gy1), (gx0, gy1)], 0, 0.1, "glass_block")
+glass = prism("FoniksAtrium", [(gx0, gy0), (gx1, gy0), (gx1, gy1), (gx0, gy1)], 0, 0.1, "glass")
 for v in glass.data.vertices:
     v.co.z += TT + 0.2 + 1.4 * (v.co.x - gx0) / (gx1 - gx0)
 for k in range(10):
