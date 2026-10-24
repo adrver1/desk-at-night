@@ -275,8 +275,11 @@ def balcony_door(x, z, w=1.5, h=3.65):
     halfdisc("Win", x, top, w / 2, -0.285, "glass")
     for k in (1, 2, 3):   # the sunburst bars
         a = math.pi * k / 4
-        b = box("Mullion", (x + 0.27 * w * math.cos(a), -0.33, top + 0.27 * w * math.sin(a)), (0.54 * w, 0.06, 0.06), "frame")
+        # not "Mullion": their inner ends bury each other, which fronts_only would
+        # take for a buried back and leave only the outer end square
+        b = box("Sunburst", (x + 0.27 * w * math.cos(a), -0.33, top + 0.27 * w * math.sin(a)), (0.54 * w, 0.06, 0.06), "frame")
         b.rotation_euler = (0, -a, 0)
+    box("SunHub", (x, -0.35, top + 0.03), (0.16, 0.06, 0.16), "frame")   # covers where the bars meet
 
 
 def rib(path, leg, at, quarter, r, z0, side):
@@ -918,7 +921,7 @@ if args.glb:   # Føniks on its own for the spin-around viewer
     mesh_cleanup.strip_hidden(keep)
     mesh_cleanup.fronts_only(keep, {"Win", "Mullion", "Transom", "Cartouche", "DormerWin", "Capital", "FoniksAnnexWin",
                                     "FoniksAnnexTopWin", "FoniksAnnexJointWin", "Fanlight", "Door", "BrickPanel", "SouthBand",
-                                    "ParapetSlot", "PierStrip", "Keystone", "DoorArch"})
+                                    "ParapetSlot", "PierStrip", "Keystone", "DoorArch", "SunHub"})
     if os.environ.get("TRD_STATS"):   # triangles left per part, biggest first
         import collections, re
         tri = collections.Counter()

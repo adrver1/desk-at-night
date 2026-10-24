@@ -68,6 +68,9 @@ def _samples(f, mw):
 def strip_hidden(objs, ground=0.0):
     """Delete faces of objs that are buried in, or pressed flat against, another solid
     (any closed convex mesh in objs), and faces lying on or under the ground plane."""
+    # rotations set after an object is made only reach matrix_world on the next update;
+    # without it a rotated part is tested where it would sit unrotated
+    bpy.context.view_layer.update()
     objs = [o for o in objs if o.type == "MESH"]
     solids = []   # (object, planes, aabb min, aabb max)
     for o in objs:
