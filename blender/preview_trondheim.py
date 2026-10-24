@@ -38,13 +38,13 @@ def srgb(h):
 
 M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "cobble": ("#8a8780", 0.95), "granite": ("#a7a49d", 0.8), "dark": ("#3b3e41", 0.6),
-    "bronze": ("#4f6b5d", 0.45), "glass": ("#2a3540", 0.15), "phoenix": ("#d8c8ae", 0.75),
+    "bronze": ("#4f6b5d", 0.45), "glass": ("#2a3540", 0.15), "phoenix": ("#d9c49c", 0.75),
     "roof": ("#5e4b40", 0.8), "road": ("#505356", 0.9), "tree": ("#4f6a35", 1.0),
     "trunk": ("#4a3a2c", 1.0), "c1": ("#c9a77c", 0.8), "c2": ("#b46a4f", 0.8),
     "c3": ("#e2ddcf", 0.8), "c4": ("#8f9b8a", 0.8), "c5": ("#c7b07a", 0.8),
-    "brick": ("#8e3b2e", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
+    "brick": ("#8a5442", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
     "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
-    "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3a3d42", 0.7), "roof_light": ("#8f9498", 0.8),
+    "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3e3738", 0.7), "roof_light": ("#8f9498", 0.8),
     "copper": ("#6e3a2c", 0.55), "plinth": ("#59625d", 0.8), "amber": ("#61798a", 0.08), "glass_curve": ("#86a3b8", 0.06), "skylight": ("#c9cdcf", 0.5), "door": ("#4a2c1e", 0.5),
     "bronze_dark": ("#2f3a33", 0.45), "gold": ("#b8913a", 0.35), "travertine": ("#dcd2bf", 0.8), "orange": ("#c9583a", 0.8),
 }.items()}
@@ -418,7 +418,8 @@ def foniks():
         box("Capital", (mid0 + i * bw, -0.16, eave - 1.2), (1.9, 0.2, 0.7), "phoenix")
     # The north bay's ground floor steps out again into a half-octagon with big
     # windows and a small dark lead roof (2025 photos)
-    ox, OP, OF, OH = L - PIER - BAY / 2, 1.2, 3.6, 4.3   # centre, how far out, front width, height
+    ox, OP, OH = L - PIER - BAY / 2, 1.2, 4.3   # centre, how far out, height
+    OF = BAY - 2 * OP   # front width: the half-octagon spans the whole bay
     oct_ = [(ox - OF / 2 - OP, -BD), (ox - OF / 2, -BD - OP), (ox + OF / 2, -BD - OP), (ox + OF / 2 + OP, -BD)]
     prism("Oriel", oct_ + [(ox + OF / 2 + OP, -BD + 0.1), (ox - OF / 2 - OP, -BD + 0.1)], 0, OH, "phoenix")
     grow = lambda pts, d: [(x + d * (1 if x > ox else -1) * (abs(x - ox) > 0.1), y - d * (y < -BD + 0.01)) for x, y in pts]
@@ -435,7 +436,7 @@ def foniks():
     o = bpy.data.objects.new("OrielRoof", me)
     scene.collection.objects.link(o)
     me.materials.append(M["dark"])
-    window(ox, 2.75, -BD - OP, 3.0, 2.3, panes=3)   # the angled sides are blank
+    window(ox, 2.75, -BD - OP, OF - 0.8, 2.3, panes=3)   # the angled sides are blank
     for bx in (PIER + BAY / 2, L - PIER - BAY / 2):   # the side bays come forward
         # the bays come out as far as the middle balcony and stop a floor short of
         # the eave; their tops are balconies behind a solid parapet with small slots
@@ -613,13 +614,16 @@ def foniks():
             window(y, z, 0.0, side=True, h=1.7 if z in rows[:2] else 2.1, arch=z in rows[:2])
 
 
-def wing(name, root, side, scale=1.0):
-    """A raised, spread wing as a flat feathered outline with a little thickness."""
-    out = [(0, 0), (0.22, 0.32), (0.5, 0.7), (0.72, 1.05), (0.98, 1.32), (0.92, 1.05), (1.04, 0.9),
-           (0.9, 0.72), (0.98, 0.56), (0.82, 0.42), (0.86, 0.26), (0.66, 0.16), (0.62, 0.0), (0.42, -0.05),
-           (0.3, -0.2), (0.12, -0.12)]
-    pts = [(root[0] + side * 1.25 * u * scale, root[1] - 0.28 * u * u * scale, root[2] + 0.9 * v * scale)
-           for u, v in out]   # wider than tall, cupped forward like the real bird
+# A half-folded wing (Adriaen's close photo): a rounded shoulder just above the head,
+# the outer edge hanging straight down, the tip pointing down beside the outer lamp.
+# (out from the body's centre, height above the body's centre)
+WING = [(0.2, 0.2), (0.32, 0.5), (0.5, 0.62), (0.68, 0.58), (0.84, 0.42), (0.9, 0.1), (0.88, -0.3),
+        (0.8, -0.65), (0.7, -0.82), (0.58, -0.6), (0.44, -0.35), (0.3, -0.1)]
+
+
+def wing(name, centre, side):
+    """One half-folded wing as a flat outline with a little thickness, cupped forward."""
+    pts = [(centre[0] + side * u, centre[1] - 0.3 * (u - 0.2) ** 2, centre[2] + v) for u, v in WING]
     me = bpy.data.meshes.new(name)
     me.from_pydata(pts, [], [tuple(range(len(pts)))])
     o = bpy.data.objects.new(name, me)
@@ -631,7 +635,7 @@ def wing(name, root, side, scale=1.0):
 def phoenix_fountain(cx, cy, z0=0.15):
     """The phoenix fountain in front of the Føniks entrance (Adriaen's photo): a low
     round basin with a thick stone rim, a dark tiled column, three globe lamps at the
-    front and the bronze phoenix rising from its nest with both wings raised."""
+    front and the bronze phoenix rising from its nest, wings half folded and pointing down."""
     before = set(bpy.data.objects)
     cyl("Water", (cx, cy, 0), 3.0, 0.32, "water", 24)
     bpy.ops.mesh.primitive_torus_add(major_radius=3.0, minor_radius=0.3, major_segments=24, minor_segments=6,
@@ -665,10 +669,10 @@ def phoenix_fountain(cx, cy, z0=0.15):
     beak = cyl("Beak", (cx + 0.16, cy - 0.12, 2.72), 0.045, 0.16, "bronze_dark", 4, 0.0)
     beak.rotation_euler = (0, math.radians(95), math.radians(-20))   # head turned to its left
     for side in (-1, 1):
-        wing("Wing", (cx + side * 0.18, cy + 0.02, 2.4), side, 0.95)
-        for u, v in ((0.82, 0.95), (0.86, 0.75), (0.8, 0.55), (0.7, 0.36)):   # round bosses along each wing
+        wing("Wing", (cx, cy + 0.02, 2.3), side)
+        for u, v in ((0.76, 0.42), (0.8, 0.24), (0.8, 0.04), (0.77, -0.16)):   # round bosses down the outer edge
             bpy.ops.mesh.primitive_uv_sphere_add(segments=4, ring_count=2, radius=0.06,
-                                                 location=(cx + side * (0.18 + 1.19 * u), cy + 0.02 - 0.27 * u * u - 0.06, 2.4 + 0.855 * v))
+                                                 location=(cx + side * u, cy + 0.02 - 0.3 * (u - 0.2) ** 2 - 0.06, 2.3 + v))
             bpy.context.object.data.materials.append(M["steel"])
     for o in set(bpy.data.objects) - before:   # raised on a stone drum to the terrace's height
         o.location.z += z0
