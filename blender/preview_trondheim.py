@@ -746,8 +746,8 @@ import trondheim_surroundings  # noqa: E402
 trondheim_surroundings.build(globals(), os.environ.get("TRD_SURROUND", "v2"))
 
 
-def load_char(name, loc, yaw, mat=None, scale=1.0, pose=None):
-    path = os.path.join(ROOT, "characters", name, name + ".glb")
+def load_char(name, loc, yaw, mat=None, scale=1.0, pose=None, glb=None):
+    path = glb or os.path.join(ROOT, "characters", name, name + ".glb")
     before = set(bpy.data.objects)
     bpy.ops.import_scene.gltf(filepath=path)
     new = [o for o in bpy.data.objects if o not in before]
@@ -772,35 +772,47 @@ def load_char(name, loc, yaw, mat=None, scale=1.0, pose=None):
     return holder, rig
 
 
-# Statue: the base body in bronze, scaled 2x, facing north up Munkegata (Adriaen). Right
-# arm down with the sword held across the legs, left arm forward with the orb, a cross on
-# top (2019 photo, 1921 drawing); both sit in the hands' palms
+# Statue (Adriaen's photos): the clean-shaven base body in bronze, scaled 2x, facing north
+# up Munkegata. Conical helmet with a nose guard over hair to the jaw, a moustache, a mail
+# shirt to the knees with a belt. Right arm down, the sword hanging straight from the fist
+# with its tip on the plinth; left forearm raised, the fist holding the orb upright on its
+# stem, a cross on top; a stone between his feet
 YAW = 0.0
-statue, rig = load_char("bearded_operator", (0, 0, TOP), YAW, "bronze", 2.0,
-                        {"upper_arm.R": (-30, 30, 15), "upper_arm.L": (-60, -75, 30), "forearm.L": (-30, -15, -75)})
+statue, rig = load_char("base_body", (0, 0, TOP), YAW, "bronze", 2.0,
+                        {"upper_arm.R": (-30, 30, 15), "forearm.R": (-60, 90, -45),
+                         "upper_arm.L": (-45, 60, -75), "forearm.L": (90, -60, 60)},
+                        glb=os.path.join(ROOT, "characters", "_shared", "base_body.glb"))
+for o in list(statue.children):   # the base body file carries a stray sphere
+    if o.type == "MESH" and o.name.startswith("Icosphere"):
+        bpy.data.objects.remove(o)
 bpy.context.view_layer.update()
 W = lambda bone, end="tail": rig.matrix_world @ getattr(rig.pose.bones[bone], end)
 SPIN = Matrix.Rotation(YAW, 4, "Z")
-palm_r = (W("hand.R", "head") + W("hand.R")) / 2
-along = (SPIN @ Vector((-0.95, 0.8, -0.95))).normalized()   # blade across the legs to the left foot
-hilt, tip = palm_r - along * 0.28, palm_r + along * 1.55
-sword = box("Sword", (hilt + tip) / 2, (0.09, 0.03, (tip - hilt).length), "bronze")
-sword.rotation_euler = (tip - hilt).to_track_quat("Z", "Y").to_euler()
-box("Guard", palm_r + along * 0.12, (0.4, 0.08, 0.06), "bronze")
+F = lambda x, y, z: SPIN @ Vector((x, y, z))   # an offset in his own frame, y forward
+fist_r = (W("hand.R", "head") + W("hand.R")) / 2
+hilt, tip = fist_r + Vector((0, 0, 0.22)), Vector((fist_r.x, fist_r.y, TOP + 0.08))
+box("Sword", (hilt + tip) / 2, (0.1, 0.035, (hilt - tip).length), "bronze", YAW)
+box("Guard", fist_r - Vector((0, 0, 0.16)), (0.42, 0.08, 0.06), "bronze", YAW)
 head, crown = W("head", "head"), W("head")
-cyl("Helmet", (crown.x, crown.y, crown.z - 0.2), 0.27, 0.42, "bronze", 10, 0.03)   # conical nasal helmet
+cyl("Helmet", (crown.x, crown.y, crown.z - 0.2), 0.27, 0.42, "bronze", 10, 0.03)   # conical helmet
+box("NoseGuard", (crown + F(0, 0.25, -0.33)), (0.05, 0.04, 0.24), "bronze", YAW)
+for side in (-0.21, 0.21):   # hair to the jaw at the sides, and down the back of the neck
+    box("Hair", (crown + F(side, -0.04, -0.4)), (0.08, 0.3, 0.28), "bronze", YAW)
+box("Hair", (crown + F(0, -0.17, -0.4)), (0.46, 0.08, 0.28), "bronze", YAW)
+box("Moustache", (head + F(0, 0.22, 0.12)), (0.2, 0.05, 0.05), "bronze", YAW)
 hips = W("hips", "head")
 cyl("Mail", (hips.x, hips.y, hips.z - 0.8), 0.42, 1.2, "bronze", 10, 0.34)   # mail shirt down to the knees
-cup = (W("hand.L", "head") + W("hand.L")) / 2   # on the palm
-cyl("CupFoot", (cup.x, cup.y, cup.z + 0.02), 0.08, 0.1, "bronze", 8)
-bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=6, radius=0.17, location=(cup.x, cup.y, cup.z + 0.27))
+cyl("Belt", (hips.x, hips.y, hips.z - 0.02), 0.39, 0.1, "bronze", 10)
+grip = W("hand.L")   # the fist's top
+cyl("OrbStem", (grip.x, grip.y, grip.z - 0.12), 0.06, 0.2, "bronze", 8)
+bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=6, radius=0.18, location=(grip.x, grip.y, grip.z + 0.22))
+bpy.context.object.scale.z = 1.15
 bpy.context.object.data.materials.append(M["bronze"])
-box("CupCross", (cup.x, cup.y, cup.z + 0.56), (0.06, 0.06, 0.3), "bronze", YAW)   # a real cross on the orb:
-box("CupCrossBar", (cup.x, cup.y, cup.z + 0.6), (0.2, 0.06, 0.06), "bronze", YAW)   # upright and crossbar
-stone = SPIN @ Vector((-0.35, -0.25, 0))   # by his left foot
-bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.35, location=(stone.x, stone.y, TOP + 0.15))
-bpy.context.object.scale.z = 1.3   # the stone by his left foot
-bpy.context.object.data.materials.append(M["bronze"])
+box("OrbCross", (grip.x, grip.y, grip.z + 0.56), (0.06, 0.06, 0.3), "bronze", YAW)   # upright and crossbar
+box("OrbCrossBar", (grip.x, grip.y, grip.z + 0.6), (0.2, 0.06, 0.06), "bronze", YAW)
+stone = F(0, 0.3, 0)
+bpy.ops.mesh.primitive_cone_add(vertices=8, radius1=0.32, radius2=0.12, depth=0.7, location=(stone.x, stone.y, TOP + 0.35))
+bpy.context.object.data.materials.append(M["bronze"])   # the stone between his feet
 # The bearded character (Adriaen, one year ago) at the Føniks entrance, by the fountain
 me, _ = load_char("bearded_operator", FL(11.0, -11.0), math.radians(200) + TURN)
 # Light: low autumn sun, overcast sky
