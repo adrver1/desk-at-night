@@ -442,12 +442,14 @@ SHOTS = {
 }
 
 
-# Adriaen's GPS points (the statue, the phoenix, Føniks's stairs and south-east roof
-# corner) against the layout above, which was measured on a screenshot: it is 3.7% too
-# small, and the square is turned so that its own "north" faces true bearing ~5.6 degrees.
-# true_world() puts the built scene on true north at true size; to_true() does the same
-# for a single point such as a camera.
-TRUE_SCALE, TRUE_TURN = 1.037, math.radians(-5.6)
+# Adriaen's GPS points (the statue, the phoenix, Føniks's south-east roof corner, the four
+# corners of the rectangle through the planter rows and the pavilion's centre) against the
+# layout above, which was measured on a screenshot: fitted with the statue fixed, it is
+# 4.5% too small, and the square is turned so that its own "north" faces true bearing
+# ~4.6 degrees (the planter rectangle alone: 69.6 x 80.6 m, turned 4.2). Residuals are
+# 0.3-1.5 m. true_world() puts the built scene on true north at true size; to_true()
+# does the same for a single point such as a camera.
+TRUE_SCALE, TRUE_TURN = 1.045, math.radians(-4.6)
 
 
 def to_true(p):
