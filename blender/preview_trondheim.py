@@ -376,7 +376,7 @@ def dormer(u, face, eave, side):
         box(name, P(along, out, z), (d, w, h) if side else (w, d, h), mat)
     # roof tiles show between the cornice and the dormer; the window stands on a sill shelf
     B("Dormer", u, 0.8, eave + 1.5, 1.6, 1.6, 1.8, "phoenix")             # z eave+0.6 .. +2.4
-    B("DormerSill", u, -0.08, eave + 0.68, 1.5, 0.3, 0.12, "frame")
+    B("DormerSill", u, -0.08, eave + 0.68, 1.5, 0.3, 0.12, "phoenix")   # tan like the dormer (Adriaen)
     for name, d, w, h, mat in (("DormerFrame", 0.01, 1.2, 1.56, "frame"), ("DormerWin", 0.02, 1.02, 1.42, "glass"),
                                ("DormerBar", 0.03, 0.08, 1.42, "frame")):   # flat quads on its face
         pane(name, "w" if side else "s", u, eave + 1.52, w, h, face - d, mat)
