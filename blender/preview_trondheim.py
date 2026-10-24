@@ -796,7 +796,7 @@ box("Guard", fist_r - Vector((0, 0, 0.16)), (0.42, 0.08, 0.06), "bronze", YAW)
 head, crown = W("head", "head"), W("head")
 # The helmet (close-up photo): a tall pointed cone, slightly egg-shaped, sitting snug
 # down to the brows, a thin nose guard to the tip of the nose; hair falls from under it to
-# the jaw. Made in the body's own unscaled frame (head x +-0.135, y -0.10..0.124, top 1.75)
+# the jaw, and a moustache set into the face under the nose (face y 0.092, nose tip 0.124). Made in the body's own unscaled frame (head x +-0.135, y -0.10..0.124, top 1.75)
 LOCAL = statue.matrix_world
 
 
@@ -821,11 +821,11 @@ def bit(name, loc, size):   # a bronze box in the body's frame, size in body uni
 
 
 helmet()   # the rim is the slight flare at the bottom of the cone, no separate brim
-bit("NoseGuard", (0, 0.152, 1.605), (0.024, 0.014, 0.10))
+bit("NoseGuard", (0, 0.136, 1.6), (0.024, 0.024, 0.09))   # from the rim down onto the nose
 for side in (-1, 1):   # hair from under the helmet to the jaw, tucked flush to the head
     bit("Hair", (side * 0.136, -0.055, 1.58), (0.016, 0.11, 0.12))
 bit("Hair", (0, -0.112, 1.575), (0.25, 0.02, 0.13))
-bit("Moustache", (0, 0.13, 1.562), (0.07, 0.016, 0.018))
+bit("Moustache", (0, 0.097, 1.551), (0.07, 0.022, 0.016))
 hips = W("hips", "head")
 cyl("Mail", (hips.x, hips.y, hips.z - 0.8), 0.42, 1.2, "bronze", 10, 0.34)   # mail shirt down to the knees
 cyl("Belt", (hips.x, hips.y, hips.z - 0.02), 0.39, 0.1, "bronze", 10)
