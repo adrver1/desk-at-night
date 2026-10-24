@@ -4,7 +4,9 @@ runs on across neighbouring faces and every wall of one material still exports a
 single mesh (no extra draw calls).
 
 Styles (TRD_TEX): "lines" = flat colour with joint lines only, "varied" = lines plus a
-little colour variation per brick, slab, panel and tile, "none" = untextured."""
+little colour variation per brick, slab, panel and tile, "photo" = CC0 Poly Haven photo
+textures (Rob Tuytel) for brick and slate, recoloured to the palette, with the "varied"
+travertine and copper, "none" = untextured."""
 import math
 import os
 import random
@@ -69,16 +71,48 @@ TEX = {"brick": (0.96, 0.6, _brick), "travertine": (2.4, 1.2, _travertine),
        "copper": (2.0, 1.0, _copper), "slate": (1.2, 0.8, _slate)}
 
 
+# photo style: Poly Haven asset, its real repeat in metres, the palette colour it is recoloured to
+PHOTO = {"brick": ("medieval_red_brick", 2.0, "#8a5442"), "slate": ("roof_slates_03", 3.0, "#403839")}
+CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".cache", "polyhaven")
+
+
+def _photo(asset, colour, contrast=1.0):
+    """The asset's 1k diffuse map (downloaded once into blender/.cache), shrunk to 512 px
+    and recoloured so its average is the palette colour: from afar the wall still reads as
+    the flat colour, close up the photo's bricks and slates show."""
+    import json, urllib.request
+    path = os.path.join(CACHE, asset + ".jpg")
+    if not os.path.exists(path):
+        os.makedirs(CACHE, exist_ok=True)
+        ua = {"User-Agent": "desk-at-night facade textures"}
+        files = json.load(urllib.request.urlopen(urllib.request.Request(f"https://api.polyhaven.com/files/{asset}", headers=ua)))
+        data = urllib.request.urlopen(urllib.request.Request(files["Diffuse"]["1k"]["jpg"]["url"], headers=ua)).read()
+        open(path, "wb").write(data)
+    img = Image.open(path).convert("RGB").resize((512, 512), Image.LANCZOS)
+    lum = img.convert("L")
+    mean = sum(i * n for i, n in enumerate(lum.histogram())) / (512 * 512)
+    base = _hex(colour)
+    px = [tuple(max(0, min(255, int(c * (1 + contrast * (l / mean - 1))))) for c in base) for l in lum.getdata()]
+    out = Image.new("RGB", img.size)
+    out.putdata(px)
+    return Image.blend(out, img, 0.25)   # keep a little of the photo's own colour variation
+
+
 def make_images(style, outdir):
     os.makedirs(outdir, exist_ok=True)
     amt = 0.0 if style == "lines" else 0.07
     out = {}
     for name, (_, _, paint) in TEX.items():
-        img = Image.new("RGB", (PX, PX))
-        paint(img, random.Random(name), amt)
-        img = img.filter(ImageFilter.SMOOTH)
-        path = os.path.join(outdir, f"{name}.png")
-        img.save(path)
+        if style == "photo" and name in PHOTO:
+            asset, size, colour = PHOTO[name]
+            img = _photo(asset, colour)
+            TEX[name] = (size, size, paint)
+        else:
+            img = Image.new("RGB", (PX, PX))
+            paint(img, random.Random(name), amt)
+            img = img.filter(ImageFilter.SMOOTH)
+        path = os.path.join(outdir, f"{name}.png" if img.size[0] == PX else f"{name}.jpg")
+        img.save(path, quality=85) if path.endswith(".jpg") else img.save(path)
         out[name] = path
     return out
 
