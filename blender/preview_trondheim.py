@@ -877,6 +877,11 @@ def annex_win(c, z, w, h, face, mat="glass"):
 
 # The travertine box: six window columns, the first well in from the west corner; the
 # top row runs to the floor behind a glass balustrade, the middle row has its blinds down
+# Adriaen: one glass everywhere, so the lowered blinds and the glass balustrade from the
+# photos are plain window glass unless TRD_BLINDS=1
+if os.environ.get("TRD_BLINDS") != "1":
+    M["blind"] = M["blind_green"] = M["glass"]
+RAIL = "skylight" if os.environ.get("TRD_BLINDS") == "1" else "glass"
 ROWS = ((7.0, 2.3, "glass"), (10.4, 2.3, "blind"), (13.9, 2.6, "glass"))
 for z, h, mat in ROWS:
     for x in [ax0 + 3.5 + i * 2.5 for i in range(6)]:
@@ -891,9 +896,9 @@ for z, h, mat in ROWS:
     pane("FoniksAnnexFrame", "w", (AS - 1.01 + cy1) / 2 + 0.06, z, cy1 - AS + 1.01, h + 0.12, cx0 - 0.01, "bronze_dark")
     pane("FoniksAnnexWin", "w", (AS - 1.02 + cy1) / 2, z, cy1 - AS + 1.02, h, cx0 - 0.02, mat)
 for x in [ax0 + 3.5 + i * 2.5 for i in range(6)]:
-    box("FoniksAnnexRail", (x, AS - 1.1, 13.1), (1.2, 0.04, 0.9), "skylight")
-box("FoniksAnnexRail", ((cx0 + cx1) / 2, AS - 1.1, 13.1), (cx1 - cx0, 0.04, 0.9), "skylight")
-box("FoniksAnnexRail", (cx0 - 0.1, (AS - 1.1 + cy1) / 2, 13.1), (0.04, cy1 - AS + 1.1, 0.9), "skylight")
+    box("FoniksAnnexRail", (x, AS - 1.1, 13.1), (1.2, 0.04, 0.9), RAIL)
+box("FoniksAnnexRail", ((cx0 + cx1) / 2, AS - 1.1, 13.1), (cx1 - cx0, 0.04, 0.9), RAIL)
+box("FoniksAnnexRail", (cx0 - 0.1, (AS - 1.1 + cy1) / 2, 13.1), (0.04, cy1 - AS + 1.1, 0.9), RAIL)
 # Bersvendveita side (Adriaen's street photos): travertine for the first 13 m, five window
 # columns with the corner one, the same rows, a shop window, a door and plain travertine below, then copper-clad all the way along the block:
 # copper pilasters framing pairs and single windows with blinds, narrow bays of vertical
