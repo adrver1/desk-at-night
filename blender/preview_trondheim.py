@@ -240,14 +240,14 @@ def window(x, z, y, w=1.35, h=2.1, arch=False, side=False, panes=2):
             box(name, (cx, y - dy, cz), (sx, 0.12, sz), mat)
     B("WinFrame", x, z, w + 0.3, h + 0.3, 0.05, "frame")
     B("Win", x, z, w, h, 0.1, "glass")
-    up = w / 2 if arch else 0.0   # an arched window's mullion runs on up into the round head
     for u in ((x,) if panes == 2 else (x - w / 6, x + w / 6)):
-        B("Mullion", u, z + up / 2, 0.1, h + up, 0.18, "frame")
+        B("Mullion", u, z, 0.1, h, 0.18, "frame")
     # a hair behind the mullion: coplanar faces where the two cross render as a black spot
     B("Transom", x, z + h * 0.2, w, 0.1, 0.16, "frame")
-    if arch:   # a round glazed head: two flat half discs, frame behind glass
-        halfdisc("WinFrame", x, z + h / 2, w / 2 + 0.15, y - 0.11, "frame", side=side)
-        halfdisc("Win", x, z + h / 2, w / 2, y - 0.16, "glass", side=side)
+    if arch:   # a rectangular window under a round white surround filled with render
+        # each a hair proud of the one behind: a face flush with the frame's front renders black
+        halfdisc("WinFrame", x, z + h / 2, w / 2 + 0.15, y - 0.12, "frame", side=side)
+        halfdisc("ArchFill", x, z + h / 2 + 0.12, w / 2 - 0.1, y - 0.13, "phoenix", side=side)
 
 
 def halfdisc(name, cx, cz, r, y, mat, n=8, side=False):
@@ -348,10 +348,12 @@ def dormer(u, face, eave, side):
         return (face + out, along, z) if side else (along, face + out, z)
     def B(name, along, out, z, w, d, h, mat):
         box(name, P(along, out, z), (d, w, h) if side else (w, d, h), mat)
-    B("Dormer", u, 0.8, eave + 1.2, 1.6, 1.6, 2.4, "phoenix")             # z eave .. +2.4, right on the cornice
-    B("DormerFrame", u, -0.02, eave + 1.15, 1.2, 0.06, 2.25, "frame")
-    B("DormerWin", u, -0.06, eave + 1.15, 1.02, 0.06, 2.1, "glass")
-    B("DormerBar", u, -0.1, eave + 1.15, 0.08, 0.06, 2.1, "frame")
+    # roof tiles show between the cornice and the dormer; the window stands on a sill shelf
+    B("Dormer", u, 0.8, eave + 1.5, 1.6, 1.6, 1.8, "phoenix")             # z eave+0.6 .. +2.4
+    B("DormerSill", u, -0.08, eave + 0.68, 1.5, 0.3, 0.12, "frame")
+    B("DormerFrame", u, -0.02, eave + 1.52, 1.2, 0.06, 1.56, "frame")
+    B("DormerWin", u, -0.06, eave + 1.52, 1.02, 0.06, 1.42, "glass")
+    B("DormerBar", u, -0.1, eave + 1.52, 0.08, 0.06, 1.42, "frame")
     # the hood: a round-topped arch, extruded back into the roof
     n, w, rise, z0 = 6, 1.65, 0.55, eave + 2.4
     arc = [(-w / 2 + w * k / n, z0 + rise * (1 - (2 * k / n - 1) ** 2)) for k in range(n + 1)]
@@ -400,7 +402,7 @@ def foniks():
     cx = L / 2
     box("Foniks", (cx, depth / 2, eave / 2), (L, depth, eave), "phoenix")
     box("FoniksPlinth", (cx, -0.12, 0.5), (L + 0.2, 0.3, 1.0), "plinth")   # dark green-grey base
-    box("FoniksCornice", (cx, depth / 2, eave - 0.2), (L + 0.8, depth + 0.8, 0.45), "frame")
+    box("FoniksCornice", (cx, depth / 2, eave - 0.2), (L + 0.8, depth + 0.8, 0.45), "phoenix")   # tan, like the render
     frustum("FoniksMansard", (cx, depth / 2), eave, L + 0.6, depth + 0.6, L - 3.4, depth - 3.4, 3.6, "slate")
     frustum("FoniksRoof", (cx, depth / 2), eave + 3.6, L - 3.4, depth - 3.4, L - 14, 3, 2.6, "slate")
     for x in (8.5, L - 8.5):
@@ -544,7 +546,7 @@ def foniks():
         box("Fanlight", (x, -0.15, LAND + 2.725), (1.7, 0.12, 0.55), "glass")
     for x in (cols[0], cols[3]):
         window(x, LAND + 1.7, -0.12, 1.5, 2.6)
-    box("EntryBalcony", ((mid0 + mid1) / 2, -0.8, 5.3), (mid1 - mid0, 1.6, 0.3), "frame")
+    box("EntryBalcony", ((mid0 + mid1) / 2, -0.8, 5.3), (mid1 - mid0, 1.6, 0.3), "phoenix")
     box("EntryRail", ((mid0 + mid1) / 2, -1.55, 6.45), (mid1 - mid0, 0.1, 0.08), "dark")   # black wrought iron
     n = int((mid1 - mid0) / 0.5)
     for i in range(n):
@@ -921,7 +923,7 @@ if args.glb:   # Føniks on its own for the spin-around viewer
     mesh_cleanup.strip_hidden(keep)
     mesh_cleanup.fronts_only(keep, {"Win", "Mullion", "Transom", "Cartouche", "DormerWin", "Capital", "FoniksAnnexWin",
                                     "FoniksAnnexTopWin", "FoniksAnnexJointWin", "Fanlight", "Door", "BrickPanel", "SouthBand",
-                                    "ParapetSlot", "PierStrip", "Keystone", "DoorArch", "SunHub"})
+                                    "ParapetSlot", "PierStrip", "Keystone", "DoorArch", "SunHub", "ArchFill"})
     if os.environ.get("TRD_STATS"):   # triangles left per part, biggest first
         import collections, re
         tri = collections.Counter()
