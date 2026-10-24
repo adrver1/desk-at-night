@@ -386,14 +386,15 @@ def dormer(u, face, eave, side):
     ring = lambda out: [P(u + a_, out, z) for a_, z in arc]   # closes along its flat base
     front, back = ring(-0.05), ring(1.6)
     m = len(front)
-    faces = [tuple(range(m)), tuple(range(2 * m - 1, m - 1, -1))]
-    faces += [(i, i + 1, m + i + 1, m + i) for i in range(n)] + [(0, m, 2 * m - 1, n)]   # top, then base
-    me = bpy.data.meshes.new("DormerHood")
-    me.from_pydata(front + back, [], faces)
-    me.validate()
-    o = bpy.data.objects.new("DormerHood", me)
-    scene.collection.objects.link(o)
-    me.materials.append(M["phoenix"])
+    # a tan arched front under a slate-tiled top (Adriaen); its back and base sit in the roof
+    for name, faces, mat in (("DormerHood", [tuple(range(m))], "phoenix"),
+                             ("DormerHoodTop", [(i, i + 1, m + i + 1, m + i) for i in range(n)], "slate")):
+        me = bpy.data.meshes.new(name)
+        me.from_pydata(front + back, [], faces)
+        me.validate()
+        o = bpy.data.objects.new(name, me)
+        scene.collection.objects.link(o)
+        me.materials.append(M[mat])
 
 
 def skylight(loc, r=0.45):
