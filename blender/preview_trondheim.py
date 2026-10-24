@@ -972,12 +972,20 @@ for k in range(7):   # seven tables round the fence, no parasols (Adriaen)
 # and a railing round the roof edge: the whole Bersvendveita side, the street side and
 # the joint side up level with the bar (Adriaen)
 for (x0_, y0_), (x1_, y1_) in (((tx0 + 0.1, ty1 - 0.1), (tx0 + 0.1, ty0 + 0.1)), ((tx0 + 0.1, ty0 + 0.1), (tx1 - 0.1, ty0 + 0.1)),
-                               ((tx1 - 0.1, ty0 + 0.1), (tx1 - 0.1, FC[1]))):
+                               ((tx1 - 0.1, ty0 + 0.1), (tx1 - 0.1, AS + 15.4))):
     box("RoofBarEdgeFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (abs(x1_ - x0_) + 0.06, abs(y1_ - y0_) + 0.06, 1.1), "dark")
+# and fences closing the bar off from the rest of the roof (Adriaen): the arc's south end
+# out to the joint-side railing, that railing's end in to the utility room, and from the
+# arc's west end north along the roof, angling out to the Bersvendveita railing
+for run in (((fence[-1][0], fence[-1][1]), (tx1 - 0.1, fence[-1][1])), ((ax0 + 16.0, AS + 15.4), (tx1 - 0.1, AS + 15.4)),
+            ((fence[0][0], fence[0][1]), (fence[0][0], AS + 26.3), (tx0 + 0.1, ty1 - 0.6))):
+    for (x0_, y0_), (x1_, y1_) in zip(run, run[1:]):
+        seg = box("RoofBarFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (math.hypot(x1_ - x0_, y1_ - y0_) + 0.06, 0.06, 1.1), "dark")
+        seg.rotation_euler.z = math.atan2(y1_ - y0_, x1_ - x0_)
 # a row of utility rooms down the middle, from a little south of where the copper starts
 # to near the north end (Adriaen, Google Earth), in tiers
 for ux0, ux1, uy0, uy1, uh in ((ax0 + 9.5, ax0 + 16.0, AS + 13.0, AS + 18.5, 3.0), (ax0 + 7.0, ax0 + 16.0, AS + 18.5, CE - 6.0, 3.4),
-                               (ax0 + 4.0, ax0 + 7.0, AS + 19.5, CE - 9.0, 2.4), (ax0 + 8.5, ax0 + 15.0, CE - 6.0, CE - 1.5, 2.6)):
+                               (ax0 + 8.5, ax0 + 15.0, CE - 6.0, CE - 1.5, 2.6)):   # the small west one is gone (Adriaen)
     box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh / 2), (ux1 - ux0, uy1 - uy0, uh), "roof_light")
     box("FoniksAnnexUtilDoor", (ux0 + 1.2, uy0 - 0.03, TT + 1.05), (0.9, 0.06, 2.1), "frame")   # white doors onto the bar
     box("FoniksAnnexUtilDoor", (ux0 - 0.03, uy0 + 1.6, TT + 1.05), (0.06, 0.9, 2.1), "frame")
