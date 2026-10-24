@@ -954,15 +954,15 @@ prism("FoniksAnnexTop", [(tx0, ty0), (tx1, ty0), (tx1, AS + 21), (FB, AS + 21), 
 # the Bersvendveita side round to the street side, plain roof outside it along both
 # streets, utility rooms with white doors (HVAC on top) at the back of the bar, and a
 # glass roof bridging across to Føniks
-FC, FR = (ax0 + 14.9, AS + 13.0), 9.5   # the fence's centre and radius (pulled in off the roof edge, Adriaen)
+FC, FR = (ax0 + 14.9, AS + 14.5), 11.0   # the fence's centre and radius (moved north off the street edge, Adriaen)
 fence = [(FC[0] + FR * math.cos(math.pi + k * math.pi / 16), FC[1] + FR * math.sin(math.pi + k * math.pi / 16)) for k in range(9)]
 for (x0_, y0_), (x1_, y1_) in zip(fence, fence[1:]):
     seg = box("RoofBarFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.6), (math.hypot(x1_ - x0_, y1_ - y0_) + 0.05, 0.06, 1.2), "dark")
     seg.rotation_euler.z = math.atan2(y1_ - y0_, x1_ - x0_)
 prism("RoofBarDeck", [FC] + fence, TT, TT + 0.06, "wood")   # decking inside the fence
 for k in range(7):   # seven tables round the fence, no parasols (Adriaen)
-    a_ = math.radians(183 + k * 14)
-    px_, py_ = FC[0] + (FR - 2.6) * math.cos(a_), FC[1] + (FR - 2.6) * math.sin(a_)
+    a_ = math.radians(186 + k * 13)
+    px_, py_ = FC[0] + (FR - 2.8) * math.cos(a_), FC[1] + (FR - 2.8) * math.sin(a_)
     box("RoofBarTable", (px_, py_, TT + 0.79), (0.8, 0.8, 0.04), "dark", a_)
     box("RoofBarTable", (px_, py_, TT + 0.42), (0.08, 0.08, 0.72), "dark")
     for side in (-1, 1):   # a chair either side, along the fence
