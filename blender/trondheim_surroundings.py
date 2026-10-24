@@ -52,13 +52,17 @@ def finish(g):
         bg.inputs[1].default_value = 1.6   # bright enough that the horizon all but melts away
 
 
+DREAM_GROUND = "#d4d3ce"
+
+
 def whiten(objs):
     """The dream look: one matte off-white for everything but Føniks and the column."""
     white = b.mat_flat("TrdDream", srgb("#eeede9"), 0.9)
+    ground = b.mat_flat("TrdDreamGround", srgb(DREAM_GROUND), 0.95)   # a shade darker, so buildings stand off it
     for o in objs:
         if o.type == "MESH":
             o.data.materials.clear()
-            o.data.materials.append(white)
+            o.data.materials.append(ground if o.name.startswith(("Ground", "Paving", "Munkegata")) else white)
 
 
 # --- shared by both variants -------------------------------------------------------
