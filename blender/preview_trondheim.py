@@ -954,21 +954,26 @@ prism("FoniksAnnexTop", [(tx0, ty0), (tx1, ty0), (tx1, AS + 21), (FB, AS + 21), 
 # the Bersvendveita side round to the street side, plain roof outside it along both
 # streets, utility rooms with white doors (HVAC on top) at the back of the bar, and a
 # glass roof bridging across to Føniks
-FC, FR = (ax0 + 14.9, AS + 13.0), 11.0   # the fence's centre and radius (pulled south for seven tables, Adriaen)
+FC, FR = (ax0 + 14.9, AS + 13.0), 9.5   # the fence's centre and radius (pulled in off the roof edge, Adriaen)
 fence = [(FC[0] + FR * math.cos(math.pi + k * math.pi / 16), FC[1] + FR * math.sin(math.pi + k * math.pi / 16)) for k in range(9)]
 for (x0_, y0_), (x1_, y1_) in zip(fence, fence[1:]):
     seg = box("RoofBarFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.6), (math.hypot(x1_ - x0_, y1_ - y0_) + 0.05, 0.06, 1.2), "dark")
     seg.rotation_euler.z = math.atan2(y1_ - y0_, x1_ - x0_)
 prism("RoofBarDeck", [FC] + fence, TT, TT + 0.06, "wood")   # decking inside the fence
 for k in range(7):   # seven tables round the fence, no parasols (Adriaen)
-    a_ = math.radians(186 + k * 13)
-    px_, py_ = FC[0] + 8.2 * math.cos(a_), FC[1] + 8.2 * math.sin(a_)
+    a_ = math.radians(183 + k * 14)
+    px_, py_ = FC[0] + (FR - 2.6) * math.cos(a_), FC[1] + (FR - 2.6) * math.sin(a_)
     box("RoofBarTable", (px_, py_, TT + 0.79), (0.8, 0.8, 0.04), "dark", a_)
     box("RoofBarTable", (px_, py_, TT + 0.42), (0.08, 0.08, 0.72), "dark")
     for side in (-1, 1):   # a chair either side, along the fence
         cx_, cy_ = px_ - side * 0.65 * math.sin(a_), py_ + side * 0.65 * math.cos(a_)
         box("RoofBarChair", (cx_, cy_, TT + 0.45), (0.42, 0.42, 0.04), "dark", a_)
         box("RoofBarChair", (cx_ - side * 0.2 * -math.sin(a_), cy_ - side * 0.2 * math.cos(a_), TT + 0.45), (0.42, 0.04, 0.9), "dark", a_)
+# and a railing round the roof edge: the whole Bersvendveita side, the street side and
+# the joint side up level with the bar (Adriaen)
+for (x0_, y0_), (x1_, y1_) in (((tx0 + 0.1, ty1 - 0.1), (tx0 + 0.1, ty0 + 0.1)), ((tx0 + 0.1, ty0 + 0.1), (tx1 - 0.1, ty0 + 0.1)),
+                               ((tx1 - 0.1, ty0 + 0.1), (tx1 - 0.1, FC[1]))):
+    box("RoofBarEdgeFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (abs(x1_ - x0_) + 0.06, abs(y1_ - y0_) + 0.06, 1.1), "dark")
 # a row of utility rooms down the middle, from a little south of where the copper starts
 # to near the north end (Adriaen, Google Earth), in tiers
 for ux0, ux1, uy0, uy1, uh in ((ax0 + 9.5, ax0 + 16.0, AS + 13.0, AS + 18.5, 3.0), (ax0 + 7.0, ax0 + 16.0, AS + 18.5, CE - 6.0, 3.4),
