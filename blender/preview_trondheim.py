@@ -45,7 +45,7 @@ M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "brick": ("#8a5442", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
     "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
     "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3e3738", 0.7), "roof_light": ("#8f9498", 0.8),
-    "copper": ("#6e3a2c", 0.55), "plinth": ("#59625d", 0.8), "amber": ("#61798a", 0.08), "glass_curve": ("#86a3b8", 0.06), "skylight": ("#c9cdcf", 0.5), "door": ("#4a2c1e", 0.5),
+    "canvas": ("#e4dac2", 0.9), "copper": ("#6e3a2c", 0.55), "plinth": ("#59625d", 0.8), "amber": ("#61798a", 0.08), "glass_curve": ("#86a3b8", 0.06), "skylight": ("#c9cdcf", 0.5), "door": ("#4a2c1e", 0.5),
     "bronze_dark": ("#2f3a33", 0.45), "gold": ("#b8913a", 0.35), "travertine": ("#dcd2bf", 0.8), "orange": ("#c9583a", 0.8),
 }.items()}
 
@@ -158,6 +158,7 @@ def paving(name, size):
 # 1950s block on the south side and Munkegata running south past it to the cathedral
 SQ_W, SQ_E, SQ_S, SQ_N = -44.5, 42.0, -49.0, 43.0
 FONIKS_FRONT, FONIKS_SOUTH, FW = -44.5, 20.5, 38.0   # Føniks: front line, south end, length
+REST_RD, REST_RS = 7.0, 6.0   # the glass restaurant: depth of its front arm, of its south arm
 
 M["lamp"] = b.mat_flat("TrdLamp", (1, 1, 1), 0.3)
 box("Ground", (0, 0, -0.05), (500, 500, 0.1), "road")
@@ -564,7 +565,7 @@ def foniks():
     # in a quarter round that meets in a mitred hip at the corner, a flat dark roof
     # dotted with round skylights, a second curved glass strip leaning on the building,
     # and the door in a little arched porch on the corner with steps down to the square
-    RD, RS = 7.0, 6.0          # depth of the front arm, of the south arm
+    RD, RS = REST_RD, REST_RS
     WT, R, RI = 2.4, 2.0, 1.1  # wall top, eave radius, radius of the strip on the building
     outer = [(cw, -RD), (-RS, -RD), (-RS, depth)]            # street edge, corner in the middle
     wall = [(cw, 0.0), (0.0, 0.0), (0.0, depth)]             # the building's walls
@@ -684,11 +685,95 @@ def phoenix_fountain(cx, cy, z0=0.15):
     cyl("Drum", (cx, cy, 0), 3.25, z0 + 0.3, "granite", 24)
 
 
+def outdoor_seating(variant):
+    """The restaurant's outdoor seating (2024 drone photo, Adriaen's corner photo), in
+    Føniks's build frame: a terrace on the Kongens gate side behind low dark
+    windscreens, dark square planters with shrubs at the corner door and along the
+    front, and picnic tables out on the square. Variants keep their furniture apart:
+    A = square parasols over four-seat tables, B = an awning along the glass over rows
+    of two-seat bistro tables, C = long beer-garden tables with benches under big
+    parasols. TRD_SEATING picks one; "none" leaves the square bare."""
+    if variant == "none":
+        return
+    x0, x1 = -REST_RS - 0.4, -REST_RS - 3.8      # terrace: from the glass out toward the street
+    y0, y1 = -REST_RD + 3.0, 11.6               # from past the corner door to near the annex
+    xm = (x0 + x1) / 2
+
+    def chair(x, y, a):   # seat, back and two side legs; a = the way the sitter faces
+        c, s_ = math.cos(a), math.sin(a)
+        box("Chair", (x, y, 0.45), (0.42, 0.42, 0.04), "dark", a)
+        box("Chair", (x - 0.2 * c, y - 0.2 * s_, 0.68), (0.04, 0.42, 0.42), "dark", a)
+        for k in (-1, 1):
+            box("Chair", (x - 0.19 * s_ * k, y + 0.19 * c * k, 0.22), (0.38, 0.03, 0.44), "dark", a)
+
+    def table(x, y, w=0.8, d=0.8, rot=0.0):
+        box("CafeTable", (x, y, 0.73), (w, d, 0.04), "dark", rot)
+        box("CafeTable", (x, y, 0.36), (0.08, 0.08, 0.72), "dark")
+
+    def parasol(x, y, size):
+        box("ParasolPole", (x, y, 1.25), (0.05, 0.05, 2.5), "dark")
+        o = cyl("Parasol", (x, y, 2.05), size / math.sqrt(2), 0.5, "canvas", 4, 0.04)
+        o.rotation_euler.z = math.pi / 4   # a square canopy lined up with the street
+
+    def planter(x, y, s_=0.7):
+        box("Planter", (x, y, 0.3), (s_, s_, 0.6), "dark")
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=s_ * 0.62, location=(x, y, 0.6 + s_ * 0.45))
+        o = bpy.context.object
+        o.name, o.scale.z = "Shrub", 0.8
+        o.data.materials.append(M["tree"])
+
+    def picnic(x, y):   # wooden table with fixed benches, long side along the front
+        box("Picnic", (x, y, 0.74), (1.8, 0.75, 0.05), "wood")
+        for k in (-1, 1):
+            box("Picnic", (x, y + k * 0.6, 0.45), (1.8, 0.28, 0.05), "wood")
+            box("Picnic", (x + k * 0.7, y, 0.36), (0.08, 1.4, 0.72), "wood")
+
+    # dark windscreens round the terrace's open sides
+    box("Windscreen", (x1, (y0 + y1) / 2, 0.5), (0.05, y1 - y0, 1.0), "dark")
+    for y in (y0, y1):
+        box("Windscreen", (xm, y, 0.5), (x0 - x1, 0.05, 1.0), "dark")
+    for x, y in ((x1, y0), (x1, y1), (-REST_RS - 0.5, -REST_RD + 1.7), (-REST_RS + 1.7, -REST_RD - 0.55),
+                 (-2.0, -REST_RD - 0.55), (1.6, -REST_RD - 0.55)):
+        planter(x, y)
+    for x in (-4.5, -1.0, 2.5):
+        picnic(x, -REST_RD - 4.2)
+    n = 5
+    ys = [y0 + (i + 0.5) * (y1 - y0) / n for i in range(n)]
+    if variant == "A":
+        for y in ys:
+            parasol(xm, y, 2.6)
+            table(xm, y)
+            for a in (0, math.pi / 2, math.pi, -math.pi / 2):
+                chair(xm - 0.65 * math.cos(a), y - 0.65 * math.sin(a), a)
+    elif variant == "B":
+        hi, lo = 2.6, 2.2   # the awning: from just under the glass curve out over the terrace
+        aw = box("Awning", (xm, (y0 + y1) / 2, (hi + lo) / 2), (x0 - x1 + 0.4, y1 - y0, 0.04), "canvas")
+        aw.rotation_euler.y = math.atan2(hi - lo, x0 - x1 + 0.4)
+        box("AwningValance", (x1 - 0.2, (y0 + y1) / 2, lo - 0.12), (0.03, y1 - y0, 0.25), "canvas")
+        for x in (x0 - 0.9, x1 + 0.9):
+            for i in range(7):
+                y = y0 + 1.0 + i * (y1 - y0 - 2.0) / 6
+                cyl("CafeTable", (x, y, 0.71), 0.32, 0.04, "dark", 6)
+                box("CafeTable", (x, y, 0.36), (0.06, 0.06, 0.72), "dark")
+                for k in (-1, 1):
+                    chair(x, y + k * 0.55, -k * math.pi / 2)
+    else:   # C: beer garden
+        for y in ys[::2]:
+            parasol(xm, y, 3.4)
+        for y in ys:
+            box("LongTable", (xm, y, 0.74), (0.8, 2.6, 0.05), "wood")
+            box("LongTable", (xm, y, 0.36), (0.6, 0.08, 0.72), "wood")
+            for k in (-1, 1):
+                box("Bench", (xm + k * 0.65, y, 0.45), (0.3, 2.6, 0.05), "wood")
+                box("Bench", (xm + k * 0.65, y, 0.22), (0.25, 0.08, 0.44), "wood")
+
+
 FOUNT = (FW / 2, -6.5)   # phoenix fountain: centred on the doors, its back just clear of the platform steps
 SOUTH_COLS = (2.9, 6.4, 9.9)   # south wall window columns, from the front (Kongens gate photo)
 _before = set(bpy.data.objects)
 foniks()
 phoenix_fountain(*FOUNT)   # set into the terrace steps, in front of the doors
+outdoor_seating(os.environ.get("TRD_SEATING", "A"))
 from mathutils import Matrix
 # Built facing -y with its south end at build x = 0; a quarter turn to the left makes
 # it face EAST, then it slides onto the square: front at FONIKS_FRONT, south end at
@@ -967,6 +1052,9 @@ SHOTS = {
     "P_fountain_steps": ((-30.0, 43.0, 1.6), (-44.5, 39.0, 3.5), 26.0, 0.97),
     "P_ramp_terrace": ((-30.0, 31.0, 1.6), (-44.5, 40.0, 6.0), 20.0, 0.56),
     "P_north_bay": ((-33.0, 46.0, 1.6), (-44.5, 52.0, 6.0), 22.0, 0.65),
+    # the restaurant's outdoor seating on the Kongens gate side, from above and from the street
+    "S_terrace": ((-29.0, -1.0, 13.0), (-47.0, 13.5, 0.5), 26.0, 1.5),
+    "S_terrace_street": ((-37.0, 4.0, 1.7), (-50.0, 13.5, 1.4), 24.0, 1.5),
     # Straight down, orthographic (lens < 0 = ortho width in metres), for the satellite check
     "T_top": ((0.0, 10.0, 300.0), (0.0, 10.001, 0.0), -160.0, 1.0),
 }
