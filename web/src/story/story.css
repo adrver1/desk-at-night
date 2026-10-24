@@ -318,3 +318,6 @@
 .nav-c .nav-tip { position: absolute; bottom: 160%; left: 50%; transform: translateX(-50%); white-space: nowrap; background: #000c; padding: 2px 6px; border-radius: 4px; opacity: 0; transition: opacity 0.2s; }
 .nav-c .nav-ch:hover .nav-tip, .nav-c .nav-ch.now .nav-tip { opacity: 1; }
 .story-ui:has(.storynav) .subs { bottom: calc(7.5 * var(--u)); }   /* subtitles clear the navigator */
+
+/* One year ago: Trondheim on its own canvas over the game (trondheim.js) */
+.trondheim { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }

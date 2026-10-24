@@ -520,9 +520,9 @@ const SHORT_CHAPTERS = [
     base: { act: 5, time: 8.5, shot: 'desk', ...DESK, cast: {}, graph: 0, screens: BLANK },
     beats: [
       { id: 'y.card', card: { text: T('Ett år tidligere', 'One year ago'), solid: true }, notes: 'One year ago. From here on you talk; Space moves on.' },
-      { id: 'y.trondheim', set: { overlay: 'slide:y-01' }, notes: 'TODO: the Trondheim scene (thread "Trondheim Torvet scene"): drone over Torvet gliding down to you at the Føniks door. A placeholder slide until it lands.' },
+      { id: 'y.trondheim', set: { place: 'trondheim' }, notes: 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you at the Føniks door. Your first week on the job.' },
       { id: 'y.steep', set: { overlay: 'slide:y-02' }, notes: 'Onboarding is steep. TODO(Adriaen): your talking points.' },
-      { id: 'y.room', set: { overlay: null, shot: 'band', screens: null }, notes: 'The room as it was to a newcomer: screens full of things you have yet to learn.' },
+      { id: 'y.room', set: { overlay: null, place: null, shot: 'band', screens: null }, notes: 'The room as it was to a newcomer: screens full of things you have yet to learn.' },
     ],
   },
   {

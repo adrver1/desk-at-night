@@ -45,6 +45,12 @@ fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
 - `ui.js`, `story.css`: overlays. `storyScreens.js`, `graph.js`: what the
   room's monitors and the display band show in story mode.
 - `sola.js`: the optional opening on the apron at Sola.
+- `trondheim.js`: one year ago, Torvet in Trondheim as a dream (chapter 3,
+  `place: 'trondheim'`), on its own canvas. Models in
+  `public/story/trondheim/`: `torvet.glb` (the dream variant of
+  `blender/trondheim_surroundings.py`, without Føniks) and `foniks.glb`
+  (`blender/preview_trondheim.py --glb`), both in the square's frame. They are
+  exported by the two Trondheim threads; re-export there, don't edit here.
 
 A beat's `set` is state (shot, cast, screens, overlay...). States add up
 through a chapter, so back and jumping always land in the right state. `do`

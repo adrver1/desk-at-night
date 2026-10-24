@@ -23,6 +23,7 @@ import { DEFAULT_LAYOUT, contentOf } from '../screens.js';
 import { Shots } from './shots.js';
 import { Epilogue } from './epilogue.js';
 import { Sola } from './sola.js';
+import { Trondheim } from './trondheim.js';
 
 const game = window.__game;
 const q = new URLSearchParams(location.search);
@@ -40,6 +41,7 @@ const NAV = new URLSearchParams(location.search).get('nav') ?? 'b';
 if (NAV !== '0') ui.nav(CHAPTERS, NAV, (c, i) => (c === 'next' ? next() : c === 'back' ? back() : enter(c, i, { instant: true })));
 const sound = new Sound();
 const call = new Call(ui.el.call);
+const trondheim = new Trondheim(host);
 let cast = null, shots = null, epilogue = null;
 // The Sola opening (?sola=1) and its callback stills in Acts 1 and 3
 // (?solastills=1, on with ?sola=1 unless ?solastills=0). Both off by default.
@@ -90,7 +92,7 @@ const merge = (a, b) => {
 // earlier beat's set and end, then its own set
 function stateAt(c, i) {
   const ch = CHAPTERS[c];
-  let s = merge({ act: 0, graph: 0, alarms: null, overlay: null, boatLabel: null, org: null, tool: null, chats: null, sound: 'room' }, ch.base);
+  let s = merge({ act: 0, graph: 0, alarms: null, overlay: null, boatLabel: null, org: null, tool: null, chats: null, place: null, sound: 'room' }, ch.base);
   for (let k = 0; k < i; k++) s = merge(merge(s, ch.beats[k].set), ch.beats[k].end);
   return merge(s, ch.beats[i].set);
 }
@@ -117,6 +119,9 @@ function apply(s, { instant = false } = {}) {
   S.tool = s.tool;
   // Chats: as many messages as the state says, the newest already typed
   for (const [id, n] of Object.entries(s.chats ?? {})) if (S.chats[id] !== n) { S.chats[id] = n; S.chatAt[id] = -99; }
+  // Somewhere else than the control room (one year ago: Trondheim)
+  if (s.place === 'trondheim' && !trondheim.on) { trondheim.show(); game.hooks.hidden = true; }
+  if (s.place !== 'trondheim' && trondheim.on) { trondheim.hide(); game.hooks.hidden = false; }
   cast?.place(s.cast);
   ui.clipboard(s.clipboard);
   ui.clipAway(Boolean(s.shot?.startsWith('monitor:') || s.overlay?.startsWith('slide:') || s.overlay?.startsWith('log:') || s.overlay?.startsWith('vote:') || s.overlay?.startsWith('card:') || s.graphOn === 'overlay'));
@@ -379,6 +384,7 @@ function debugPanel() {
 // its clock (same origin) to cue the title, credits and the pilot.
 
 function startPrologue() {
+  trondheim.hide();
   game.hooks.hidden = true;
   ui.clipboard(null); ui.stars(null); ui.banner(null); ui.overlay(null, { call }); ui.org(null); ui.clearNotices(); ui.clock(null);
   host.classList.remove(`grade-${lastGrade}`); lastGrade = 0;
@@ -501,7 +507,7 @@ function frame(dt, now) {
       if (p) ui.boat(state.boatLabel, p.x, p.y, /No /.test(state.boatLabel) ? 'bad' : 'good'); else ui.boat(null);
     } else ui.boat(null);
     if (state.org || state.graphOn === 'overlay') ui.org(state.graphOn === 'overlay' ? 'graph' : state.org, S.graph, S.now - S.graphAt, S.now);
-    ui.clock(CHAPTERS[chapter]?.prologue ? null : S.clock);
+    ui.clock(CHAPTERS[chapter]?.prologue || state.place ? null : S.clock);
   }
   cast?.update(dt, game.camera, S.now);
   epilogue?.update(dt);
@@ -571,6 +577,6 @@ window.__story = {
   start, next, back, enter: (key, i = 0, o) => enter(CHAPTERS.findIndex((ch) => ch.key === key), i, o),
   get state() { return { chapter: CHAPTERS[chapter].id, beat: CHAPTERS[chapter].beats[beat]?.id, running, waiting, free, s: state }; },
   beats: (key) => CHAPTERS.find((ch) => ch.key === key)?.beats.length ?? 0,
-  sola: () => sola, epilogue: () => epilogue,
+  sola: () => sola, epilogue: () => epilogue, trondheim,
   ui, cast: () => cast, shots: () => shots, S, sound, toggleFree, SPEAKERS,
 };
