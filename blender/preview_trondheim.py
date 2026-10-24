@@ -775,12 +775,12 @@ def load_char(name, loc, yaw, mat=None, scale=1.0, pose=None, glb=None):
 # Statue (Adriaen's photos): the clean-shaven base body in bronze, scaled 2x, facing north
 # up Munkegata. Conical helmet with a nose guard over hair to the jaw, a moustache, a mail
 # shirt to the knees with a belt. Right arm down, the sword hanging straight from the fist
-# with its tip on the plinth; left forearm raised, the fist holding the orb upright on its
+# with its tip on the plinth; left elbow bent 90 degrees, forearm held forward, the fist holding the orb upright on its
 # stem, a cross on top; a stone between his feet
 YAW = 0.0
 statue, rig = load_char("base_body", (0, 0, TOP), YAW, "bronze", 2.0,
                         {"upper_arm.R": (-30, 30, 15), "forearm.R": (-60, 90, -45),
-                         "upper_arm.L": (-45, 60, -75), "forearm.L": (90, -60, 60)},
+                         "upper_arm.L": (-90, -60, 45), "forearm.L": (-30, 10, -90)},
                         glb=os.path.join(ROOT, "characters", "_shared", "base_body.glb"))
 for o in list(statue.children):   # the base body file carries a stray sphere
     if o.type == "MESH" and o.name.startswith("Icosphere"):
@@ -829,7 +829,7 @@ bit("Moustache", (0, 0.097, 1.551), (0.07, 0.022, 0.016))
 hips = W("hips", "head")
 cyl("Mail", (hips.x, hips.y, hips.z - 0.8), 0.42, 1.2, "bronze", 10, 0.34)   # mail shirt down to the knees
 cyl("Belt", (hips.x, hips.y, hips.z - 0.02), 0.39, 0.1, "bronze", 10)
-grip = W("hand.L")   # the fist's top
+grip = (W("hand.L", "head") + W("hand.L")) / 2 + Vector((0, 0, 0.1))   # top of the level fist
 cyl("OrbStem", (grip.x, grip.y, grip.z - 0.12), 0.06, 0.2, "bronze", 8)
 bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=6, radius=0.18, location=(grip.x, grip.y, grip.z + 0.22))
 bpy.context.object.scale.z = 1.15
