@@ -455,11 +455,11 @@ def foniks():
                 window(bx + dx, z, -BD if z < 12.7 else -0.12)
         for x in cols:
             if z == rows[0]:   # tall arched doors out onto the balcony
-                balcony_door(x, 7.33, 1.2)
+                # sill on the balcony, short enough to leave brick between the
+                # keystones and the windows above
+                balcony_door(x, 7.03, 1.2, 3.05)
             else:
-                # narrower than the bay windows, brick either side; the first-floor ones
-                # shorter, leaving brick between them and the door arches below
-                window(x, z + 0.25, -0.12, 1.05, 1.6) if z == rows[1] else window(x, z, -0.12, 1.05)
+                window(x, z, -0.12, 1.05)   # narrower than the bay windows, brick either side
     window(L - PIER / 2, 3.4, -0.12, 1.4, 2.4)   # (none behind the restaurant; the north bay has its oriel)
     # Entrance (2025 street photos): a raised terrace along the front from the
     # restaurant to past the doors, wide steps down to the square that wrap round the
