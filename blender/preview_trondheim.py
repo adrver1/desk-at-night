@@ -260,11 +260,8 @@ def window(x, z, y, w=1.35, h=2.1, arch=False, side=False, panes=2):
     """A white-framed window with the white cross (mullion + transom) of the old hotel,
     or with two mullions for three panes. Faces -y, or -x with side=True (then x is
     along the wall and y is the wall line)."""
-    def B(name, cx, cz, sx, sz, dy, mat):
-        if side:
-            box(name, (y - dy, cx, cz), (0.12, sx, sz), mat)
-        else:
-            box(name, (cx, y - dy, cz), (sx, 0.12, sz), mat)
+    def B(name, cx, cz, sx, sz, dy, mat):   # flat fronts only (Adriaen: no depth needed)
+        return pane(name, "w" if side else "s", cx, cz, sx, sz, y - dy - 0.06, mat)
     B("WinFrame", x, z, w + 0.3, h + 0.3, 0.05, "frame")
     B("Win", x, z, w, h, 0.1, "glass")
     for u in ((x,) if panes == 2 else (x - w / 6, x + w / 6)):
