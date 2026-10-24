@@ -210,7 +210,7 @@ LOGO = _logo()
 def flag_mast(x, y, h=9.0):
     """A white mast with a hanging banner flag: white, the logo on both faces."""
     cyl("Mast", (x, y, 0), 0.06, h, "frame", 6)
-    cyl("Truck", (x, y, h), 0.1, 0.12, "frame", 6)
+    cyl("Truck", (x, y, h), 0.1, 0.12, "frame", 4)
     fw, fh, top = 1.0, 2.6, h - 0.4
     fx = x + 0.08 + fw / 2
     box("Flag", (fx, y, top - fh / 2), (fw, 0.02, fh), "flag")
@@ -241,11 +241,38 @@ def window(x, z, y, w=1.35, h=2.1, arch=False, side=False):
     B("Win", x, z, w, h, 0.1, "glass")
     B("Mullion", x, z, 0.1, h, 0.18, "frame")
     B("Transom", x, z + h * 0.2, w, 0.1, 0.18, "frame")
-    if arch:
-        rot = (math.pi / 2, 0, math.pi / 2) if side else (math.pi / 2, 0, 0)
-        loc = (y - 0.05, x, z + h / 2) if side else (x, y - 0.05, z + h / 2)
-        bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=w / 2 + 0.15, depth=0.12, location=loc, rotation=rot)
-        bpy.context.object.data.materials.append(M["frame"])
+    if arch:   # a round glazed head: two flat half discs, frame behind glass
+        halfdisc("WinFrame", x, z + h / 2, w / 2 + 0.15, y - 0.11, "frame", side=side)
+        halfdisc("Win", x, z + h / 2, w / 2, y - 0.16, "glass", side=side)
+
+
+def halfdisc(name, cx, cz, r, y, mat, n=8, side=False):
+    """A flat half disc facing -y (or -x with side=True, then cx runs along the wall and
+    y is the wall line): a fanlight or the top of an arch, one face."""
+    arc = [(cx + r * math.cos(math.pi * k / n), cz + r * math.sin(math.pi * k / n)) for k in range(n + 1)]
+    pts = [(y, u, z) for u, z in arc[::-1]] if side else [(u, y, z) for u, z in arc]
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(pts, [], [tuple(range(n + 1))])   # counter-clockwise seen from the front
+    o = bpy.data.objects.new(name, me)
+    scene.collection.objects.link(o)
+    me.materials.append(M[mat])
+    return o
+
+
+def balcony_door(x, z, w=1.5, h=3.65):
+    """A tall door onto the front balcony (2025 photo): set in the brick under a cream
+    arch with a keystone, a round sunburst fanlight over the white double door."""
+    top = z + h / 2
+    box("DoorArch", (x, -0.16, (z - h / 2 + top) / 2), (w + 0.7, 0.08, h), "phoenix")
+    halfdisc("DoorArch", x, top, w / 2 + 0.35, -0.2, "phoenix")
+    box("Keystone", (x, -0.26, top + w / 2 + 0.2), (0.32, 0.08, 0.5), "phoenix")
+    window(x, z, -0.12, w, h)
+    halfdisc("WinFrame", x, top, w / 2 + 0.12, -0.235, "frame")
+    halfdisc("Win", x, top, w / 2, -0.285, "glass")
+    for k in (1, 2, 3):   # the sunburst bars
+        a = math.pi * k / 4
+        b = box("Mullion", (x + 0.27 * w * math.cos(a), -0.33, top + 0.27 * w * math.sin(a)), (0.54 * w, 0.06, 0.06), "frame")
+        b.rotation_euler = (0, -a, 0)
 
 
 def rib(path, leg, at, quarter, r, z0, side):
@@ -314,12 +341,12 @@ def dormer(u, face, eave, side):
         return (face + out, along, z) if side else (along, face + out, z)
     def B(name, along, out, z, w, d, h, mat):
         box(name, P(along, out, z), (d, w, h) if side else (w, d, h), mat)
-    B("Dormer", u, 0.8, eave + 1.6, 1.9, 1.6, 2.0, "phoenix")             # z eave+0.6 .. +2.6
-    B("DormerFrame", u, -0.02, eave + 1.55, 1.45, 0.06, 1.95, "frame")
-    B("DormerWin", u, -0.06, eave + 1.55, 1.25, 0.06, 1.8, "glass")
-    B("DormerBar", u, -0.1, eave + 1.55, 0.09, 0.06, 1.8, "frame")
-    # the hood: a shallow segmental arch, extruded back into the roof
-    n, w, rise, z0 = 8, 1.95, 0.42, eave + 2.6
+    B("Dormer", u, 0.8, eave + 1.8, 1.6, 1.6, 2.4, "phoenix")             # z eave+0.6 .. +3.0
+    B("DormerFrame", u, -0.02, eave + 1.75, 1.2, 0.06, 2.25, "frame")
+    B("DormerWin", u, -0.06, eave + 1.75, 1.02, 0.06, 2.1, "glass")
+    B("DormerBar", u, -0.1, eave + 1.75, 0.08, 0.06, 2.1, "frame")
+    # the hood: a round-topped arch, extruded back into the roof
+    n, w, rise, z0 = 6, 1.65, 0.55, eave + 3.0
     arc = [(-w / 2 + w * k / n, z0 + rise * (1 - (2 * k / n - 1) ** 2)) for k in range(n + 1)]
     ring = lambda out: [P(u + a_, out, z) for a_, z in arc]   # closes along its flat base
     front, back = ring(-0.05), ring(1.6)
@@ -336,7 +363,7 @@ def dormer(u, face, eave, side):
 
 def skylight(loc, r=0.45):
     """A round roof light: a flat white disc lying on the roof."""
-    bpy.ops.mesh.primitive_circle_add(vertices=8, radius=r, fill_type="NGON", location=loc)
+    bpy.ops.mesh.primitive_circle_add(vertices=6, radius=r, fill_type="NGON", location=loc)
     o = bpy.context.object
     o.name = "Skylight"
     o.data.materials.append(M["skylight"])
@@ -362,7 +389,7 @@ def foniks():
     landing, the balcony across the doors, four flag masts and the phoenix fountain."""
     L, PIER, BAY = FW, FW * 0.128, FW * 0.189
     BD = 1.6   # how far the side bays stand out: as far as the middle balcony
-    eave, depth = 16.8, 20.0
+    eave, depth = 16.8, 12.8   # depth from Adriaen's GPS pins (SE and SW roof corners)
     cx = L / 2
     box("Foniks", (cx, depth / 2, eave / 2), (L, depth, eave), "phoenix")
     box("FoniksPlinth", (cx, -0.12, 0.5), (L + 0.2, 0.3, 1.0), "plinth")   # dark green-grey base
@@ -378,8 +405,10 @@ def foniks():
     bw = (mid1 - mid0) / 4
     for x0 in (0.0, L - PIER):   # brick corner piers, as on the south wall (aerial photo)
         box("BrickPier", (x0 + PIER / 2, -0.05, (5.0 + eave - 1.2) / 2), (PIER, 0.12, eave - 1.2 - 5.0), "brick")
+    for x in (PIER - 0.35, L - PIER + 0.35):   # a cream strip between each pier and its bay
+        box("PierStrip", (x, -0.07, (5.0 + eave - 1.2) / 2), (0.7, 0.12, eave - 1.2 - 5.0), "phoenix")
     for x in cols:
-        box("BrickPanel", (x, -0.05, (5.2 + eave - 0.6) / 2), (bw - 1.4, 0.12, eave - 0.6 - 5.2), "brick")
+        box("BrickPanel", (x, -0.05, (5.45 + eave - 0.6) / 2), (bw - 0.75, 0.12, eave - 0.6 - 5.45), "brick")   # pilasters ~0.75 m
         box("Cartouche", (x, -0.14, 12.95), (1.3, 0.12, 0.7), "phoenix")   # carved relief between the upper windows
     for i in range(5):   # capitals on the cream pilasters under the cornice
         box("Capital", (mid0 + i * bw, -0.16, eave - 1.2), (1.9, 0.2, 0.7), "phoenix")
@@ -421,16 +450,16 @@ def foniks():
             box("ParapetSlot", (bx - BAY / 2 + 0.6 + k * (BAY - 1.2) / 5, -BD - 0.02, 13.35), (0.25, 0.06, 0.35), "dark")
     rows = (8.1, 11.3, 14.6)
     for z in rows:
-        for x in (PIER / 2, L - PIER / 2):
-            window(x, z, -0.12)
+        for x in (PIER / 2, L - PIER / 2):   # round-topped on the first and second floors, like the south wall
+            window(x, z, -0.12, arch=z in rows[:2])
         for bx in (PIER + BAY / 2, L - PIER - BAY / 2):
             for dx in (-1.6, 1.6):
                 window(bx + dx, z, -BD if z < 12.7 else -0.12)
         for x in cols:
             if z == rows[0]:   # tall arched doors out onto the balcony
-                window(x, 7.33, -0.12, 1.5, 3.65, arch=True)
+                balcony_door(x, 7.33, 1.2)
             else:
-                window(x, z, -0.12)
+                window(x, z, -0.12, 1.05)   # narrower than the bay windows, brick either side
     window(L - PIER / 2, 3.4, -0.12, 1.4, 2.4)   # (none behind the restaurant; the north bay has its oriel)
     # Entrance (2025 street photos): a raised terrace along the front from the
     # restaurant to past the doors, wide steps down to the square that wrap round the
@@ -528,7 +557,7 @@ def foniks():
     # dotted with round skylights, a second curved glass strip leaning on the building,
     # and the door in a little arched porch on the corner with steps down to the square
     RD, RS = 7.0, 6.0          # depth of the front arm, of the south arm
-    WT, R, RI = 3.0, 1.4, 1.1  # wall top, eave radius, radius of the strip on the building
+    WT, R, RI = 2.4, 2.0, 1.1  # wall top, eave radius, radius of the strip on the building
     outer = [(cw, -RD), (-RS, -RD), (-RS, depth)]            # street edge, corner in the middle
     wall = [(cw, 0.0), (0.0, 0.0), (0.0, depth)]             # the building's walls
     quarter = [(math.cos(t), math.sin(t)) for t in (k / 6 * math.pi / 2 for k in range(7))]
@@ -556,31 +585,31 @@ def foniks():
         for x in (-RS + R + 0.9, -RS + R + 2.5):
             skylight((x, 0.8 + i * 2.0, WT + R + 0.11))
     # the corner porch: a dark frame facing the square on the diagonal, arched on top
-    pc = Vector((-RS, -RD)) + Vector((-1, -1)).normalized() * 0.55
-    box("Porch", (pc.x, pc.y, (WT + 0.4) / 2), (1.7, 1.4, WT + 0.4), "dark", math.radians(-45))
-    bpy.ops.mesh.primitive_cylinder_add(vertices=12, radius=0.85, depth=1.4, location=(pc.x, pc.y, WT + 0.4),
+    # (a slim black frame no higher than the glass curve, 2025 photo)
+    pc = Vector((-RS, -RD)) + Vector((-1, -1)).normalized() * 0.3
+    box("Porch", (pc.x, pc.y, (WT + 0.6) / 2), (1.6, 0.5, WT + 0.6), "dark", math.radians(-45))
+    bpy.ops.mesh.primitive_cylinder_add(vertices=10, radius=0.8, depth=0.5, location=(pc.x, pc.y, WT + 0.6),
                                         rotation=(math.pi / 2, 0, math.radians(135)))
     bpy.context.object.name = "PorchArch"
     bpy.context.object.data.materials.append(M["dark"])
-    pf = pc + Vector((-1, -1)).normalized() * 0.71
+    pf = pc + Vector((-1, -1)).normalized() * 0.27
     box("PorchDoor", (pf.x, pf.y, 0.7 + 1.2), (1.1, 0.06, 2.4), "glass", math.radians(-45))
     for i in range(3):
-        st = pc + Vector((-1, -1)).normalized() * (1.0 + i * 0.35)
+        st = pc + Vector((-1, -1)).normalized() * (0.55 + i * 0.35)
         box("CornerStep", (st.x, st.y, (0.8 - i * 0.26) / 2), (2.4, 0.5, 0.8 - i * 0.26), "granite", math.radians(-45))
-    # Eight round-topped dormers
-    for i in range(8):
-        x = 4.0 + i * (L - 8.0) / 7
+    # Eight round-topped dormers, over the window columns: two on each bay, four in the middle
+    for x in [bx + dx for bx in (PIER + BAY / 2, L - PIER - BAY / 2) for dx in (-1.6, 1.6)] + cols:
         dormer(x, 0.5, eave, False)
     # The south side along Kongens gate (build -x face) is red brick, with the same
     # white-framed windows with crosses
     box("SouthBrick", (-0.04, depth / 2, (5.0 + eave - 1.2) / 2), (0.08, depth, eave - 1.2 - 5.0), "brick")   # cream ground floor, tan band under the eave
     box("SouthBand", (-0.1, depth / 2, eave - 0.6), (0.12, depth, 1.2), "phoenix")
-    for y in (4.5, 10.0, 15.5):   # three round-topped dormers on the south slope
+    for y in SOUTH_COLS:   # three round-topped dormers on the south slope
         dormer(y, 0.5, eave, True)
     for y in (0.7, depth - 0.7):   # cream quoins at both corners
         box("Quoin", (-0.09, y, eave / 2), (0.1, 1.4, eave - 0.6), "phoenix")
     for z in rows:
-        for y in (4.5, 10.0, 15.5):
+        for y in SOUTH_COLS:
             window(y, z, 0.0, side=True, arch=z in rows[:2])
 
 
@@ -638,7 +667,7 @@ def phoenix_fountain(cx, cy, z0=0.15):
     for side in (-1, 1):
         wing("Wing", (cx + side * 0.18, cy + 0.02, 2.4), side, 0.95)
         for u, v in ((0.82, 0.95), (0.86, 0.75), (0.8, 0.55), (0.7, 0.36)):   # round bosses along each wing
-            bpy.ops.mesh.primitive_uv_sphere_add(segments=6, ring_count=3, radius=0.06,
+            bpy.ops.mesh.primitive_uv_sphere_add(segments=4, ring_count=2, radius=0.06,
                                                  location=(cx + side * (0.18 + 1.19 * u), cy + 0.02 - 0.27 * u * u - 0.06, 2.4 + 0.855 * v))
             bpy.context.object.data.materials.append(M["steel"])
     for o in set(bpy.data.objects) - before:   # raised on a stone drum to the terrace's height
@@ -647,6 +676,7 @@ def phoenix_fountain(cx, cy, z0=0.15):
 
 
 FOUNT = (FW / 2, -6.5)   # phoenix fountain: centred on the doors, its back just clear of the platform steps
+SOUTH_COLS = (2.9, 6.4, 9.9)   # south wall window columns, from the front (Kongens gate photo)
 _before = set(bpy.data.objects)
 foniks()
 phoenix_fountain(*FOUNT)   # set into the terrace steps, in front of the doors
@@ -685,13 +715,13 @@ def block(name, x0, x1, y0, y1, h, mat, floors, faces, roof=None, roof_h=4.0):
 # Føniks's own annex, joined straight onto its west wall along Kongens gate (Adriaen:
 # part of Føniks): cream, five storeys of regular windows, a set-back top floor,
 # awnings over its ground floor; a glass-roofed courtyard block behind both
-FB = FONIKS_FRONT - 20.0   # Føniks's back wall
+FB = FONIKS_FRONT - 12.8   # Føniks's back wall (GPS: SW roof corner)
 # (Kongens gate photos: a dark glass ground floor between copper piers; above it a
 # travertine box of three storeys standing a little proud, six tall windows a floor;
 # a copper-clad top floor set back on top; a narrow copper-clad joint with its own
 # windows where it meets Føniks, the glass atrium roof showing behind)
-AS, JW = FONIKS_SOUTH - 1.0, 5.0   # annex street face, joint width
-ax0, ax1 = FB - 22, FB - JW
+AS, JW = FONIKS_SOUTH - 1.0, 2.2   # annex street face, joint width
+ax0, ax1 = FB - JW - 17.7, FB - JW   # 17.7 m wide (GPS pins on both street corners)
 acx = (ax0 + ax1) / 2
 box("FoniksAnnex", (acx, AS + 10.5, 9.8), (ax1 - ax0, 21, 19.6), "travertine")
 box("FoniksAnnexBase", (acx, AS - 0.05, 2.65), (ax1 - ax0 - 0.4, 0.12, 5.3), "glass")
@@ -883,7 +913,8 @@ if args.glb:   # Føniks on its own for the spin-around viewer
     keep = [o for o in keep if o.type == "MESH"]
     mesh_cleanup.strip_hidden(keep)
     mesh_cleanup.fronts_only(keep, {"Win", "Mullion", "Transom", "Cartouche", "DormerWin", "Capital", "FoniksAnnexWin",
-                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "Fanlight", "Door", "BrickPanel", "SouthBand"})
+                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "Fanlight", "Door", "BrickPanel", "SouthBand",
+                                    "ParapetSlot", "PierStrip", "Keystone", "DoorArch"})
     if os.environ.get("TRD_STATS"):   # triangles left per part, biggest first
         import collections, re
         tri = collections.Counter()
@@ -908,6 +939,7 @@ SHOTS = {
     "R_restaurant": (FL(-24.0, -30.0, 24.0), FL(7.0, 4.0, 7.0), 32.0, 3 / 4),
     # T: along the front from the restaurant: the ramp, the terrace and the balcony doors
     "N_north_bay": (FL(25.0, -15.0, 1.7), FL(30.5, -1.0, 4.5), 30.0, 3 / 4),
+    "Z_facade": (FL(19.0, -13.0, 1.7), FL(19.0, 0.0, 11.0), 22.0, 3 / 4),
     "U_ramp": (FL(18.5, -10.0, 3.2), FL(12.0, -1.0, 1.4), 30.0, 4 / 3),
     "T_terrace": (FL(2.0, -14.0, 1.7), FL(20.0, -2.0, 5.0), 24.0, 3 / 4),
     # S: across Kongens gate, Føniks's brick south wall and the annex (Adriaen's winter photo)
