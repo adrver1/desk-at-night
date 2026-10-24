@@ -862,8 +862,9 @@ box("FoniksAnnexPlinth", ((ax0 + gx) / 2, AS - 0.12, 0.3), (gx - ax0, 0.24, 0.6)
 for i in range(5):
     box("FoniksAnnexPier", (ax0 + 0.25 + i * (gx - ax0 - 0.5) / 4, AS - 0.14, 2.95), (0.5, 0.28, 4.7), "copper")
 box("FoniksAnnexGroundPier", (gx + 2.1, AS - 0.5, 2.65), (4.2, 1.0, 5.3), "travertine")
-pane("FoniksAnnexBase", "s", (EX + ax1) / 2, 2.65, ax1 - EX, 5.3, FONIKS_SOUTH - 0.02, "glass")
-box("FoniksAnnexBox", (acx, AS - 0.5, 11.05), (ax1 - ax0, 1.0, 11.5), "travertine")   # stands proud of the street, flush with the west wall and the annex's east side
+pane("FoniksAnnexBase", "s", (EX + ax1) / 2, 1.75, ax1 - EX, 3.5, FONIKS_SOUTH - 0.02, "glass")
+pane("FoniksAnnexJoint", "s", (EX + ax1) / 2, 4.4, ax1 - EX, 1.8, FONIKS_SOUTH - 0.02, "copper")   # copper above the canopy
+box("FoniksAnnexBox", (acx, (AS - 1.0 + FONIKS_SOUTH) / 2, 11.05), (ax1 - ax0, FONIKS_SOUTH - AS + 1.0, 11.5), "travertine")   # stands proud of the street, flush with the west wall and the annex's east side
 
 
 def annex_win(c, z, w, h, face, mat="glass"):
