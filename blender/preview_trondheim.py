@@ -718,6 +718,32 @@ def phoenix_fountain(cx, cy, z0=0.15):
     cyl("Drum", (cx, cy, 0), 3.25, z0 + 0.3, "granite", 24)
 
 
+# café furniture shared by the restaurant terrace and the annex's Frati terrace
+def chair(x, y, a):   # two slabs: a back that runs down to the ground as the rear legs, and the seat
+    c, s_ = math.cos(a), math.sin(a)
+    box("Chair", (x, y, 0.45), (0.42, 0.42, 0.04), "dark", a)
+    box("Chair", (x - 0.2 * c, y - 0.2 * s_, 0.45), (0.04, 0.42, 0.9), "dark", a)
+
+
+def table(x, y, w=0.8, d=0.8, rot=0.0):
+    box("CafeTable", (x, y, 0.73), (w, d, 0.04), "dark", rot)
+    box("CafeTable", (x, y, 0.36), (0.08, 0.08, 0.72), "dark")
+
+
+def parasol(x, y, size):
+    box("ParasolPole", (x, y, 1.45), (0.05, 0.05, 2.9), "dark")   # raised 40 cm (Adriaen)
+    o = cyl("Parasol", (x, y, 2.45), size / math.sqrt(2), 0.5, "canvas", 4, 0.04)
+    o.rotation_euler.z = math.pi / 4   # a square canopy lined up with the street
+
+
+def planter(x, y, s_=0.7):
+    box("Planter", (x, y, 0.3), (s_, s_, 0.6), "dark")
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=s_ * 0.62, location=(x, y, 0.6 + s_ * 0.45))
+    o = bpy.context.object
+    o.name, o.scale.z = "Shrub", 0.8
+    o.data.materials.append(M["tree"])
+
+
 def outdoor_seating(variant):
     """The restaurant's outdoor seating (2024 drone photo, Adriaen's corner photo), in
     Føniks's build frame: a terrace on the Kongens gate side behind low dark
@@ -731,27 +757,6 @@ def outdoor_seating(variant):
     x0, x1 = -REST_RS - 0.4, -REST_RS - 3.8      # terrace: from the glass out toward the street
     y0, y1 = -REST_RD + 3.0, 11.6               # from past the corner door to near the annex
     xm = (x0 + x1) / 2
-
-    def chair(x, y, a):   # two slabs: a back that runs down to the ground as the rear legs, and the seat
-        c, s_ = math.cos(a), math.sin(a)
-        box("Chair", (x, y, 0.45), (0.42, 0.42, 0.04), "dark", a)
-        box("Chair", (x - 0.2 * c, y - 0.2 * s_, 0.45), (0.04, 0.42, 0.9), "dark", a)
-
-    def table(x, y, w=0.8, d=0.8, rot=0.0):
-        box("CafeTable", (x, y, 0.73), (w, d, 0.04), "dark", rot)
-        box("CafeTable", (x, y, 0.36), (0.08, 0.08, 0.72), "dark")
-
-    def parasol(x, y, size):
-        box("ParasolPole", (x, y, 1.25), (0.05, 0.05, 2.5), "dark")
-        o = cyl("Parasol", (x, y, 2.05), size / math.sqrt(2), 0.5, "canvas", 4, 0.04)
-        o.rotation_euler.z = math.pi / 4   # a square canopy lined up with the street
-
-    def planter(x, y, s_=0.7):
-        box("Planter", (x, y, 0.3), (s_, s_, 0.6), "dark")
-        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=s_ * 0.62, location=(x, y, 0.6 + s_ * 0.45))
-        o = bpy.context.object
-        o.name, o.scale.z = "Shrub", 0.8
-        o.data.materials.append(M["tree"])
 
     def picnic(x, y):   # wooden table with fixed benches, long side along the front
         box("Picnic", (x, y, 0.74), (1.8, 0.75, 0.05), "wood")
@@ -1020,6 +1025,27 @@ else:   # the older all-dark pergola, over the whole front
     box("FoniksAnnexAwning", (acx, AS - 3.0, 3.0), (ax1 - ax0, 4.0, 0.15), "dark")
 for i in range(6):
     box("PergolaPost", (ax0 + 0.5 + i * (AWE - ax0 - 1.0) / 5, AS - 4.9, 1.5), (0.15, 0.15, 3.0), "dark")
+# Frati's terrace out in front of the awning (Adriaen's street photos): four-seat tables
+# under square parasols behind a low dark fence, reaching as far out into Kongens gate as
+# the restaurant's terrace round the corner
+_pre = set(bpy.data.objects)
+fy0, fy1 = AS - 5.2, FONIKS_SOUTH - REST_RS - 3.8   # from the awning's posts out to the restaurant terrace's line
+fx0, fx1 = ax0 + 0.6, AWE
+fym = (fy0 + fy1) / 2
+box("Windscreen", ((fx0 + fx1) / 2, fy1, 0.5), (fx1 - fx0, 0.05, 1.0), "dark")
+for x in (fx0, fx1):
+    box("Windscreen", (x, fym, 0.5), (0.05, fy0 - fy1, 1.0), "dark")
+for x, y in ((fx0, fy1), (fx1, fy1)):
+    planter(x, y)
+NF = 5
+for i in range(NF):
+    x = fx0 + (i + 0.5) * (fx1 - fx0) / NF
+    parasol(x, fym, 2.6)
+    table(x, fym)
+    for a in (0, math.pi / 2, math.pi, -math.pi / 2):
+        chair(x - 0.65 * math.cos(a), fym - 0.65 * math.sin(a), a)
+for o in set(bpy.data.objects) - _pre:
+    o.name = "FoniksFrati" + o.name
 box("FoniksBack", ((ax0 + FB) / 2, (AS + 21 + CE) / 2, 8.4), (FB - ax0, CE - AS - 21, 16.8), "copper")   # the same building on along Bersvendveita
 block("YellowBers", ax0, FB, CE, BE, 15.5, "c5", 5, ("-x",), None)   # then the yellow brick neighbour
 
