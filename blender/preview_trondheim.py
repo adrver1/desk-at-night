@@ -808,6 +808,7 @@ sun.data.energy = 3
 sun.data.angle = math.radians(6)
 sun.rotation_euler = (math.radians(55), 0, math.radians(35))
 scene.collection.objects.link(sun)
+trondheim_surroundings.finish(globals())   # e.g. the dream variant's pale sky
 
 scene.render.engine = "CYCLES"
 scene.cycles.device = b.pick_device("auto")

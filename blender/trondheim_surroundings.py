@@ -11,6 +11,9 @@ one with TRD_SURROUND=v1|v2 (default v2).
         one straight line), Burger King in the orange wooden house right north of
         Føniks with its acute corner on Munkegata, Stiftsgården on the east side of
         Munkegata north, and the blocks along both legs following the street
+    dream  v3 cut down to a dream: only the first few blocks round the square, no river,
+        fjord or hills, and everything here drawn white on a white ground under a pale
+        sky, so only Føniks and the Olav column keep their colours (TRD_SURROUND=dream)
     v3  the town from open map data (blender/data, made by trondheim_mapdata.py): every
         building in about 1 km of Midtbyen with its real outline, height and roof, the
         terrain, streets, parks, trees and the river; Burger King, Trondheim Torg, the
@@ -26,11 +29,36 @@ _NAMES = ("bpy", "b", "M", "scene", "srgb", "box", "cyl", "frustum", "block", "p
           "SQ_W", "SQ_E", "SQ_S", "SQ_N", "FONIKS_FRONT", "FONIKS_SOUTH", "FW", "FB")
 
 
+DREAM = False
+
+
 def build(g, variant="v2"):
-    global G
+    global G, DREAM
     G = g
     globals().update({k: g[k] for k in _NAMES})
-    {"v1": v1, "v2": v2, "v3": v3}[variant]()
+    DREAM = variant == "dream"
+    before = set(bpy.data.objects)
+    {"v1": v1, "v2": v2, "v3": v3, "dream": v3}[variant]()
+    if DREAM:
+        whiten((set(bpy.data.objects) - before)
+               | {o for o in bpy.data.objects if o.name.startswith(("Ground", "Paving", "FoniksBack"))})
+
+
+def finish(g):
+    """After the scene's own sky and sun: the dream's pale sky."""
+    if DREAM:
+        bg = g["world"].node_tree.nodes["Background"]
+        bg.inputs[0].default_value = (*srgb("#f1f3f4"), 1)
+        bg.inputs[1].default_value = 1.6   # bright enough that the horizon all but melts away
+
+
+def whiten(objs):
+    """The dream look: one matte off-white for everything but Føniks and the column."""
+    white = b.mat_flat("TrdDream", srgb("#eeede9"), 0.9)
+    for o in objs:
+        if o.type == "MESH":
+            o.data.materials.clear()
+            o.data.materials.append(white)
 
 
 # --- shared by both variants -------------------------------------------------------
@@ -452,7 +480,7 @@ STYLE = [((8, 64), "glass_block", "slate"),        # the dark café block on the
          ((-30, -65), "c5", "roof"),               # the yellow 1950s block on the south side
          ((55, -80), "c2", "roof"),                # the red-roofed block across Munkegata south
          ((-52.6, 89), "c1", "slate"), ((-59, 112), "c3", "slate"), ((-67, 145), "brick_dark", "slate"),
-         ((-12.6, 117), "stift", "slate"),         # Stiftsgården
+         ((-12.6, 117), "stift", "slate", (11.0, 16.5)),   # Stiftsgården: the map has it 6 m tall
          ((-95, 22), "copper", "roof")]            # the copper-clad block west of the annex
 WALLS = ("c1", "c3", "c4", "c5", "c1", "c3", "pink", "brick_dark", "c2", "torg")
 ROOFS = ("slate", "slate", "roof", "brick", "roof_light")
@@ -562,13 +590,16 @@ def hand_built(x, y):
     return -83 < x < -41 and -50 < y < -14                                   # Trondheim Torg
 
 
+DREAM_R = 230.0   # the dream keeps the map's buildings out to here (true metres from the column)
+
+
 def map_buildings(data):
     """Every building in the map but the hand-built ones, in one object: walls in a
     colour per building with shader windows, pitched roofs in a roof colour, flat tops
     dark. The map's base heights are replaced by the level ground under each building."""
     if "stift" not in M:
         M["stift"] = b.mat_flat("Trdstift", srgb("#e2d3a4"), 0.8)
-    walls = sorted(set(WALLS) | {w for _, w, _ in STYLE})
+    walls = sorted(set(WALLS) | {st[1] for st in STYLE})
     if "felt" not in M:
         M["felt"] = b.mat_flat("Trdfelt", srgb("#6a6c6c"), 0.9)
     mats = [windowed(w) for w in walls] + [M[r] for r in ROOFS] + [M["felt"]]
@@ -580,15 +611,23 @@ def map_buildings(data):
         cx = sum(p[0] for p in bv) / len(bv)
         cy = sum(p[1] for p in bv) / len(bv)
         mx, my = from_true(cx, cy)
-        if hand_built(mx, my):
+        if hand_built(mx, my) or (DREAM and math.hypot(cx, cy) > DREAM_R):
             continue
         kept += 1
         rnd = random.Random(n)
-        wall, roof = rnd.choice(WALLS), rnd.choice(ROOFS)
-        for pt, w, r in STYLE:
+        wall, roof, fix = rnd.choice(WALLS), rnd.choice(ROOFS), None
+        for pt, w, r, *f in STYLE:
             if inside(to_true((*pt, 0))[:2], bv, tris):
-                wall, roof = w, r
+                wall, roof, fix = w, r, (f or [None])[0]
         z0 = min(p[2] for p in bv)
+        if fix:
+            # stretch walls to the eave and the roof to the ridge (heights above the base)
+            top = max(p[2] for p in bv)
+            ups = [p[2] for p in bv if p[2] > z0 + 0.1]
+            eave = max(set(ups), key=ups.count)   # most of the outline's top corners sit at the eave
+            E, R = fix
+            bv = [(x, y, z0 + (z - z0) * E / (eave - z0) if z <= eave
+                   else z0 + E + (z - eave) * (R - E) / max(top - eave, 0.01)) for x, y, z in bv]
         dz = level(cx, cy, z0) - z0
         o = len(V)
         pts = [from_true(x, y) for x, y, _ in bv]
@@ -622,7 +661,7 @@ def map_trees(data):
     kinds = data["tree_kinds"]
     for x, y, z, k in data["trees"]:
         mx, my = from_true(x, y)
-        if hand_built(mx, my):
+        if hand_built(mx, my) or (DREAM and math.hypot(x, y) > DREAM_R):
             continue
         h, r = kinds[k]
         # the map's tree models are generous; town trees here are younger and smaller
@@ -807,7 +846,12 @@ def map_wide():
 def v3():
     with gzip.open(DATA, "rt") as f:
         data = json.load(f)
-    map_ground(data)
+    if DREAM:   # a flat ground running off into the pale sky
+        if "Ground" in bpy.data.objects:
+            bpy.data.objects.remove(bpy.data.objects["Ground"])
+        box("Ground", (0, 0, -0.05), (20000, 20000, 0.1), "road")
+    else:
+        map_ground(data)
     map_buildings(data)
     map_trees(data)
     # Munkegata's slabs both ways from the square, as in v2
@@ -818,8 +862,8 @@ def v3():
     burger_king()
     torg_and_pavilion()
     planters("v2")
-    if os.path.exists(WIDE):
-        return   # the real hills are in the wide terrain
+    if os.path.exists(WIDE) or DREAM:
+        return   # the real hills are in the wide terrain; the dream has none
     # far hills round the fjord, down at sea level
     for x, y, sx, sz in [(-1900, -400, 700, 260), (-1500, 1900, 1000, 160), (900, 2400, 1300, 140),
                          (2400, -600, 900, 220)]:
@@ -843,6 +887,8 @@ SHOTS = {
     "T_west": ((-50.0, 20.0, 300.0), (-50.0, 20.001, 0.0), -80.0, 1.0),
     "T_north": ((-40.0, 80.0, 300.0), (-40.0, 80.001, 0.0), -80.0, 1.0),
     "S_munkegata": ((8.0, -25.0, 1.7), (31.0, -115.0, 5.0), 26.0, 16 / 9),
+    # Stiftsgården's long front on Munkegata north, from across the street
+    "N_stift": ((-40.0, 92.0, 1.7), (-14.0, 122.0, 7.0), 24.0, 16 / 9),
     # v3: high over the harbour looking south over Midtbyen to the square, and straight
     # down over the whole map
     "C_city": ((-260.0, 620.0, 260.0), (10.0, 0.0, 0.0), 28.0, 16 / 9),
