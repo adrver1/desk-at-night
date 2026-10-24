@@ -431,9 +431,9 @@ def foniks():
     box("FoniksPlinth", (cx, -0.12, 0.5), (L + 0.2, 0.3, 1.0), "plinth")   # dark green-grey base
     box("FoniksCornice", (cx, depth / 2, eave - 0.2), (L + 0.8, depth + 0.8, 0.45), "phoenix")   # tan, like the render
     frustum("FoniksMansard", (cx, depth / 2), eave, L + 0.6, depth + 0.6, L - 3.4, depth - 3.4, 3.6, "slate")
-    frustum("FoniksRoof", (cx, depth / 2), eave + 3.6, L - 3.4, depth - 3.4, L - 14, 3, 2.6, "slate")
+    frustum("FoniksRoof", (cx, depth / 2), eave + 3.6, L - 3.4, depth - 3.4, L - 14, 0.02, 2.6, "slate")   # up to a sharp ridge (Adriaen)
     for x in (8.5, L - 8.5):
-        box("Chimney", (x, depth / 2 + 2, eave + 6.2), (1.6, 1.2, 2.0), "dark")
+        box("Chimney", (x, depth / 2, eave + 6.2 + 0.4), (1.6, 1.2, 2.0), "dark")   # astride the ridge
     # Cream corners and pilasters, red brick panels between the middle pilasters
     # from above the ground floor up (2024 photos); brick and reliefs are quads laid
     # on the cream wall (WY: the face windows sit on)
@@ -954,22 +954,24 @@ prism("FoniksAnnexTop", [(tx0, ty0), (tx1, ty0), (tx1, AS + 21), (FB, AS + 21), 
 # the Bersvendveita side round to the street side, plain roof outside it along both
 # streets, utility rooms with white doors (HVAC on top) at the back of the bar, and a
 # glass roof bridging across to Føniks
-FC, FR = (ax0 + 14.9, AS + 18.0), 11.0   # the fence's centre and radius
+FC, FR = (ax0 + 14.9, AS + 13.0), 11.0   # the fence's centre and radius (pulled south for seven tables, Adriaen)
 fence = [(FC[0] + FR * math.cos(math.pi + k * math.pi / 16), FC[1] + FR * math.sin(math.pi + k * math.pi / 16)) for k in range(9)]
 for (x0_, y0_), (x1_, y1_) in zip(fence, fence[1:]):
     seg = box("RoofBarFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.6), (math.hypot(x1_ - x0_, y1_ - y0_) + 0.05, 0.06, 1.2), "dark")
     seg.rotation_euler.z = math.atan2(y1_ - y0_, x1_ - x0_)
 prism("RoofBarDeck", [FC] + fence, TT, TT + 0.06, "wood")   # decking inside the fence
-for a_, r_ in ((200, 7.5), (225, 5.0), (250, 7.5), (215, 9.3), (240, 9.3)):
-    px_, py_ = FC[0] + r_ * math.cos(math.radians(a_)), FC[1] + r_ * math.sin(math.radians(a_))
-    box("RoofBarTable", (px_, py_, TT + 0.79), (0.8, 0.8, 0.04), "dark")
+for k in range(7):   # seven tables round the fence, no parasols (Adriaen)
+    a_ = math.radians(186 + k * 13)
+    px_, py_ = FC[0] + 8.2 * math.cos(a_), FC[1] + 8.2 * math.sin(a_)
+    box("RoofBarTable", (px_, py_, TT + 0.79), (0.8, 0.8, 0.04), "dark", a_)
     box("RoofBarTable", (px_, py_, TT + 0.42), (0.08, 0.08, 0.72), "dark")
-    box("RoofBarPole", (px_, py_, TT + 1.31), (0.05, 0.05, 2.5), "dark")
-    o = cyl("RoofBarParasol", (px_, py_, TT + 2.11), 1.6, 0.4, "canvas", 4, 0.04)
-    o.rotation_euler.z = math.pi / 4
+    for side in (-1, 1):   # a chair either side, along the fence
+        cx_, cy_ = px_ - side * 0.65 * math.sin(a_), py_ + side * 0.65 * math.cos(a_)
+        box("RoofBarChair", (cx_, cy_, TT + 0.45), (0.42, 0.42, 0.04), "dark", a_)
+        box("RoofBarChair", (cx_ - side * 0.2 * -math.sin(a_), cy_ - side * 0.2 * math.cos(a_), TT + 0.45), (0.42, 0.04, 0.9), "dark", a_)
 # a row of utility rooms down the middle, from a little south of where the copper starts
 # to near the north end (Adriaen, Google Earth), in tiers
-for ux0, ux1, uy0, uy1, uh in ((ax0 + 9.5, ax0 + 16.0, AS + 11.5, AS + 18.5, 3.0), (ax0 + 7.0, ax0 + 16.0, AS + 18.5, CE - 6.0, 3.4),
+for ux0, ux1, uy0, uy1, uh in ((ax0 + 9.5, ax0 + 16.0, AS + 13.0, AS + 18.5, 3.0), (ax0 + 7.0, ax0 + 16.0, AS + 18.5, CE - 6.0, 3.4),
                                (ax0 + 4.0, ax0 + 7.0, AS + 19.5, CE - 9.0, 2.4), (ax0 + 8.5, ax0 + 15.0, CE - 6.0, CE - 1.5, 2.6)):
     box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh / 2), (ux1 - ux0, uy1 - uy0, uh), "roof_light")
     box("FoniksAnnexUtilDoor", (ux0 + 1.2, uy0 - 0.03, TT + 1.05), (0.9, 0.06, 2.1), "frame")   # white doors onto the bar
@@ -1005,24 +1007,30 @@ for x in (CX0 + 0.15, FB - 0.15):
     box("FoniksAnnexCanopyPost", (x, AS - 0.11 - CD + 0.15, 1.75), (0.1, 0.1, 3.5), "dark")
 pane("FoniksAnnexJointWin", "s", FB - JW / 2, 7.0, JW - 0.5, 2.3, JY - 0.02, "glass")
 pane("FoniksAnnexJointWin", "s", FB - JW / 2, 10.4, JW - 0.5, 2.3, JY - 0.02, "blind")
-# the glass roof bridging the annex and Føniks (Adriaen, Google Earth): set a tier down
-# from the cantina's roof, it slopes from the cantina's east wall down onto Føniks's
-# slate mansard and lands on its diagonal
+# the glass roof bridging the annex and Føniks (Adriaen, Google Earth): from just under
+# the roof terrace's edge it rises over the gap and lands on Føniks's upper slate slope
 MS = lambda x: 16.8 + (x - (FB - 0.3)) * 3.6 / 2.0   # the mansard's height over x (eave 16.8, 2 m in over 3.6 m)
-gx0, gz0, gz1 = FB - 1.2, TT - 0.6, 18.4
-gx1 = FB - 0.3 + (gz1 - 16.8) * 2.0 / 3.6   # where the glass meets the slates
+MU = lambda x: 20.4 + (x - (FB + 1.7)) * 2.6 / 4.69   # the upper roof's, up to the ridge
+gx0, gz0, gz1 = FB - 1.2, TT - 0.2, 21.6
+gx1 = FB + 1.7 + (gz1 - 20.4) * 4.69 / 2.6   # where the glass meets the slates
 gy0, gy1 = JY - 0.3, AS + 21.0
 glass = prism("FoniksAtrium", [(gx0, gy0), (gx1, gy0), (gx1, gy1), (gx0, gy1)], 0, 0.1, "glass")
 for v in glass.data.vertices:
     v.co.z += gz0 + (gz1 - gz0) * (v.co.x - gx0) / (gx1 - gx0)
 for k in range(10):
     y_ = gy0 + 0.2 + k * (gy1 - gy0 - 0.4) / 9
-    bar = box("FoniksAtriumBar", ((gx0 + gx1) / 2, y_, (gz0 + gz1) / 2 + 0.14), (math.hypot(gx1 - gx0, gz0 - gz1), 0.08, 0.08), "dark")
-    bar.rotation_euler.y = math.atan2(gz0 - gz1, gx1 - gx0)
-# its street end: glass from the joint's copper up under the roof, down onto the slates
+    bar = box("FoniksAtriumBar", ((gx0 + gx1) / 2, y_, (gz0 + gz1) / 2 + 0.14), (math.hypot(gx1 - gx0, gz1 - gz0), 0.08, 0.08), "dark")
+    bar.rotation_euler.y = -math.atan2(gz1 - gz0, gx1 - gx0)
+# its street end: glass from the joint's copper up under the glass, down to the slates
 me = bpy.data.meshes.new("FoniksAtriumWall")
-gw = [(FB - JW, JH), (FB, JH), (FB, MS(FB)), (gx1, gz1), (gx0, gz0), (FB - JW, gz0)]
+gw = [(FB - JW, JH), (FB, JH), (FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1), (gx0, gz0), (FB - JW, gz0)]
 me.from_pydata([(x, gy0 - 0.02, z) for x, z in gw], [], [tuple(range(len(gw)))])
+me.materials.append(M["glass"])
+scene.collection.objects.link(bpy.data.objects.new("FoniksAtriumWall", me))
+# and its north end, closing the gap over the slates beside the cantina's back
+me = bpy.data.meshes.new("FoniksAtriumWall")
+gn = [(FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1), (FB, gz0 + (gz1 - gz0) * (FB - gx0) / (gx1 - gx0))]
+me.from_pydata([(x, gy1 + 0.02, z) for x, z in gn], [], [tuple(range(len(gn)))[::-1]])
 me.materials.append(M["glass"])
 scene.collection.objects.link(bpy.data.objects.new("FoniksAtriumWall", me))
 # Summer: a dark pergola with a canvas top over the glass bays (drone photos)
