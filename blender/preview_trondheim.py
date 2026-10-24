@@ -831,7 +831,7 @@ for i in range(5):
     box("FoniksAnnexPier", (ax0 + 0.25 + i * (gx - ax0 - 0.5) / 4, AS - 0.14, 2.95), (0.5, 0.28, 4.7), "copper")
 box("FoniksAnnexGroundPier", (gx + 2.1, AS - 0.5, 2.65), (4.2, 1.0, 5.3), "travertine")
 box("FoniksAnnexBase", ((gx + 4.2 + ax1) / 2, AS - 0.05, 2.65), (ax1 - gx - 4.2, 0.12, 5.3), "glass")
-box("FoniksAnnexBox", (acx, AS - 0.5, 11.05), (ax1 - ax0 + 0.6, 1.0, 11.5), "travertine")   # stands proud
+box("FoniksAnnexBox", (acx + 0.15, AS - 0.5, 11.05), (ax1 - ax0 + 0.3, 1.0, 11.5), "travertine")   # stands proud of the street, flush with the west wall
 
 
 def annex_win(c, z, w, h, face, mat="glass"):
@@ -854,15 +854,16 @@ for z, h, mat in ROWS:
     # the corner window wraps round onto Bersvendveita with no pier at the corner
     # (Adriaen's markup): glass out to the box's corner, round its 1 m return, and on
     # into the first west window
-    cx0, cx1 = ax0 - 0.3, ax0 + 1.25
-    box("FoniksAnnexFrame", ((cx0 + cx1) / 2 + 0.05, AS - 1.02, z), (cx1 - cx0 + 0.1, 0.06, h + 0.2), "bronze_dark")
+    # one glass strip per face, meeting at the corner; frames only on the far edges
+    cx0, cx1, cy1 = ax0, ax0 + 1.25, AS + 1.2
+    box("FoniksAnnexFrame", ((cx0 + cx1) / 2 + 0.1, AS - 1.02, z), (cx1 - cx0, 0.06, h + 0.2), "bronze_dark")
     box("FoniksAnnexWin", ((cx0 + cx1) / 2, AS - 1.06, z), (cx1 - cx0, 0.06, h), mat)
-    box("FoniksAnnexFrame", (cx0 - 0.02, AS - 0.55, z), (0.06, 1.0, h + 0.2), "bronze_dark")
-    box("FoniksAnnexWin", (cx0 - 0.06, AS - 0.53, z), (0.06, 1.0, h), mat)
+    box("FoniksAnnexFrame", (cx0 - 0.02, (AS - 1.0 + cy1) / 2 + 0.1, z), (0.06, cy1 - AS + 1.0, h + 0.2), "bronze_dark")
+    box("FoniksAnnexWin", (cx0 - 0.06, (AS - 1.06 + cy1) / 2, z), (0.06, cy1 - AS + 1.06, h), mat)
 for x in [ax0 + 3.5 + i * 2.5 for i in range(6)]:
     box("FoniksAnnexRail", (x, AS - 1.1, 13.1), (1.2, 0.04, 0.9), "skylight")
 box("FoniksAnnexRail", ((cx0 + cx1) / 2, AS - 1.1, 13.1), (cx1 - cx0, 0.04, 0.9), "skylight")
-box("FoniksAnnexRail", (cx0 - 0.1, AS - 0.55, 13.1), (0.04, 1.0, 0.9), "skylight")
+box("FoniksAnnexRail", (cx0 - 0.1, (AS - 1.1 + cy1) / 2, 13.1), (0.04, cy1 - AS + 1.1, 0.9), "skylight")
 # Bersvendveita side (Adriaen's street photos): travertine for the first 13 m, five window
 # columns with the corner one, the same rows, a shop window, a door and plain travertine below, then copper-clad all the way along the block:
 # copper pilasters framing pairs and single windows with blinds, narrow bays of vertical
@@ -871,8 +872,8 @@ TW, BE = 13.0, FONIKS_SOUTH + FW   # where the copper starts, the block's north 
 box("FoniksAnnexShop", (ax0 - 0.05, AS + 4.1, 2.6), (0.12, 7.0, 4.2), "glass")
 box("FoniksAnnexDoor", (ax0 - 0.05, AS + 8.4, 1.25), (0.12, 1.2, 2.5), "door")
 for z, h, mat in ROWS:
-    for y in (AS + 0.6, AS + 3.6, AS + 6.2, AS + 8.8, AS + 11.4):
-        annex_win(y, z, 1.2, h, "w", mat)   # the first one runs on from the corner glass
+    for y in (AS + 3.6, AS + 6.2, AS + 8.8, AS + 11.4):   # the first column is the corner glass
+        annex_win(y, z, 1.2, h, "w", mat)
 # copper part, counted on Adriaen's photos from the travertine northwards to the yellow
 # brick neighbour: each floor has ten windows in singles (S) and pairs (P) that step
 # between floors, and a bay of vertical grilles (G) at the far end
