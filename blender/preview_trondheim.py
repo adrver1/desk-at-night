@@ -260,18 +260,20 @@ def window(x, z, y, w=1.35, h=2.1, arch=False, side=False, panes=2):
     """A white-framed window with the white cross (mullion + transom) of the old hotel,
     or with two mullions for three panes. Faces -y, or -x with side=True (then x is
     along the wall and y is the wall line)."""
-    def B(name, cx, cz, sx, sz, dy, mat):   # flat fronts only (Adriaen: no depth needed)
-        return pane(name, "w" if side else "s", cx, cz, sx, sz, y - dy - 0.06, mat)
-    B("WinFrame", x, z, w + 0.3, h + 0.3, 0.05, "frame")
-    B("Win", x, z, w, h, 0.1, "glass")
+    # flat quads laid on the wall a few millimetres apart (Adriaen: no depth needed, and
+    # they must sit on the wall, not float in front of it)
+    def B(name, cx, cz, sx, sz, dy, mat):
+        return pane(name, "w" if side else "s", cx, cz, sx, sz, y - dy, mat)
+    B("WinFrame", x, z, w + 0.3, h + 0.3, 0.004, "frame")
+    B("Win", x, z, w, h, 0.008, "glass")
     for u in ((x,) if panes == 2 else (x - w / 6, x + w / 6)):
-        B("Mullion", u, z, 0.1, h, 0.18, "frame")
+        B("Mullion", u, z, 0.1, h, 0.016, "frame")
     # a hair behind the mullion: coplanar faces where the two cross render as a black spot
-    B("Transom", x, z + h * 0.2, w, 0.1, 0.16, "frame")
+    B("Transom", x, z + h * 0.2, w, 0.1, 0.012, "frame")
     if arch:   # a rectangular window under a round white surround filled with render
         # each a hair proud of the one behind: a face flush with the frame's front renders black
-        halfdisc("WinFrame", x, z + h / 2, w / 2 + 0.15, y - 0.12, "frame", side=side)
-        halfdisc("ArchFill", x, z + h / 2 + 0.12, w / 2 - 0.1, y - 0.13, "phoenix", side=side)
+        halfdisc("WinFrame", x, z + h / 2, w / 2 + 0.15, y - 0.002, "frame", side=side)
+        halfdisc("ArchFill", x, z + h / 2 + 0.12, w / 2 - 0.1, y - 0.006, "phoenix", side=side)
 
 
 def halfdisc(name, cx, cz, r, y, mat, n=8, side=False):
@@ -294,16 +296,16 @@ def balcony_door(x, z, w=1.5, h=3.65):
     box("DoorArch", (x, -0.16, (z - h / 2 + top) / 2), (w + 0.7, 0.08, h), "phoenix")
     halfdisc("DoorArch", x, top, w / 2 + 0.35, -0.2, "phoenix")
     box("Keystone", (x, -0.26, top + w / 2 + 0.2), (0.32, 0.08, 0.5), "phoenix")
-    window(x, z, -0.12, w, h)
-    halfdisc("WinFrame", x, top, w / 2 + 0.12, -0.235, "frame")
-    halfdisc("Win", x, top, w / 2, -0.285, "glass")
+    window(x, z, -0.2, w, h)   # on the arch's face
+    halfdisc("WinFrame", x, top, w / 2 + 0.12, -0.202, "frame")
+    halfdisc("Win", x, top, w / 2, -0.206, "glass")
     for k in (1, 2, 3):   # the sunburst bars
         a = math.pi * k / 4
         # not "Mullion": their inner ends bury each other, which fronts_only would
         # take for a buried back and leave only the outer end square
-        b = box("Sunburst", (x + 0.27 * w * math.cos(a), -0.33, top + 0.27 * w * math.sin(a)), (0.54 * w, 0.06, 0.06), "frame")
+        b = box("Sunburst", (x + 0.27 * w * math.cos(a), -0.22, top + 0.27 * w * math.sin(a)), (0.54 * w, 0.02, 0.06), "frame")
         b.rotation_euler = (0, -a, 0)
-    box("SunHub", (x, -0.35, top + 0.03), (0.16, 0.06, 0.16), "frame")   # covers where the bars meet
+    box("SunHub", (x, -0.235, top + 0.03), (0.16, 0.02, 0.16), "frame")   # covers where the bars meet
 
 
 def rib(path, leg, at, quarter, r, z0, side):
@@ -375,9 +377,9 @@ def dormer(u, face, eave, side):
     # roof tiles show between the cornice and the dormer; the window stands on a sill shelf
     B("Dormer", u, 0.8, eave + 1.5, 1.6, 1.6, 1.8, "phoenix")             # z eave+0.6 .. +2.4
     B("DormerSill", u, -0.08, eave + 0.68, 1.5, 0.3, 0.12, "frame")
-    B("DormerFrame", u, -0.02, eave + 1.52, 1.2, 0.06, 1.56, "frame")
-    B("DormerWin", u, -0.06, eave + 1.52, 1.02, 0.06, 1.42, "glass")
-    B("DormerBar", u, -0.1, eave + 1.52, 0.08, 0.06, 1.42, "frame")
+    for name, d, w, h, mat in (("DormerFrame", 0.004, 1.2, 1.56, "frame"), ("DormerWin", 0.008, 1.02, 1.42, "glass"),
+                               ("DormerBar", 0.012, 0.08, 1.42, "frame")):   # flat quads on its face
+        pane(name, "w" if side else "s", u, eave + 1.52, w, h, face - d, mat)
     # the hood: a round-topped arch, extruded back into the roof
     n, w, rise, z0 = 6, 1.65, 0.55, eave + 2.4
     arc = [(-w / 2 + w * k / n, z0 + rise * (1 - (2 * k / n - 1) ** 2)) for k in range(n + 1)]
