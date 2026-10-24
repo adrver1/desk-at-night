@@ -45,7 +45,7 @@ M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "brick": ("#8a5442", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
     "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
     "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3e3738", 0.7), "roof_light": ("#8f9498", 0.8),
-    "canvas": ("#e4dac2", 0.9), "copper": ("#7f4c45", 0.55), "blind": ("#a9aeb0", 0.7), "plinth": ("#59625d", 0.8), "amber": ("#61798a", 0.08), "glass_curve": ("#86a3b8", 0.06), "skylight": ("#c9cdcf", 0.5), "door": ("#4a2c1e", 0.5),
+    "canvas": ("#e4dac2", 0.9), "copper": ("#7f4c45", 0.55), "blind": ("#a9aeb0", 0.7), "blind_green": ("#8fb3a3", 0.7), "plinth": ("#59625d", 0.8), "amber": ("#61798a", 0.08), "glass_curve": ("#86a3b8", 0.06), "skylight": ("#c9cdcf", 0.5), "door": ("#4a2c1e", 0.5),
     "bronze_dark": ("#2f3a33", 0.45), "gold": ("#b8913a", 0.35), "travertine": ("#dcd2bf", 0.8), "orange": ("#c9583a", 0.8),
 }.items()}
 
@@ -850,44 +850,62 @@ def annex_win(c, z, w, h, face, mat="glass"):
 ROWS = ((7.0, 2.3, "glass"), (10.4, 2.3, "blind"), (13.9, 2.6, "glass"))
 for z, h, mat in ROWS:
     for x in [ax0 + 3.5 + i * 2.5 for i in range(6)]:
-        annex_win(x, z, 1.45, h, "s", mat)
+        annex_win(x, z, 1.2, h, "s", mat)   # tall and narrow (summer street photos)
     annex_win(ax0 + 0.65, z, 0.9, h, "s", mat)   # the corner window, turning onto Bersvendveita
 for x in [ax0 + 3.5 + i * 2.5 for i in range(6)] + [ax0 + 0.65]:
-    box("FoniksAnnexRail", (x, AS - 1.1, 13.1), (1.45 if x > ax0 + 1 else 0.9, 0.04, 0.9), "skylight")
-# Bersvendveita side (Adriaen's street photos): travertine for the first 12 m with the
-# same rows, then copper-clad to the back with blinds and a vertical grille bay
-TW = 12.0
-box("FoniksAnnexShop", (ax0 - 0.05, AS + 4.8, 2.6), (0.12, 8.4, 4.2), "glass")
-box("FoniksAnnexDoor", (ax0 - 0.05, AS + 10.4, 1.25), (0.12, 1.3, 2.5), "door")
+    box("FoniksAnnexRail", (x, AS - 1.1, 13.1), (1.2 if x > ax0 + 1 else 0.9, 0.04, 0.9), "skylight")
+# Bersvendveita side (Adriaen's street photos): travertine for the first 10 m with the
+# same rows and a shop and door below, then copper-clad all the way along the block:
+# copper pilasters framing pairs and single windows with blinds, narrow bays of vertical
+# grilles, and louvred vents, green blinds and dark glass on the ground floor
+TW, BE = 10.0, FONIKS_SOUTH + FW   # where the copper starts, the block's north end
+box("FoniksAnnexShop", (ax0 - 0.05, AS + 4.6, 2.6), (0.12, 7.6, 4.2), "glass")
+box("FoniksAnnexDoor", (ax0 - 0.05, AS + 9.0, 1.25), (0.12, 1.2, 2.5), "door")
 for z, h, mat in ROWS:
-    for y in (AS + 1.0, AS + 4.2, AS + 7.2, AS + 10.2):
-        annex_win(y, z, 1.45 if y > AS + 2 else 0.9, h, "w", mat)
-box("FoniksAnnexClad", (ax0 - 0.06, AS + (TW + 21) / 2, 8.4), (0.12, 21 - TW, 16.8), "copper")
-for z in (2.8, 7.0, 10.4, 13.9):
-    for y in (AS + 13.6, AS + 16.2):
-        box("FoniksAnnexWin", (ax0 - 0.14, y, z), (0.06, 1.9, 2.3), "blind" if z > 5 else "glass")
-    box("FoniksAnnexGrille", (ax0 - 0.14, AS + 19.2, z), (0.06, 1.0, 2.3), "bronze_dark")
+    for y in (AS + 1.0, AS + 4.2, AS + 7.4):
+        annex_win(y, z, 1.2 if y > AS + 2 else 0.9, h, "w", mat)
+box("FoniksAnnexClad", (ax0 - 0.06, (AS + TW + BE) / 2, 8.4), (0.12, BE - AS - TW, 16.8), "copper")
+y, k = AS + TW + 0.4, 0
+while True:
+    kind = ("pair", "single", "pair", "grille")[k % 4]
+    w = {"pair": 2.9, "single": 1.5, "grille": 1.1}[kind]
+    if y + w > BE - 0.4:
+        break
+    c = y + w / 2
+    box("FoniksAnnexPilaster", (ax0 - 0.17, y - 0.2, 8.4), (0.1, 0.3, 16.8), "copper")
+    for z in (7.0, 10.4, 13.9):
+        if kind == "grille":
+            box("FoniksAnnexGrille", (ax0 - 0.14, c, z), (0.06, w - 0.2, 2.6), "bronze_dark")
+        else:
+            box("FoniksAnnexWin", (ax0 - 0.14, c, z), (0.06, w - 0.2, 2.3), "glass" if z == 7.0 else "blind")
+    if kind == "single":
+        box("FoniksAnnexWin", (ax0 - 0.14, c, 2.5), (0.06, w - 0.2, 3.6), "blind_green")
+    else:
+        box("FoniksAnnexGrille", (ax0 - 0.14, c, 2.5), (0.06, w - 0.2, 3.6), "bronze_dark")
+    y, k = y + w + 0.4, k + 1
 
 
-def prism(name, pts, z0, z1, mat):   # an upright prism on a footprint polygon (counter-clockwise)
-    n = len(pts)
-    verts = [(x, y, z0) for x, y in pts] + [(x, y, z1) for x, y in pts]
-    faces = [tuple(range(n - 1, -1, -1)), tuple(range(n, 2 * n))]
-    faces += [(i, (i + 1) % n, n + (i + 1) % n, n + i) for i in range(n)]
-    me = bpy.data.meshes.new(name)
-    me.from_pydata(verts, [], faces)
-    o = bpy.data.objects.new(name, me)
-    scene.collection.objects.link(o)
-    me.materials.append(M[mat])
-    return o
-
-
-# Copper top floor, set back, an L along the street and the joint side whose inner
-# corner curves round a roof terrace at the back (Google 3D)
+# Copper top floor (the cantina), set back, over the whole annex
 tx0, tx1, ty0, ty1 = ax0 + 0.4, ax1 - 0.4, AS + 0.8, AS + 20.2
+TT = 19.65
+box("FoniksAnnexTop", (acx, (ty0 + ty1) / 2, (16.75 + TT) / 2), (tx1 - tx0, ty1 - ty0, TT - 16.75), "copper")
+# On its roof a roof bar (Adriaen, Google 3D): a deck along the street and the joint side
+# with tables and parasols behind a glass balustrade, round a curved plant-room block at
+# the back with HVAC units and the stair and lift housing
 rx, ry = tx1 - 6.0 - tx0, ty1 - (AS + 9.0)
 arc = [(tx0 + rx * math.cos(-k * math.pi / 16), ty1 + ry * math.sin(-k * math.pi / 16)) for k in range(9)]
-prism("FoniksAnnexTop", [(tx0, ty0), (tx1, ty0), (tx1, ty1)] + arc, 16.75, 19.65, "copper")
+prism("FoniksAnnexPlant", arc[::-1] + [(tx0, ty1)], TT, TT + 2.4, "roof_light")
+box("FoniksAnnexBalustrade", (acx, ty0 + 0.1, TT + 0.55), (tx1 - tx0 - 0.2, 0.05, 1.1), "skylight")
+box("FoniksAnnexBalustrade", (tx1 - 0.1, (ty0 + ty1) / 2, TT + 0.55), (0.05, ty1 - ty0 - 0.2, 1.1), "skylight")
+for px_, py_ in ((tx0 + 3.0, ty0 + 3.0), (tx0 + 7.5, ty0 + 3.0), (tx1 - 5.5, ty0 + 3.0), (tx1 - 2.8, ty0 + 6.5), (tx1 - 2.8, ty0 + 11.5)):
+    box("RoofBarTable", (px_, py_, TT + 0.73), (0.8, 0.8, 0.04), "dark")
+    box("RoofBarTable", (px_, py_, TT + 0.36), (0.08, 0.08, 0.72), "dark")
+    box("RoofBarPole", (px_, py_, TT + 1.25), (0.05, 0.05, 2.5), "dark")
+    o = cyl("RoofBarParasol", (px_, py_, TT + 2.05), 1.6, 0.4, "canvas", 4, 0.04)
+    o.rotation_euler.z = math.pi / 4
+for hx, hy, hw, hd in ((tx0 + 2.5, ty1 - 3.0, 2.4, 1.6), (tx0 + 6.0, ty1 - 2.0, 1.8, 1.8)):
+    box("FoniksAnnexHVAC", (hx, hy, TT + 3.0), (hw, hd, 1.2), "steel")
+box("FoniksAnnexLift", (tx1 - 2.0, ty1 - 1.8, TT + 1.4), (2.6, 3.0, 2.8), "copper")
 # its street face: copper fins at both ends and the middle, two runs of three windows
 for fc in (tx0 + 0.6, acx, tx1 - 0.6):
     box("FoniksAnnexFinBack", (fc, ty0 - 0.02, 18.2), (1.2, 0.06, 2.6), "bronze_dark")
@@ -916,7 +934,7 @@ else:   # the older all-dark pergola, over the whole front
     box("FoniksAnnexAwning", (acx, AS - 3.0, 3.0), (ax1 - ax0, 4.0, 0.15), "dark")
 for i in range(5):
     box("PergolaPost", (ax0 + 0.5 + i * (gx - ax0 - 1.0) / 4, AS - 4.9, 1.5), (0.15, 0.15, 3.0), "dark")
-block("FoniksBack", FB - 22, FB, FONIKS_SOUTH + 20, FONIKS_SOUTH + FW, 15, "brick_dark", 4, (), None)
+box("FoniksBack", ((ax0 + FB) / 2, (AS + 21 + BE) / 2, 8.4), (FB - ax0, BE - AS - 21, 16.8), "copper")   # the same building on along Bersvendveita
 # West of the annex: a block clad in copper-brown fins on a tight window grid
 block("BrickW", -108, FB - 22, 13, 32, 17, "copper", 6, ("-y",), None)
 # Right after Føniks at its north end, facing the square: the small pink wooden house
@@ -1081,13 +1099,13 @@ B_POS, B1_POS = (79.3, -47.1, 48.1), (28.2, -48.1, 26.0)
 A_POS, A_AT = FL(10.0, -16.0, 1.7), FL(17.0, 0.0, 3.2)
 if args.glb:   # Føniks on its own for the spin-around viewer
     bpy.ops.object.select_all(action="DESELECT")
-    keep = FONIKS_OBJS | {o for o in bpy.data.objects if o.name.startswith(("Foniks", "PergolaPost"))}
+    keep = FONIKS_OBJS | {o for o in bpy.data.objects if o.name.startswith(("Foniks", "PergolaPost", "RoofBar"))}
     # Lean export: drop buried and flush-hidden faces, then one mesh per material
     import mesh_cleanup
     keep = [o for o in keep if o.type == "MESH"]
     mesh_cleanup.strip_hidden(keep)
     mesh_cleanup.fronts_only(keep, {"Win", "Mullion", "Transom", "Cartouche", "DormerWin", "Capital", "FoniksAnnexWin",
-                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "FoniksAnnexFrame", "FoniksAnnexRail", "FoniksAnnexFinBack", "FoniksAtriumBar", "FoniksAnnexGrille", "Fanlight", "Door", "BrickPanel", "SouthBand",
+                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "FoniksAnnexFrame", "FoniksAnnexRail", "FoniksAnnexFinBack", "FoniksAtriumBar", "FoniksAnnexGrille", "FoniksAnnexBalustrade", "Fanlight", "Door", "BrickPanel", "SouthBand",
                                     "ParapetSlot", "PierStrip", "Keystone", "DoorArch", "SunHub", "ArchFill"})
     if os.environ.get("TRD_STATS"):   # triangles left per part, biggest first
         import collections, re
