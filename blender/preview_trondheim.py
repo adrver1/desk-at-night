@@ -850,7 +850,9 @@ FB = FONIKS_FRONT - 12.8   # Føniks's back wall (GPS: SW roof corner)
 AS, JW = FONIKS_SOUTH - 0.4, 2.2   # annex street face (40 cm proud of Føniks, Adriaen), joint width
 ax0, ax1 = FB - JW - 17.7, FB - JW   # 17.7 m wide (GPS pins on both street corners)
 acx = (ax0 + ax1) / 2
-box("FoniksAnnex", (acx, AS + 10.5, 8.4), (ax1 - ax0, 21, 16.8), "travertine")   # the copper top floor sits on it
+EX = ax0 + 15.6   # the entrance bay under the box's east end starts here, set back to the joint's copper (Adriaen)
+box("FoniksAnnex", ((ax0 + EX) / 2, AS + 10.5, 8.4), (EX - ax0, 21, 16.8), "travertine")
+box("FoniksAnnex", ((EX + ax1) / 2, (FONIKS_SOUTH + AS + 21) / 2, 8.4), (ax1 - EX, AS + 21 - FONIKS_SOUTH, 16.8), "travertine")   # the copper top floor sits on it
 # Street front, ground floor (winter photo): dark glass between copper piers on a granite
 # base, then a travertine pier down to the ground and the glazed entrance under the
 # box's east end
@@ -860,7 +862,7 @@ box("FoniksAnnexPlinth", ((ax0 + gx) / 2, AS - 0.12, 0.3), (gx - ax0, 0.24, 0.6)
 for i in range(5):
     box("FoniksAnnexPier", (ax0 + 0.25 + i * (gx - ax0 - 0.5) / 4, AS - 0.14, 2.95), (0.5, 0.28, 4.7), "copper")
 box("FoniksAnnexGroundPier", (gx + 2.1, AS - 0.5, 2.65), (4.2, 1.0, 5.3), "travertine")
-box("FoniksAnnexBase", ((gx + 4.2 + ax1) / 2, AS - 0.05, 2.65), (ax1 - gx - 4.2, 0.12, 5.3), "glass")
+pane("FoniksAnnexBase", "s", (EX + ax1) / 2, 2.65, ax1 - EX, 5.3, FONIKS_SOUTH - 0.02, "glass")
 box("FoniksAnnexBox", (acx, AS - 0.5, 11.05), (ax1 - ax0, 1.0, 11.5), "travertine")   # stands proud of the street, flush with the west wall and the annex's east side
 
 
@@ -984,9 +986,8 @@ JY = FONIKS_SOUTH
 box("FoniksAnnexJoint", (FB - JW / 2, (JY + AS + 21) / 2, JH / 2), (JW, AS + 21 - JY, JH), "copper")
 pane("FoniksAtriumWall", "s", FB - JW / 2, (JH + TT + 0.2) / 2, JW, TT + 0.2 - JH, JY - 0.02, "glass")
 # its entrance glass runs on flush with the annex's entrance glass (Adriaen)
-# up to the canopy, with a copper return against Føniks
-pane("FoniksAnnexJointWin", "s", FB - JW / 2, 1.75, JW, 3.5, AS - 0.11, "glass")
-box("FoniksAnnexJoint", (FB - 0.05, (AS - 0.11 + JY) / 2, 1.75), (0.1, JY - AS + 0.11, 3.5), "copper")
+# up to the canopy, both set back in the copper wall line (Adriaen)
+pane("FoniksAnnexJointWin", "s", FB - JW / 2, 1.75, JW, 3.5, JY - 0.02, "glass")
 # the entrance canopy (Adriaen's street photo): a deep copper box over the pavement on two
 # dark posts, from the travertine pier across the annex's entrance glass to Føniks
 CX0, CD = gx + 4.2, 3.2   # its west end, how far it reaches out from the annex glass
