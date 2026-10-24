@@ -992,8 +992,13 @@ for (x0_, y0_), (x1_, y1_) in (((tx0 + 0.1, CE - 4.0), (tx0 + 0.1, ty0 + 0.1)), 
 # with the Aker BP banner like the masts out front (Adriaen)
 _pre = set(bpy.data.objects)
 flag_mast(tx1 - 1.5, ty0 + 1.2, 7.0, TT)
+bpy.context.view_layer.update()
+from mathutils import Matrix
+_pole = Matrix.Translation((tx1 - 1.5, ty0 + 1.2, 0))
+_turn = _pole @ Matrix.Rotation(math.radians(90 - 15), 4, "Z") @ _pole.inverted()   # the flag flies out to N15°E (Adriaen)
 for o in set(bpy.data.objects) - _pre:
     o.name = "FoniksRoof" + o.name   # so the lean export keeps it
+    o.matrix_world = _turn @ o.matrix_world
 # and fences closing the bar off from the rest of the roof (Adriaen): the arc's south end
 # out to the joint-side railing, and from the arc's west end north along the roof to the north utility room
 for run in (((fence[-1][0], fence[-1][1]), (tx1 - 0.1, fence[-1][1])),
@@ -1006,14 +1011,30 @@ for run in (((fence[-1][0], fence[-1][1]), (tx1 - 0.1, fence[-1][1])),
 # the two middle ones run out to the joint side, the south one on into the bar (Adriaen)
 for ux0, ux1, uy0, uy1, uh in ((ax0 + 11.0, tx1, US, AS + 18.5, 3.0), (ax0 + 7.0, tx1, AS + 18.5, CE - 6.0, 3.4),
                                (FC[0] - FR, ax0 + 15.0, CE - 6.0, CE - 1.5, 2.6)):   # the small west one is gone, the north one reaches out to the bar's fence (Adriaen)
-    box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh / 2), (ux1 - ux0, uy1 - uy0, uh), "roof_light")
+    if uy0 == US:   # the south one is open to the sky: just walls round fans, ducts and pipes (Adriaen, Google Earth)
+        WT = 0.2
+        for cx_, cy_, sx_, sy_ in (((ux0 + ux1) / 2, uy0 + WT / 2, ux1 - ux0, WT), (ux0 + WT / 2, (uy0 + uy1) / 2, WT, uy1 - uy0),
+                                   (ux1 - WT / 2, (uy0 + uy1) / 2, WT, uy1 - uy0)):   # the north side is the next room's wall
+            box("FoniksAnnexUtility", (cx_, cy_, TT + uh / 2), (sx_, sy_, uh), "roof_light")
+        box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + 0.05), (ux1 - ux0 - 0.1, uy1 - uy0 - 0.1, 0.1), "roof_light")   # felt floor over the deck
+        for fy in (uy0 + 2.0, uy0 + 4.2):   # two big fan units by the joint side
+            box("FoniksAnnexPlant", (ux1 - 1.6, fy, TT + 0.6), (1.8, 1.8, 1.2), "steel")
+            cyl("FoniksAnnexFan", (ux1 - 1.6, fy, TT + 1.2), 0.6, 0.06, "dark", 8)
+        box("FoniksAnnexPlant", (ux0 + 2.2, (uy0 + 5.5 + uy1 - 0.8) / 2, TT + 1.3), (0.9, uy1 - 0.8 - uy0 - 5.5, 0.9), "steel")   # a big duct
+        cyl("FoniksAnnexPlant", (ux0 + 2.2, uy0 + 5.5, TT), 0.5, 1.8, "steel", 8)   # and its riser
+        box("FoniksAnnexPlant", (ux0 + 3.4, uy1 - 1.8, TT + 0.7), (1.6, 1.4, 1.4), "steel")   # an air handler
+        for k, py_ in enumerate((uy0 + 1.0, uy0 + 6.2, uy0 + 7.0)):   # pipe runs across
+            box("FoniksAnnexPipe", ((ux0 + ux1) / 2, py_, TT + 0.4 + 0.3 * k), (ux1 - ux0 - 0.4, 0.16, 0.16), "frame" if k else "dark")
+    else:
+        box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh / 2), (ux1 - ux0, uy1 - uy0, uh), "roof_light")
     # white doors onto the bar: the north room's in its south wall, the middle two's in
     # their west walls, a little north of the middle (Adriaen)
     if uy1 > CE - 2:
         box("FoniksAnnexUtilDoor", (ux0 + 1.2, uy0 - 0.03, TT + 1.05), (0.9, 0.06, 2.1), "frame")
     else:
         box("FoniksAnnexUtilDoor", (ux0 - 0.03, uy0 + 0.6 * (uy1 - uy0), TT + 1.05), (0.06, 0.9, 2.1), "frame")
-    box("FoniksAnnexHVAC", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh + 0.5), (2.2, 1.6, 1.0), "steel")
+    if uy0 != US:
+        box("FoniksAnnexHVAC", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh + 0.5), (2.2, 1.6, 1.0), "steel")
 # its street face: copper fins at both ends and the middle, two runs of three windows
 for fc in (tx0 + 0.6, acx, tx1 - 0.6):
     box("FoniksAnnexFinBack", (fc, ty0 - 0.02, 18.5), (1.2, 0.06, 3.1), "bronze_dark")
