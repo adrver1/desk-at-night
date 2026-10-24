@@ -1013,7 +1013,7 @@ MS = lambda x: 16.8 + (x - (FB - 0.3)) * 3.6 / 2.0   # the mansard's height over
 MU = lambda x: 20.4 + (x - (FB + 1.7)) * 2.6 / 4.69   # the upper roof's, up to the ridge
 gx0, gz0, gz1 = FB - 1.2, TT - 0.2, 21.6
 gx1 = FB + 1.7 + (gz1 - 20.4) * 4.69 / 2.6   # where the glass meets the slates
-gy0, gy1 = JY - 0.3, AS + 21.0
+gy0, gy1 = JY + 4.6, AS + 21.0   # it starts ~5 m back from the street (Adriaen); flat roof in front
 glass = prism("FoniksAtrium", [(gx0, gy0), (gx1, gy0), (gx1, gy1), (gx0, gy1)], 0, 0.1, "glass")
 for v in glass.data.vertices:
     v.co.z += gz0 + (gz1 - gz0) * (v.co.x - gx0) / (gx1 - gx0)
@@ -1021,10 +1021,13 @@ for k in range(10):
     y_ = gy0 + 0.2 + k * (gy1 - gy0 - 0.4) / 9
     bar = box("FoniksAtriumBar", ((gx0 + gx1) / 2, y_, (gz0 + gz1) / 2 + 0.14), (math.hypot(gx1 - gx0, gz1 - gz0), 0.08, 0.08), "dark")
     bar.rotation_euler.y = -math.atan2(gz1 - gz0, gx1 - gx0)
-# its street end: glass from the joint's copper up under the glass, down to the slates
+# in front of it, over the joint: the street glass above the copper, a flat roof behind
+# at the terrace's height (felted on export), and the glass's south end over the slates
+pane("FoniksAtriumWall", "s", FB - JW / 2, (JH + TT) / 2, JW, TT - JH, JY - 0.02, "glass")
+box("FoniksAnnexJoint", (FB - 0.6, (JY + gy0) / 2, (JH + TT) / 2), (1.2, gy0 - JY, TT - JH), "copper")
 me = bpy.data.meshes.new("FoniksAtriumWall")
-gw = [(FB - JW, JH), (FB, JH), (FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1), (gx0, gz0), (FB - JW, gz0)]
-me.from_pydata([(x, gy0 - 0.02, z) for x, z in gw], [], [tuple(range(len(gw)))])
+gs = [(FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1), (FB, gz0 + (gz1 - gz0) * (FB - gx0) / (gx1 - gx0))]
+me.from_pydata([(x, gy0 - 0.02, z) for x, z in gs], [], [tuple(range(len(gs)))])
 me.materials.append(M["glass"])
 scene.collection.objects.link(bpy.data.objects.new("FoniksAtriumWall", me))
 # and its north end, closing the gap over the slates beside the cantina's back
