@@ -44,7 +44,7 @@ export class Trondheim {
       ]);
       const scene = this.scene = new THREE.Scene();
       scene.background = new THREE.Color(SKY);
-      scene.fog = new THREE.Fog(SKY, 120, 420);   // the dream's horizon melts away
+      scene.fog = new THREE.Fog(SKY, 250, 1500);   // the dream's ground fades into the sky, as in Blender (250 m to 2.5 km)
       scene.add(new THREE.HemisphereLight(0xffffff, 0xb8b6ae, 2.2));
       const sun = new THREE.DirectionalLight(0xfff4e4, 2.2);
       sun.position.set(60, 90, 40);
