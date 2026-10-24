@@ -20,15 +20,17 @@ _NAMES = ("bpy", "b", "M", "scene", "srgb", "box", "cyl", "frustum", "block", "p
 
 
 def build(g, variant="v2"):
+    global G
+    G = g
     globals().update({k: g[k] for k in _NAMES})
     {"v1": v1, "v2": v2}[variant]()
 
 
 # --- shared by both variants -------------------------------------------------------
 
-def brick_west():
+def brick_west(x1=None):
     # West of the annex: a block clad in copper-brown fins on a tight window grid
-    block("BrickW", -108, FB - 22, 13, 32, 17, "copper", 6, ("-y",), None)
+    block("BrickW", -108, FB - 22 if x1 is None else x1, 13, 32, 17, "copper", 6, ("-y",), None)
 
 
 def north_cafe_blocks():
@@ -380,7 +382,7 @@ def v2():
     yS = -250.0
     poly_paving("MunkegataS", [(w_south(SQ_S + 0.5), SQ_S + 0.5), (w_south(yS), yS), (e_south(yS), yS),
                                (e_south(-57.6), -57.6), (SQ_E, SQ_S + 0.5)], 0.036)
-    brick_west()
+    brick_west(G.get("ax0"))   # right up to the annex's west end (from the GPS pins)
     burger_king()
     # More old houses north of it, their fronts on the street line
     street_row("OldN", 78.6, 100.0, 15, 12, "c1", 4, "slate")
@@ -438,6 +440,8 @@ SHOTS = {
     # Like Adriaen's Kongens gate photo: along the planter rows on the west and south edges
     "P_planters": ((-25.5, -15.0, 1.7), (-29.5, 30.0, 1.2), 26.0, 16 / 9),
     "P_south_row": ((12.0, -38.5, 1.7), (-22.0, -44.5, 1.0), 26.0, 16 / 9),
+    # Straight down over Føniks, its annex and Kongens gate, for the GPS pins
+    "T_west": ((-50.0, 20.0, 300.0), (-50.0, 20.001, 0.0), -80.0, 1.0),
     "S_munkegata": ((8.0, -25.0, 1.7), (31.0, -115.0, 5.0), 26.0, 16 / 9),
 }
 
