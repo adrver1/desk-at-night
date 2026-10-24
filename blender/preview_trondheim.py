@@ -43,7 +43,7 @@ M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "trunk": ("#4a3a2c", 1.0), "c1": ("#c9a77c", 0.8), "c2": ("#b46a4f", 0.8),
     "c3": ("#e2ddcf", 0.8), "c4": ("#8f9b8a", 0.8), "c5": ("#c7b07a", 0.8),
     "brick": ("#8a5442", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
-    "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
+    "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8), "rust": ("#8b4a2b", 0.85),
     "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3e3738", 0.7), "roof_light": ("#8f9498", 0.8),
     "canvas": ("#e4dac2", 0.9), "copper": ("#7f4c45", 0.55), "blind": ("#a9aeb0", 0.7), "blind_green": ("#8fb3a3", 0.7), "plinth": ("#59625d", 0.8), "amber": ("#61798a", 0.08), "glass_curve": ("#86a3b8", 0.06), "skylight": ("#c9cdcf", 0.5), "door": ("#4a2c1e", 0.5),
     "bronze_dark": ("#2f3a33", 0.45), "gold": ("#b8913a", 0.35), "travertine": ("#dcd2bf", 0.8), "orange": ("#c9583a", 0.8),
@@ -956,7 +956,8 @@ for z, row in BAYS.items():
 # joint to Føniks's back wall and north to the yellow neighbour
 tx0, tx1, ty0, ty1 = ax0 + 0.9, ax1, AS + 0.0, CE   # stops at the joint: nothing over it above 13.6 m (Adriaen)
 TT = 20.2
-prism("FoniksAnnexTop", [(tx0, ty0), (tx1, ty0), (tx1, AS + 21), (FB, AS + 21), (FB, ty1), (tx0, ty1)], 16.75, TT, "copper")
+AGY1 = CE - 3.5   # where the glass atrium ends in the north (Adriaen: on nearly to the north end)
+prism("FoniksAnnexTop", [(tx0, ty0), (tx1, ty0), (tx1, AGY1), (FB, AGY1), (FB, ty1), (tx0, ty1)], 16.75, TT, "copper")
 # Its roof (Adriaen, Google 3D): a rooftop bar inside a curved fence that sweeps from
 # the Bersvendveita side round to the street side, plain roof outside it along both
 # streets, utility rooms with white doors (HVAC on top) at the back of the bar, and a
@@ -986,7 +987,10 @@ US = AS + 8.3   # the south utility room's south face, just clear of the bar's t
 for (x0_, y0_), (x1_, y1_) in (((tx0 + 0.1, CE - 4.0), (tx0 + 0.1, ty0 + 0.1)), ((tx0 + 0.1, CE - 4.0), (FC[0] - FR, CE - 4.0)),   # on to the north room, turning in to its wall (Adriaen)
                                ((tx0 + 0.1, ty0 + 0.1), (tx1 - 0.1, ty0 + 0.1)),
                                ((tx1 - 0.1, ty0 + 0.1), (tx1 - 0.1, US))):
-    box("RoofBarEdgeFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (abs(x1_ - x0_) + 0.06, abs(y1_ - y0_) + 0.06, 1.1), "dark")
+    box("RoofBarEdgeFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (abs(x1_ - x0_) + 0.06, abs(y1_ - y0_) + 0.06, 1.1), "rust")   # weathering steel (Adriaen)
+# a flag pole on the roof's south-east corner, outside the bar (Adriaen)
+cyl("FoniksFlagPole", (tx1 - 1.5, ty0 + 1.2, TT), 0.06, 7.0, "frame", 6)
+cyl("FoniksFlagPoleTruck", (tx1 - 1.5, ty0 + 1.2, TT + 7.0), 0.1, 0.12, "frame", 4)
 # and fences closing the bar off from the rest of the roof (Adriaen): the arc's south end
 # out to the joint-side railing, and from the arc's west end north along the roof to the north utility room
 for run in (((fence[-1][0], fence[-1][1]), (tx1 - 0.1, fence[-1][1])),
@@ -1043,12 +1047,13 @@ MS = lambda x: 16.8 + (x - (FB - 0.3)) * 3.6 / 2.0   # the mansard's height over
 MU = lambda x: 20.4 + (x - (FB + 1.7)) * 2.6 / 4.69   # the upper roof's, up to the ridge
 gx0, gz0, gz1 = FB - JW, TT - 0.2, 21.6
 gx1 = FB + 1.7 + (gz1 - 20.4) * 4.69 / 2.6   # where the glass meets the slates
-gy0, gy1 = JY + 4.6, AS + 21.0   # it starts ~5 m back from the street (Adriaen); flat roof in front
+gy0, gy1 = JY + 4.6, AGY1   # it starts ~5 m back from the street (Adriaen); flat roof in front
 glass = prism("FoniksAtrium", [(gx0, gy0), (gx1, gy0), (gx1, gy1), (gx0, gy1)], 0, 0.1, "glass")
 for v in glass.data.vertices:
     v.co.z += gz0 + (gz1 - gz0) * (v.co.x - gx0) / (gx1 - gx0)
-for k in range(10):
-    y_ = gy0 + 0.2 + k * (gy1 - gy0 - 0.4) / 9
+NB = round((gy1 - gy0) / 1.7) + 1   # glazing bars about 1.7 m apart
+for k in range(NB):
+    y_ = gy0 + 0.2 + k * (gy1 - gy0 - 0.4) / (NB - 1)
     bar = box("FoniksAtriumBar", ((gx0 + gx1) / 2, y_, (gz0 + gz1) / 2 + 0.14), (math.hypot(gx1 - gx0, gz1 - gz0), 0.08, 0.08), "dark")
     bar.rotation_euler.y = -math.atan2(gz1 - gz0, gx1 - gx0)
 # in front of it the joint stays at 13.6 m (Adriaen); the glass's south end comes down
@@ -1058,9 +1063,9 @@ gs = [(gx0, JH), (FB, JH), (FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1), (
 me.from_pydata([(x, gy0 - 0.02, z) for x, z in gs], [], [tuple(range(len(gs)))])
 me.materials.append(M["glass"])
 scene.collection.objects.link(bpy.data.objects.new("FoniksAtriumWall", me))
-# and its north end, closing the gap over the slates beside the cantina's back
+# and its north end, from the cantina's roof and the slates up to the glass
 me = bpy.data.meshes.new("FoniksAtriumWall")
-gn = [(FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1), (FB, gz0 + (gz1 - gz0) * (FB - gx0) / (gx1 - gx0))]
+gn = [(gx0 + (TT - gz0) * (gx1 - gx0) / (gz1 - gz0), TT), (FB, TT), (FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1)]
 me.from_pydata([(x, gy1 + 0.02, z) for x, z in gn], [], [tuple(range(len(gn)))[::-1]])
 me.materials.append(M["glass"])
 scene.collection.objects.link(bpy.data.objects.new("FoniksAtriumWall", me))
