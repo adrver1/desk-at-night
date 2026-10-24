@@ -229,9 +229,10 @@ def flag_mast(x, y, h=9.0):
             o.modifiers.new("Tri", "TRIANGULATE").quad_method = "BEAUTY"
 
 
-def window(x, z, y, w=1.35, h=2.1, arch=False, side=False):
-    """A white-framed window with the white cross (mullion + transom) of the old hotel.
-    Faces -y, or -x with side=True (then x is along the wall and y is the wall line)."""
+def window(x, z, y, w=1.35, h=2.1, arch=False, side=False, panes=2):
+    """A white-framed window with the white cross (mullion + transom) of the old hotel,
+    or with two mullions for three panes. Faces -y, or -x with side=True (then x is
+    along the wall and y is the wall line)."""
     def B(name, cx, cz, sx, sz, dy, mat):
         if side:
             box(name, (y - dy, cx, cz), (0.12, sx, sz), mat)
@@ -239,8 +240,10 @@ def window(x, z, y, w=1.35, h=2.1, arch=False, side=False):
             box(name, (cx, y - dy, cz), (sx, 0.12, sz), mat)
     B("WinFrame", x, z, w + 0.3, h + 0.3, 0.05, "frame")
     B("Win", x, z, w, h, 0.1, "glass")
-    B("Mullion", x, z, 0.1, h, 0.18, "frame")
-    B("Transom", x, z + h * 0.2, w, 0.1, 0.18, "frame")
+    for u in ((x,) if panes == 2 else (x - w / 6, x + w / 6)):
+        B("Mullion", u, z, 0.1, h, 0.18, "frame")
+    # a hair behind the mullion: coplanar faces where the two cross render as a black spot
+    B("Transom", x, z + h * 0.2, w, 0.1, 0.16, "frame")
     if arch:   # a round glazed head: two flat half discs, frame behind glass
         halfdisc("WinFrame", x, z + h / 2, w / 2 + 0.15, y - 0.11, "frame", side=side)
         halfdisc("Win", x, z + h / 2, w / 2, y - 0.16, "glass", side=side)
@@ -341,12 +344,12 @@ def dormer(u, face, eave, side):
         return (face + out, along, z) if side else (along, face + out, z)
     def B(name, along, out, z, w, d, h, mat):
         box(name, P(along, out, z), (d, w, h) if side else (w, d, h), mat)
-    B("Dormer", u, 0.8, eave + 1.8, 1.6, 1.6, 2.4, "phoenix")             # z eave+0.6 .. +3.0
-    B("DormerFrame", u, -0.02, eave + 1.75, 1.2, 0.06, 2.25, "frame")
-    B("DormerWin", u, -0.06, eave + 1.75, 1.02, 0.06, 2.1, "glass")
-    B("DormerBar", u, -0.1, eave + 1.75, 0.08, 0.06, 2.1, "frame")
+    B("Dormer", u, 0.8, eave + 1.2, 1.6, 1.6, 2.4, "phoenix")             # z eave .. +2.4, right on the cornice
+    B("DormerFrame", u, -0.02, eave + 1.15, 1.2, 0.06, 2.25, "frame")
+    B("DormerWin", u, -0.06, eave + 1.15, 1.02, 0.06, 2.1, "glass")
+    B("DormerBar", u, -0.1, eave + 1.15, 0.08, 0.06, 2.1, "frame")
     # the hood: a round-topped arch, extruded back into the roof
-    n, w, rise, z0 = 6, 1.65, 0.55, eave + 3.0
+    n, w, rise, z0 = 6, 1.65, 0.55, eave + 2.4
     arc = [(-w / 2 + w * k / n, z0 + rise * (1 - (2 * k / n - 1) ** 2)) for k in range(n + 1)]
     ring = lambda out: [P(u + a_, out, z) for a_, z in arc]   # closes along its flat base
     front, back = ring(-0.05), ring(1.6)
@@ -431,13 +434,7 @@ def foniks():
     o = bpy.data.objects.new("OrielRoof", me)
     scene.collection.objects.link(o)
     me.materials.append(M["dark"])
-    window(ox, 2.75, -BD - OP, 3.0, 2.3)
-    for sx in (-1, 1):   # narrow windows in the angled sides
-        a = math.radians(45 * sx)
-        cxw, cyw = ox + sx * (OF / 2 + OP / 2), -BD - OP / 2
-        n = (sx * 0.7071, -0.7071)
-        box("WinFrame", (cxw + n[0] * 0.05, cyw + n[1] * 0.05, 2.75), (1.2, 0.12, 2.6), "frame", a)
-        box("Win", (cxw + n[0] * 0.1, cyw + n[1] * 0.1, 2.75), (0.95, 0.12, 2.3), "glass", a)
+    window(ox, 2.75, -BD - OP, 3.0, 2.3, panes=3)   # the angled sides are blank
     for bx in (PIER + BAY / 2, L - PIER - BAY / 2):   # the side bays come forward
         # the bays come out as far as the middle balcony and stop a floor short of
         # the eave; their tops are balconies behind a solid parapet with small slots
@@ -445,7 +442,8 @@ def foniks():
         box("BayCornice", (bx, -BD / 2 - 0.05, 12.75), (BAY + 0.3, BD + 0.2, 0.2), "frame")
         box("BayParapet", (bx, -BD + 0.1, 13.35), (BAY, 0.2, 1.0), "phoenix")
         for sx in (-1, 1):
-            box("BayParapet", (bx + sx * (BAY / 2 - 0.1), -BD / 2, 13.35), (0.2, BD, 1.0), "phoenix")
+            # stop at the front parapet's back: a shared front face renders as a black stripe
+            box("BayParapet", (bx + sx * (BAY / 2 - 0.1), (-BD + 0.2) / 2, 13.35), (0.2, BD - 0.2, 1.0), "phoenix")
         for k in range(6):
             box("ParapetSlot", (bx - BAY / 2 + 0.6 + k * (BAY - 1.2) / 5, -BD - 0.02, 13.35), (0.25, 0.06, 0.35), "dark")
     rows = (8.1, 11.3, 14.6)
@@ -459,7 +457,9 @@ def foniks():
             if z == rows[0]:   # tall arched doors out onto the balcony
                 balcony_door(x, 7.33, 1.2)
             else:
-                window(x, z, -0.12, 1.05)   # narrower than the bay windows, brick either side
+                # narrower than the bay windows, brick either side; the first-floor ones
+                # shorter, leaving brick between them and the door arches below
+                window(x, z + 0.25, -0.12, 1.05, 1.6) if z == rows[1] else window(x, z, -0.12, 1.05)
     window(L - PIER / 2, 3.4, -0.12, 1.4, 2.4)   # (none behind the restaurant; the north bay has its oriel)
     # Entrance (2025 street photos): a raised terrace along the front from the
     # restaurant to past the doors, wide steps down to the square that wrap round the
@@ -599,15 +599,13 @@ def foniks():
         box("CornerStep", (st.x, st.y, (0.8 - i * 0.26) / 2), (2.4, 0.5, 0.8 - i * 0.26), "granite", math.radians(-45))
     # Eight round-topped dormers, over the window columns: two on each bay, four in the middle
     for x in [bx + dx for bx in (PIER + BAY / 2, L - PIER - BAY / 2) for dx in (-1.6, 1.6)] + cols:
-        dormer(x, 0.5, eave, False)
+        dormer(x, -0.2, eave, False)
     # The south side along Kongens gate (build -x face) is red brick, with the same
     # white-framed windows with crosses
     box("SouthBrick", (-0.04, depth / 2, (5.0 + eave - 1.2) / 2), (0.08, depth, eave - 1.2 - 5.0), "brick")   # cream ground floor, tan band under the eave
     box("SouthBand", (-0.1, depth / 2, eave - 0.6), (0.12, depth, 1.2), "phoenix")
     for y in SOUTH_COLS:   # three round-topped dormers on the south slope
-        dormer(y, 0.5, eave, True)
-    for y in (0.7, depth - 0.7):   # cream quoins at both corners
-        box("Quoin", (-0.09, y, eave / 2), (0.1, 1.4, eave - 0.6), "phoenix")
+        dormer(y, -0.2, eave, True)
     for z in rows:
         for y in SOUTH_COLS:
             window(y, z, 0.0, side=True, arch=z in rows[:2])
