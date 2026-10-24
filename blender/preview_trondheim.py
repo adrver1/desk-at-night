@@ -1021,10 +1021,10 @@ for k in range(10):
     y_ = gy0 + 0.2 + k * (gy1 - gy0 - 0.4) / 9
     bar = box("FoniksAtriumBar", ((gx0 + gx1) / 2, y_, (gz0 + gz1) / 2 + 0.14), (math.hypot(gx1 - gx0, gz1 - gz0), 0.08, 0.08), "dark")
     bar.rotation_euler.y = -math.atan2(gz1 - gz0, gx1 - gx0)
-# in front of it, over the joint: the street glass above the copper, a flat roof behind
-# at the terrace's height (felted on export), and the glass's south end over the slates
-pane("FoniksAtriumWall", "s", FB - JW / 2, (JH + TT) / 2, JW, TT - JH, JY - 0.02, "glass")
-box("FoniksAnnexJoint", (FB - 0.6, (JY + gy0) / 2, (JH + TT) / 2), (1.2, gy0 - JY, TT - JH), "copper")
+# in front of it, over the joint: a terraced roof stepping back up from the joint's top
+# to the glass (Adriaen; the tops are felted on export), and the glass's south end over the slates
+for y_, z0_, z1_ in ((JY + 1.5, JH, (JH + TT) / 2), (JY + 3.0, (JH + TT) / 2, TT)):
+    box("FoniksAnnexJoint", (FB - JW / 2, (y_ + gy0) / 2, (z0_ + z1_) / 2), (JW, gy0 - y_, z1_ - z0_), "copper")
 me = bpy.data.meshes.new("FoniksAtriumWall")
 gs = [(FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1), (FB, gz0 + (gz1 - gz0) * (FB - gx0) / (gx1 - gx0))]
 me.from_pydata([(x, gy0 - 0.02, z) for x, z in gs], [], [tuple(range(len(gs)))])
