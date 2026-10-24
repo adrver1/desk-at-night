@@ -583,10 +583,12 @@ def foniks():
         box("RestaurantRoof", ((ux0 + x1) / 2, (uy0 + y1) / 2, WT + R), (x1 - ux0, y1 - uy0, 0.2), "dark")
     for x in [cw - 0.05 - i * 1.6 for i in range(int((cw + RS) / 1.6) + 1) if cw - 0.05 - i * 1.6 > -RS + 0.3]:   # frames on the street faces
         box("Mullion", (x, -RD, (0.7 + WT) / 2), (0.1, 0.12, WT - 0.7), "dark")
-        rib(outer, 0, x, quarter, R, WT, -1)
+        if x > -RS + R:   # a rib this close to the corner would cross the mitred hip
+            rib(outer, 0, x, quarter, R, WT, -1)
     for y in [depth - 0.05 - i * 1.6 for i in range(int((depth + RD) / 1.6) + 1) if depth - 0.05 - i * 1.6 > -RD + 0.3]:
         box("Mullion", (-RS, y, (0.7 + WT) / 2), (0.12, 0.1, WT - 0.7), "dark")
-        rib(outer, 1, y, quarter, R, WT, -1)
+        if y > -RD + R:
+            rib(outer, 1, y, quarter, R, WT, -1)
     for i in range(int((cw + RS - 3) / 2.0)):   # skylights between the eave and the strip
         for y in (-RD + R + 1.0, -RD + R + 2.9):
             skylight((-RS + 2.6 + i * 2.0, y, WT + R + 0.11))
