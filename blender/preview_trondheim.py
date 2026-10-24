@@ -689,7 +689,7 @@ def outdoor_seating(variant):
     """The restaurant's outdoor seating (2024 drone photo, Adriaen's corner photo), in
     Føniks's build frame: a terrace on the Kongens gate side behind low dark
     windscreens, dark square planters with shrubs at the corner door and along the
-    front, and picnic tables out on the square. Variants keep their furniture apart:
+    front, and (TRD_PICNIC=1) picnic tables out on the square. Variants keep their furniture apart:
     A = square parasols over four-seat tables, B = an awning along the glass over rows
     of two-seat bistro tables, C = long beer-garden tables with benches under big
     parasols. TRD_SEATING picks one; "none" leaves the square bare."""
@@ -699,12 +699,10 @@ def outdoor_seating(variant):
     y0, y1 = -REST_RD + 3.0, 11.6               # from past the corner door to near the annex
     xm = (x0 + x1) / 2
 
-    def chair(x, y, a):   # seat, back and two side legs; a = the way the sitter faces
+    def chair(x, y, a):   # two slabs: a back that runs down to the ground as the rear legs, and the seat
         c, s_ = math.cos(a), math.sin(a)
         box("Chair", (x, y, 0.45), (0.42, 0.42, 0.04), "dark", a)
-        box("Chair", (x - 0.2 * c, y - 0.2 * s_, 0.68), (0.04, 0.42, 0.42), "dark", a)
-        for k in (-1, 1):
-            box("Chair", (x - 0.19 * s_ * k, y + 0.19 * c * k, 0.22), (0.38, 0.03, 0.44), "dark", a)
+        box("Chair", (x - 0.2 * c, y - 0.2 * s_, 0.45), (0.04, 0.42, 0.9), "dark", a)
 
     def table(x, y, w=0.8, d=0.8, rot=0.0):
         box("CafeTable", (x, y, 0.73), (w, d, 0.04), "dark", rot)
@@ -735,8 +733,9 @@ def outdoor_seating(variant):
     for x, y in ((x1, y0), (x1, y1), (-REST_RS - 0.5, -REST_RD + 1.7), (-REST_RS + 1.7, -REST_RD - 0.55),
                  (-2.0, -REST_RD - 0.55), (1.6, -REST_RD - 0.55)):
         planter(x, y)
-    for x in (-4.5, -1.0, 2.5):
-        picnic(x, -REST_RD - 4.2)
+    if os.environ.get("TRD_PICNIC") == "1":   # picnic tables out on the square (Adriaen: off)
+        for x in (-4.5, -1.0, 2.5):
+            picnic(x, -REST_RD - 4.2)
     n = 5
     ys = [y0 + (i + 0.5) * (y1 - y0) / n for i in range(n)]
     if variant == "A":
