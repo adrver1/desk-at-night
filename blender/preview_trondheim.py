@@ -977,12 +977,12 @@ for y in [AS + 2.6, AS + 5.6] + [AS + 9.0 + 3.2 * k for k in range(int((CE - AS 
 # The copper-clad joint onto Føniks: a tall glazed entrance, two windows above, rising
 # past Føniks's eave; the glass atrium roof stands up behind it (winter photo)
 # it stops about halfway up the box's top floor (Adriaen's photo, "the 3.5th floor"); above
-# it the atrium's glass wall stands back and rises to the glass roof
+# it the atrium's glass wall carries on in the same line up to the glass roof (no slot, Adriaen)
 JH = 13.6
 # the copper carries on Føniks's brick wall line (Adriaen), the annex stands proud of it
 JY = FONIKS_SOUTH
 box("FoniksAnnexJoint", (FB - JW / 2, (JY + AS + 21) / 2, JH / 2), (JW, AS + 21 - JY, JH), "copper")
-pane("FoniksAtriumWall", "s", FB - JW / 2, (JH + TT + 0.2) / 2, JW, TT + 0.2 - JH, AS + 3.0, "glass")
+pane("FoniksAtriumWall", "s", FB - JW / 2, (JH + TT + 0.2) / 2, JW, TT + 0.2 - JH, JY - 0.02, "glass")
 # its entrance glass runs on flush with the annex's entrance glass (Adriaen), same
 # height, under a copper soffit and a copper return against Føniks
 pane("FoniksAnnexJointWin", "s", FB - JW / 2, 2.65, JW, 5.3, AS - 0.11, "glass")
@@ -991,7 +991,7 @@ box("FoniksAnnexJoint", (FB - 0.05, (AS - 0.11 + JY) / 2, 2.65), (0.1, JY - AS +
 pane("FoniksAnnexJointWin", "s", FB - JW / 2, 7.0, JW - 0.5, 2.3, JY - 0.02, "glass")
 pane("FoniksAnnexJointWin", "s", FB - JW / 2, 10.4, JW - 0.5, 2.3, JY - 0.02, "blind")
 # the glass roof bridging the annex and Føniks: a mono-pitch skylight on dark bars
-gx0, gx1, gy0, gy1 = ax1 - 1.0, FB + 0.5, AS + 3.0, AS + 20.2
+gx0, gx1, gy0, gy1 = ax1 - 1.0, FB + 0.5, JY, AS + 20.2
 glass = prism("FoniksAtrium", [(gx0, gy0), (gx1, gy0), (gx1, gy1), (gx0, gy1)], 0, 0.1, "glass")
 for v in glass.data.vertices:
     v.co.z += TT + 0.2 + 1.4 * (v.co.x - gx0) / (gx1 - gx0)
