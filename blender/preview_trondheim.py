@@ -236,11 +236,11 @@ def _logo():
 LOGO = _logo()
 
 
-def flag_mast(x, y, h=9.0):
+def flag_mast(x, y, h=9.0, z0=0.0):
     """A white mast with a hanging banner flag: white, the logo on both faces."""
-    cyl("Mast", (x, y, 0), 0.06, h, "frame", 6)
-    cyl("Truck", (x, y, h), 0.1, 0.12, "frame", 4)
-    fw, fh, top = 1.0, 2.6, h - 0.4
+    cyl("Mast", (x, y, z0), 0.06, h, "frame", 6)
+    cyl("Truck", (x, y, z0 + h), 0.1, 0.12, "frame", 4)
+    fw, fh, top = 1.0, 2.6, z0 + h - 0.4
     fx = x + 0.08 + fw / 2
     box("Flag", (fx, y, top - fh / 2), (fw, 0.02, fh), "flag")
     box("FlagBar", (fx, y, top), (fw + 0.1, 0.04, 0.04), "frame")
@@ -989,8 +989,11 @@ for (x0_, y0_), (x1_, y1_) in (((tx0 + 0.1, CE - 4.0), (tx0 + 0.1, ty0 + 0.1)), 
                                ((tx1 - 0.1, ty0 + 0.1), (tx1 - 0.1, US))):
     box("RoofBarEdgeFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (abs(x1_ - x0_) + 0.06, abs(y1_ - y0_) + 0.06, 1.1), "rust")   # weathering steel (Adriaen)
 # a flag pole on the roof's south-east corner, outside the bar (Adriaen)
-cyl("FoniksFlagPole", (tx1 - 1.5, ty0 + 1.2, TT), 0.06, 7.0, "frame", 6)
-cyl("FoniksFlagPoleTruck", (tx1 - 1.5, ty0 + 1.2, TT + 7.0), 0.1, 0.12, "frame", 4)
+# with the Aker BP banner like the masts out front (Adriaen)
+_pre = set(bpy.data.objects)
+flag_mast(tx1 - 1.5, ty0 + 1.2, 7.0, TT)
+for o in set(bpy.data.objects) - _pre:
+    o.name = "FoniksRoof" + o.name   # so the lean export keeps it
 # and fences closing the bar off from the rest of the roof (Adriaen): the arc's south end
 # out to the joint-side railing, and from the arc's west end north along the roof to the north utility room
 for run in (((fence[-1][0], fence[-1][1]), (tx1 - 0.1, fence[-1][1])),
