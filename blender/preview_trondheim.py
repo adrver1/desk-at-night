@@ -67,6 +67,23 @@ def box(name, loc, size, mat, rot=0.0):
     return o
 
 
+def pane(name, face, c, z, w, h, at, mat):
+    """A single quad facing out of a wall: face "s" faces -y (c = x, at = y), "w" faces
+    -x (c = y, at = x). For flat things on a wall (glass, frames): 2 triangles, and as an
+    open sheet strip_hidden() never mistakes it for buried."""
+    u0, u1, z0, z1 = c - w / 2, c + w / 2, z - h / 2, z + h / 2
+    if face == "s":
+        v = [(u0, at, z0), (u1, at, z0), (u1, at, z1), (u0, at, z1)]
+    else:
+        v = [(at, u1, z0), (at, u0, z0), (at, u0, z1), (at, u1, z1)]
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(v, [], [(0, 1, 2, 3)])
+    me.materials.append(M[mat])
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
+    return o
+
+
 def cyl(name, loc, r, h, mat, n=8, r2=None):
     bpy.ops.mesh.primitive_cone_add(vertices=n, radius1=r, radius2=r if r2 is None else r2, depth=h,
                                     location=(loc[0], loc[1], loc[2] + h / 2))
@@ -848,11 +865,11 @@ def annex_win(c, z, w, h, face, mat="glass"):
     """A window on the annex: slim dark bronze frame flush on the wall (a raised
     one cast a shadow that read as a wireframe), glass (or lowered blinds) on it. face "s" = on the box's street face (c = x), "w" = on the west wall (c = y)."""
     if face == "s":
-        box("FoniksAnnexFrame", (c, AS - 1.006, z), (w + 0.12, 0.012, h + 0.12), "bronze_dark")
-        box("FoniksAnnexWin", (c, AS - 1.018, z), (w, 0.012, h), mat)
+        pane("FoniksAnnexFrame", "s", c, z, w + 0.12, h + 0.12, AS - 1.004, "bronze_dark")
+        pane("FoniksAnnexWin", "s", c, z, w, h, AS - 1.008, mat)
     else:
-        box("FoniksAnnexFrame", (ax0 - 0.006, c, z), (0.012, w + 0.12, h + 0.12), "bronze_dark")
-        box("FoniksAnnexWin", (ax0 - 0.018, c, z), (0.012, w, h), mat)
+        pane("FoniksAnnexFrame", "w", c, z, w + 0.12, h + 0.12, ax0 - 0.004, "bronze_dark")
+        pane("FoniksAnnexWin", "w", c, z, w, h, ax0 - 0.008, mat)
 
 
 # The travertine box: six window columns, the first well in from the west corner; the
@@ -866,10 +883,10 @@ for z, h, mat in ROWS:
     # into the first west window
     # one glass strip per face, meeting at the corner; frames only on the far edges
     cx0, cx1, cy1 = ax0, ax0 + 1.25, AS + 1.2
-    box("FoniksAnnexFrame", ((cx0 + cx1) / 2 + 0.06, AS - 1.006, z), (cx1 - cx0, 0.012, h + 0.12), "bronze_dark")
-    box("FoniksAnnexWin", ((cx0 + cx1) / 2, AS - 1.018, z), (cx1 - cx0, 0.012, h), mat)
-    box("FoniksAnnexFrame", (cx0 - 0.006, (AS - 1.0 + cy1) / 2 + 0.06, z), (0.012, cy1 - AS + 1.0, h + 0.12), "bronze_dark")
-    box("FoniksAnnexWin", (cx0 - 0.018, (AS - 1.024 + cy1) / 2, z), (0.012, cy1 - AS + 1.024, h), mat)
+    pane("FoniksAnnexFrame", "s", (cx0 + cx1) / 2 + 0.06, z, cx1 - cx0, h + 0.12, AS - 1.004, "bronze_dark")
+    pane("FoniksAnnexWin", "s", (cx0 + cx1) / 2 - 0.004, z, cx1 - cx0 + 0.008, h, AS - 1.008, mat)
+    pane("FoniksAnnexFrame", "w", (AS - 1.004 + cy1) / 2 + 0.06, z, cy1 - AS + 1.004, h + 0.12, cx0 - 0.004, "bronze_dark")
+    pane("FoniksAnnexWin", "w", (AS - 1.008 + cy1) / 2, z, cy1 - AS + 1.008, h, cx0 - 0.008, mat)
 for x in [ax0 + 3.5 + i * 2.5 for i in range(6)]:
     box("FoniksAnnexRail", (x, AS - 1.1, 13.1), (1.2, 0.04, 0.9), "skylight")
 box("FoniksAnnexRail", ((cx0 + cx1) / 2, AS - 1.1, 13.1), (cx1 - cx0, 0.04, 0.9), "skylight")
@@ -946,9 +963,9 @@ for fc in (tx0 + 0.6, acx, tx1 - 0.6):
 for g0, g1 in ((tx0 + 1.2, acx - 0.6), (acx + 0.6, tx1 - 1.2)):
     for k in range(3):
         w = (g1 - g0 - 0.6) / 3
-        box("FoniksAnnexTopWin", (g0 + w / 2 + k * (w + 0.3), ty0 - 0.05, 18.45), (w, 0.12, 2.3), "blind" if k == 1 else "glass")
+        pane("FoniksAnnexTopWin", "s", g0 + w / 2 + k * (w + 0.3), 18.45, w, 2.3, ty0 - 0.008, "blind" if k == 1 else "glass")
 for y in [AS + 2.6, AS + 5.6] + [AS + 9.0 + 3.2 * k for k in range(int((CE - AS - 10.5) / 3.2))]:
-    box("FoniksAnnexTopWin", (tx0 - 0.05, y, 18.45), (0.12, 2.2, 2.3), "glass")
+    pane("FoniksAnnexTopWin", "w", y, 18.45, 2.2, 2.3, tx0 - 0.008, "glass")
 # The copper-clad joint onto Føniks: a tall glazed entrance, two windows above, rising
 # past Føniks's eave; the glass atrium roof stands up behind it (winter photo)
 box("FoniksAnnexJoint", (FB - JW / 2, AS + 10.8, TT / 2), (JW, 21, TT), "copper")   # set back a little, up under the top floor
@@ -991,11 +1008,12 @@ def export_glb():
                                     "ParapetSlot", "PierStrip", "Keystone", "DoorArch", "SunHub", "ArchFill"})
     if os.environ.get("TRD_STATS"):   # triangles left per part, biggest first
         import collections, re
-        tri = collections.Counter()
+        tri, cnt = collections.Counter(), collections.Counter()
         for o in keep:
             tri[re.sub(r"\.\d+$", "", o.name)] += sum(len(p.vertices) - 2 for p in o.data.polygons)
+            cnt[re.sub(r"\.\d+$", "", o.name)] += 1
         for k, v in tri.most_common(int(os.environ.get("TRD_STATS_N", 30))):
-            print(f"  {k:24s}{v:6d}")
+            print(f"  {k:24s}{v:6d}  x{cnt[k]}")
     for o in mesh_cleanup.merge_by_material(keep):
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=args.glb, use_selection=True, export_apply=True, export_yup=True)
