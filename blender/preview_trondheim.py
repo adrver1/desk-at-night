@@ -293,19 +293,19 @@ def balcony_door(x, z, w=1.5, h=3.65):
     """A tall door onto the front balcony (2025 photo): set in the brick under a cream
     arch with a keystone, a round sunburst fanlight over the white double door."""
     top = z + h / 2
-    box("DoorArch", (x, -0.16, (z - h / 2 + top) / 2), (w + 0.7, 0.08, h), "phoenix")
-    halfdisc("DoorArch", x, top, w / 2 + 0.35, -0.2, "phoenix")
-    box("Keystone", (x, -0.26, top + w / 2 + 0.2), (0.32, 0.08, 0.5), "phoenix")
-    window(x, z, -0.2, w, h)   # on the arch's face
-    halfdisc("WinFrame", x, top, w / 2 + 0.12, -0.202, "frame")
-    halfdisc("Win", x, top, w / 2, -0.206, "glass")
+    pane("DoorArch", "s", x, (z - h / 2 + top) / 2, w + 0.7, h, -0.004, "phoenix")   # all laid flat on the brick
+    halfdisc("DoorArch", x, top, w / 2 + 0.35, -0.004, "phoenix")
+    pane("Keystone", "s", x, top + w / 2 + 0.2, 0.32, 0.5, -0.006, "phoenix")
+    window(x, z, -0.008, w, h)
+    halfdisc("WinFrame", x, top, w / 2 + 0.12, -0.01, "frame")
+    halfdisc("Win", x, top, w / 2, -0.014, "glass")
     for k in (1, 2, 3):   # the sunburst bars
         a = math.pi * k / 4
         # not "Mullion": their inner ends bury each other, which fronts_only would
         # take for a buried back and leave only the outer end square
-        b = box("Sunburst", (x + 0.27 * w * math.cos(a), -0.22, top + 0.27 * w * math.sin(a)), (0.54 * w, 0.02, 0.06), "frame")
+        b = box("Sunburst", (x + 0.27 * w * math.cos(a), -0.03, top + 0.27 * w * math.sin(a)), (0.54 * w, 0.01, 0.06), "frame")
         b.rotation_euler = (0, -a, 0)
-    box("SunHub", (x, -0.235, top + 0.03), (0.16, 0.02, 0.16), "frame")   # covers where the bars meet
+    box("SunHub", (x, -0.04, top + 0.03), (0.16, 0.01, 0.16), "frame")   # covers where the bars meet
 
 
 def rib(path, leg, at, quarter, r, z0, side):
@@ -434,17 +434,19 @@ def foniks():
     for x in (8.5, L - 8.5):
         box("Chimney", (x, depth / 2 + 2, eave + 6.2), (1.6, 1.2, 2.0), "dark")
     # Cream corners and pilasters, red brick panels between the middle pilasters
-    # from above the ground floor up (2024 photos)
+    # from above the ground floor up (2024 photos); brick and reliefs are quads laid
+    # on the cream wall (WY: the face windows sit on)
+    WY = -0.004
     mid0, mid1 = PIER + BAY, L - PIER - BAY
     cols = [(mid0 + (i + 0.5) * (mid1 - mid0) / 4) for i in range(4)]
     bw = (mid1 - mid0) / 4
     for x0 in (0.0, L - PIER):   # brick corner piers, as on the south wall (aerial photo)
-        box("BrickPier", (x0 + PIER / 2, -0.05, (5.0 + eave - 1.2) / 2), (PIER, 0.12, eave - 1.2 - 5.0), "brick")
+        pane("BrickPier", "s", x0 + PIER / 2, (5.0 + eave - 1.2) / 2, PIER, eave - 1.2 - 5.0, -0.002, "brick")
     for x in (PIER - 0.35, L - PIER + 0.35):   # a cream strip between each pier and its bay
-        box("PierStrip", (x, -0.07, (5.0 + eave - 1.2) / 2), (0.7, 0.12, eave - 1.2 - 5.0), "phoenix")
+        pane("PierStrip", "s", x, (5.0 + eave - 1.2) / 2, 0.7, eave - 1.2 - 5.0, -0.003, "phoenix")
     for x in cols:
-        box("BrickPanel", (x, -0.05, (5.45 + eave - 1.2) / 2), (bw - 0.75, 0.12, eave - 1.2 - 5.45), "brick")   # pilasters ~0.75 m
-        box("Cartouche", (x, -0.14, 12.15), (1.3, 0.12, 0.7), "phoenix")   # carved relief between the upper windows (rows 2 and 3)
+        pane("BrickPanel", "s", x, (5.45 + eave - 1.2) / 2, bw - 0.75, eave - 1.2 - 5.45, -0.002, "brick")   # pilasters ~0.75 m
+        pane("Cartouche", "s", x, 12.15, 1.3, 0.7, -0.004, "phoenix")   # carved relief between the upper windows (rows 2 and 3)
     for i in range(5):   # capitals on the cream pilasters under the cornice
         box("Capital", (mid0 + i * bw, -0.16, eave - 1.2), (1.9, 0.2, 0.7), "phoenix")
     # The north bay's ground floor steps out again into a half-octagon with big
@@ -482,18 +484,18 @@ def foniks():
     rows = (7.2, 10.5, 13.8)   # spread over the wall, the top row clear of the frieze
     for z in rows:
         for x in (PIER / 2, L - PIER / 2):   # round-topped on the first and second floors, like the south wall
-            window(x, z, -0.12, h=1.7 if z in rows[:2] else 2.1, arch=z in rows[:2])
+            window(x, z, WY, h=1.7 if z in rows[:2] else 2.1, arch=z in rows[:2])
         for bx in (PIER + BAY / 2, L - PIER - BAY / 2):
             for dx in (-1.6, 1.6):
-                window(bx + dx, z, -BD if z < 12.7 else -0.12)
+                window(bx + dx, z, -BD if z < 12.7 else WY)
         for x in cols:
             if z == rows[0]:   # tall arched doors out onto the balcony
                 # sill on the balcony, arch top level with the round-topped pier
                 # windows, brick between the keystones and the windows above
                 balcony_door(x, 6.705, 1.2, 2.4)
             else:
-                window(x, z, -0.12, 1.05)   # narrower than the bay windows, brick either side
-    window(L - PIER / 2, 3.4, -0.12, 1.4, 2.4)   # (none behind the restaurant; the north bay has its oriel)
+                window(x, z, WY, 1.05)   # narrower than the bay windows, brick either side
+    window(L - PIER / 2, 3.4, WY, 1.4, 2.4)   # (none behind the restaurant; the north bay has its oriel)
     # Entrance (2025 street photos): a raised terrace along the front from the
     # restaurant to past the doors, wide steps down to the square that wrap round the
     # phoenix fountain (its basin is set into the steps), a ramp up along the
@@ -569,11 +571,11 @@ def foniks():
     rail((s1 + 0.2, -PD - 0.1), (t1, -PD - 0.1), LAND, LAND)
     for x in (d0, d1):
         # top-aligned with the windows either side
-        box("DoorFrame", (x, -0.08, LAND + 1.575), (2.1, 0.14, 3.15), "frame")
-        box("Door", (x, -0.15, LAND + 1.2), (1.7, 0.12, 2.4), "door")
-        box("Fanlight", (x, -0.15, LAND + 2.725), (1.7, 0.12, 0.55), "glass")
+        pane("DoorFrame", "s", x, LAND + 1.575, 2.1, 3.15, -0.004, "frame")
+        pane("Door", "s", x, LAND + 1.2, 1.7, 2.4, -0.008, "door")
+        pane("Fanlight", "s", x, LAND + 2.725, 1.7, 0.55, -0.008, "glass")
     for x in (cols[0], cols[3]):
-        window(x, LAND + 1.7, -0.12, 1.5, 2.6)
+        window(x, LAND + 1.7, WY, 1.5, 2.6)
     box("EntryBalcony", ((mid0 + mid1) / 2, -0.8, 5.3), (mid1 - mid0, 1.6, 0.3), "phoenix")
     box("EntryRail", ((mid0 + mid1) / 2, -1.55, 6.45), (mid1 - mid0, 0.1, 0.08), "dark")   # black wrought iron
     n = int((mid1 - mid0) / 0.5)
