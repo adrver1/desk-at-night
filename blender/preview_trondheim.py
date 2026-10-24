@@ -980,10 +980,10 @@ for k in range(7):   # seven tables round the fence, no parasols (Adriaen)
         cx_, cy_ = px_ - side * 0.65 * math.sin(a_), py_ + side * 0.65 * math.cos(a_)
         box("RoofBarChair", (cx_, cy_, TT + 0.45), (0.42, 0.42, 0.04), "dark", a_)
         box("RoofBarChair", (cx_ - side * 0.2 * -math.sin(a_), cy_ - side * 0.2 * math.cos(a_), TT + 0.45), (0.42, 0.04, 0.9), "dark", a_)
-# and a railing round the roof edge: the Bersvendveita side beside the bar, the street side and
+# and a railing round the roof edge: the Bersvendveita side up to the north room, the street side and
 # the joint side up to the utility rooms (Adriaen)
 US = AS + 8.3   # the south utility room's south face, just clear of the bar's tables
-for (x0_, y0_), (x1_, y1_) in (((tx0 + 0.1, FC[1]), (tx0 + 0.1, ty0 + 0.1)),   # north of the arc the bar's own fence does (Adriaen)
+for (x0_, y0_), (x1_, y1_) in (((tx0 + 0.1, CE - 4.0), (tx0 + 0.1, ty0 + 0.1)), ((tx0 + 0.1, CE - 4.0), (FC[0] - FR, CE - 4.0)),   # on to the north room, turning in to its wall (Adriaen)
                                ((tx0 + 0.1, ty0 + 0.1), (tx1 - 0.1, ty0 + 0.1)),
                                ((tx1 - 0.1, ty0 + 0.1), (tx1 - 0.1, US))):
     box("RoofBarEdgeFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (abs(x1_ - x0_) + 0.06, abs(y1_ - y0_) + 0.06, 1.1), "dark")
