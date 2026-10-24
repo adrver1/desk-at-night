@@ -616,6 +616,8 @@ def hand_built(x, y):
         return True                                                          # the square
     if G["ax0"] - 1 < x < FONIKS_FRONT + 1 and FONIKS_SOUTH - 2 < y < FONIKS_SOUTH + FW + 1:
         return True                                                          # Føniks and its annex
+    if -57 < x < -40 and 10 < y < 15.5:
+        return True                                                          # Føniks's terrace seating on Kongens gate
     return -83 < x < -41 and -50 < y < -14                                   # Trondheim Torg
 
 
