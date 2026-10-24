@@ -794,12 +794,38 @@ hilt, tip = fist_r + Vector((0, 0, 0.22)), Vector((fist_r.x, fist_r.y, TOP + 0.0
 box("Sword", (hilt + tip) / 2, (0.1, 0.035, (hilt - tip).length), "bronze", YAW)
 box("Guard", fist_r - Vector((0, 0, 0.16)), (0.42, 0.08, 0.06), "bronze", YAW)
 head, crown = W("head", "head"), W("head")
-cyl("Helmet", (crown.x, crown.y, crown.z - 0.2), 0.27, 0.42, "bronze", 10, 0.03)   # conical helmet
-box("NoseGuard", (crown + F(0, 0.25, -0.33)), (0.05, 0.04, 0.24), "bronze", YAW)
-for side in (-0.21, 0.21):   # hair to the jaw at the sides, and down the back of the neck
-    box("Hair", (crown + F(side, -0.04, -0.4)), (0.08, 0.3, 0.28), "bronze", YAW)
-box("Hair", (crown + F(0, -0.17, -0.4)), (0.46, 0.08, 0.28), "bronze", YAW)
-box("Moustache", (head + F(0, 0.22, 0.12)), (0.2, 0.05, 0.05), "bronze", YAW)
+# The helmet (close-up photo): a tall pointed cone, slightly egg-shaped, sitting snug
+# down to the brows, a thin nose guard to the tip of the nose; hair falls from under it to
+# the jaw. Made in the body's own unscaled frame (head x +-0.135, y -0.10..0.124, top 1.75)
+LOCAL = statue.matrix_world
+
+
+def helmet():
+    prof = [(1.06, 1.638), (1.06, 1.662), (1.0, 1.666), (0.97, 1.740), (0.86, 1.815), (0.66, 1.880), (0.40, 1.935), (0.0, 1.985)]
+    n, rx, ry, cy = 12, 0.152, 0.136, 0.012
+    verts = [LOCAL @ Vector((rx * f * math.cos(t), cy + ry * f * math.sin(t), z))
+             for f, z in prof for t in (k / n * math.tau for k in range(n))]
+    faces = [(i * n + k, i * n + (k + 1) % n, (i + 1) * n + (k + 1) % n, (i + 1) * n + k)
+             for i in range(len(prof) - 1) for k in range(n)]
+    faces.append(tuple(range(n - 1, -1, -1)))
+    me = bpy.data.meshes.new("Helmet")
+    me.from_pydata(verts, [], faces)
+    me.materials.append(M["bronze"])
+    o = bpy.data.objects.new("Helmet", me)
+    scene.collection.objects.link(o)
+
+
+def bit(name, loc, size):   # a bronze box in the body's frame, size in body units (x2 on the statue)
+    o = box(name, LOCAL @ Vector(loc), [v * 2.0 for v in size], "bronze", YAW)
+    return o
+
+
+helmet()   # the rim is the slight flare at the bottom of the cone, no separate brim
+bit("NoseGuard", (0, 0.152, 1.605), (0.024, 0.014, 0.10))
+for side in (-1, 1):   # hair from under the helmet to the jaw, tucked flush to the head
+    bit("Hair", (side * 0.136, -0.055, 1.58), (0.016, 0.11, 0.12))
+bit("Hair", (0, -0.112, 1.575), (0.25, 0.02, 0.13))
+bit("Moustache", (0, 0.13, 1.562), (0.07, 0.016, 0.018))
 hips = W("hips", "head")
 cyl("Mail", (hips.x, hips.y, hips.z - 0.8), 0.42, 1.2, "bronze", 10, 0.34)   # mail shirt down to the knees
 cyl("Belt", (hips.x, hips.y, hips.z - 0.02), 0.39, 0.1, "bronze", 10)
