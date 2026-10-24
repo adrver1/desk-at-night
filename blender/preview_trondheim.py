@@ -967,7 +967,10 @@ for a_, r_ in ((200, 7.5), (225, 5.0), (250, 7.5), (215, 9.3), (240, 9.3)):
     box("RoofBarPole", (px_, py_, TT + 1.31), (0.05, 0.05, 2.5), "dark")
     o = cyl("RoofBarParasol", (px_, py_, TT + 2.11), 1.6, 0.4, "canvas", 4, 0.04)
     o.rotation_euler.z = math.pi / 4
-for ux0, ux1, uy0, uy1, uh in ((ax0 + 9.5, ax0 + 16.0, AS + 12.0, AS + 18.5, 3.0), (ax0 + 5.0, ax0 + 13.5, AS + 18.5, AS + 20.0, 2.6)):
+# a row of utility rooms down the middle, from a little south of where the copper starts
+# to near the north end (Adriaen, Google Earth), in tiers
+for ux0, ux1, uy0, uy1, uh in ((ax0 + 9.5, ax0 + 16.0, AS + 11.5, AS + 18.5, 3.0), (ax0 + 7.0, ax0 + 16.0, AS + 18.5, CE - 6.0, 3.4),
+                               (ax0 + 4.0, ax0 + 7.0, AS + 19.5, CE - 9.0, 2.4), (ax0 + 8.5, ax0 + 15.0, CE - 6.0, CE - 1.5, 2.6)):
     box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh / 2), (ux1 - ux0, uy1 - uy0, uh), "roof_light")
     box("FoniksAnnexUtilDoor", (ux0 + 1.2, uy0 - 0.03, TT + 1.05), (0.9, 0.06, 2.1), "frame")   # white doors onto the bar
     box("FoniksAnnexUtilDoor", (ux0 - 0.03, uy0 + 1.6, TT + 1.05), (0.06, 0.9, 2.1), "frame")
@@ -991,7 +994,6 @@ JH = 13.6
 # the copper carries on Føniks's brick wall line (Adriaen), the annex stands proud of it
 JY = FONIKS_SOUTH
 box("FoniksAnnexJoint", (FB - JW / 2, (JY + AS + 21) / 2, JH / 2), (JW, AS + 21 - JY, JH), "copper")
-pane("FoniksAtriumWall", "s", FB - JW / 2, (JH + TT + 0.2) / 2, JW, TT + 0.2 - JH, JY - 0.02, "glass")
 # its entrance glass runs on flush with the annex's entrance glass (Adriaen)
 # up to the canopy, both set back in the copper wall line (Adriaen)
 pane("FoniksAnnexJointWin", "s", FB - JW / 2, 1.75, JW, 3.5, JY - 0.02, "glass")
@@ -1003,15 +1005,26 @@ for x in (CX0 + 0.15, FB - 0.15):
     box("FoniksAnnexCanopyPost", (x, AS - 0.11 - CD + 0.15, 1.75), (0.1, 0.1, 3.5), "dark")
 pane("FoniksAnnexJointWin", "s", FB - JW / 2, 7.0, JW - 0.5, 2.3, JY - 0.02, "glass")
 pane("FoniksAnnexJointWin", "s", FB - JW / 2, 10.4, JW - 0.5, 2.3, JY - 0.02, "blind")
-# the glass roof bridging the annex and Føniks: a mono-pitch skylight on dark bars
-gx0, gx1, gy0, gy1 = ax1 - 1.0, FB + 0.5, JY, AS + 20.2
+# the glass roof bridging the annex and Føniks (Adriaen, Google Earth): set a tier down
+# from the cantina's roof, it slopes from the cantina's east wall down onto Føniks's
+# slate mansard and lands on its diagonal
+MS = lambda x: 16.8 + (x - (FB - 0.3)) * 3.6 / 2.0   # the mansard's height over x (eave 16.8, 2 m in over 3.6 m)
+gx0, gz0, gz1 = FB - 1.2, TT - 0.6, 18.4
+gx1 = FB - 0.3 + (gz1 - 16.8) * 2.0 / 3.6   # where the glass meets the slates
+gy0, gy1 = JY - 0.3, AS + 21.0
 glass = prism("FoniksAtrium", [(gx0, gy0), (gx1, gy0), (gx1, gy1), (gx0, gy1)], 0, 0.1, "glass")
 for v in glass.data.vertices:
-    v.co.z += TT + 0.2 + 1.4 * (v.co.x - gx0) / (gx1 - gx0)
+    v.co.z += gz0 + (gz1 - gz0) * (v.co.x - gx0) / (gx1 - gx0)
 for k in range(10):
     y_ = gy0 + 0.2 + k * (gy1 - gy0 - 0.4) / 9
-    bar = box("FoniksAtriumBar", ((gx0 + gx1) / 2, y_, TT + 1.06), (math.hypot(gx1 - gx0, 1.4), 0.08, 0.08), "dark")
-    bar.rotation_euler.y = -math.atan2(1.4, gx1 - gx0)
+    bar = box("FoniksAtriumBar", ((gx0 + gx1) / 2, y_, (gz0 + gz1) / 2 + 0.14), (math.hypot(gx1 - gx0, gz0 - gz1), 0.08, 0.08), "dark")
+    bar.rotation_euler.y = math.atan2(gz0 - gz1, gx1 - gx0)
+# its street end: glass from the joint's copper up under the roof, down onto the slates
+me = bpy.data.meshes.new("FoniksAtriumWall")
+gw = [(FB - JW, JH), (FB, JH), (FB, MS(FB)), (gx1, gz1), (gx0, gz0), (FB - JW, gz0)]
+me.from_pydata([(x, gy0 - 0.02, z) for x, z in gw], [], [tuple(range(len(gw)))])
+me.materials.append(M["glass"])
+scene.collection.objects.link(bpy.data.objects.new("FoniksAtriumWall", me))
 # Summer: a dark pergola with a canvas top over the glass bays (drone photos)
 AWE = EX - 1.2   # the canvas runs on almost to the entrance, a strip of travertine short of it (Adriaen)
 if os.environ.get("TRD_ANNEX_AWNING", "canvas") == "canvas":
