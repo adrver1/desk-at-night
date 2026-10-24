@@ -1000,9 +1000,12 @@ for run in (((fence[-1][0], fence[-1][1]), (tx1 - 0.1, fence[-1][1])),
 for ux0, ux1, uy0, uy1, uh in ((ax0 + 11.0, tx1, US, AS + 18.5, 3.0), (ax0 + 7.0, tx1, AS + 18.5, CE - 6.0, 3.4),
                                (FC[0] - FR, ax0 + 15.0, CE - 6.0, CE - 1.5, 2.6)):   # the small west one is gone, the north one reaches out to the bar's fence (Adriaen)
     box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh / 2), (ux1 - ux0, uy1 - uy0, uh), "roof_light")
-    box("FoniksAnnexUtilDoor", (ux0 + 1.2, uy0 - 0.03, TT + 1.05), (0.9, 0.06, 2.1), "frame")   # white doors onto the bar
-    if uy1 < CE - 2:   # the north room has no door onto the plain roof (Adriaen)
-        box("FoniksAnnexUtilDoor", (ux0 - 0.03, uy0 + 1.6, TT + 1.05), (0.06, 0.9, 2.1), "frame")
+    # white doors onto the bar: the north room's in its south wall, the middle two's in
+    # their west walls, a little north of the middle (Adriaen)
+    if uy1 > CE - 2:
+        box("FoniksAnnexUtilDoor", (ux0 + 1.2, uy0 - 0.03, TT + 1.05), (0.9, 0.06, 2.1), "frame")
+    else:
+        box("FoniksAnnexUtilDoor", (ux0 - 0.03, uy0 + 0.6 * (uy1 - uy0), TT + 1.05), (0.06, 0.9, 2.1), "frame")
     box("FoniksAnnexHVAC", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh + 0.5), (2.2, 1.6, 1.0), "steel")
 # its street face: copper fins at both ends and the middle, two runs of three windows
 for fc in (tx0 + 0.6, acx, tx1 - 0.6):
