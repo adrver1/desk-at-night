@@ -240,8 +240,9 @@ def window(x, z, y, w=1.35, h=2.1, arch=False, side=False, panes=2):
             box(name, (cx, y - dy, cz), (sx, 0.12, sz), mat)
     B("WinFrame", x, z, w + 0.3, h + 0.3, 0.05, "frame")
     B("Win", x, z, w, h, 0.1, "glass")
+    up = w / 2 if arch else 0.0   # an arched window's mullion runs on up into the round head
     for u in ((x,) if panes == 2 else (x - w / 6, x + w / 6)):
-        B("Mullion", u, z, 0.1, h, 0.18, "frame")
+        B("Mullion", u, z + up / 2, 0.1, h + up, 0.18, "frame")
     # a hair behind the mullion: coplanar faces where the two cross render as a black spot
     B("Transom", x, z + h * 0.2, w, 0.1, 0.16, "frame")
     if arch:   # a round glazed head: two flat half discs, frame behind glass
@@ -411,8 +412,8 @@ def foniks():
     for x in (PIER - 0.35, L - PIER + 0.35):   # a cream strip between each pier and its bay
         box("PierStrip", (x, -0.07, (5.0 + eave - 1.2) / 2), (0.7, 0.12, eave - 1.2 - 5.0), "phoenix")
     for x in cols:
-        box("BrickPanel", (x, -0.05, (5.45 + eave - 0.6) / 2), (bw - 0.75, 0.12, eave - 0.6 - 5.45), "brick")   # pilasters ~0.75 m
-        box("Cartouche", (x, -0.14, 12.95), (1.3, 0.12, 0.7), "phoenix")   # carved relief between the upper windows
+        box("BrickPanel", (x, -0.05, (5.45 + eave - 1.2) / 2), (bw - 0.75, 0.12, eave - 1.2 - 5.45), "brick")   # pilasters ~0.75 m
+        box("Cartouche", (x, -0.14, 12.15), (1.3, 0.12, 0.7), "phoenix")   # carved relief between the upper windows (rows 2 and 3)
     for i in range(5):   # capitals on the cream pilasters under the cornice
         box("Capital", (mid0 + i * bw, -0.16, eave - 1.2), (1.9, 0.2, 0.7), "phoenix")
     # The north bay's ground floor steps out again into a half-octagon with big
@@ -446,18 +447,18 @@ def foniks():
             box("BayParapet", (bx + sx * (BAY / 2 - 0.1), (-BD + 0.2) / 2, 13.35), (0.2, BD - 0.2, 1.0), "phoenix")
         for k in range(6):
             box("ParapetSlot", (bx - BAY / 2 + 0.6 + k * (BAY - 1.2) / 5, -BD - 0.02, 13.35), (0.25, 0.06, 0.35), "dark")
-    rows = (8.1, 11.3, 14.6)
+    rows = (7.2, 10.5, 13.8)   # spread over the wall, the top row clear of the frieze
     for z in rows:
         for x in (PIER / 2, L - PIER / 2):   # round-topped on the first and second floors, like the south wall
-            window(x, z, -0.12, arch=z in rows[:2])
+            window(x, z, -0.12, h=1.7 if z in rows[:2] else 2.1, arch=z in rows[:2])
         for bx in (PIER + BAY / 2, L - PIER - BAY / 2):
             for dx in (-1.6, 1.6):
                 window(bx + dx, z, -BD if z < 12.7 else -0.12)
         for x in cols:
             if z == rows[0]:   # tall arched doors out onto the balcony
-                # sill on the balcony, short enough to leave brick between the
-                # keystones and the windows above
-                balcony_door(x, 7.03, 1.2, 3.05)
+                # sill on the balcony, arch top level with the round-topped pier
+                # windows, brick between the keystones and the windows above
+                balcony_door(x, 6.705, 1.2, 2.4)
             else:
                 window(x, z, -0.12, 1.05)   # narrower than the bay windows, brick either side
     window(L - PIER / 2, 3.4, -0.12, 1.4, 2.4)   # (none behind the restaurant; the north bay has its oriel)
@@ -533,9 +534,10 @@ def foniks():
     rail((lx, -0.1), (s0, -0.1), ml, LAND)
     rail((s1 + 0.2, -PD - 0.1), (t1, -PD - 0.1), LAND, LAND)
     for x in (d0, d1):
-        box("DoorFrame", (x, -0.08, LAND + 1.8), (2.1, 0.14, 3.6), "frame")
-        box("Door", (x, -0.15, LAND + 1.4), (1.7, 0.12, 2.8), "door")
-        box("Fanlight", (x, -0.15, LAND + 3.15), (1.7, 0.12, 0.6), "glass")
+        # top-aligned with the windows either side
+        box("DoorFrame", (x, -0.08, LAND + 1.575), (2.1, 0.14, 3.15), "frame")
+        box("Door", (x, -0.15, LAND + 1.2), (1.7, 0.12, 2.4), "door")
+        box("Fanlight", (x, -0.15, LAND + 2.725), (1.7, 0.12, 0.55), "glass")
     for x in (cols[0], cols[3]):
         window(x, LAND + 1.7, -0.12, 1.5, 2.6)
     box("EntryBalcony", ((mid0 + mid1) / 2, -0.8, 5.3), (mid1 - mid0, 1.6, 0.3), "frame")
@@ -608,7 +610,7 @@ def foniks():
         dormer(y, -0.2, eave, True)
     for z in rows:
         for y in SOUTH_COLS:
-            window(y, z, 0.0, side=True, arch=z in rows[:2])
+            window(y, z, 0.0, side=True, h=1.7 if z in rows[:2] else 2.1, arch=z in rows[:2])
 
 
 def wing(name, root, side, scale=1.0):
