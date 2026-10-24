@@ -22,7 +22,9 @@ const V = (x, y, z) => new THREE.Vector3(x, z, -y);
 // The cameras of preview_trondheim.py: B is fitted to Adriaen's drone photo
 // over the south-east corner, A stands at the Føniks door looking at it
 const CAM = {
-  B: V(79.3, -47.1, 48.1), B_AT: V(-20, 10, 4),
+  // B: the drone over the south-east of the square, looking across Olav's
+  // column to Føniks behind it (Adriaen, 2026-10-24)
+  B: V(60, -36, 30), B_AT: V(-52, 38, 8),
   A: V(-28.5, 30.5, 1.7), A_AT: V(-44.5, 37.5, 2.7),
   ME: V(-33.5, 31.5, 0),   // Adriaen by the fountain, turned to the camera at A
 };
@@ -44,7 +46,7 @@ export class Trondheim {
       ]);
       const scene = this.scene = new THREE.Scene();
       scene.background = new THREE.Color(SKY);
-      scene.fog = new THREE.Fog(SKY, 250, 1500);   // the dream's ground fades into the sky, as in Blender (250 m to 2.5 km)
+      scene.fog = new THREE.Fog(SKY, 150, 600);   // the ground fades into the sky well before the horizon, so it melts away
       scene.add(new THREE.HemisphereLight(0xffffff, 0xb8b6ae, 2.2));
       const sun = new THREE.DirectionalLight(0xfff4e4, 2.2);
       sun.position.set(60, 90, 40);
