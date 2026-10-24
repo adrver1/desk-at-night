@@ -851,9 +851,18 @@ ROWS = ((7.0, 2.3, "glass"), (10.4, 2.3, "blind"), (13.9, 2.6, "glass"))
 for z, h, mat in ROWS:
     for x in [ax0 + 3.5 + i * 2.5 for i in range(6)]:
         annex_win(x, z, 1.2, h, "s", mat)   # tall and narrow (summer street photos)
-    annex_win(ax0 + 0.65, z, 0.9, h, "s", mat)   # the corner window, turning onto Bersvendveita
-for x in [ax0 + 3.5 + i * 2.5 for i in range(6)] + [ax0 + 0.65]:
-    box("FoniksAnnexRail", (x, AS - 1.1, 13.1), (1.2 if x > ax0 + 1 else 0.9, 0.04, 0.9), "skylight")
+    # the corner window wraps round onto Bersvendveita with no pier at the corner
+    # (Adriaen's markup): glass out to the box's corner, round its 1 m return, and on
+    # into the first west window
+    cx0, cx1 = ax0 - 0.3, ax0 + 1.25
+    box("FoniksAnnexFrame", ((cx0 + cx1) / 2 + 0.05, AS - 1.02, z), (cx1 - cx0 + 0.1, 0.06, h + 0.2), "bronze_dark")
+    box("FoniksAnnexWin", ((cx0 + cx1) / 2, AS - 1.06, z), (cx1 - cx0, 0.06, h), mat)
+    box("FoniksAnnexFrame", (cx0 - 0.02, AS - 0.55, z), (0.06, 1.0, h + 0.2), "bronze_dark")
+    box("FoniksAnnexWin", (cx0 - 0.06, AS - 0.53, z), (0.06, 1.0, h), mat)
+for x in [ax0 + 3.5 + i * 2.5 for i in range(6)]:
+    box("FoniksAnnexRail", (x, AS - 1.1, 13.1), (1.2, 0.04, 0.9), "skylight")
+box("FoniksAnnexRail", ((cx0 + cx1) / 2, AS - 1.1, 13.1), (cx1 - cx0, 0.04, 0.9), "skylight")
+box("FoniksAnnexRail", (cx0 - 0.1, AS - 0.55, 13.1), (0.04, 1.0, 0.9), "skylight")
 # Bersvendveita side (Adriaen's street photos): travertine for the first 13 m, five window
 # columns with the corner one, the same rows, a shop window, a door and plain travertine below, then copper-clad all the way along the block:
 # copper pilasters framing pairs and single windows with blinds, narrow bays of vertical
@@ -862,8 +871,8 @@ TW, BE = 13.0, FONIKS_SOUTH + FW   # where the copper starts, the block's north 
 box("FoniksAnnexShop", (ax0 - 0.05, AS + 4.1, 2.6), (0.12, 7.0, 4.2), "glass")
 box("FoniksAnnexDoor", (ax0 - 0.05, AS + 8.4, 1.25), (0.12, 1.2, 2.5), "door")
 for z, h, mat in ROWS:
-    for y in (AS + 1.0, AS + 3.6, AS + 6.2, AS + 8.8, AS + 11.4):
-        annex_win(y, z, 1.2 if y > AS + 2 else 0.9, h, "w", mat)
+    for y in (AS + 0.6, AS + 3.6, AS + 6.2, AS + 8.8, AS + 11.4):
+        annex_win(y, z, 1.2, h, "w", mat)   # the first one runs on from the corner glass
 # copper part, counted on Adriaen's photos from the travertine northwards to the yellow
 # brick neighbour: each floor has ten windows in singles (S) and pairs (P) that step
 # between floors, and a bay of vertical grilles (G) at the far end
@@ -891,9 +900,11 @@ for z, row in BAYS.items():
 # Copper top floor (the cantina), set back about a metre from the travertine box on
 # both streets (Adriaen, Google 3D), a good third of the box's height, reaching on
 # over part of the joint
-tx0, tx1, ty0, ty1 = ax0 + 0.9, ax1 + 1.0, AS + 0.0, AS + 20.2
+# It covers the whole travertine and copper building (Adriaen), so it runs on behind the
+# joint to Føniks's back wall and north to the yellow neighbour
+tx0, tx1, ty0, ty1 = ax0 + 0.9, ax1 + 1.0, AS + 0.0, CE
 TT = 20.2
-box("FoniksAnnexTop", ((tx0 + tx1) / 2, (ty0 + ty1) / 2, (16.75 + TT) / 2), (tx1 - tx0, ty1 - ty0, TT - 16.75), "copper")
+prism("FoniksAnnexTop", [(tx0, ty0), (tx1, ty0), (tx1, AS + 21), (FB, AS + 21), (FB, ty1), (tx0, ty1)], 16.75, TT, "copper")
 # Its roof (Adriaen, Google 3D): a rooftop bar inside a curved fence that sweeps from
 # the Bersvendveita side round to the street side, plain roof outside it along both
 # streets, utility rooms with white doors (HVAC on top) at the back of the bar, and a
@@ -911,7 +922,7 @@ for a_, r_ in ((200, 7.5), (225, 5.0), (250, 7.5), (215, 9.3), (240, 9.3)):
     box("RoofBarPole", (px_, py_, TT + 1.31), (0.05, 0.05, 2.5), "dark")
     o = cyl("RoofBarParasol", (px_, py_, TT + 2.11), 1.6, 0.4, "canvas", 4, 0.04)
     o.rotation_euler.z = math.pi / 4
-for ux0, ux1, uy0, uy1, uh in ((ax0 + 9.5, ax0 + 16.0, AS + 12.0, AS + 18.5, 3.0), (ax0 + 5.0, ax0 + 13.5, AS + 18.5, ty1 - 0.2, 2.6)):
+for ux0, ux1, uy0, uy1, uh in ((ax0 + 9.5, ax0 + 16.0, AS + 12.0, AS + 18.5, 3.0), (ax0 + 5.0, ax0 + 13.5, AS + 18.5, AS + 20.0, 2.6)):
     box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh / 2), (ux1 - ux0, uy1 - uy0, uh), "roof_light")
     box("FoniksAnnexUtilDoor", (ux0 + 1.2, uy0 - 0.03, TT + 1.05), (0.9, 0.06, 2.1), "frame")   # white doors onto the bar
     box("FoniksAnnexUtilDoor", (ux0 - 0.03, uy0 + 1.6, TT + 1.05), (0.06, 0.9, 2.1), "frame")
@@ -925,7 +936,7 @@ for g0, g1 in ((tx0 + 1.2, acx - 0.6), (acx + 0.6, tx1 - 1.2)):
     for k in range(3):
         w = (g1 - g0 - 0.6) / 3
         box("FoniksAnnexTopWin", (g0 + w / 2 + k * (w + 0.3), ty0 - 0.05, 18.45), (w, 0.12, 2.3), "blind" if k == 1 else "glass")
-for y in (AS + 2.6, AS + 5.6):
+for y in [AS + 2.6, AS + 5.6] + [AS + 9.0 + 3.2 * k for k in range(int((CE - AS - 10.5) / 3.2))]:
     box("FoniksAnnexTopWin", (tx0 - 0.05, y, 18.45), (0.12, 2.2, 2.3), "glass")
 # The copper-clad joint onto Føniks: a tall glazed entrance, two windows above, rising
 # past Føniks's eave; the glass atrium roof stands up behind it (winter photo)
@@ -934,7 +945,7 @@ box("FoniksAnnexJointWin", (FB - JW / 2, AS + 0.25, 2.65), (JW - 0.5, 0.12, 4.9)
 box("FoniksAnnexJointWin", (FB - JW / 2, AS + 0.25, 7.0), (JW - 0.5, 0.12, 2.3), "glass")
 box("FoniksAnnexJointWin", (FB - JW / 2, AS + 0.25, 10.4), (JW - 0.5, 0.12, 2.3), "blind")
 # the glass roof bridging the annex and Føniks: a mono-pitch skylight on dark bars
-gx0, gx1, gy0, gy1 = ax1 - 1.0, FB + 0.5, AS + 3.0, ty1
+gx0, gx1, gy0, gy1 = ax1 - 1.0, FB + 0.5, AS + 3.0, AS + 20.2
 glass = prism("FoniksAtrium", [(gx0, gy0), (gx1, gy0), (gx1, gy1), (gx0, gy1)], 0, 0.1, "glass_block")
 for v in glass.data.vertices:
     v.co.z += TT + 0.2 + 1.4 * (v.co.x - gx0) / (gx1 - gx0)
