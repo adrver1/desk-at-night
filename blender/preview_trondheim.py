@@ -845,14 +845,14 @@ box("FoniksAnnexBox", (acx + 0.15, AS - 0.5, 11.05), (ax1 - ax0 + 0.3, 1.0, 11.5
 
 
 def annex_win(c, z, w, h, face, mat="glass"):
-    """A window on the annex: dark bronze frame, glass (or lowered blinds) a hair in
-    front. face "s" = on the box's street face (c = x), "w" = on the west wall (c = y)."""
+    """A window on the annex: slim dark bronze frame flush on the wall (a raised
+    one cast a shadow that read as a wireframe), glass (or lowered blinds) on it. face "s" = on the box's street face (c = x), "w" = on the west wall (c = y)."""
     if face == "s":
-        box("FoniksAnnexFrame", (c, AS - 1.02, z), (w + 0.2, 0.06, h + 0.2), "bronze_dark")
-        box("FoniksAnnexWin", (c, AS - 1.06, z), (w, 0.06, h), mat)
+        box("FoniksAnnexFrame", (c, AS - 1.006, z), (w + 0.12, 0.012, h + 0.12), "bronze_dark")
+        box("FoniksAnnexWin", (c, AS - 1.018, z), (w, 0.012, h), mat)
     else:
-        box("FoniksAnnexFrame", (ax0 - 0.02, c, z), (0.06, w + 0.2, h + 0.2), "bronze_dark")
-        box("FoniksAnnexWin", (ax0 - 0.06, c, z), (0.06, w, h), mat)
+        box("FoniksAnnexFrame", (ax0 - 0.006, c, z), (0.012, w + 0.12, h + 0.12), "bronze_dark")
+        box("FoniksAnnexWin", (ax0 - 0.018, c, z), (0.012, w, h), mat)
 
 
 # The travertine box: six window columns, the first well in from the west corner; the
@@ -866,10 +866,10 @@ for z, h, mat in ROWS:
     # into the first west window
     # one glass strip per face, meeting at the corner; frames only on the far edges
     cx0, cx1, cy1 = ax0, ax0 + 1.25, AS + 1.2
-    box("FoniksAnnexFrame", ((cx0 + cx1) / 2 + 0.1, AS - 1.02, z), (cx1 - cx0, 0.06, h + 0.2), "bronze_dark")
-    box("FoniksAnnexWin", ((cx0 + cx1) / 2, AS - 1.06, z), (cx1 - cx0, 0.06, h), mat)
-    box("FoniksAnnexFrame", (cx0 - 0.02, (AS - 1.0 + cy1) / 2 + 0.1, z), (0.06, cy1 - AS + 1.0, h + 0.2), "bronze_dark")
-    box("FoniksAnnexWin", (cx0 - 0.06, (AS - 1.06 + cy1) / 2, z), (0.06, cy1 - AS + 1.06, h), mat)
+    box("FoniksAnnexFrame", ((cx0 + cx1) / 2 + 0.06, AS - 1.006, z), (cx1 - cx0, 0.012, h + 0.12), "bronze_dark")
+    box("FoniksAnnexWin", ((cx0 + cx1) / 2, AS - 1.018, z), (cx1 - cx0, 0.012, h), mat)
+    box("FoniksAnnexFrame", (cx0 - 0.006, (AS - 1.0 + cy1) / 2 + 0.06, z), (0.012, cy1 - AS + 1.0, h + 0.12), "bronze_dark")
+    box("FoniksAnnexWin", (cx0 - 0.018, (AS - 1.024 + cy1) / 2, z), (0.012, cy1 - AS + 1.024, h), mat)
 for x in [ax0 + 3.5 + i * 2.5 for i in range(6)]:
     box("FoniksAnnexRail", (x, AS - 1.1, 13.1), (1.2, 0.04, 0.9), "skylight")
 box("FoniksAnnexRail", ((cx0 + cx1) / 2, AS - 1.1, 13.1), (cx1 - cx0, 0.04, 0.9), "skylight")
