@@ -11,8 +11,15 @@ one with TRD_SURROUND=v1|v2 (default v2).
         one straight line), Burger King in the orange wooden house right north of
         Føniks with its acute corner on Munkegata, Stiftsgården on the east side of
         Munkegata north, and the blocks along both legs following the street
+    v3  the town from open map data (blender/data, made by trondheim_mapdata.py): every
+        building in about 1 km of Midtbyen with its real outline, height and roof, the
+        terrain, streets, parks, trees and the river; Burger King, Trondheim Torg, the
+        pavilion and the planters stay hand-built, Føniks belongs to preview_trondheim.py
 """
+import gzip
+import json
 import math
+import os
 import random
 
 _NAMES = ("bpy", "b", "M", "scene", "srgb", "box", "cyl", "frustum", "block", "paved", "paving",
@@ -23,7 +30,7 @@ def build(g, variant="v2"):
     global G
     G = g
     globals().update({k: g[k] for k in _NAMES})
-    {"v1": v1, "v2": v2}[variant]()
+    {"v1": v1, "v2": v2, "v3": v3}[variant]()
 
 
 # --- shared by both variants -------------------------------------------------------
@@ -430,6 +437,287 @@ def v2():
     fjord_and_hills()
 
 
+# --- v3: the town from open map data ------------------------------------------------
+
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "trondheim_midtbyen.json.gz")
+FLAT_R0, FLAT_R1 = 130.0, 260.0   # the map's ground is held level out to here, then follows the terrain
+SEA = -9.3                        # sea level below the ground at the column
+
+# The hand-built looks carried over onto the map's outlines: a point inside the building
+# (square-aligned frame, as the v2 blocks were measured) -> walls, roof
+STYLE = [((8, 64), "glass_block", "slate"),        # the dark café block on the north side
+         ((33, 62), "c3", "slate"),                # the white block beside it
+         ((63, 39), "c3", "roof"),                 # the white office block on the east side
+         ((61, -36), "c5", "slate"),               # the yellow house at the south-east corner
+         ((-30, -65), "c5", "roof"),               # the yellow 1950s block on the south side
+         ((55, -80), "c2", "roof"),                # the red-roofed block across Munkegata south
+         ((-52.6, 89), "c1", "slate"), ((-59, 112), "c3", "slate"), ((-67, 145), "brick_dark", "slate"),
+         ((-12.6, 117), "stift", "slate"),         # Stiftsgården
+         ((-95, 22), "copper", "roof")]            # the copper-clad block west of the annex
+WALLS = ("c1", "c3", "c4", "c5", "c1", "c3", "pink", "brick_dark", "c2", "torg")
+ROOFS = ("slate", "slate", "roof", "brick", "roof_light")
+
+
+def from_true(x, y):
+    """The map's true-north metres into the square-aligned frame (true_world() turns back)."""
+    c, s = math.cos(-TRUE_TURN), math.sin(-TRUE_TURN)
+    return ((c * x - s * y) / TRUE_SCALE, (s * x + c * y) / TRUE_SCALE)
+
+
+def level(x, y, z):
+    """Ground height to use: level round the square, the real terrain further out."""
+    t = min(1.0, max(0.0, (math.hypot(x, y) - FLAT_R0) / (FLAT_R1 - FLAT_R0)))
+    return z * t * t * (3 - 2 * t)
+
+
+def windowed(key):
+    """A wall colour with a grid of dark windows, ~3.2 m floors and ~3 m bays, drawn by
+    the shader on vertical faces only, so the map's walls need no extra geometry."""
+    name = "TrdWin" + key
+    if name in bpy.data.materials:
+        return bpy.data.materials[name]
+    base = M[key].node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value[:]
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    bsdf.inputs["Roughness"].default_value = 0.75
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    pos = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nrm = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(geo.outputs["Position"], pos.inputs[0])
+    nt.links.new(geo.outputs["Normal"], nrm.inputs[0])
+
+    def op(kind, a, b_=None, v=None):
+        n = nt.nodes.new("ShaderNodeMath")
+        n.operation = kind
+        for i, x in enumerate((a, b_)):
+            if x is None:
+                continue
+            if isinstance(x, (int, float)):
+                n.inputs[i].default_value = x
+            else:
+                nt.links.new(x, n.inputs[i])
+        return n.outputs[0]
+
+    # distance along the wall: position across the face normal
+    along = op("ADD", op("MULTIPLY", pos.outputs["X"], op("MULTIPLY", nrm.outputs["Y"], -1.0)),
+               op("MULTIPLY", pos.outputs["Y"], nrm.outputs["X"]))
+    u = op("FRACT", op("DIVIDE", along, 3.0))
+    v = op("FRACT", op("DIVIDE", pos.outputs["Z"], 3.2))
+    win = op("MULTIPLY", op("MULTIPLY", op("GREATER_THAN", u, 0.3), op("LESS_THAN", u, 0.72)),
+             op("MULTIPLY", op("GREATER_THAN", v, 0.3), op("LESS_THAN", v, 0.78)))
+    wall = op("LESS_THAN", op("ABSOLUTE", nrm.outputs["Z"]), 0.3)
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    nt.links.new(op("MULTIPLY", win, wall), mix.inputs["Factor"])
+    mix.inputs[6].default_value = base
+    mix.inputs[7].default_value = (*srgb("#26303a"), 1)
+    nt.links.new(mix.outputs[2], bsdf.inputs["Base Color"])
+    return mat
+
+
+def map_mesh(name, part, mats, z_up=0.0, mat_of=None):
+    """One object from a packed map part, its vertices put level and into the frame."""
+    V, F = part["v"], part["f"]
+    verts = []
+    for i in range(0, len(V), 3):
+        x, y, z = V[i:i + 3]
+        verts.append((*from_true(x, y), level(x, y, z) + z_up))
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], [tuple(F[i:i + 3]) for i in range(0, len(F), 3)])
+    for m in mats:
+        me.materials.append(m)
+    if mat_of:
+        for p in me.polygons:
+            p.material_index = mat_of(p)
+    o = bpy.data.objects.new(name, me)
+    scene.collection.objects.link(o)
+    return o
+
+
+def inside(pt, verts, tris):
+    x, y = pt
+    for a, b_, c in tris:
+        (x1, y1), (x2, y2), (x3, y3) = verts[a][:2], verts[b_][:2], verts[c][:2]
+        d = (y2 - y3) * (x1 - x3) + (x3 - x2) * (y1 - y3)
+        if abs(d) < 1e-9:
+            continue
+        l1 = ((y2 - y3) * (x - x3) + (x3 - x2) * (y - y3)) / d
+        l2 = ((y3 - y1) * (x - x3) + (x1 - x3) * (y - y3)) / d
+        if l1 >= 0 and l2 >= 0 and l1 + l2 <= 1:
+            return True
+    return False
+
+
+BK_BACK, BK_Y0, BK_Y1 = -51.8, 58.0, 78.5   # Burger King's back wall and its ends (see burger_king())
+
+
+def hand_built(x, y):
+    """Where v3 keeps the hand-built model and drops the map's building or tree."""
+    if SQ_W - 1 < x < SQ_E + 1 and SQ_S - 1 < y < SQ_N + 1:
+        return True                                                          # the square
+    if G["ax0"] - 1 < x < FONIKS_FRONT + 1 and FONIKS_SOUTH - 2 < y < FONIKS_SOUTH + FW + 1:
+        return True                                                          # Føniks and its annex
+    return -83 < x < -41 and -50 < y < -14                                   # Trondheim Torg
+
+
+def map_buildings(data):
+    """Every building in the map but the hand-built ones, in one object: walls in a
+    colour per building with shader windows, pitched roofs in a roof colour, flat tops
+    dark. The map's base heights are replaced by the level ground under each building."""
+    if "stift" not in M:
+        M["stift"] = b.mat_flat("Trdstift", srgb("#e2d3a4"), 0.8)
+    walls = sorted(set(WALLS) | {w for _, w, _ in STYLE})
+    if "felt" not in M:
+        M["felt"] = b.mat_flat("Trdfelt", srgb("#6a6c6c"), 0.9)
+    mats = [windowed(w) for w in walls] + [M[r] for r in ROOFS] + [M["felt"]]
+    roof_ix = {r: len(walls) + i for i, r in enumerate(ROOFS)}
+    V, F, mi, kept = [], [], [], 0
+    for n, bd in enumerate(data["buildings"]):
+        bv = [bd["v"][i:i + 3] for i in range(0, len(bd["v"]), 3)]
+        tris = [bd["f"][i:i + 3] for i in range(0, len(bd["f"]), 3)]
+        cx = sum(p[0] for p in bv) / len(bv)
+        cy = sum(p[1] for p in bv) / len(bv)
+        mx, my = from_true(cx, cy)
+        if hand_built(mx, my):
+            continue
+        kept += 1
+        rnd = random.Random(n)
+        wall, roof = rnd.choice(WALLS), rnd.choice(ROOFS)
+        for pt, w, r in STYLE:
+            if inside(to_true((*pt, 0))[:2], bv, tris):
+                wall, roof = w, r
+        z0 = min(p[2] for p in bv)
+        dz = level(cx, cy, z0) - z0
+        o = len(V)
+        pts = [from_true(x, y) for x, y, _ in bv]
+        if any(BK_BACK < px < w_north(py) + 2 and BK_Y0 < py < BK_Y1 for px, py in pts):
+            # the map's block round Burger King is the house and the taller building behind
+            # it in one: keep only the part behind, ending at the house's back wall
+            pts = [(min(px, BK_BACK), py) for px, py in pts]
+        V += [(px, py, p[2] + dz) for (px, py), p in zip(pts, bv)]
+        for t in tris:
+            F.append(tuple(o + i for i in t))
+            mi.append((walls.index(wall), roof_ix[roof]))
+    me = bpy.data.meshes.new("Midtbyen")
+    me.from_pydata(V, [], F)
+    for m in mats:
+        me.materials.append(m)
+    for p, (w, r) in zip(me.polygons, mi):
+        nz = abs(p.normal.z)
+        p.material_index = w if nz < 0.3 else (len(mats) - 1 if nz > 0.97 else r)   # flat tops: grey felt
+    o = bpy.data.objects.new("Midtbyen", me)
+    scene.collection.objects.link(o)
+    print(f"v3: {kept} map buildings, {len(F)} triangles")
+    return o
+
+
+def map_trees(data):
+    """The map's trees outside the square, low poly: a trunk and one or two leaf blobs,
+    all in one object."""
+    import bmesh
+    from mathutils import Matrix
+    bm = bmesh.new()
+    kinds = data["tree_kinds"]
+    for x, y, z, k in data["trees"]:
+        mx, my = from_true(x, y)
+        if hand_built(mx, my):
+            continue
+        h, r = kinds[k]
+        # the map's tree models are generous; town trees here are younger and smaller
+        h, r = max(5.0, min(h * 0.55, 11.0)), max(1.6, min(r * 0.45, 3.2))
+        gz = level(x, y, z)
+        bmesh.ops.create_cone(bm, cap_ends=False, segments=5, radius1=0.2, radius2=0.12, depth=h * 0.45,
+                              matrix=Matrix.Translation((mx, my, gz + h * 0.225)))
+        crown = bmesh.ops.create_icosphere(bm, subdivisions=1, radius=r,
+                                           matrix=Matrix.Translation((mx, my, gz + h - r * 0.9))
+                                           @ Matrix.Diagonal((1, 1, max(0.6, (h * 0.55) / (2 * r)), 1)))
+        for v in crown["verts"]:
+            for f in v.link_faces:
+                f.material_index = 1
+    me = bpy.data.meshes.new("MidtbyenTrees")
+    bm.to_mesh(me)
+    bm.free()
+    me.materials.append(M["trunk"])
+    me.materials.append(M["tree"])
+    o = bpy.data.objects.new("MidtbyenTrees", me)
+    scene.collection.objects.link(o)
+
+
+def map_ground(data):
+    """Terrain from the map, held level round the square; streets and parks draped on
+    it; the sea and the river at sea level; a wide skirt of land past the map's edge."""
+    import bmesh
+    if "grass" not in M:
+        M["grass"] = b.mat_flat("Trdgrass", srgb("#5d7a3e"), 1.0)
+        M["pavement"] = b.mat_flat("Trdpavement", srgb("#8c8b86"), 0.9)
+    if "Ground" in bpy.data.objects:   # the flat 500 m box is replaced by the terrain
+        bpy.data.objects.remove(bpy.data.objects["Ground"])
+    if "land" not in M:
+        M["land"] = b.mat_flat("Trdland", srgb("#6d7660"), 1.0)
+    t = map_mesh("Terrain", data["terrain"], [M["pavement"], M["land"]], -0.03)
+    bm = bmesh.new()
+    bm.from_mesh(t.data)
+    rim = [e for e in bm.edges if e.is_boundary]
+    edge_pts = [(v.co.x, v.co.y, v.co.z) for v in {v for e in rim for v in e.verts}]
+    ext = bmesh.ops.extrude_edge_only(bm, edges=rim)
+    cx = sum(v.co.x for v in bm.verts) / len(bm.verts)
+    cy = sum(v.co.y for v in bm.verts) / len(bm.verts)
+    for g in ext["geom"]:
+        if isinstance(g, bmesh.types.BMVert):
+            dx, dy = g.co.x - cx, g.co.y - cy
+            d = math.hypot(dx, dy)
+            g.co.x, g.co.y = g.co.x + dx / d * 2500, g.co.y + dy / d * 2500
+        elif isinstance(g, bmesh.types.BMFace):
+            g.material_index = 1
+    bm.to_mesh(t.data)
+    bm.free()
+    # Past the map's edge: low blocks thinning out over the skirt, so the town doesn't
+    # stop at a line; on land only (the skirt keeps the edge's height)
+    rnd = random.Random(11)
+    x0, x1 = min(p[0] for p in edge_pts), max(p[0] for p in edge_pts)
+    y0, y1 = min(p[1] for p in edge_pts), max(p[1] for p in edge_pts)
+    for _ in range(500):
+        x, y = rnd.uniform(x0 - 700, x1 + 700), rnd.uniform(y0 - 700, y1 + 700)
+        out = max(x0 - x, x - x1, y0 - y, y - y1)
+        if out < 15 or rnd.random() < out / 700:
+            continue
+        z = min(edge_pts, key=lambda p: (p[0] - x) ** 2 + (p[1] - y) ** 2)[2]
+        if z < SEA + 1.0:
+            continue
+        w, d, h = rnd.uniform(12, 30), rnd.uniform(10, 24), rnd.uniform(7, 16)
+        box("Town", (x, y, z + h / 2), (w, d, h), rnd.choice(("c1", "c3", "c4", "c5", "pink", "brick_dark")))
+        box("TownRoof", (x, y, z + h + 0.6), (w + 0.4, d + 0.4, 1.2), rnd.choice(("slate", "roof", "brick")))
+    map_mesh("MapRoads", data["roads"], [M["road"]], 0.0)
+    map_mesh("MapParks", data["green"], [M["grass"]], 0.005)
+    map_mesh("MapRiver", data["water"], [M["water"]], 0.15)
+    box("Sea", (0, 0, SEA), (8000, 8000, 0.1), "water")
+
+
+def v3():
+    with gzip.open(DATA, "rt") as f:
+        data = json.load(f)
+    map_ground(data)
+    map_buildings(data)
+    map_trees(data)
+    # Munkegata's slabs both ways from the square, as in v2
+    poly_paving("Munkegata", [(w_north(SQ_N - 0.5), SQ_N - 0.5), (-6.0, SQ_N - 0.5), (-6.0, 86.0),
+                              (e_north(86.0), 86.0), (e_north(150.0), 150.0), (w_north(150.0), 150.0)], 0.036)
+    poly_paving("MunkegataS", [(w_south(SQ_S + 0.5), SQ_S + 0.5), (w_south(-130.0), -130.0), (e_south(-130.0), -130.0),
+                               (e_south(-57.6), -57.6), (SQ_E, SQ_S + 0.5)], 0.036)
+    burger_king()
+    torg_and_pavilion()
+    planters("v2")
+    # far hills round the fjord, down at sea level
+    for x, y, sx, sz in [(-1900, -400, 700, 260), (-1500, 1900, 1000, 160), (900, 2400, 1300, 140),
+                         (2400, -600, 900, 220)]:
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=16, ring_count=8, radius=1, location=(x, y, SEA - 5))
+        bpy.context.object.scale = (sx, 300, sz)
+        bpy.context.object.data.materials.append(M["hill"])
+        bpy.context.object.visible_shadow = False
+
+
 # Extra preview shots for the surroundings: (camera, target, lens mm, aspect)
 SHOTS = {
     # Like Adriaen's street photo: from the open corner by Føniks's north end, looking
@@ -442,7 +730,12 @@ SHOTS = {
     "P_south_row": ((12.0, -38.5, 1.7), (-22.0, -44.5, 1.0), 26.0, 16 / 9),
     # Straight down over Føniks, its annex and Kongens gate, for the GPS pins
     "T_west": ((-50.0, 20.0, 300.0), (-50.0, 20.001, 0.0), -80.0, 1.0),
+    "T_north": ((-40.0, 80.0, 300.0), (-40.0, 80.001, 0.0), -80.0, 1.0),
     "S_munkegata": ((8.0, -25.0, 1.7), (31.0, -115.0, 5.0), 26.0, 16 / 9),
+    # v3: high over the harbour looking south over Midtbyen to the square, and straight
+    # down over the whole map
+    "C_city": ((-260.0, 620.0, 260.0), (10.0, 0.0, 0.0), 28.0, 16 / 9),
+    "T_town": ((0.0, 100.0, 1500.0), (0.0, 100.001, 0.0), -1100.0, 1.0),
 }
 
 
