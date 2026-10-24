@@ -103,7 +103,10 @@ def make_images(style, outdir):
     amt = 0.0 if style == "lines" else 0.07
     out = {}
     for name, (_, _, paint) in TEX.items():
-        if style == "photo" and name in PHOTO:
+        if name == "roof_felt":   # no smoothing: the grain is the point
+            img = Image.new("RGB", (PX, PX))
+            paint(img, random.Random(name), amt)
+        elif style == "photo" and name in PHOTO:
             asset, size, colour = PHOTO[name]
             img = _photo(asset, colour)
             TEX[name] = (size, size, paint)
@@ -111,7 +114,7 @@ def make_images(style, outdir):
             img = Image.new("RGB", (PX, PX))
             paint(img, random.Random(name), amt)
             img = img.filter(ImageFilter.SMOOTH)
-        path = os.path.join(outdir, f"{name}.png" if img.size[0] == PX else f"{name}.jpg")
+        path = os.path.join(outdir, f"{name}.png" if img.size[0] == PX and name != "roof_felt" else f"{name}.jpg")   # noisy maps as JPEG
         img.save(path, quality=85) if path.endswith(".jpg") else img.save(path)
         out[name] = path
     return out
@@ -141,14 +144,67 @@ def _uv_box(o, tw, th):
     bm.free()
 
 
+FELT_FROM = ("copper", "travertine", "roof_light")   # materials whose flat tops are felted
+FELT_UP = 0.9   # a face counts as a flat top when its normal points this much up
+
+
+def _felt(img, rnd, amt):   # bitumen roofing felt: fine sandpaper grain on dark grey
+    base = _hex("#4b4c4e")
+    img.putdata([_jitter(base, rnd, 0.18) for _ in range(PX * PX)])
+
+
+TEX["roof_felt"] = (1.0, 1.0, _felt)
+
+
+def _split_tops(objs):
+    """Move the flat tops of FELT_FROM meshes into one dark grey roofing felt mesh (the
+    annex's roof terrace, utility rooms, cantina ledge and canopy tops: Adriaen's Google
+    Earth view). Costs one draw call."""
+    tops = []
+    for o in [o for o in objs if o.name in FELT_FROM]:
+        rot = o.matrix_world.to_3x3()
+        t = o.copy()
+        t.data = o.data.copy()
+        bpy.context.collection.objects.link(t)
+        for ob, keep_up in ((o, False), (t, True)):
+            bm = bmesh.new()
+            bm.from_mesh(ob.data)
+            gone = [f for f in bm.faces if ((rot @ f.normal).normalized().z > FELT_UP) != keep_up]
+            bmesh.ops.delete(bm, geom=gone, context="FACES")
+            bm.to_mesh(ob.data)
+            bm.free()
+        if t.data.polygons:
+            tops.append(t)
+        else:
+            bpy.data.objects.remove(t)
+    if not tops:
+        return objs
+    bpy.ops.object.select_all(action="DESELECT")
+    for t in tops:
+        t.select_set(True)
+    bpy.context.view_layer.objects.active = tops[0]
+    if len(tops) > 1:
+        bpy.ops.object.join()
+    felt = bpy.context.view_layer.objects.active
+    felt.name = "roof_felt"
+    m = bpy.data.materials.new("Trdroof_felt")
+    m.use_nodes = True
+    bsdf = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Roughness"].default_value = 0.95
+    bsdf.inputs["Base Color"].default_value = (0.07, 0.07, 0.075, 1)
+    felt.data.materials.clear()
+    felt.data.materials.append(m)
+    return [o for o in objs if o.name in bpy.data.objects and o.data.polygons] + [felt]
+
+
 def apply(objs, style, outdir):
-    """UV-map and texture the merged per-material objects in objs."""
-    if style == "none":
-        return
+    """Felt the flat tops, then UV-map and texture the merged per-material objects in
+    objs. Returns the objects to export."""
+    objs = _split_tops(objs)
     imgs = make_images(style, outdir)
     for o in objs:
         key = o.name
-        if key not in TEX or not o.data.materials:
+        if key not in TEX or not o.data.materials or (style == "none" and key != "roof_felt"):
             continue
         tw, th, _ = TEX[key]
         _uv_box(o, tw, th)
@@ -159,3 +215,4 @@ def apply(objs, style, outdir):
         tex = nt.nodes.new("ShaderNodeTexImage")
         tex.image = bpy.data.images.load(imgs[key])
         nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+    return objs

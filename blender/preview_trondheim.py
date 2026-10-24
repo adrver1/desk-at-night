@@ -1072,8 +1072,8 @@ def export_glb():
         for k, v in tri.most_common(int(os.environ.get("TRD_STATS_N", 30))):
             print(f"  {k:24s}{v:6d}  x{cnt[k]}")
     merged = mesh_cleanup.merge_by_material(keep)
-    import facade_textures   # TRD_TEX=lines|varied|none
-    facade_textures.apply(merged, os.environ.get("TRD_TEX", "none"), os.path.join(os.path.dirname(os.path.abspath(args.glb)), "tex"))
+    import facade_textures   # TRD_TEX=varied (Adriaen's pick)|lines|photo|none
+    merged = facade_textures.apply(merged, os.environ.get("TRD_TEX", "varied"), os.path.join(os.path.dirname(os.path.abspath(args.glb)), "tex"))
     for o in merged:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=args.glb, use_selection=True, export_apply=True, export_yup=True)
