@@ -983,11 +983,17 @@ JH = 13.6
 JY = FONIKS_SOUTH
 box("FoniksAnnexJoint", (FB - JW / 2, (JY + AS + 21) / 2, JH / 2), (JW, AS + 21 - JY, JH), "copper")
 pane("FoniksAtriumWall", "s", FB - JW / 2, (JH + TT + 0.2) / 2, JW, TT + 0.2 - JH, JY - 0.02, "glass")
-# its entrance glass runs on flush with the annex's entrance glass (Adriaen), same
-# height, under a copper soffit and a copper return against Føniks
-pane("FoniksAnnexJointWin", "s", FB - JW / 2, 2.65, JW, 5.3, AS - 0.11, "glass")
-box("FoniksAnnexJoint", (FB - JW / 2, (AS - 0.11 + JY) / 2, 5.45), (JW, JY - AS + 0.11, 0.3), "copper")
-box("FoniksAnnexJoint", (FB - 0.05, (AS - 0.11 + JY) / 2, 2.65), (0.1, JY - AS + 0.11, 5.3), "copper")
+# its entrance glass runs on flush with the annex's entrance glass (Adriaen)
+# up to the canopy, copper above it and a copper return against Føniks
+pane("FoniksAnnexJointWin", "s", FB - JW / 2, 1.75, JW, 3.5, AS - 0.11, "glass")
+box("FoniksAnnexJoint", (FB - JW / 2, (AS - 0.11 + JY) / 2, 4.55), (JW, JY - AS + 0.11, 2.1), "copper")   # copper from the canopy up
+box("FoniksAnnexJoint", (FB - 0.05, (AS - 0.11 + JY) / 2, 1.75), (0.1, JY - AS + 0.11, 3.5), "copper")
+# the entrance canopy (Adriaen's street photo): a deep copper box over the pavement on two
+# dark posts, from the travertine pier across the annex's entrance glass to Føniks
+CX0, CD = gx + 4.2, 3.2   # its west end, how far it reaches out from the annex glass
+box("FoniksAnnexCanopy", ((CX0 + FB) / 2, AS - 0.11 - CD / 2, 3.9), (FB - CX0, CD, 0.8), "copper")
+for x in (CX0 + 0.15, FB - 0.15):
+    box("FoniksAnnexCanopyPost", (x, AS - 0.11 - CD + 0.15, 1.75), (0.1, 0.1, 3.5), "dark")
 pane("FoniksAnnexJointWin", "s", FB - JW / 2, 7.0, JW - 0.5, 2.3, JY - 0.02, "glass")
 pane("FoniksAnnexJointWin", "s", FB - JW / 2, 10.4, JW - 0.5, 2.3, JY - 0.02, "blind")
 # the glass roof bridging the annex and Føniks: a mono-pitch skylight on dark bars
