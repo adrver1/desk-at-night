@@ -1073,6 +1073,12 @@ scene.collection.objects.link(bpy.data.objects.new("FoniksAtriumWall", me))
 # under the eave, like the south wall (Adriaen)
 pane("FoniksWestBrick", "w", (JY + gy0) / 2, (JH + 15.6) / 2, gy0 - JY, 15.6 - JH, FB - 0.01, "brick")
 pane("FoniksWestBand", "w", (JY + gy0) / 2, 16.2, gy0 - JY, 1.2, FB - 0.01, "phoenix")
+# and north of the annex, where the west wall is in the open: plinth, cream ground floor,
+# brick, tan band, like the other sides (Adriaen)
+NE_ = FONIKS_SOUTH + FW
+pane("FoniksWestBrick", "w", (CE + NE_) / 2, (5.0 + 15.6) / 2, NE_ - CE, 15.6 - 5.0, FB - 0.01, "brick")
+pane("FoniksWestBand", "w", (CE + NE_) / 2, 16.2, NE_ - CE, 1.2, FB - 0.01, "phoenix")
+box("FoniksWestPlinth", (FB - 0.12, (CE + NE_) / 2, 0.5), (0.3, NE_ - CE, 1.0), "plinth")
 # Summer: a dark pergola with a canvas top over the glass bays (drone photos)
 AWE = EX - 1.2   # the canvas runs on almost to the entrance, a strip of travertine short of it (Adriaen)
 if os.environ.get("TRD_ANNEX_AWNING", "canvas") == "canvas":
