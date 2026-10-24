@@ -976,7 +976,11 @@ for y in [AS + 2.6, AS + 5.6] + [AS + 9.0 + 3.2 * k for k in range(int((CE - AS 
     pane("FoniksAnnexTopWin", "w", y, 18.45, 2.2, 2.3, tx0 - 0.02, "glass")
 # The copper-clad joint onto Føniks: a tall glazed entrance, two windows above, rising
 # past Føniks's eave; the glass atrium roof stands up behind it (winter photo)
-box("FoniksAnnexJoint", (FB - JW / 2, AS + 10.5, TT / 2), (JW, 21, TT), "copper")   # in line with the annex wall, up under the top floor
+# it stops about halfway up the box's top floor (Adriaen's photo, "the 3.5th floor"); above
+# it the atrium's glass wall stands back and rises to the glass roof
+JH = 13.6
+box("FoniksAnnexJoint", (FB - JW / 2, AS + 10.5, JH / 2), (JW, 21, JH), "copper")   # in line with the annex wall
+pane("FoniksAtriumWall", "s", FB - JW / 2, (JH + TT + 0.2) / 2, JW, TT + 0.2 - JH, AS + 3.0, "glass")
 # its entrance glass runs on flush with the annex's entrance glass (Adriaen), same height
 pane("FoniksAnnexJointWin", "s", FB - JW / 2, 2.65, JW, 5.3, AS - 0.11, "glass")
 pane("FoniksAnnexJointWin", "s", FB - JW / 2, 7.0, JW - 0.5, 2.3, AS - 0.02, "glass")
