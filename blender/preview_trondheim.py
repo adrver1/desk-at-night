@@ -947,7 +947,7 @@ for z, row in BAYS.items():
 # over part of the joint
 # It covers the whole travertine and copper building (Adriaen), so it runs on behind the
 # joint to Føniks's back wall and north to the yellow neighbour
-tx0, tx1, ty0, ty1 = ax0 + 0.9, ax1 + 1.0, AS + 0.0, CE
+tx0, tx1, ty0, ty1 = ax0 + 0.9, ax1, AS + 0.0, CE   # stops at the joint: nothing over it above 13.6 m (Adriaen)
 TT = 20.2
 prism("FoniksAnnexTop", [(tx0, ty0), (tx1, ty0), (tx1, AS + 21), (FB, AS + 21), (FB, ty1), (tx0, ty1)], 16.75, TT, "copper")
 # Its roof (Adriaen, Google 3D): a rooftop bar inside a curved fence that sweeps from
@@ -1011,7 +1011,7 @@ pane("FoniksAnnexJointWin", "s", FB - JW / 2, 10.4, JW - 0.5, 2.3, JY - 0.02, "b
 # the roof terrace's edge it rises over the gap and lands on Føniks's upper slate slope
 MS = lambda x: 16.8 + (x - (FB - 0.3)) * 3.6 / 2.0   # the mansard's height over x (eave 16.8, 2 m in over 3.6 m)
 MU = lambda x: 20.4 + (x - (FB + 1.7)) * 2.6 / 4.69   # the upper roof's, up to the ridge
-gx0, gz0, gz1 = FB - 1.2, TT - 0.2, 21.6
+gx0, gz0, gz1 = FB - JW, TT - 0.2, 21.6
 gx1 = FB + 1.7 + (gz1 - 20.4) * 4.69 / 2.6   # where the glass meets the slates
 gy0, gy1 = JY + 4.6, AS + 21.0   # it starts ~5 m back from the street (Adriaen); flat roof in front
 glass = prism("FoniksAtrium", [(gx0, gy0), (gx1, gy0), (gx1, gy1), (gx0, gy1)], 0, 0.1, "glass")
@@ -1021,12 +1021,10 @@ for k in range(10):
     y_ = gy0 + 0.2 + k * (gy1 - gy0 - 0.4) / 9
     bar = box("FoniksAtriumBar", ((gx0 + gx1) / 2, y_, (gz0 + gz1) / 2 + 0.14), (math.hypot(gx1 - gx0, gz1 - gz0), 0.08, 0.08), "dark")
     bar.rotation_euler.y = -math.atan2(gz1 - gz0, gx1 - gx0)
-# in front of it, over the joint: a terraced roof stepping back up from the joint's top
-# to the glass (Adriaen; the tops are felted on export), and the glass's south end over the slates
-for y_, z0_, z1_ in ((JY + 1.5, JH, (JH + TT) / 2), (JY + 3.0, (JH + TT) / 2, TT)):
-    box("FoniksAnnexJoint", (FB - JW / 2, (y_ + gy0) / 2, (z0_ + z1_) / 2), (JW, gy0 - y_, z1_ - z0_), "copper")
+# in front of it the joint stays at 13.6 m (Adriaen); the glass's south end comes down
+# to the joint's top and onto the slates
 me = bpy.data.meshes.new("FoniksAtriumWall")
-gs = [(FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1), (FB, gz0 + (gz1 - gz0) * (FB - gx0) / (gx1 - gx0))]
+gs = [(gx0, JH), (FB, JH), (FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1), (gx0, gz0)]
 me.from_pydata([(x, gy0 - 0.02, z) for x, z in gs], [], [tuple(range(len(gs)))])
 me.materials.append(M["glass"])
 scene.collection.objects.link(bpy.data.objects.new("FoniksAtriumWall", me))
