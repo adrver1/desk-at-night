@@ -774,8 +774,8 @@ def load_char(name, loc, yaw, mat=None, scale=1.0, pose=None, glb=None):
 
 # Statue (Adriaen's photos): the clean-shaven base body in bronze, scaled 2x, facing north
 # up Munkegata. Conical helmet with a nose guard over hair to the jaw, a moustache, a mail
-# shirt to the knees with a belt. Right arm down, the sword hanging straight from the fist
-# with its tip on the plinth; left elbow bent 90 degrees, forearm held forward, the fist holding the orb upright on its
+# shirt to the knees with a belt. Right arm down, the sword held forward and down from the
+# fist with its tip on the plinth; left elbow bent 90 degrees, forearm held forward, the fist holding the orb upright on its
 # stem, a cross on top; a stone between his feet
 YAW = 0.0
 statue, rig = load_char("base_body", (0, 0, TOP), YAW, "bronze", 2.0,
@@ -790,9 +790,12 @@ W = lambda bone, end="tail": rig.matrix_world @ getattr(rig.pose.bones[bone], en
 SPIN = Matrix.Rotation(YAW, 4, "Z")
 F = lambda x, y, z: SPIN @ Vector((x, y, z))   # an offset in his own frame, y forward
 fist_r = (W("hand.R", "head") + W("hand.R")) / 2
-hilt, tip = fist_r + Vector((0, 0, 0.22)), Vector((fist_r.x, fist_r.y, TOP + 0.08))
-box("Sword", (hilt + tip) / 2, (0.1, 0.035, (hilt - tip).length), "bronze", YAW)
-box("Guard", fist_r - Vector((0, 0, 0.16)), (0.42, 0.08, 0.06), "bronze", YAW)
+tip = Vector((fist_r.x, fist_r.y, TOP + 0.08)) + F(0, 0.75, 0)   # held forward and down, tip on the plinth
+along = (tip - fist_r).normalized()
+hilt = fist_r - along * 0.22
+lean = along.to_track_quat("Z", "Y").to_euler()
+box("Sword", (hilt + tip) / 2, (0.1, 0.035, (tip - hilt).length), "bronze").rotation_euler = lean
+box("Guard", fist_r + along * 0.16, (0.42, 0.08, 0.06), "bronze").rotation_euler = lean
 head, crown = W("head", "head"), W("head")
 # The helmet (close-up photo): a tall pointed cone, slightly egg-shaped, sitting snug
 # down to the brows, a thin nose guard to the tip of the nose; hair falls from under it to

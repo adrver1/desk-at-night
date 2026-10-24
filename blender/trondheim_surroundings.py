@@ -446,7 +446,7 @@ def v2():
     yS = -250.0
     poly_paving("MunkegataS", [(w_south(SQ_S + 0.5), SQ_S + 0.5), (w_south(yS), yS), (e_south(yS), yS),
                                (e_south(-57.6), -57.6), (SQ_E, SQ_S + 0.5)], 0.036)
-    brick_west(G.get("ax0"))   # right up to the annex's west end (from the GPS pins)
+    brick_west(-90)   # stops at Bersvendveita (x -92..-82), which opens up west of the annex
     burger_king()
     # More old houses north of it, their fronts on the street line
     street_row("OldN", 78.6, 100.0, 15, 12, "c1", 4, "slate")
