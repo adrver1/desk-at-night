@@ -618,6 +618,8 @@ def hand_built(x, y):
         return True                                                          # Føniks and its annex
     if -57 < x < -40 and 10 < y < 15.5:
         return True                                                          # Føniks's terrace seating on Kongens gate
+    if -78 < x < -61.5 and 9.5 < y < 16:
+        return True                                                          # Frati's terrace in front of the annex
     return -83 < x < -41 and -50 < y < -14                                   # Trondheim Torg
 
 
