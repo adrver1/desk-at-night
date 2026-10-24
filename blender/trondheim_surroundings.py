@@ -52,13 +52,38 @@ def finish(g):
         bg.inputs[1].default_value = 1.6   # bright enough that the horizon all but melts away
 
 
-DREAM_GROUND = "#d4d3ce"
+DREAM_GROUND = "#a4a39e"   # clearly darker than the buildings, so they stand off it
+
+
+def dream_ground():
+    """The dream's ground: grey round the square, fading out to the sky's near-white
+    with distance, so the horizon still melts away."""
+    mat = bpy.data.materials.new("TrdDreamGround")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    bsdf = nt.nodes["Principled BSDF"]
+    bsdf.inputs["Roughness"].default_value = 0.95
+    geo = nt.nodes.new("ShaderNodeNewGeometry")
+    dist = nt.nodes.new("ShaderNodeVectorMath")
+    dist.operation = "LENGTH"
+    fade = nt.nodes.new("ShaderNodeMapRange")
+    fade.inputs["From Min"].default_value = 250.0
+    fade.inputs["From Max"].default_value = 2500.0
+    mix = nt.nodes.new("ShaderNodeMix")
+    mix.data_type = "RGBA"
+    mix.inputs[6].default_value = (*srgb(DREAM_GROUND), 1)
+    mix.inputs[7].default_value = (*srgb("#eceeef"), 1)
+    nt.links.new(geo.outputs["Position"], dist.inputs[0])
+    nt.links.new(dist.outputs["Value"], fade.inputs["Value"])
+    nt.links.new(fade.outputs["Result"], mix.inputs["Factor"])
+    nt.links.new(mix.outputs[2], bsdf.inputs["Base Color"])
+    return mat
 
 
 def whiten(objs):
     """The dream look: one matte off-white for everything but Føniks and the column."""
     white = b.mat_flat("TrdDream", srgb("#eeede9"), 0.9)
-    ground = b.mat_flat("TrdDreamGround", srgb(DREAM_GROUND), 0.95)   # a shade darker, so buildings stand off it
+    ground = dream_ground()
     for o in objs:
         if o.type == "MESH":
             o.data.materials.clear()
