@@ -772,27 +772,33 @@ def load_char(name, loc, yaw, mat=None, scale=1.0, pose=None):
     return holder, rig
 
 
-# Statue: the base body in bronze, scaled 2x. Right arm down with the sword across the
-# legs, left arm forward with the cup (2019 photo, 1921 drawing), facing south down Munkegata
-statue, rig = load_char("bearded_operator", (0, 0, TOP), math.pi, "bronze", 2.0,
+# Statue: the base body in bronze, scaled 2x, facing north up Munkegata (Adriaen). Right
+# arm down with the sword held across the legs, left arm forward with the orb, a cross on
+# top (2019 photo, 1921 drawing); both sit in the hands' palms
+YAW = 0.0
+statue, rig = load_char("bearded_operator", (0, 0, TOP), YAW, "bronze", 2.0,
                         {"upper_arm.R": (-30, 30, 15), "upper_arm.L": (-60, -75, 30), "forearm.L": (-30, -15, -75)})
 bpy.context.view_layer.update()
 W = lambda bone, end="tail": rig.matrix_world @ getattr(rig.pose.bones[bone], end)
-hand = W("hand.R")
-tip = hand + Vector((0.95, -0.8, -0.95))   # blade across the legs to the left foot
-sword = box("Sword", (hand + tip) / 2, (0.09, 0.03, (tip - hand).length), "bronze")
-sword.rotation_euler = (tip - hand).to_track_quat("Z", "Y").to_euler()
-box("Guard", hand + (tip - hand).normalized() * 0.12, (0.4, 0.08, 0.06), "bronze")
+SPIN = Matrix.Rotation(YAW, 4, "Z")
+palm_r = (W("hand.R", "head") + W("hand.R")) / 2
+along = (SPIN @ Vector((-0.95, 0.8, -0.95))).normalized()   # blade across the legs to the left foot
+hilt, tip = palm_r - along * 0.28, palm_r + along * 1.55
+sword = box("Sword", (hilt + tip) / 2, (0.09, 0.03, (tip - hilt).length), "bronze")
+sword.rotation_euler = (tip - hilt).to_track_quat("Z", "Y").to_euler()
+box("Guard", palm_r + along * 0.12, (0.4, 0.08, 0.06), "bronze")
 head, crown = W("head", "head"), W("head")
 cyl("Helmet", (crown.x, crown.y, crown.z - 0.2), 0.27, 0.42, "bronze", 10, 0.03)   # conical nasal helmet
 hips = W("hips", "head")
 cyl("Mail", (hips.x, hips.y, hips.z - 0.8), 0.42, 1.2, "bronze", 10, 0.34)   # mail shirt down to the knees
-cup = W("hand.L")
-cyl("CupFoot", (cup.x, cup.y, cup.z - 0.05), 0.08, 0.2, "bronze", 8)
-bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=6, radius=0.17, location=(cup.x, cup.y, cup.z + 0.28))
+cup = (W("hand.L", "head") + W("hand.L")) / 2   # on the palm
+cyl("CupFoot", (cup.x, cup.y, cup.z + 0.02), 0.08, 0.1, "bronze", 8)
+bpy.ops.mesh.primitive_uv_sphere_add(segments=10, ring_count=6, radius=0.17, location=(cup.x, cup.y, cup.z + 0.27))
 bpy.context.object.data.materials.append(M["bronze"])
-cyl("CupCross", (cup.x, cup.y, cup.z + 0.42), 0.03, 0.22, "bronze", 4)
-bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.35, location=(0.35, 0.25, TOP + 0.15))
+box("CupCross", (cup.x, cup.y, cup.z + 0.56), (0.06, 0.06, 0.3), "bronze", YAW)   # a real cross on the orb:
+box("CupCrossBar", (cup.x, cup.y, cup.z + 0.6), (0.2, 0.06, 0.06), "bronze", YAW)   # upright and crossbar
+stone = SPIN @ Vector((-0.35, -0.25, 0))   # by his left foot
+bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.35, location=(stone.x, stone.y, TOP + 0.15))
 bpy.context.object.scale.z = 1.3   # the stone by his left foot
 bpy.context.object.data.materials.append(M["bronze"])
 # The bearded character (Adriaen, one year ago) at the Føniks entrance, by the fountain
