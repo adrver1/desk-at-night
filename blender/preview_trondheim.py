@@ -1007,13 +1007,19 @@ for k in range(10):
     bar = box("FoniksAtriumBar", ((gx0 + gx1) / 2, y_, TT + 1.06), (math.hypot(gx1 - gx0, 1.4), 0.08, 0.08), "dark")
     bar.rotation_euler.y = -math.atan2(1.4, gx1 - gx0)
 # Summer: a dark pergola with a canvas top over the glass bays (drone photos)
+AWE = EX - 0.3   # the canvas runs on almost to the entrance (Adriaen)
 if os.environ.get("TRD_ANNEX_AWNING", "canvas") == "canvas":
-    box("FoniksAnnexAwning", ((ax0 + gx) / 2, AS - 3.0, 3.0), (gx - ax0, 4.0, 0.12), "canvas")
-    box("FoniksAnnexAwningBeam", ((ax0 + gx) / 2, AS - 4.9, 2.85), (gx - ax0, 0.15, 0.3), "dark")
+    # it slopes from a cassette on the wall under the travertine box down to the front beam
+    # (Adriaen's street photo)
+    y0, z0, y1, z1 = AS - 1.0, 5.1, AS - 4.9, 3.0
+    aw = box("FoniksAnnexAwning", ((ax0 + AWE) / 2, (y0 + y1) / 2, (z0 + z1) / 2), (AWE - ax0, math.hypot(y0 - y1, z0 - z1), 0.08), "canvas")
+    aw.rotation_euler.x = math.atan2(z0 - z1, y0 - y1)
+    box("FoniksAnnexAwningBeam", ((ax0 + AWE) / 2, AS - 1.1, 5.15), (AWE - ax0, 0.25, 0.3), "dark")   # the cassette
+    box("FoniksAnnexAwningBeam", ((ax0 + AWE) / 2, AS - 4.9, 2.85), (AWE - ax0, 0.15, 0.3), "dark")
 else:   # the older all-dark pergola, over the whole front
     box("FoniksAnnexAwning", (acx, AS - 3.0, 3.0), (ax1 - ax0, 4.0, 0.15), "dark")
-for i in range(5):
-    box("PergolaPost", (ax0 + 0.5 + i * (gx - ax0 - 1.0) / 4, AS - 4.9, 1.5), (0.15, 0.15, 3.0), "dark")
+for i in range(6):
+    box("PergolaPost", (ax0 + 0.5 + i * (AWE - ax0 - 1.0) / 5, AS - 4.9, 1.5), (0.15, 0.15, 3.0), "dark")
 box("FoniksBack", ((ax0 + FB) / 2, (AS + 21 + CE) / 2, 8.4), (FB - ax0, CE - AS - 21, 16.8), "copper")   # the same building on along Bersvendveita
 block("YellowBers", ax0, FB, CE, BE, 15.5, "c5", 5, ("-x",), None)   # then the yellow brick neighbour
 
