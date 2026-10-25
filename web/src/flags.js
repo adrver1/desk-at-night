@@ -7,8 +7,11 @@
 //   banner  hangs from an arm at the top of the mast and is held along the
 //           mast too (the Aker BP banners at Føniks, preview_trondheim.py
 //           flag_mast): only the bottom and the far edge move
-//   pole    a classic flag on a halyard, held along the pole only: it turns
+//   pole    a flag in a sleeve, held along the whole pole edge: it turns
 //           to fly downwind and hangs down when the wind drops
+//   flag    a traditional flag on a halyard (2.2 x 1.6 m, Aker BP logo and
+//           name), clipped to the rope at its two hoist corners only, so
+//           the top edge and the hoist are free to move too
 //
 // Three ways to move them (all kept, pick with `variant`):
 //   a  sway    one travelling sine wave, weighted from 0 at the held edges
@@ -29,6 +32,7 @@ import * as THREE from 'three';
 export const KINDS = {
   banner: { w: 1.0, h: 2.6, nu: 9, nv: 21, stride: 4 },    // 160 quads near, 10 far
   pole: { w: 1.5, h: 1.0, nu: 17, nv: 13, stride: 4 },     // 192 quads near, 12 far
+  flag: { w: 2.2, h: 1.6, nu: 17, nv: 13, stride: 4 },     // 192 quads near, 12 far
 };
 
 const LOGO = [   // characters/_shared/outfits.py LOGO with the palette.py colours
@@ -39,16 +43,23 @@ const LOGO = [   // characters/_shared/outfits.py LOGO with the palette.py colou
 
 // The flag's face: white with the logo, as on the Blender banners (logo 0.8
 // of the width, centred 0.42 of the height down) or centred on a pole flag
-export function flagTexture(kind, px = 256) {
+export function flagTexture(kind, px = kind === 'flag' ? 512 : 256) {
   const k = KINDS[kind], c = document.createElement('canvas');
   c.width = px;
   c.height = Math.round(px * k.h / k.w);
   const g = c.getContext('2d');
   g.fillStyle = '#f4f4f1';
   g.fillRect(0, 0, c.width, c.height);
-  const lw = kind === 'banner' ? 0.8 * c.width : 0.42 * c.width;
+  const lw = { banner: 0.8, pole: 0.42, flag: 0.36 }[kind] * c.width;
   const lh = lw * 0.95 / 0.8;
-  const cx = c.width / 2, cy = kind === 'banner' ? 0.42 * c.height : c.height / 2;
+  const cx = c.width / 2, cy = { banner: 0.42, pole: 0.5, flag: 0.4 }[kind] * c.height;
+  if (kind === 'flag') {   // the name under the logo
+    g.fillStyle = '#1d2a3a';
+    g.font = `600 ${Math.round(0.12 * c.height)}px "Instrument Sans", "Helvetica Neue", Arial, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('Aker BP', cx, 0.8 * c.height);
+  }
   for (const [col, pts] of LOGO) {
     g.fillStyle = col;
     g.beginPath();
@@ -103,7 +114,8 @@ export function bakeCloth(kind) {
   const rest = flagGeometry(kind).attributes.position.array;
   const mass = 0.25 * k.w * k.h / n, area = k.w * k.h / n;
   const free = new Float32Array(n);
-  for (let j = 0; j < k.nv; j++) for (let i = 0; i < k.nu; i++) free[j * k.nu + i] = i === 0 || (kind === 'banner' && j === 0) ? 0 : 1;
+  for (let j = 0; j < k.nv; j++) for (let i = 0; i < k.nu; i++) free[j * k.nu + i] = kind === 'flag' ? (i === 0 && (j === 0 || j === k.nv - 1) ? 0 : 1)
+    : i === 0 || (kind === 'banner' && j === 0) ? 0 : 1;
   // stretch, shear and bend links, as flat arrays (this loop runs ~10^7 times)
   const L = [];
   const add = (a, b, stiff) => { if (free[a] + free[b]) L.push(a, b, Math.hypot(rest[3 * a] - rest[3 * b], rest[3 * a + 1] - rest[3 * b + 1]), stiff); };
@@ -228,7 +240,10 @@ vec3 localWind() {
 
 // how far a point may move: 0 where the cloth is held, 1 at the free corner
 float hold(vec2 uv) {
-#ifdef FLAG_POLE
+#ifdef FLAG_HALYARD
+  // clipped at the two hoist corners: the rope edge bows between them
+  return max(pow(uv.x, 1.05), 0.22 * sin(3.1416 * uv.y));
+#elif defined(FLAG_POLE)
   return pow(uv.x, 1.15);
 #else
   return pow(uv.x, 0.7) * pow(1.0 - uv.y, 1.2);
@@ -347,7 +362,7 @@ export function flagMaterial(kind, variant, { map = flagTexture(kind), cloth = n
     uFrames: { value: BAKE.frames }, uVerts: { value: k.nu * k.nv }, uSpeeds: { value: new THREE.Vector3(...BAKE.speeds) },
   });
   m.userData.uniforms = uniforms;
-  m.defines = { [kind === 'pole' ? 'FLAG_POLE' : 'FLAG_BANNER']: '', ...(variant === 'b' ? { FLAG_RIPPLE: '' } : {}), ...(variant === 'c' ? { FLAG_CLOTH: '' } : {}) };
+  m.defines = { [kind === 'banner' ? 'FLAG_BANNER' : 'FLAG_POLE']: '', ...(kind === 'flag' ? { FLAG_HALYARD: '' } : {}), ...(variant === 'b' ? { FLAG_RIPPLE: '' } : {}), ...(variant === 'c' ? { FLAG_CLOTH: '' } : {}) };
   m.onBeforeCompile = (sh) => {
     programs++;
     Object.assign(sh.uniforms, uniforms);

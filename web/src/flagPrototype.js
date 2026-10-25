@@ -1,6 +1,6 @@
 // PROTOTYPE (throwaway): how should the flags move, and what does it cost?
 // Three options from flags.js on the Føniks-style banner masts and on a
-// classic pole flag, driven by the weather's wind:
+// pole flag in a sleeve and on a traditional halyard flag, driven by the weather's wind:
 //   a  sway    one sine wave, weighted from the held edges
 //   b  ripple  layered waves, gusts, flutter, lean, light through the cloth
 //   c  cloth   a cloth simulation baked at load into a texture, played back
@@ -38,7 +38,7 @@ const VIEWS = {
 };
 const pick = (o, k, d) => (o[q.get(k)] ? q.get(k) : d);
 const state = {
-  variant: pick(VARIANTS, 'variant', 'b'), kind: pick(KINDS, 'kind', 'banner'), wind: pick(WINDS, 'wind', 'cloudy'),
+  variant: pick(VARIANTS, 'variant', 'b'), kind: pick(KINDS, 'kind', 'flag'), wind: pick(WINDS, 'wind', 'cloudy'),
   from: pick(FROM, 'from', 'left'), view: pick(VIEWS, 'view', 'terrace'), sun: q.get('sun') === 'behind' ? 'behind' : 'front',
   lod: q.has('lod'),
 };
@@ -79,7 +79,8 @@ scene.add(hemi, sun);
 const mastMat = new THREE.MeshStandardMaterial({ color: 0xf2f2ee, roughness: 0.5 });
 const MAST_H = 9;
 function mastPoses(view) {
-  if (view !== 'crowd') return [-3.9, -1.3, 1.3, 3.9].map((x) => new THREE.Vector3(x, 0, 0));
+  const gap = state.kind === 'flag' ? 3.4 : 2.6;   // the big flags need room to fly
+  if (view !== 'crowd') return [-1.5, -0.5, 0.5, 1.5].map((x) => new THREE.Vector3(x * gap, 0, 0));
   const out = [];
   for (let j = 0; j < 10; j++) for (let i = 0; i < 12; i++) out.push(new THREE.Vector3((i - 5.5) * 7, 0, -j * 9 + 20));
   return out;
@@ -104,12 +105,16 @@ function build() {
   const parts = [new THREE.CylinderGeometry(0.06, 0.07, MAST_H, 6).translate(0, MAST_H / 2, 0),
     new THREE.SphereGeometry(0.1, 6, 4).translate(0, MAST_H + 0.05, 0)];
   if (banner) parts.push(new THREE.BoxGeometry(KINDS.banner.w + 0.12, 0.04, 0.04).translate(0.08 + KINDS.banner.w / 2, MAST_H - 0.4, 0));
+  if (state.kind === 'flag') {   // the halyard: up the pole beside it, round the truck, down to a cleat
+    parts.push(new THREE.BoxGeometry(0.012, MAST_H - 1.2, 0.012).translate(0.075, (MAST_H + 1.2) / 2, 0.02));
+    parts.push(new THREE.BoxGeometry(0.06, 0.15, 0.05).translate(0.07, 1.2, 0));
+  }
   const g = mergeGeometries(parts);
   masts = new THREE.InstancedMesh(g, mastMat, bases.length);
   bases.forEach((b, i) => masts.setMatrixAt(i, new THREE.Matrix4().setPosition(b)));
   scene.add(masts);
-  const top = banner ? MAST_H - 0.4 : MAST_H - 0.1;
-  const poses = bases.map((b) => ({ position: b.clone().add(new THREE.Vector3(banner ? 0.08 : 0.07, top, 0)), yaw: 0 }));
+  const top = banner ? MAST_H - 0.4 : MAST_H - 0.12;
+  const poses = bases.map((b) => ({ position: b.clone().add(new THREE.Vector3(banner ? 0.08 : state.kind === 'flag' ? 0.09 : 0.07, top, 0)), yaw: 0 }));
   const c = state.variant === 'c' ? getCloth(state.kind) : null;
   field = new FlagField(state.kind, state.variant, poses, { cloth: c, tintLod: state.lod, lodDistance: 30 });
   scene.add(field);
@@ -133,8 +138,9 @@ function setView(id) {
   const rebuild = (id === 'crowd') !== (state.view === 'crowd') || !field;
   state.view = id;
   const v = VIEWS[id];
-  const lift = id === 'close' && state.kind === 'pole' ? 1.0 : 0;   // a pole flag sits higher on its mast
-  camera.position.set(v.pos[0], v.pos[1] + lift, v.pos[2]);
+  const lift = id === 'close' ? { banner: 0, pole: 1.0, flag: 0.9 }[state.kind] : 0;   // a pole flag sits higher on its mast
+  const back = state.kind === 'flag' && id !== 'crowd' ? (id === 'close' ? 1.6 : 1.35) : 1;   // and the traditional flags are bigger
+  camera.position.set(v.at[0] + (v.pos[0] - v.at[0]) * back, v.pos[1] + lift, v.at[2] + (v.pos[2] - v.at[2]) * back);
   controls.target.set(v.at[0], v.at[1] + lift, v.at[2]);
   controls.update();
   if (rebuild) build();
@@ -164,7 +170,7 @@ function row(label, options, key, onPick) {
 }
 const names = (o) => Object.entries(o).map(([k, v]) => [k, v.name]);
 row('Option', names(VARIANTS), 'variant', (id) => { state.variant = id; build(); });
-row('Flag', [['banner', 'Banner (Føniks)'], ['pole', 'Pole flag']], 'kind', (id) => { state.kind = id; build(); if (state.view === 'close') setView('close'); });
+row('Flag', [['banner', 'Banner (Føniks)'], ['pole', 'Pole flag'], ['flag', 'Traditional flag']], 'kind', (id) => { state.kind = id; build(); if (state.view === 'close') setView('close'); });
 row('Wind', Object.entries(WINDS).map(([k, v]) => [k, `${v.name} ${v.speed.toFixed(0)} m/s`]), 'wind', (id) => { state.wind = id; });
 row('From', names(FROM), 'from', (id) => { state.from = id; });
 row('View', names(VIEWS), 'view', (id) => setView(id));
@@ -216,6 +222,7 @@ function frame(now) {
 await new Promise((r) => setTimeout(r, 50));
 getCloth('banner');
 getCloth('pole');
+getCloth('flag');
 setSun();
 setView(state.view);
 refresh();
