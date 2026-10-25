@@ -8,3 +8,4 @@ web/preview.html
 dist-preview/
 dist-prototype
 web/public/story/private/
+blender/.cache/
