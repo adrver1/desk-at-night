@@ -373,21 +373,16 @@ export class Cast {
         return false;
       };
     } else if (m.pour) {
-      // Hold the jug out over the mug, tip it, fill the mug, and back
+      // Tip the jug over the mug (the arm stays bent, see carryArm), fill it, and back
       const mug = this.mugsRest[m.pour];
       const at = mug ? mug.mug.getWorldPosition(new THREE.Vector3()) : root.position.clone();
       const want = yawTo(at.x - root.position.x, at.z - root.position.z);
-      const fill0 = mug?.k ?? 0, pt = p.act.point;
+      const fill0 = mug?.k ?? 0;
       t.shift = new THREE.Vector3();
       t.step = (dt) => {
         t.k += dt * 1.35;   // a brisk pour: the 5 s below take about 3.7 s
         const k = t.k;
         this.turnToward(root, want, dt);
-        // the arm comes up: the point clip held halfway in, over the walk-free idle
-        if (pt) {
-          if (k - dt <= 0) { pt.reset().play(); pt.timeScale = 0; pt.time = 0.6; }
-          pt.setEffectiveWeight(0.9 * smooth(k / 0.7) * (1 - smooth((k - 4.3) / 0.6)));
-        }
         const tilt = smooth((k - 0.9) / 0.6) * (1 - smooth((k - 3.4) / 0.5));
         p.tilt = tilt * 1.25;
         this.stream.visible = tilt > 0.75;
@@ -397,7 +392,7 @@ export class Cast {
           const d = new THREE.Vector3(at.x - p.spoutAt.x, 0, at.z - p.spoutAt.z).multiplyScalar(Math.min(1, dt * 3));
           if (t.shift.clone().add(d).length() < 0.4) { t.shift.add(d); root.position.add(d); }
         }
-        if (k >= 5) { pt?.stop(); p.tilt = 0; return true; }
+        if (k >= 5) { p.tilt = 0; return true; }
         return false;
       };
     } else t.step = () => true;
@@ -417,18 +412,50 @@ export class Cast {
     if (!what) p.tilt = 0;
   }
 
-  // The jug in the right hand, hanging from its handle, tipped forward by p.tilt
+  // The right arm of whoever carries the jug, over the clip: upper arm down
+  // the side, elbow bent at 90 degrees, forearm level and forward, so the jug
+  // rides steady instead of swinging with the walk (Adriaen, 2026-10-25).
+  // The forearm dips a little while pouring. k blends it in and out.
+  carryArm(p, k) {
+    const up = p.bones.upper_armR ?? p.bones['upper_arm.R'], fore = p.bones.forearmR ?? p.bones['forearm.R'], hand = p.bones.handR ?? p.bones['hand.R'];
+    if (!up || !fore) return;
+    p.root.updateMatrixWorld(true);
+    const yaw = p.root.rotation.y, f = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+    // out: from the body's middle toward the right shoulder, level
+    const out = up.getWorldPosition(new THREE.Vector3()).sub(p.root.position).setY(0);
+    out.addScaledVector(f, -out.dot(f)).normalize();
+    const down = new THREE.Vector3(0, -1, 0);
+    const dip = 0.35 * Math.min(1, (p.tilt ?? 0) / 1.25);
+    this.aim(up, down.clone().addScaledVector(f, 0.12).addScaledVector(out, 0.1).normalize(), k);
+    const level = f.clone().addScaledVector(out, -0.12).addScaledVector(down, dip).normalize();
+    this.aim(fore, level, k);
+    if (hand) this.aim(hand, level, k);
+  }
+
+  // Turn a bone so its length (+Y) points along a world direction, k of the way
+  aim(bone, want, k) {
+    bone.updateMatrixWorld(true);
+    const qb = bone.getWorldQuaternion(new THREE.Quaternion());
+    const now = new THREE.Vector3(0, 1, 0).applyQuaternion(qb);
+    const world = new THREE.Quaternion().setFromUnitVectors(now, want).multiply(qb);
+    const qp = bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+    bone.quaternion.slerp(qp.multiply(world), k);
+    bone.updateMatrixWorld(true);
+  }
+
+  // The jug in the right hand, hanging level from its handle, tipped forward by p.tilt
   holdJug(p) {
     const hand = p.bones.handR ?? p.bones['hand.R'];
     if (!hand) return;
     p.root.updateMatrixWorld(true);
-    const h = hand.getWorldPosition(new THREE.Vector3());
+    // the handle sits in the palm, a little way down the hand from the wrist
+    const h = hand.localToWorld(new THREE.Vector3(0, 0.07, 0));
     const yaw = p.root.rotation.y;
     this.jug.rotation.order = 'YXZ';
     this.jug.rotation.set(0, yaw - Math.PI / 2, p.tilt ?? 0);
     this.jug.updateMatrix();
     const grip = this.jug.userData.grip.clone().applyEuler(this.jug.rotation);
-    this.jug.position.copy(h).sub(grip).add(new THREE.Vector3(0, -0.02, 0));
+    this.jug.position.copy(h).sub(grip);
     this.jug.updateMatrixWorld(true);
     p.spoutAt = this.jug.localToWorld(this.jug.userData.spout.clone());
     if (this.stream.visible) {
@@ -505,6 +532,8 @@ export class Cast {
         neck.rotateY(p.applied);
         p.bones.head?.rotateY(p.applied);
       }
+      p.armK = THREE.MathUtils.clamp((p.armK ?? 0) + (p.carry === 'jug' ? dt : -dt) / 0.3, 0, 1);
+      if (p.armK) this.carryArm(p, smooth(p.armK));
       if (p.carry === 'jug') this.holdJug(p);
     }
   }
