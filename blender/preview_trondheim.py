@@ -684,8 +684,8 @@ def phoenix_fountain(cx, cy, z0=0.15):
     round basin with a thick stone rim, a dark tiled column, three globe lamps at the
     front and the bronze phoenix rising from its nest, wings half folded and pointing down."""
     before = set(bpy.data.objects)
-    cyl("Water", (cx, cy, 0), 3.0, 0.32, "water", 24)
-    bpy.ops.mesh.primitive_torus_add(major_radius=3.0, minor_radius=0.3, major_segments=24, minor_segments=6,
+    cyl("Water", (cx, cy, 0), 3.0, 0.32, "water", 20)
+    bpy.ops.mesh.primitive_torus_add(major_radius=3.0, minor_radius=0.3, major_segments=20, minor_segments=4,
                                      location=(cx, cy, 0.3))
     bpy.context.object.scale.z = 1.3
     bpy.context.object.data.materials.append(M["granite"])
@@ -699,7 +699,7 @@ def phoenix_fountain(cx, cy, z0=0.15):
         a = math.radians(-90 + k * 32)
         x, y = cx + 0.5 * math.cos(a), cy + 0.5 * math.sin(a)
         cyl("LampStem", (x, y, 1.3), 0.03, 0.2, "dark", 6)
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.15, location=(x, y, 1.62))
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=6, ring_count=4, radius=0.15, location=(x, y, 1.62))
         bpy.context.object.data.materials.append(M["lamp"])
     for k in range(7):   # the nest of flames it rises from
         t = k / 7 * math.tau
@@ -1166,9 +1166,20 @@ def export_glb():
     merged = mesh_cleanup.merge_by_material(keep)
     import facade_textures   # TRD_TEX=varied (Adriaen's pick)|lines|photo|none
     merged = facade_textures.apply(merged, os.environ.get("TRD_TEX", "varied"), os.path.join(os.path.dirname(os.path.abspath(args.glb)), "tex"))
+    if os.environ.get("TRD_PALETTE", "1") == "1":   # every flat colour in one draw call (TRD_PALETTE=0: one per material)
+        merged = mesh_cleanup.merge_palette(merged, set(facade_textures.TEX) | {"glass", "water", "Lamp"})
+    for o in merged:   # only the textured meshes need their UVs
+        if o.name not in facade_textures.TEX:
+            while o.data.uv_layers:
+                o.data.uv_layers.remove(o.data.uv_layers[0])
     for o in merged:
         o.select_set(True)
     bpy.ops.export_scene.gltf(filepath=args.glb, use_selection=True, export_apply=True, export_yup=True)
+    # quantized vertex data, about half the bytes (needs node and web/node_modules; skipped without)
+    slim = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "web", "scripts", "slim_glb.mjs")
+    import shutil, subprocess
+    if os.environ.get("TRD_SLIM", "1") == "1" and shutil.which("node"):
+        subprocess.run(["node", slim, args.glb, args.glb], cwd=os.path.dirname(slim), check=False)
     print("wrote", args.glb)
     sys.exit(0)
 

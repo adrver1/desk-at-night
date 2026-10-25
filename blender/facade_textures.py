@@ -114,7 +114,7 @@ def make_images(style, outdir):
             img = Image.new("RGB", (PX, PX))
             paint(img, random.Random(name), amt)
             img = img.filter(ImageFilter.SMOOTH)
-        path = os.path.join(outdir, f"{name}.png" if img.size[0] == PX and name != "roof_felt" else f"{name}.jpg")   # noisy maps as JPEG
+        path = os.path.join(outdir, f"{name}.png" if img.size[0] == PX and name not in ("roof_felt", "copper") else f"{name}.jpg")   # noisy maps as JPEG
         img.save(path, quality=85) if path.endswith(".jpg") else img.save(path)
         out[name] = path
     return out
