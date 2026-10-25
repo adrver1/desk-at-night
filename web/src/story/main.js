@@ -121,8 +121,9 @@ function apply(s, { instant = false } = {}) {
   // Chats: as many messages as the state says, the newest already typed
   for (const [id, n] of Object.entries(s.chats ?? {})) if (S.chats[id] !== n) { S.chats[id] = n; S.chatAt[id] = -99; }
   // Somewhere else than the control room (one year ago: Trondheim)
-  if (s.place === 'trondheim' && !trondheim.on) { trondheim.show(); game.hooks.hidden = true; }
-  if (s.place !== 'trondheim' && trondheim.on) { trondheim.hide(); game.hooks.hidden = false; }
+  // (its own canvas covers the room, so the room isn't drawn behind it)
+  if (s.place === 'trondheim') { if (!trondheim.on) trondheim.show(); game.hooks.hidden = true; }
+  else if (trondheim.on) { trondheim.hide(); game.hooks.hidden = false; }
   cast?.place(s.cast);
   cast?.mugs(s.mugs);
   ui.clipboard(s.clipboard);
@@ -438,7 +439,7 @@ function stopPrologue({ keepMusic = false } = {}) {
   sound.rotor(0, 0.6);
   if (!keepMusic) sound.stopMusic(1.5);
   ui.credit(null);
-  if (game.hooks) game.hooks.hidden = false;
+  if (game.hooks) game.hooks.hidden = trondheim.on;   // the room stays hidden behind Torvet
 }
 
 function prologueNext() {
