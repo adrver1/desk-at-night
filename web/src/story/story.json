@@ -116,7 +116,8 @@
      "No lost barrels"
     ],
     "title": "Models without new step tests"
-   }
+   },
+   "builds": 4
   },
   "m-03": {
    "no": {
@@ -134,7 +135,8 @@
      "Try the controller before the plant does"
     ],
     "title": "Seeing is believing"
-   }
+   },
+   "builds": 8
   },
   "m-04": {
    "no": {
@@ -190,7 +192,8 @@
      "One knowledge base, many agents"
     ],
     "title": "Knowledge graphs"
-   }
+   },
+   "builds": 6
   },
   "h-02": {
    "no": {
@@ -208,7 +211,8 @@
      "People lead them"
     ],
     "title": "Multi-agent work"
-   }
+   },
+   "builds": 3
   },
   "h-03": {
    "no": {
@@ -226,7 +230,8 @@
      "History, simulators, logic tester, documents"
     ],
     "title": "MCP tools"
-   }
+   },
+   "builds": 1
   },
   "h-04": {
    "no": {
@@ -242,7 +247,8 @@
      "Into the brainstorm"
     ],
     "title": "What does it mean for us?"
-   }
+   },
+   "builds": 7
   },
   "deck-07": {
    "no": {
@@ -250,7 +256,8 @@
    },
    "en": {
     "title": "Deck slide 7"
-   }
+   },
+   "builds": 4
   },
   "deck-08": {
    "no": {
@@ -258,7 +265,8 @@
    },
    "en": {
     "title": "Deck slide 8"
-   }
+   },
+   "builds": 2
   },
   "deck-10": {
    "no": {
@@ -266,7 +274,8 @@
    },
    "en": {
     "title": "Deck slide 10"
-   }
+   },
+   "builds": 13
   },
   "deck-11": {
    "no": {
@@ -282,7 +291,8 @@
    },
    "en": {
     "title": "Deck slide 5"
-   }
+   },
+   "builds": 5
   },
   "deck-12": {
    "no": {
@@ -290,7 +300,8 @@
    },
    "en": {
     "title": "Deck slide 12"
-   }
+   },
+   "builds": 2
   },
   "deck-13": {
    "no": {
@@ -298,7 +309,8 @@
    },
    "en": {
     "title": "Deck slide 13"
-   }
+   },
+   "builds": 5
   },
   "deck-14": {
    "no": {
@@ -306,7 +318,8 @@
    },
    "en": {
     "title": "Deck slide 14"
-   }
+   },
+   "builds": 6
   },
   "deck-15": {
    "no": {
@@ -330,7 +343,8 @@
    },
    "en": {
     "title": "Deck slide 17"
-   }
+   },
+   "builds": 5
   },
   "deck-18": {
    "no": {
@@ -338,7 +352,8 @@
    },
    "en": {
     "title": "Deck slide 18"
-   }
+   },
+   "builds": 12
   }
  },
  "chats": {

@@ -34,6 +34,7 @@ export class StoryUI {
     this.overlayId = null;
     this.voteState = null;
     this.slideImages = {};
+    this.slideBuilds = {};
     // The org chart and the graph behind it
     this.graphCanvas = h('canvas', 'graph');
     this.el.org.append(this.graphCanvas, this.orgChart(), h('div', 'graph-title', T('Én kunnskapsbase · mange agentiske eksperter', 'One knowledge base · many agentic experts')));
@@ -218,13 +219,14 @@ export class StoryUI {
   // slide:<id>, card:<id>, vote:<id>, log:<id>, search, sign, and the calls
 
   overlay(id, { cast, call } = {}) {
+    const fromEnd = this.buildFromEnd; this.buildFromEnd = false;
     if (id === this.overlayId) return;
     this.overlayId = id;
     const [kind, arg] = (id ?? '').split(':');
     for (const k of ['panel', 'slide', 'log', 'search', 'sign']) this.el[k].classList.remove('on');
     call?.show(kind === 'call' || kind === 'phone' ? { who: arg, phone: kind === 'phone' } : null);
     this.voteState = null;
-    if (kind === 'slide') this.showSlide(arg);
+    if (kind === 'slide') this.showSlide(arg, fromEnd);
     if (kind === 'card') this.showPlainCard(arg);
     if (kind === 'vote') this.showVote(arg);
     if (kind === 'log') this.showLog(arg);
@@ -232,11 +234,15 @@ export class StoryUI {
     if (kind === 'sign') this.showSign();
   }
 
-  showSlide(id) {
+  showSlide(id, fromEnd = false) {
     const s = SLIDES[id], e = this.el.slide;
     const ids = SLIDE_ORDER, n = ids.indexOf(id) + 1;
     e.innerHTML = `<div class="num">${n} / ${ids.length}</div>`;
-    const img = this.slideImages[id];
+    let img = this.slideImages[id];
+    // PowerPoint builds: one picture per click, Space steps through them
+    const frames = this.slideBuilds[id];
+    this.build = frames?.every(Boolean) ? { id, frames, i: fromEnd ? frames.length - 1 : 0 } : null;
+    if (this.build) { img = this.build.img = frames[this.build.i].cloneNode(); }
     if (img) { e.append(img); if (s.caption) e.append(h('div', 'cap', esc(s.caption))); }
     else e.insertAdjacentHTML('afterbegin', `<h2>${esc(s.title)}</h2><ul>${s.bullets.map((b) => `<li class="${b.startsWith('TODO') ? 'todo' : ''}">${esc(b)}</li>`).join('')}</ul>${s.placeholder ? `<div class="tag">${T('Plassholder · Adriaens lysbilde kommer her', 'Placeholder · Adriaen\'s slide goes here')}</div>` : '<div></div>'}`);
     fadeIn(e);
@@ -248,7 +254,25 @@ export class StoryUI {
       const img = new Image();
       img.onload = () => { this.slideImages[id] = img; };
       img.src = `${this.privateBase}slides/${id}.png`;
+      const n = SLIDES[id].builds;
+      if (!n) continue;
+      const frames = this.slideBuilds[id] = Array(n + 1).fill(null);
+      frames.forEach((_, k) => {
+        const f = new Image();
+        f.onload = () => { frames[k] = f; };
+        f.src = `${this.privateBase}slides/${id}.b${String(k).padStart(2, '0')}.png`;
+      });
     }
+  }
+
+  // Space/← on a slide with builds: the next or previous click first
+  stepBuild(dir) {
+    const b = this.build;
+    if (!b || this.overlayId !== `slide:${b.id}`) return false;
+    const i = b.i + dir;
+    if (i < 0 || i >= b.frames.length) return false;
+    b.i = i; b.img.src = b.frames[i].src;
+    return true;
   }
 
   showPlainCard(id) {

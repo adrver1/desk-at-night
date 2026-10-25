@@ -42,6 +42,7 @@ for i, b in enumerate(beats):
         for l in ('no', 'en'):
             new[l] = {k: v for k, v in new[l].items() if v not in ('', None, [])}
         if sl.get('placeholder'): new['placeholder'] = True
+        if sl.get('frames'): new['builds'] = len(sl['frames']) - 1   # PowerPoint clicks
         if sl.get('image'):
             pictures.append((sl['id'], sl['image']))
         if not same(story['slides'].get(sl['id']), new):

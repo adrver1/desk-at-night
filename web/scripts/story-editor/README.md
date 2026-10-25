@@ -51,3 +51,12 @@ private build (`public/story/private/slides/<id>.png`, git-ignored), and the
 open notes. Do the notes, answer each one in the database (`status: done`,
 `reply`), check the run with `qa/story-tour.mjs`, open a PR, and re-seed so
 the editor shows what the game now does.
+
+## PowerPoint clicks (builds)
+
+A slide with `builds: N` in story.json has N clicks: the presenter's Space shows
+the next click before moving to the next beat, and ← steps back. The pictures,
+one per click, are `<slide id>.b00.png` (before the first click) to
+`.b<N>.png` in the git-ignored `public/story/private/slides/`. Make them from
+the deck with `pptx_anim_parse.py` and `pptx_anim_build.py`. In the editor a
+slide's `frames` lists the same pictures, and sync writes `builds` from it.

@@ -456,7 +456,7 @@ export const CHATS = Object.fromEntries(Object.entries(STORY.chats).map(([id, c]
 // (see SLIDES above).
 for (const [id, sl] of Object.entries(STORY.slides)) {
   const v = sl[T('no', 'en')] ?? sl.en ?? sl.no ?? {};
-  SLIDES[id] = { title: v.title ?? '', bullets: v.bullets ?? [], caption: v.caption, placeholder: !!sl.placeholder, image: sl.image };
+  SLIDES[id] = { title: v.title ?? '', bullets: v.bullets ?? [], caption: v.caption, placeholder: !!sl.placeholder, image: sl.image, builds: sl.builds ?? 0 };
 }
 
 // The governing-document agent on a desk monitor (mock-up), and its sources

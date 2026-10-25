@@ -312,6 +312,7 @@ function next() {
   if (free) return;
   if (CHAPTERS[chapter].prologue) return prologueNext();
   if (ui.advanceVote()) return;
+  if (!running && ui.stepBuild(1)) return;
   const b = CHAPTERS[chapter].beats[beat];
   if (running && b.skip !== 'next') {
     // Mid-beat: finish it at once (lines stop, its end state shows)
@@ -333,6 +334,9 @@ function next() {
 
 function back() {
   if (free) return;
+  if (ui.stepBuild(-1)) return;
+  // a slide we step back into shows all its clicks
+  if (beat > 0 || chapter > 0) ui.buildFromEnd = true;
   if (beat > 0) enter(chapter, beat - 1, { instant: true, skipDo: true });
   else if (chapter > 0) enter(chapter - 1, CHAPTERS[chapter - 1].beats.length - 1, { instant: true, skipDo: true });
 }
