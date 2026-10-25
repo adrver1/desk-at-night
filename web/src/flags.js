@@ -20,10 +20,13 @@
 //              envelope, a fast flutter along the free edges, a lean away
 //              from the wind, normals by finite differences, light shining
 //              through the cloth when the sun is behind it
-//   c  cloth   a real cloth simulation (Verlet) run once at load for three
-//              wind speeds, a 2 s seamless loop of each stored in a float
-//              texture; the shader plays it back and blends between the two
-//              nearest wind speeds (a "vertex animation texture")
+//   c  cloth   a real cloth simulation (Verlet) for three wind speeds, a
+//              2 s seamless loop of each stored in a float texture; the
+//              shader plays it back and blends between the two nearest wind
+//              speeds (a "vertex animation texture"). Baked ahead of time by
+//              scripts/bake_flags.mjs into src/flag-cloth/<kind>.bin
+//              (positions in 0.5 mm steps, normals in bytes), so loading
+//              is a fetch, not a simulation
 //
 // Far away a flag drops to a coarse grid (every 4th vertex), the same
 // material and, for c, the same texture.
@@ -107,7 +110,7 @@ export const BAKE = { speeds: [1.5, 8, 20], frames: 60, fps: 30 };
 // it flies downwind) or slantwise into the cloth (banner: held on two
 // edges, the wind presses it out and runs along it). Returns the positions
 // and normals of a seamless 2 s loop for each wind speed.
-export function bakeCloth(kind) {
+export function bakeClothData(kind) {
   const k = KINDS[kind], n = k.nu * k.nv, { speeds, frames, fps } = BAKE;
   const blend = 15, sub = 6, iters = 8, dt = 1 / (fps * sub);
   const pos = new Float32Array(n * 4 * frames * speeds.length), nrm = new Float32Array(pos.length);
@@ -201,12 +204,54 @@ export function bakeCloth(kind) {
       }
     }
   });
+  return { pos, nrm };
+}
+
+// The bake as GPU textures (RGBA float, one row per frame, one texel per vertex)
+export function clothTextures(kind, { pos, nrm }, fileBytes = 0) {
+  const n = KINDS[kind].nu * KINDS[kind].nv, rows = BAKE.frames * BAKE.speeds.length;
   const tex = (data) => {
-    const t = new THREE.DataTexture(data, n, frames * speeds.length, THREE.RGBAFormat, THREE.FloatType);
+    const t = new THREE.DataTexture(data, n, rows, THREE.RGBAFormat, THREE.FloatType);
     t.needsUpdate = true;
     return t;
   };
-  return { pos: tex(pos), nrm: tex(nrm), bytes: pos.byteLength * 2 };
+  return { pos: tex(pos), nrm: tex(nrm), bytes: pos.byteLength * 2, fileBytes };
+}
+
+// Simulating live takes ~1 s on a laptop and several on a phone: use only to
+// compare with the shipped bake (or to re-bake)
+export const bakeCloth = (kind) => clothTextures(kind, bakeClothData(kind));
+
+// File format: per vertex and frame, x y z as int16 in 0.5 mm steps, then
+// all the normals as int8 x y z. 9 bytes where the GPU wants 32.
+const POS_STEP = 1 / 2000;
+export function encodeCloth({ pos, nrm }) {
+  const m = pos.length / 4, out = new ArrayBuffer(m * 9);
+  const p = new Int16Array(out, 0, m * 3), q = new Int8Array(out, m * 6, m * 3);
+  for (let i = 0; i < m; i++) for (let c = 0; c < 3; c++) {
+    p[3 * i + c] = Math.round(pos[4 * i + c] / POS_STEP);
+    q[3 * i + c] = Math.round(nrm[4 * i + c] * 127);
+  }
+  return out;
+}
+export function decodeCloth(buf) {
+  const m = buf.byteLength / 9, p = new Int16Array(buf, 0, m * 3), q = new Int8Array(buf, m * 6, m * 3);
+  const pos = new Float32Array(m * 4), nrm = new Float32Array(m * 4);
+  for (let i = 0; i < m; i++) {
+    for (let c = 0; c < 3; c++) { pos[4 * i + c] = p[3 * i + c] * POS_STEP; nrm[4 * i + c] = q[3 * i + c] / 127; }
+    pos[4 * i + 3] = 1;
+  }
+  return { pos, nrm };
+}
+
+// Fetch a shipped bake: loadCloth('flag', url)
+export async function loadCloth(kind, url) {
+  // a single-file page inlines it as a data: URL; decode that here, as a page's
+  // security policy may refuse fetch() of data: URLs
+  const buf = url.startsWith('data:')
+    ? Uint8Array.from(atob(url.slice(url.indexOf(',') + 1)), (c) => c.charCodeAt(0)).buffer
+    : await fetch(url).then((r) => r.arrayBuffer());
+  return clothTextures(kind, decodeCloth(buf), buf.byteLength);
 }
 
 // ---------------------------------------------------------------- material
@@ -401,7 +446,7 @@ export class FlagField extends THREE.Group {
     this.poses = poses;
     this.lodDistance = lodDistance;
     this.phases = poses.map((_, i) => ((i * 0.618034) % 1));
-    if (variant === 'c' && !cloth) cloth = bakeCloth(kind);
+    if (variant === 'c' && !cloth) throw new Error('FlagField: variant c needs a cloth from loadCloth()');
     this.cloth = cloth;
     const map = flagTexture(kind);
     this.meshes = [false, true].map((far) => {

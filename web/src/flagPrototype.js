@@ -8,7 +8,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { WEATHER, windSpeed } from './outdoor.js';
-import { FlagField, KINDS, BAKE, bakeCloth } from './flags.js';
+import { FlagField, KINDS, BAKE, bakeCloth, loadCloth } from './flags.js';
+import bannerCloth from './flag-cloth/banner.bin?url';
+import poleCloth from './flag-cloth/pole.bin?url';
+import flagCloth from './flag-cloth/flag.bin?url';
 import { perfPanel, perfWatch } from './perf.js';
 
 perfPanel();
@@ -18,7 +21,7 @@ const q = new URLSearchParams(location.search);
 const VARIANTS = {
   a: { name: 'A · sway', text: 'One travelling sine wave, zero where the cloth is held, full at the free corner. Normals from the same sine. The cheapest: a few sines per vertex, nothing else.' },
   b: { name: 'B · ripple', text: 'Three waves at different lengths and angles, gusts, a fast flutter along the free edges, the banner pressed out by the wind, sun shining through the cloth. Still pure shader maths, ~3× A per vertex.' },
-  c: { name: 'C · cloth bake', text: 'A real cloth simulation run once when the page loads (three wind speeds, a 2 s seamless loop each), stored in a texture the shader plays back, blending between wind speeds. Real folds; costs a short bake and texture memory.' },
+  c: { name: 'C · cloth bake', text: 'A real cloth simulation, baked ahead of time (three wind speeds, a 2 s seamless loop each) and shipped as a small file the shader plays back, blending between wind speeds. Real folds; costs a download and texture memory, no simulation on the device.' },
 };
 const WINDS = {
   calm: { name: 'Calm', speed: 1.5 },
@@ -87,14 +90,14 @@ function mastPoses(view) {
 }
 let masts = null, field = null;
 const cloth = {}, bakeMs = {};
-function getCloth(kind) {
-  if (!cloth[kind]) {
-    const s = performance.now();
-    cloth[kind] = bakeCloth(kind);
-    bakeMs[kind] = performance.now() - s;
-  }
-  return cloth[kind];
+const CLOTH_URLS = { banner: bannerCloth, pole: poleCloth, flag: flagCloth };
+const liveBake = q.get('bake') === 'live';   // simulate at load instead, to compare
+async function prepareCloth(kind) {
+  const s = performance.now();
+  cloth[kind] = liveBake ? bakeCloth(kind) : await loadCloth(kind, CLOTH_URLS[kind]);
+  bakeMs[kind] = performance.now() - s;
 }
+const getCloth = (kind) => cloth[kind];
 
 function build() {
   if (masts) { scene.remove(masts); masts.geometry.dispose(); }
@@ -179,7 +182,9 @@ function refresh() {
   for (const el of ui.children) for (const b of el.querySelectorAll('button')) b.classList.toggle('on', String(state[el.dataset.key]) === b.dataset.id);
   const v = VARIANTS[state.variant], k = KINDS[state.kind];
   const near = (k.nu - 1) * (k.nv - 1) * 2, far = ((k.nu - 1) / k.stride) * ((k.nv - 1) / k.stride) * 2;
-  const bake = state.variant === 'c' ? ` · bake ${bakeMs[state.kind].toFixed(0)} ms at load, ${(cloth[state.kind].bytes / 1024).toFixed(0)} KB texture` : '';
+  const cl = cloth[state.kind];
+  const bake = state.variant === 'c' ? (liveBake ? ` · simulated live in ${bakeMs[state.kind].toFixed(0)} ms` : ` · ${(cl.fileBytes / 1024).toFixed(0)} KB file, loaded in ${bakeMs[state.kind].toFixed(0)} ms`)
+    + `, ${(cl.bytes / 1024).toFixed(0)} KB on the GPU` : '';
   note.innerHTML = `<b>${v.name}.</b> ${v.text}<br>${near} triangles a flag (${far} beyond 30 m) · ${field.meshes.filter((m) => m.count).length} draw${field.meshes.filter((m) => m.count).length > 1 ? 's' : ''} for all ${field.poses.length} flags${bake}`
     + ` · <span id="cpu"></span>`;
 }
@@ -218,11 +223,10 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-// bake both cloths while the status shows, so picking C later doesn't stall
+// load the baked cloths while the status shows, so picking C later doesn't stall
+document.querySelector('#status').textContent = liveBake ? 'Simulating the cloth…' : 'Loading…';
 await new Promise((r) => setTimeout(r, 50));
-getCloth('banner');
-getCloth('pole');
-getCloth('flag');
+for (const k of Object.keys(KINDS)) await prepareCloth(k);
 setSun();
 setView(state.view);
 refresh();
