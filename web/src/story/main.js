@@ -22,7 +22,7 @@ import { S, addStoryScreens } from './storyScreens.js';
 import { DEFAULT_LAYOUT, contentOf } from '../screens.js';
 import { Shots } from './shots.js';
 import { Epilogue } from './epilogue.js';
-import { Sola } from './sola.js';
+import { Sola, LENGTH as SOLA_LENGTH } from './sola.js';
 import { Trondheim } from './trondheim.js';
 import { ClockFace } from './clockFace.js';
 
@@ -49,7 +49,7 @@ let cast = null, shots = null, epilogue = null, clockFace = null;
 const SOLA_OPEN = q.get('sola') !== '0';
 const SOLA_STILLS = q.get('solastills') === '1';
 const sola = SOLA_OPEN || SOLA_STILLS ? Object.assign(new Sola(game, { open: SOLA_OPEN }), { sound, titleText: TITLE, credits: CREDITS, music: MUSIC }) : null;
-for (const ch of CHAPTERS) ch.beats = ch.beats.filter((b) => !b.sola || SOLA_STILLS);
+for (const ch of CHAPTERS) ch.beats = ch.beats.filter((b) => (!b.sola || SOLA_STILLS) && (b.pro !== 'sola' || SOLA_OPEN));
 
 // Private overrides (git-ignored, ?private=1): real names and statuses,
 // slide images and tool screenshots for the private build
@@ -160,7 +160,7 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
   chapter = c; beat = i;
   const ch = CHAPTERS[c], b = ch.beats[i];
   location.hash = `${ch.key}.${i + 1}`;
-  if (ch.prologue) { if (sola?.open) sola.done = false; return startPrologue(); }
+  if (ch.prologue) return startPrologue(b.pro);
   stopPrologue();
   if (sola) sola.hide();
   if (ch.id === 'epilogue') { await epilogueReady(); } else epilogue?.hide();
@@ -400,14 +400,33 @@ function debugPanel() {
 // intro.html in a frame on top; the control room loads underneath. We read
 // its clock (same origin) to cue the title, credits and the pilot.
 
-function startPrologue() {
+// Where each prologue subchapter starts on the intro's clock (s)
+const PRO_START = { takeoff: () => 0, credits: () => 12, landing: (i) => i.FLIGHT - 33, walk: (i) => i.T_LAND + 1 };
+
+// pro: the subchapter to start from (content.js PROLOGUE_BEATS). Sola plays
+// the apron and goes on into the take-off; any other starts the intro at its
+// time, with the music where it would be had it played through. carry: the
+// take-off straight after the Sola opening, its music already running.
+function startPrologue(pro = 'takeoff', { carry = false } = {}) {
+  const my = token;
   trondheim.hide();
   game.hooks.hidden = true;
   ui.clipboard(null); ui.stars(null); ui.banner(null); ui.overlay(null, { call }); ui.org(null); ui.clearNotices(); ui.clock(null);
   host.classList.remove(`grade-${lastGrade}`); lastGrade = 0;
   showHud();
-  if (sola && !sola.done) return sola.play(host, ui, (id) => say(id, token)).then(() => { if (CHAPTERS[chapter].prologue) startPrologue(); });
-  stopPrologue({ keepMusic: true });   // the music carries on from the Sola opening
+  if (pro === 'sola' && sola?.open) {
+    stopPrologue();
+    sola.done = false;
+    return sola.play(host, ui, (id) => say(id, token)).then(() => {
+      if (my !== token || !CHAPTERS[chapter].prologue) return;   // jumped elsewhere meanwhile
+      beat = CHAPTERS[chapter].beats.findIndex((b) => b.pro === 'takeoff');
+      location.hash = `${CHAPTERS[chapter].key}.${beat + 1}`;
+      startPrologue('takeoff', { carry: true });
+    });
+  }
+  if (sola?.playing) sola.finish();
+  if (sola) sola.done = true;
+  stopPrologue({ keepMusic: carry });   // the music carries on from the Sola opening
   game.hooks.hidden = true;            // again: stopPrologue() shows the room, which would then draw behind the intro all along
   const f = document.createElement('iframe');
   f.className = 'prologue';
@@ -418,6 +437,8 @@ function startPrologue() {
   prologue.frame = f;
   prologue.cues.clear();
   prologue.ended = false;
+  prologue.seek = carry ? null : pro;   // done in prologueFrame once the intro is up
+  prologue.skipBefore = 0;
   const black = document.createElement('div');
   black.className = 'blackout on';
   host.append(black);
@@ -430,6 +451,14 @@ function startPrologue() {
     f.contentWindow.addEventListener('keydown', (e) => handleKey(e));
     f.contentWindow.addEventListener('click', () => { if (prologue.ended) next(); });
   });
+}
+
+// Jump the running intro to a time: what was due before it (lines, credits,
+// the title) is passed over, the rest (sound, where we look) catches up
+function proSeek(intro, t, { music = false } = {}) {
+  intro.t = t;
+  prologue.skipBefore = t;
+  if (music) { sound.stopMusic(); sound.music(MUSIC, 0.35, (SOLA_OPEN ? SOLA_LENGTH : -0.5) + t); }
 }
 
 function stopPrologue({ keepMusic = false } = {}) {
@@ -449,15 +478,28 @@ function prologueNext() {
   if (sola?.playing) return sola.skip();
   if (!intro) return;
   if (prologue.ended) { enter(chapter + 1, 0); return; }
-  intro.t = intro.t < intro.FLIGHT - 8 ? intro.FLIGHT - 7 : intro.t < intro.T_LAND + 1 ? intro.T_LAND + 1.5 : intro.T_END - 1;
+  // on to the next subchapter, or the end of the last
+  const nb = CHAPTERS[chapter].beats[beat + 1];
+  proSeek(intro, nb ? PRO_START[nb.pro](intro) : intro.T_END - 1);
 }
 
 function prologueFrame() {
   const intro = prologue.frame?.contentWindow?.intro;
   if (!intro) return;
+  if (prologue.seek) { const pro = prologue.seek; prologue.seek = null; if (pro !== 'takeoff' || SOLA_OPEN) proSeek(intro, PRO_START[pro](intro), { music: true }); }
   const t = intro.t;
   if (prologue.black && t > 0.5) prologue.black.classList.remove('on');
-  const cue = (name, at, fn) => { if (t >= at && !prologue.cues.has(name)) { prologue.cues.add(name); fn(); } };
+  // The navigator follows the subchapters as the intro plays through them
+  const beats = CHAPTERS[chapter].beats;
+  let k = beat;
+  for (const [j, b] of beats.entries()) if (PRO_START[b.pro] && t >= PRO_START[b.pro](intro) - 0.05) k = j;
+  if (k !== beat) { beat = k; location.hash = `${CHAPTERS[chapter].key}.${beat + 1}`; showHud(); }
+  const cue = (name, at, fn) => {
+    if (t < at || prologue.cues.has(name)) return;
+    prologue.cues.add(name);
+    if (at < prologue.skipBefore - 0.05 && /^(p\d|credit\d+|title)$/.test(name)) return;   // jumped past it
+    fn();
+  };
   // Title over the flight (unless the Sola opening had it). Our eyes follow
   // the supply vessel first, then turn to each person as their name comes
   // up; the AI credit runs over the outside camera on the descent
@@ -581,11 +623,12 @@ function start() {
   game.controls.startAudio();
   sound.start(game.controls.audio?.ctx);
   sound.preload(Object.keys(lines).filter((k) => !k.startsWith('_')));
-  const c = Math.max(0, CHAPTERS.findIndex((ch) => ch.key === Number(q.get('chapter') ?? 1)));
+  const [qc, qb] = (q.get('chapter') ?? '1').split('.').map(Number);   // ?chapter=N or N.beat
+  const c = Math.max(0, CHAPTERS.findIndex((ch) => ch.key === qc));
   const [hc, hb] = location.hash.slice(1).split('.').map(Number);
   const fromHash = hc ? CHAPTERS.findIndex((ch) => ch.key === hc) : -1;
   chapter = fromHash >= 0 && !q.has('chapter') ? fromHash : c;
-  beat = fromHash >= 0 && !q.has('chapter') ? Math.max(0, (hb || 1) - 1) : 0;
+  beat = Math.min(CHAPTERS[chapter].beats.length - 1, fromHash >= 0 && !q.has('chapter') ? Math.max(0, (hb || 1) - 1) : Math.max(0, (qb || 1) - 1));
   if (CHAPTERS[chapter].prologue || game.room) enter(chapter, beat, { instant: true });
   if (q.get('mode') === 'free') game.ready.then(() => setTimeout(toggleFree, 300));
 }

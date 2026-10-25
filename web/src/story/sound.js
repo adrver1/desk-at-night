@@ -216,7 +216,7 @@ export class Sound {
 
   // Music under a scene (the flight's): a file that may not be there yet,
   // in which case nothing plays. Ducks under the spoken lines (line())
-  async music(url, level = 0.35) {
+  async music(url, level = 0.35, offset = 0) {   // offset: s into the track
     if (!this.ctx || this.musicUrl === url) return;   // already playing (or loading): carry on
     this.stopMusic();
     this.musicUrl = url;
@@ -228,7 +228,7 @@ export class Sound {
     g.gain.setValueAtTime(0, this.ctx.currentTime);
     g.gain.linearRampToValueAtTime(level, this.ctx.currentTime + 2);
     src.connect(g).connect(this.out);
-    src.start();
+    src.start(0, offset % buf.duration);
     src.onended = () => { if (this.mus?.src === src) { this.mus = null; this.musicUrl = null; } };
     this.mus = { src, g, level };
   }
