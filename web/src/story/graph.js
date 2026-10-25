@@ -3,14 +3,15 @@
 // same picture works on the display band and as a full-screen overlay. It
 // grows a level at a time as agents use and add knowledge; new nodes pulse.
 import { GRAPH } from './content.js';
+import { T } from './lang.js';
 
 export const KIND = {
-  equipment: ['#9fb4c8', 'Equipment'],
-  procedure: ['#f2b25c', 'Procedure'],
-  requirement: ['#b9a2f0', 'Requirement'],
-  lesson: ['#f08a8a', 'Lesson'],
-  data: ['#7fb0ff', 'Data'],
-  agent: ['#5fe0b7', 'Agent'],
+  equipment: ['#9fb4c8', T('Utstyr', 'Equipment')],
+  procedure: ['#f2b25c', T('Prosedyre', 'Procedure')],
+  requirement: ['#b9a2f0', T('Krav', 'Requirement')],
+  lesson: ['#f08a8a', T('Lærdom', 'Lesson')],
+  data: ['#7fb0ff', T('Data', 'Data')],
+  agent: ['#5fe0b7', T('Agent', 'Agent')],
 };
 
 const nodes = GRAPH.map(([id, label, kind, level, links, [x, y]]) => ({ id, label, kind, level, links, x, y }));
