@@ -32,16 +32,20 @@ const CAM = {
 // steps south of the fountain (not over the ramp's rail) and across the
 // terrace to the foot of the platform steps (Adriaen, 2026-10-25). Heights
 // follow the ground and steps under people.
-const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-34.6, 34.6, 0), V(-39.6, 35.3, 0), V(-41.4, 35.9, 0)] };
-// The CEO comes out of the left-hand door to meet him there and welcomes him
-// to Aker BP (Adriaen, 2026-10-25); the beat's { torvet: 'meet' } step waits
-// for MEET before the line. Then { torvet: 'in' }: they go in together, the
-// CEO leading, up the platform steps and through the door.
+const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-34.6, 34.6, 0), V(-39.6, 35.3, 0), V(-41.0, 35.6, 0)] };
+// The CEO comes out of the left-hand door while Adriaen is still on the steps
+// by the fountain, welcomes him to Aker BP on the way down to meet him (the
+// beat's { torvet: 'meet' } step waits for MEET before the line), and they
+// shake hands at the foot of the platform steps while the camera closes in
+// beside them ({ torvet: 'shake' } waits for the end of it). Then
+// { torvet: 'in' }: they go in together, the CEO leading (Adriaen, 2026-10-25).
 const DOOR = V(-44.3, 38.4, 0);
-const CEO = { at: GLIDE + 4.6, speed: 1.15, path: [V(-43.7, 38.2, 0), V(-42.5, 37.0, 0)] };
-const MEET = GLIDE + 6.8;
-const IN = { ceo: [V(-42.5, 37.0, 0), V(-43.6, 38.2, 0), DOOR], me: [WALK.path.at(-1), V(-42.4, 37.0, 0), V(-43.5, 38.1, 0), DOOR], lag: 0.7 };
-const CUES = { meet: MEET };
+const CEO = { at: GLIDE, speed: 0.9, path: [V(-43.7, 38.2, 0), V(-42.6, 37.1, 0), V(-41.75, 36.25, 0)] };
+const MEET = GLIDE + 1.5;
+const SHAKE = { at: GLIDE + 6.3, len: 2.2 };
+const CLOSE = { from: GLIDE + 3, to: GLIDE + 6.5, pos: V(-38.3, 37.5, 2.3), at: V(-41.4, 35.9, 1.8), fov: 48 };
+const IN = { ceo: [CEO.path.at(-1), V(-42.6, 37.1, 0), V(-43.6, 38.2, 0), DOOR], me: [WALK.path.at(-1), V(-41.9, 36.4, 0), V(-42.7, 37.2, 0), V(-43.5, 38.1, 0), DOOR], lag: 0.7 };
+const CUES = { meet: MEET, shake: SHAKE.at + SHAKE.len };
 // Where someone is d metres along a path: the point, the way they face, still walking or not
 function along(pts, d) {
   let left = Math.max(0, d);
@@ -53,6 +57,16 @@ function along(pts, d) {
   return { pos: pts.at(-1).clone(), dir: pts.at(-1).clone().sub(pts.at(-2)), walking: false };
 }
 const yawOf = (dir) => Math.atan2(-dir.x, -dir.z);
+// Turn a bone so its length (+Y) points along a world direction, k of the way (as cast.js)
+function aim(bone, want, k) {
+  bone.updateMatrixWorld(true);
+  const qb = bone.getWorldQuaternion(new THREE.Quaternion());
+  const now = new THREE.Vector3(0, 1, 0).applyQuaternion(qb);
+  const world = new THREE.Quaternion().setFromUnitVectors(now, want).multiply(qb);
+  const qp = bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+  bone.quaternion.slerp(qp.multiply(world), k);
+  bone.updateMatrixWorld(true);
+}
 const turnTo = (from, to, k) => from + (((to - from + 3 * Math.PI) % (2 * Math.PI)) - Math.PI) * k;
 
 export class Trondheim {
@@ -86,7 +100,9 @@ export class Trondheim {
         scene.add(root);
         const talk = clip('talk');
         talk?.setEffectiveWeight(0).play();
-        return { root, mixer, idle: clip('idle'), walk: clip('walk'), talk, act: null, mouth: null, level: 0 };
+        const bones = {};
+        root.traverse((o) => { if (o.isBone) bones[o.name.replace('.', '')] = o; });
+        return { root, mixer, bones, idle: clip('idle'), walk: clip('walk'), talk, act: null, mouth: null, level: 0 };
       };
       if (me) {
         this.me = person(me);
@@ -162,6 +178,9 @@ export class Trondheim {
     const a = CAM.B.clone().lerp(mid, k), b = mid.clone().lerp(CAM.A, k);
     const pos = a.lerp(b, k);
     const at = CAM.B_AT.clone().lerp(CAM.A_AT, THREE.MathUtils.smoothstep(k, 0.1, 0.8));
+    // then in beside the two of them for the handshake
+    const c = THREE.MathUtils.smoothstep(t, CLOSE.from, CLOSE.to);
+    if (c > 0) return { pos: pos.lerp(CLOSE.pos, c), at: at.lerp(CLOSE.at, c), fov: THREE.MathUtils.lerp(55, CLOSE.fov, c) };
     return { pos, at, fov: THREE.MathUtils.lerp(50, 55, k) };
   }
 
@@ -221,6 +240,29 @@ export class Trondheim {
       p.talk?.setEffectiveWeight(Math.min(1, p.level * 1.6));
       p.mixer.update(dt);
     }
+    this.shake(this.t ?? 0);
+  }
+
+  // The handshake: both right hands out to the point between them, pumping
+  // gently, blended in and out over the clips
+  shake(t) {
+    const me = this.me, ceo = this.ceo;
+    if (!me || !ceo || this.tIn !== null) return;
+    const k = THREE.MathUtils.smoothstep(t, SHAKE.at - 0.4, SHAKE.at) * (1 - THREE.MathUtils.smoothstep(t, SHAKE.at + SHAKE.len - 0.3, SHAKE.at + SHAKE.len + 0.2));
+    if (!k) return;
+    const hand = me.root.position.clone().lerp(ceo.root.position, 0.5);
+    hand.y = Math.max(me.root.position.y, ceo.root.position.y) + 0.98 + 0.035 * Math.sin((t - SHAKE.at) * Math.PI * 4.4);
+    for (const [p, q] of [[me, ceo], [ceo, me]]) {
+      const up = p.bones.upper_armR, fore = p.bones.forearmR, h = p.bones.handR;
+      if (!up || !fore) continue;
+      p.root.updateMatrixWorld(true);
+      const toward = q.root.position.clone().sub(p.root.position).setY(0).normalize();
+      aim(up, new THREE.Vector3(0, -1, 0).addScaledVector(toward, 0.55).normalize(), k);
+      const elbow = fore.getWorldPosition(new THREE.Vector3());
+      const dir = hand.clone().sub(elbow).normalize();
+      aim(fore, dir, k);
+      if (h) aim(h, dir, k);
+    }
   }
 
   frame(now) {
@@ -232,7 +274,7 @@ export class Trondheim {
     }
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    const t = (now - this.t0) / 1000, p = this.pose(t), cam = this.camera;
+    const t = this.t = (now - this.t0) / 1000, p = this.pose(t), cam = this.camera;
     this.place(t);
     this.mouths(dt);
     cam.position.copy(p.pos);
