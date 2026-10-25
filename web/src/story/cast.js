@@ -156,9 +156,11 @@ export class Cast {
     let moved = null, any = false;
     for (const [who, p] of Object.entries(this.people)) {
       const name = cast[who]?.at, spot = SPOTS[name];
-      // the state's spot unchanged since we last put them there: leave them be
-      // (they may have walked off since, which the beat's moves are doing)
-      if (name === p.want && (p.root.visible || !spot)) continue;
+      // the state's spot unchanged since we last put them there (they may have
+      // walked off since, which the beat's moves are doing: a mid-beat `set`
+      // re-applies the beat's start), or they have walked there by now (the
+      // next beat names where the last one's moves took them): leave them be
+      if ((name === p.want || name === p.at) && (p.root.visible || !spot)) { p.want = name; continue; }
       any = true;
       p.at = name; p.want = name;
       p.queue.length = 0; p.task = null;
@@ -506,8 +508,7 @@ export class Cast {
       if (p.task && p.task.step(dt)) {
         p.task = null;
         if (!p.queue.length) {
-          // there now: the next place() naming this spot leaves them (and the chairs) as they are
-          if (p.atAfter) { p.at = p.want = p.atAfter; p.atAfter = null; }
+          if (p.atAfter) { p.at = p.atAfter; p.atAfter = null; }
           for (const r of p.waiters ?? []) r();
           p.waiters = [];
         }
