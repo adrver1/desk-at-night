@@ -2,7 +2,7 @@
 control_buddy: CtrlBuddy, the AI agent mascot from Adriaen's talk, as a
 low-poly robot. A tall domed head with ear bolts, wide dark shades under
 frowning brows, a small nose and a flat mouth, pointed collar flaps over the
-shoulders, a white tabard with a name badge, and segmented arms with
+shoulders, a grey tabard with a name badge, and segmented arms with
 joint rings. Its team-mates share the body and swap the badge and hat:
 the Scholar (COMPILER, mortarboard and bow tie) and the Nurse (LINTER,
 nurse cap and a first-aid patch).
@@ -36,7 +36,7 @@ FORMS, ROLES = ("walker", "hover", "desk"), ("buddy", "scholar", "nurse")
 DESK_SCALE, DESK_HEAD = 0.3, 1.6
 
 # Colours
-METAL, DARK, TABARD, COLLAR, LENS, INK = "light_grey", "charcoal", "white", "light_grey", "lens", "black"
+METAL, DARK, TABARD, COLLAR, LENS, INK = "light_grey", "charcoal", "light_grey", "light_grey", "lens", "black"
 
 # Head: rings of (z, half width, half depth, forward offset, region),
 # a tall rounded box with a dome on top, as drawn
