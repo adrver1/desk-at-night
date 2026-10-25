@@ -7,6 +7,8 @@ Textures for the control room's whiteboards, drawn with PIL:
                    for who is on shift, who is on call, and open work
     notes_board()  a mobile whiteboard with a hand-drawn process sketch
     esd_panel()    the printed front of the hardwired ESD matrix panel
+    photo_print()  the Ivar Aasen portrait in the desk photo frame, plain
+                   or with hearts doodled around it in marker
 
 Everything is generic and seeded, so the same image comes out every build.
 Each returns the path of a PNG in blender/build/boards/.
@@ -515,6 +517,73 @@ def binder_spines(size, shelves, seed=4, ppm=1100):
     for z0 in shelves:  # the shelf boards, which sit in front of this face anyway
         d.rectangle([0, y(z0 + 0.0125), W, y(z0 - 0.0125)], fill=(150, 152, 154))
     return _save(img, "binders.png")
+
+
+# ------------------------------------------------------------ photo frame
+
+PORTRAIT = os.path.join(HERE, "assets", "ivar_aasen_rusti.jpg")
+HEART_RED, HEART_PINK = (200, 30, 55), (232, 96, 150)
+
+
+def heart(n=48):
+    """Unit heart outline, x across and y up, about 1 wide and 0.9 tall,
+    centred on the middle of its bounding box (shared with props.py)."""
+    pts = [(16 * math.sin(t) ** 3, 13 * math.cos(t) - 5 * math.cos(2 * t) - 2 * math.cos(3 * t) - math.cos(4 * t))
+           for t in (2 * math.pi * i / n for i in range(n))]
+    y0, y1 = min(p[1] for p in pts), max(p[1] for p in pts)
+    return [(x / 32, (y - (y0 + y1) / 2) / 32) for x, y in pts]
+
+
+def _heart_doodle(d, rng, x, y, s, color, filled):
+    """A marker heart of width s at (x, y), a little wobbly and turned."""
+    a = rng.uniform(-0.45, 0.45)
+    pts = []
+    for hx, hy in heart(36):
+        hx, hy = hx * s * rng.uniform(0.97, 1.03), -hy * s * rng.uniform(0.97, 1.03)
+        pts.append((x + hx * math.cos(a) - hy * math.sin(a), y + hx * math.sin(a) + hy * math.cos(a)))
+    if filled:
+        d.polygon(pts, fill=color)
+    d.line(pts + pts[:2], fill=color, width=max(3, int(s * 0.09)), joint="curve")
+
+
+def _portrait(w, h, centre=(0.5, 0.5)):
+    """The drawing cropped to w:h around `centre` (fractions of the image),
+    printed: a touch warm, the paper a little lighter."""
+    im = Image.open(PORTRAIT).convert("L")
+    iw, ih = im.size
+    cw, ch = (iw, iw * h / w) if iw / ih < w / h else (ih * w / h, ih)
+    cx, cy = centre[0] * iw, centre[1] * ih
+    x0, y0 = min(max(cx - cw / 2, 0), iw - cw), min(max(cy - ch / 2, 0), ih - ch)
+    im = im.crop((round(x0), round(y0), round(x0 + cw), round(y0 + ch))).resize((w, h), Image.LANCZOS)
+    im = im.point(lambda v: min(255, int(v * 1.08 + 6)))
+    return Image.merge("RGB", [im.point(lambda v, k=k: int(v * k)) for k in (1.0, 0.97, 0.91)])
+
+
+def photo_print(style="stickers", size=(0.105, 0.132), ppm=7000, seed=14):
+    """The print behind the glass, size (w, h) in metres. "doodle": on a
+    cream card mount with red and pink marker hearts all round it; "heart":
+    cropped tighter on the face, for a heart-shaped window; otherwise the
+    plain portrait with a thin white print border."""
+    W, H = round(size[0] * ppm), round(size[1] * ppm)
+    rng = random.Random(seed)
+    if style == "doodle":
+        img = Image.new("RGB", (W, H), (240, 234, 222))
+        m = round(0.016 * ppm)
+        img.paste(_portrait(W - 2 * m, H - 2 * m), (m, m))
+        d = ImageDraw.Draw(img)
+        spots = [(0.07, 0.06, 1.0), (0.93, 0.07, 0.8), (0.06, 0.94, 0.8), (0.92, 0.93, 1.1), (0.50, 0.04, 0.6),
+                 (0.05, 0.50, 0.6), (0.95, 0.42, 0.7), (0.30, 0.96, 0.6), (0.70, 0.965, 0.55), (0.96, 0.68, 0.5),
+                 (0.04, 0.26, 0.5), (0.04, 0.73, 0.55), (0.27, 0.035, 0.5), (0.73, 0.035, 0.55),
+                 (0.86, 0.80, 0.9), (0.15, 0.17, 0.7)]  # the last two stray onto the drawing's corners
+        for i, (x, y, s) in enumerate(spots):
+            _heart_doodle(d, rng, x * W, y * H, s * m * 1.15, HEART_RED if i % 3 else HEART_PINK, i % 4 == 0)
+        return _save(img, "photo_doodle.png")
+    if style == "heart":
+        return _save(_portrait(W, H, (0.52, 0.42)), "photo_heart.png")
+    img = Image.new("RGB", (W, H), (246, 245, 240))
+    m = round(0.004 * ppm)
+    img.paste(_portrait(W - 2 * m, H - 2 * m), (m, m))
+    return _save(img, "photo_" + style + ".png")
 
 
 def _save(img, name):

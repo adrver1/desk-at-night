@@ -16,6 +16,7 @@ import bmesh
 import bpy
 from mathutils import Euler, Matrix, Vector
 
+import boards
 import build as b
 
 
@@ -188,6 +189,39 @@ class Builder:
             bmesh.ops.remove_doubles(self.bm, verts=list(new), dist=1e-7)
             live = [v for v in new if v.is_valid]
             self._xform(live, Matrix.Translation(center) @ orient)
+        self._new(mat, make)
+
+    def slab(self, outer, depth, center, mat, inner=None, orient=Matrix(), bevel=0.0):
+        """A flat shape cut from a sheet `depth` thick along Y: `outer` is a
+        closed (x, z) outline; with `inner` (the same number of points) it
+        is a ring with that hole. `bevel` rounds its front and back edges."""
+        def make():
+            before = set(self.bm.verts)
+            y0, y1 = -depth / 2, depth / 2
+            lo = [self.bm.verts.new((x, y0, z)) for x, z in outer]
+            hi = [self.bm.verts.new((x, y1, z)) for x, z in outer]
+            n = len(outer)
+            for i in range(n):
+                j = (i + 1) % n
+                self.bm.faces.new((lo[i], lo[j], hi[j], hi[i]))
+            if inner:
+                ilo = [self.bm.verts.new((x, y0, z)) for x, z in inner]
+                ihi = [self.bm.verts.new((x, y1, z)) for x, z in inner]
+                for i in range(n):
+                    j = (i + 1) % n
+                    self.bm.faces.new((ilo[j], ilo[i], ihi[i], ihi[j]))
+                    self.bm.faces.new((lo[i], ilo[i], ilo[j], lo[j]))
+                    self.bm.faces.new((hi[j], ihi[j], ihi[i], hi[i]))
+            else:
+                self.bm.faces.new(lo[::-1])
+                self.bm.faces.new(hi)
+            if bevel:
+                loops = [lo, hi] + ([ilo, ihi] if inner else [])
+                rims = [self.bm.edges.get((vs[i], vs[(i + 1) % n])) for vs in loops for i in range(n)]
+                bmesh.ops.bevel(self.bm, geom=rims, offset=bevel, offset_type="OFFSET", segments=2,
+                                profile=0.5, affect="EDGES", clamp_overlap=True)
+            new = [v for v in set(self.bm.verts) - before if v.is_valid]
+            self._xform(new, Matrix.Translation(center) @ orient)
         self._new(mat, make)
 
     def done(self, smooth=False):
@@ -1232,9 +1266,95 @@ def make_kettle(m, name="Kettle"):
     return o
 
 
+# ------------------------------------------------------ desk photo frame
+
+# Each style's print size (w, h, m), what shows of it inside the frame
+PHOTO_STYLES = {
+    "doodle": (0.135, 0.165),    # oak frame, hearts doodled on the card mount in marker
+    "stickers": (0.105, 0.132),  # white frame with puffy heart stickers stuck on it
+    "heart": (0.13, 0.117),      # heart-shaped frame, the portrait in a heart window
+}
+PHOTO_TILT = math.radians(14)  # leans back on its easel leg
+
+
+def _photo_mats(m):
+    def flat(name, color, rough):
+        return bpy.data.materials.get(name) or b.mat_flat(name, color, rough)
+    return {
+        "oak": flat("PropOak", (0.55, 0.36, 0.20), 0.5),
+        "white": flat("PropFrameWhite", (0.86, 0.85, 0.82), 0.4),
+        "red": flat("PropHeartRed", (0.62, 0.05, 0.09), 0.35),
+        "pink": flat("PropHeartPink", (0.80, 0.25, 0.45), 0.35),
+        "backing": flat("PropBacking", (0.18, 0.13, 0.09), 0.9),
+    }
+
+
+def make_photo_frame(m, name="PhotoFrame", style="stickers", face=None):
+    """Small desk photo frame leaning back on an easel leg, for the portrait
+    of Ivar Aasen (boards.photo_print). Front toward -Y, standing on z = 0,
+    origin under the middle of its front edge. The print is a child object
+    named <name>Face, upright in its own frame (x across, z up, facing -Y),
+    so the bake can give it a sharp image of its own, like the whiteboards.
+    Styles are in PHOTO_STYLES."""
+    pm = _photo_mats(m)
+    w, h = PHOTO_STYLES[style]
+    tilt = _rot(x=-PHOTO_TILT)
+    fr = Builder(name)
+    if style == "heart":
+        outline = boards.heart(64)
+        hw = w / 0.80  # the window is 80 % of the frame's width
+        outer = [(x * hw, z * hw) for x, z in outline]
+        inner = [(x * w, z * w) for x, z in outline]
+        H = 0.9 * hw
+        lift = H / 2  # the frame's middle, above its tip
+        fr.slab(outer, 0.016, Vector((0, 0.0, lift)), pm["red"], inner=inner, bevel=0.003)
+        fr.slab(outer, 0.004, Vector((0, 0.010, lift)), pm["backing"])
+        face_at = Vector((0, 0.004, lift))
+        top = H
+    else:
+        rail = 0.018 if style == "doodle" else 0.022
+        depth = 0.016 if style == "doodle" else 0.020
+        mat = pm["oak"] if style == "doodle" else pm["white"]
+        W, H = w + 2 * rail - 0.006, h + 2 * rail - 0.006  # the rails overlap the print by 3 mm
+        lift = H / 2
+        for s in (-1, 1):
+            fr.box((W, depth, rail), Vector((0, 0, lift + s * (H - rail) / 2)), mat)
+            fr.box((rail, depth, H - 2 * rail), Vector((s * (W - rail) / 2, 0, lift)), mat)
+        fr.box((W - 0.004, 0.004, H - 0.004), Vector((0, depth / 2 + 0.001, lift)), pm["backing"])
+        face_at = Vector((0, 0.002, lift))
+        top = H
+        if style == "stickers":  # puffy hearts stuck on the frame
+            for x, z, size, col, turn in ((-W / 2 + 0.012, H - 0.010, 0.034, "red", 0.35),
+                                          (W / 2 - 0.006, 0.030, 0.026, "pink", -0.3),
+                                          (W / 2 - 0.022, 0.012, 0.016, "red", 0.2),
+                                          (0.012, H - 0.004, 0.014, "pink", -0.15)):
+                pts = [(px * size, pz * size) for px, pz in boards.heart(32)]
+                fr.slab(pts, 0.005, Vector((x, -depth / 2 - 0.003, z)), pm[col],
+                        orient=_rot(y=turn), bevel=0.0018)
+    # Lean it all back about the front edge, then prop it up with an easel
+    # leg from two thirds up its back down to the desk
+    bmesh.ops.transform(fr.bm, matrix=tilt, verts=fr.bm.verts)
+    hinge = tilt @ Vector((0, 0.014, top * 0.62))
+    foot = Vector((0, hinge.y + top * 0.35, 0.0))
+    leg = foot - hinge
+    fr.box((0.022, 0.004, leg.length), (hinge + foot) / 2, pm["backing"],
+           orient=Vector((0, 0, 1)).rotation_difference(leg).to_matrix().to_4x4())
+    frame = fr.done()
+    pf = Builder(name + "Face")
+    if style == "heart":
+        pf.slab([(x * w, z * w) for x, z in boards.heart(64)], 0.001, Vector(), face or m["paper"])
+    else:
+        pf.box((w, 0.001, h), Vector(), face or m["paper"])
+    pf = pf.done()
+    pf.parent = frame
+    pf.matrix_parent_inverse = Matrix()
+    pf.matrix_basis = tilt @ Matrix.Translation(face_at)
+    return frame
+
+
 ALL = [make_keyboard, make_mouse, make_mousepad, make_mug, make_mic, make_notepad, make_pencil,
        make_chair, make_videobar, make_touchpanel, make_lightpanel, make_deskphone, make_ptz_camera,
        make_ceiling_tv, make_whiteboard, make_ceiling_mic, make_esd_panel, make_fg_panel, make_shelving,
        make_link_stand, make_pillar, make_sofa, make_coffee_table, make_kitchenette, make_plant,
        make_coffee_machine, make_thermos, make_kettle, make_fern, make_wall_clock,
-       make_floor_lamp, make_desk_lamp]
+       make_floor_lamp, make_desk_lamp, make_photo_frame]

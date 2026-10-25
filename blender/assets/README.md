@@ -11,3 +11,11 @@ textures. `props.py` maps those colours onto our prop materials.
 To rebuild it:
 
     .venv/bin/python blender/import_assets.py -- --kettle path/to/electrickeetle.blend
+
+## Images
+
+| File | Source | Licence | Author |
+| --- | --- | --- | --- |
+| `ivar_aasen_rusti.jpg` | Charcoal portrait of Ivar Aasen, signed "Olav Rusti", scaled down to 800 px greyscale | Public domain (artist died 1920) | Olav Rusti |
+
+`boards.photo_print()` frames it for the desk photo frame (`props.make_photo_frame`).
