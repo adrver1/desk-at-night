@@ -37,7 +37,7 @@ export const SPOTS = {
   table3: { at: [3.3, 2.0], face: TABLE },
   tableBand: { at: [1.3, 1.5], face: [0, -4] },   // at the meeting table, turned to the band (Brage, tomorrow)
   door: { at: [4.75, 2.3], face: [0, 0] },         // just in through the door in the right wall
-  coffee: { at: [4.85, 4.72], face: [4.85, 6] },   // at the coffee machine in the rest corner
+  coffee: { at: [4.85, 4.72], face: [4.85, 6], left: [1, [4, 3.6]] },   // at the coffee machine in the rest corner; his chair left turned toward it
 };
 
 // Tomorrow's morning (Adriaen, 2026-10-25): the walks and the coffee run, in
@@ -191,7 +191,10 @@ export class Cast {
       const c = this.game.chairs[i]?.obj;
       const sat = Object.values(this.people).some((p) => p.root.visible && SPOTS[p.at]?.chair === i);
       if (!c || sat) continue;
-      const [x, z, yaw] = moved?.[0] === i ? moved[1] : home;
+      // left turned by someone who got up from it (a jump straight to them away)
+      const left = Object.values(this.people).map((p) => p.root.visible && SPOTS[p.at]?.left).find((l) => l?.[0] === i);
+      const turned = left && [home[0], home[1], yawTo(left[1][0] - home[0], left[1][1] - home[1])];
+      const [x, z, yaw] = moved?.[0] === i ? moved[1] : turned ?? home;
       c.position.x = x; c.position.z = z; c.rotation.y = yaw;
     }
     if (moved) { const c = this.game.chairs[moved[0]].obj; [c.position.x, c.position.z, c.rotation.y] = moved[1]; }
@@ -335,14 +338,15 @@ export class Cast {
         }
         // then swings back round to the desk, chair and all
         const s2 = s1 + 0.9;
-        if (k - dt < s1) { this.fade(p, 'seated_idle', 0.3); if (su) su.timeScale = 1; }
+        // (the stand-up clip stays frozen as it fades out: played on, it would lift him off the seat)
+        if (k - dt < s1) this.fade(p, 'seated_idle', 0.3);
         const u = smooth((k - s1) / (s2 - s1));
         const yaw = face + wrap(home[2] - face) * u;
         c.rotation.y = yaw;
         const fy = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
         root.rotation.y = yaw;
         root.position.copy(pivot).addScaledVector(fy, 0.06);
-        if (k >= s2) { if (m.then) this.fade(p, m.then, 0.6); return true; }
+        if (k >= s2) { if (su) su.timeScale = 1; if (m.then) this.fade(p, m.then, 0.6); return true; }
         return false;
       };
     } else if (m.stand !== undefined) {
@@ -502,7 +506,8 @@ export class Cast {
       if (p.task && p.task.step(dt)) {
         p.task = null;
         if (!p.queue.length) {
-          if (p.atAfter) { p.at = p.atAfter; p.atAfter = null; }
+          // there now: the next place() naming this spot leaves them (and the chairs) as they are
+          if (p.atAfter) { p.at = p.want = p.atAfter; p.atAfter = null; }
           for (const r of p.waiters ?? []) r();
           p.waiters = [];
         }
