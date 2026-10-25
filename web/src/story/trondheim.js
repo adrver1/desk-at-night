@@ -13,12 +13,20 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { loadModel } from './cast.js';
+import { FlagField, loadCloth } from '../flags.js';
+import flagCloth from '../flag-cloth/flag.bin?url';
 
 const BASE = 'story/trondheim/';
 const GLIDE = 14;   // s from the drone view down to the door
 const SKY = 0xf1f3f4;
 // Blender's frame (x east, y north, z up) to three's (y up, north along -z)
 const V = (x, y, z) => new THREE.Vector3(x, z, -y);
+// The Aker BP flags on Føniks's five masts fly south along the front, as on
+// Adriaen's photo of the entrance, in a breeze between a light and a fresh one
+// (flags.js option C: the baked cloth). Hoists from flags.json, written by the
+// Føniks export.
+const FLAG_DOWNWIND = new THREE.Vector3(0.3, 0, 1).normalize();   // three's axes: south, a little out to the square
+const flagWind = (t) => 7 + 1.5 * Math.sin(t * 0.23) + 0.8 * Math.sin(t * 0.71 + 1);   // m/s
 // The cameras of preview_trondheim.py: B is fitted to Adriaen's drone photo
 // over the south-east corner, A stands at the Føniks door looking at it
 const CAM = {
@@ -65,11 +73,13 @@ export class Trondheim {
   load() {
     this.loaded ??= (async () => {
       const loader = new GLTFLoader();
-      const [torvet, foniks, me, ceo] = await Promise.all([
+      const [torvet, foniks, me, ceo, flags] = await Promise.all([
         loader.loadAsync(`${BASE}torvet.glb`).catch((e) => { console.warn('trondheim: torvet.glb', e); return null; }),
         loader.loadAsync(`${BASE}foniks.glb`).catch((e) => { console.warn('trondheim: foniks.glb', e); return null; }),
         loadModel('bearded_operator').catch(() => null),   // one year ago: his own clothes, no PPE
         loadModel('glasses_ceo').catch(() => null),        // in town: no PPE either
+        Promise.all([fetch(`${BASE}flags.json`).then((r) => r.json()), loadCloth('flag', flagCloth)])
+          .catch((e) => { console.warn('trondheim: flags', e); return null; }),
       ]);
       const scene = this.scene = new THREE.Scene();
       scene.background = new THREE.Color(SKY);
@@ -79,6 +89,13 @@ export class Trondheim {
       sun.position.set(60, 90, 40);
       scene.add(sun, sun.target);
       for (const g of [torvet, foniks]) if (g) scene.add(g.scene);
+      if (flags) {
+        const [{ hoists }, cloth] = flags;
+        this.flags = new FlagField('flag', 'c', hoists.map(([x, y, z]) => ({ position: V(x, y, z) })), { cloth });
+        this.sunDir = sun.position.clone().normalize();
+        this.sunColor = sun.color;
+        scene.add(this.flags);
+      }
       // People: { root, mixer, idle, walk, talk, act }
       const person = (g) => {
         const root = g.scene, mixer = new THREE.AnimationMixer(root);
@@ -242,6 +259,7 @@ export class Trondheim {
     cam.rotateX(0.003 * Math.sin(t * 0.51 + 1));
     if (cam.fov !== p.fov) cam.fov = p.fov;
     cam.updateProjectionMatrix();
+    this.flags?.update(t, cam, { speed: flagWind(t), dir: FLAG_DOWNWIND, sunDir: this.sunDir, sunColor: this.sunColor });
     r.render(this.scene, cam);
   }
 }

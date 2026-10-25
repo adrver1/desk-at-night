@@ -235,10 +235,42 @@ def _logo():
 LOGO = _logo()
 
 
-def flag_mast(x, y, h=9.0, z0=0.0):
-    """A white mast with a hanging banner flag: white, the logo on both faces."""
+# Flags on the Føniks masts: "traditional" (Adriaen's pick, 2026-10-25, as on his
+# photo of the entrance) is a 2.2 x 1.6 m flag on a halyard that the game animates
+# (web/src/flags.js, the "flag" kind); "banner" is the earlier banner on an arm
+FLAG_STYLE = os.environ.get("TRD_FLAGS", "traditional")
+FLAG_W, FLAG_H = 2.2, 1.6   # web/src/flags.js KINDS.flag
+
+
+def flag_mast(x, y, h=9.0, z0=0.0, style=None):
+    """A white mast with a flag: white, the logo on both faces. A traditional flag
+    flies from a halyard on the mast's -x side (where the wind blows it in the
+    still renders); a "FlagHoist" empty marks its top hoist corner for the game,
+    and its cloth ("FlagCloth") is left out of the game's export."""
+    style = style or FLAG_STYLE
     cyl("Mast", (x, y, z0), 0.06, h, "frame", 6)
     cyl("Truck", (x, y, z0 + h), 0.1, 0.12, "frame", 4)
+    if style == "traditional":
+        hx, top = x - 0.09, z0 + h - 0.12
+        box("Halyard", (x - 0.075, y, (z0 + 1.2 + top) / 2), (0.012, 0.012, top - z0 - 1.2), "frame")
+        box("Cleat", (x - 0.07, y, z0 + 1.2), (0.05, 0.05, 0.15), "frame")
+        hoist = bpy.data.objects.new("FlagHoist", None)
+        bpy.context.collection.objects.link(hoist)
+        hoist.location = (hx, y, top)
+        fx = hx - FLAG_W / 2   # flying out to -x, flat, for the stills
+        box("FlagCloth", (fx, y, top - FLAG_H / 2), (FLAG_W, 0.02, FLAG_H), "flag")
+        lw, lh, lz, fw = 0.8, 0.95, top - FLAG_H * 0.4, FLAG_W
+        for face in (-1, 1):
+            for k, (swatch, outline) in enumerate(LOGO):
+                u0 = (lambda u: -u) if face > 0 else (lambda u: u)
+                off = face * (0.0115 + 0.002 * k)
+                pts = [(fx + u0(u - 0.5) * lw, y + off, lz + (v - 0.5) * lh) for u, v in outline]
+                me = bpy.data.meshes.new("FlagClothLogo")
+                me.from_pydata(pts, [], [tuple(range(len(pts)))])
+                o = bpy.data.objects.new("FlagClothLogo", me)
+                scene.collection.objects.link(o)
+                me.materials.append(M[swatch])
+        return
     fw, fh, top = 1.0, 2.6, z0 + h - 0.4
     fx = x + 0.08 + fw / 2
     box("Flag", (fx, y, top - fh / 2), (fw, 0.02, fh), "flag")
@@ -586,7 +618,11 @@ def foniks():
     for x in (cols[0], (d0 + d1) / 2, cols[3]):
         bpy.ops.mesh.primitive_uv_sphere_add(segments=6, ring_count=4, radius=0.16, location=(x, -0.9, 5.0))
         bpy.context.object.data.materials.append(M["lamp"])
-    for x in (s0 - 2.6, s0 - 0.5, s1 + 0.4, s1 + 2.2):   # four masts on the terrace, beside the platform steps
+    # four masts on the terrace, beside the platform steps: the traditional flags need
+    # ~3.2 m between masts to fly along the front without hitting the next one (as on
+    # Adriaen's photo of the entrance), the narrow banners fitted in closer
+    masts = (s0 - 3.7, s0 - 0.5, s1 + 0.4, s1 + 3.6) if FLAG_STYLE == "traditional" else (s0 - 2.6, s0 - 0.5, s1 + 0.4, s1 + 2.2)
+    for x in masts:
         before = set(bpy.data.objects)
         flag_mast(x, -PD - 1.3)
         for o in set(bpy.data.objects) - before:
@@ -1149,7 +1185,16 @@ def export_glb():
     keep = FONIKS_OBJS | {o for o in bpy.data.objects if o.name.startswith(("Foniks", "PergolaPost", "RoofBar"))}
     # Lean export: drop buried and flush-hidden faces, then one mesh per material
     import mesh_cleanup
-    keep = [o for o in keep if o.type == "MESH"]
+    # the flags' cloth is animated in the game (web/src/flags.js): only their hoist points go
+    hoists = [o for o in keep if o.type == "EMPTY" and "FlagHoist" in o.name]
+    if hoists:
+        import json
+        bpy.context.view_layer.update()
+        pts = [[round(c, 3) for c in o.matrix_world.translation] for o in hoists]
+        with open(os.path.join(os.path.dirname(os.path.abspath(args.glb)), "flags.json"), "w") as f:
+            json.dump({"kind": "flag", "frame": "square, Blender axes (x east, y north, z up), metres",
+                       "hoists": sorted(pts)}, f, indent=1)
+    keep = [o for o in keep if o.type == "MESH" and "FlagCloth" not in o.name]
     mesh_cleanup.strip_hidden(keep)
     mesh_cleanup.fronts_only(keep, {"Win", "Mullion", "Transom", "Cartouche", "DormerWin", "Capital", "FoniksAnnexWin",
                                     "FoniksAnnexTopWin", "FoniksAnnexJointWin", "FoniksAnnexFrame", "FoniksAnnexRail", "FoniksAnnexFinBack", "FoniksAnnexGrille", "FoniksAnnexBalustrade", "Fanlight", "Door", "BrickPanel", "SouthBand", "NorthBand",
