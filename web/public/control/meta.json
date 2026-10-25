@@ -1,7 +1,7 @@
 {
-  "scaleCeiling": 1.5458691120147705,
-  "scaleScreens": 0.2781735956668854,
-  "scaleSky": 0.5612779855728149,
+  "scaleCeiling": 1.5450955629348755,
+  "scaleScreens": 0.2761036455631256,
+  "scaleSky": 0.5624074339866638,
   "seaLevel": -52.7,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
@@ -75,7 +75,7 @@
     "floorlamp": {
       "map": "light_floorlamp.png",
       "body": "FloorLamp",
-      "scale": 2.2771620750427246
+      "scale": 2.1018660068511963
     }
   },
   "boards": {
@@ -83,7 +83,9 @@
     "WhiteboardShiftFace": "board_shift.png",
     "WhiteboardNotesFace": "board_notes.png",
     "WhiteboardEsdFace": "board_esd.png",
-    "WhiteboardBindersFace": "board_binders.png"
+    "WhiteboardBindersFace": "board_binders.png",
+    "WhiteboardPhoto0Face": "board_photo0.png",
+    "WhiteboardPhoto1Face": "board_photo1.png"
   },
   "layout": {
     "desks": [

@@ -452,7 +452,7 @@ def binders_board():
 
 # Boards: name -> where it hangs or stands. "wall" boards hang on a wall,
 # "stand" boards are mobile ones on castors, "esd" is the hardwired ESD
-# panel's printed front. Each gets its own sharp texture in the bake.
+# panel's printed front, "photo:<style>" a desk photo frame (PHOTO_FRAMES). Each gets its own sharp texture in the bake.
 # (draw, size, (x, y, z of the face's middle back), yaw, kind)
 BOARDS = {
     "Pnid": (boards.pnid_board, (2.4, 1.2), (ROOM_X, 1.45, 1.45), -math.pi / 2, "wall"),
@@ -462,17 +462,42 @@ BOARDS = {
     "Binders": (binders_board, props.shelving_face(SHELVING)[:2], (-1.05, ROOM_Y0, 0.0), 0.0, "shelf"),
 }
 
+# Desk photo frames of Ivar Aasen with hearts, one per desk: (frame style
+# from props.PHOTO_STYLES, picture from boards.PORTRAITS). Every style and
+# picture stays available; this picks what stands in the room.
+PHOTO_FRAMES = [("stickers", "drawing"), ("doodle", "photo")]
+PHOTO_SPOT = (-0.55, 0.33, 28)  # x right, y ahead of the operator edge, yaw in degrees; mirrored like the extras
+
+
+def _photo_boards():
+    out = {}
+    for k, (style, picture) in enumerate(PHOTO_FRAMES):
+        a, flip = DESKS[k], (-1 if k else 1)
+        x, y, yaw = PHOTO_SPOT
+        right, ahead = Vector((math.cos(a), -math.sin(a), 0)), Vector((math.sin(a), math.cos(a), 0))
+        p = polar(r_front(a), a, DESK_Z) + right * (flip * x) + ahead * y
+        size = props.PHOTO_STYLES[style]
+        out[f"Photo{k}"] = (lambda style=style, size=size, picture=picture: boards.photo_print(style, size, picture),
+                            size, tuple(p), -a + math.radians(flip * yaw), "photo:" + style)
+    return out
+
+
+BOARDS.update(_photo_boards())
+
 
 def build_boards(m):
     """The P&ID whiteboard on the right-hand wall, a shift board on castors
     by the hanging TV, a mobile whiteboard at the right end of the band,
     the hardwired ESD panel on the rear wall with its fire & gas unit, and
-    the binder shelving beside it."""
+    the binder shelving beside it, and the photo frames on the desks."""
     pm = props.materials()
     for name, (draw, size, (x, y, z), yaw, kind) in BOARDS.items():
         face = props.board_material("Board" + name, draw(), size)
         if kind == "shelf":
             props.place(props.make_shelving(pm, "Whiteboard" + name, SHELVING, face), x, y, z, yaw + math.pi)
+            continue
+        if kind.startswith("photo:"):
+            props.place(props.make_photo_frame(pm, "Whiteboard" + name, kind[6:], face), x, y, z, yaw)
             continue
         if kind == "esd":
             o = props.make_esd_panel(pm, "Whiteboard" + name, face, size)
