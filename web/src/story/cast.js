@@ -43,11 +43,14 @@ export const SPOTS = {
 // Tomorrow's morning (Adriaen, 2026-10-25): the walks and the coffee run, in
 // three's x, z. Brage comes in by the door, round the meeting table to his
 // chair at the left desk; Adriaen goes through the opening in the rear wall
-// to the coffee machine and back with the jug to Brage's mug.
+// to the coffee machine and back with the jug to Brage's mug. The desks are an
+// arc round the room's centre (radius 1.95 to 2.95 m, the right one reaching
+// round to about x 2.9, z -0.4), so the way to the rest corner first steps back
+// into the middle of the room and round the desk's end.
 export const PATHS = {
   doorToDesk0: [[4.75, 2.3], [3.9, 1.05], [1.6, 0.2], [0.2, -0.45], [-0.62, -0.9]],
-  desk2ToCoffee: [[1.6, -1.0], [2.9, 0.3], [3.85, 1.4], [4.05, 3.1], [4.15, 4.0], [4.85, 4.72]],
-  coffeeToDesk0: [[4.85, 4.72], [4.15, 4.0], [4.05, 3.1], [3.6, 1.3], [1.6, 0.1], [0.3, -1.0], [-0.22, -1.62]],
+  desk2ToCoffee: [[1.45, -0.9], [1.5, 0.2], [3.3, 1.0], [3.9, 1.6], [4.05, 3.1], [4.15, 4.0], [4.85, 4.72]],
+  coffeeToDesk0: [[4.85, 4.72], [4.15, 4.0], [4.05, 3.1], [3.6, 1.4], [1.6, 0.3], [0.3, -1.0], [-0.22, -1.62]],
   desk0ToDesk2: [[-0.22, -1.62], [0.35, -0.95], [1.55, -0.95]],
 };
 const WALK_SPEED = 1.15;   // m/s, matching the walk clip's stride
@@ -152,10 +155,14 @@ export class Cast {
     let moved = null, any = false;
     for (const [who, p] of Object.entries(this.people)) {
       const name = cast[who]?.at, spot = SPOTS[name];
-      if (name === p.at && (p.root.visible || !spot)) continue;
+      // the state's spot unchanged since we last put them there: leave them be
+      // (they may have walked off since, which the beat's moves are doing)
+      if (name === p.want && (p.root.visible || !spot)) continue;
       any = true;
-      p.at = name;
+      p.at = name; p.want = name;
       p.queue.length = 0; p.task = null;
+      for (const r of p.waiters ?? []) r();   // nobody waits for moves that will never come
+      p.waiters = [];
       p.root.visible = Boolean(spot);
       if (p.carry && !spot) this.carry(p, null);
       if (!spot) continue;
@@ -193,7 +200,7 @@ export class Cast {
   halt() {
     for (const p of Object.values(this.people)) {
       if (!p.task && !p.queue.length) continue;
-      p.queue.length = 0; p.task = null; p.at = null;
+      p.queue.length = 0; p.task = null; p.at = null; p.want = null;
       for (const r of p.waiters ?? []) r();
       p.waiters = [];
     }

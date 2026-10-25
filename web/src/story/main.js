@@ -39,7 +39,7 @@ const host = document.getElementById('game');
 const ui = new StoryUI(host, { privateBase: PRIVATE });
 // The chapter navigator along the bottom (?nav=a|b|c, off with ?nav=0); see ui.nav
 const NAV = new URLSearchParams(location.search).get('nav') ?? 'b';
-if (NAV !== '0') ui.nav(CHAPTERS, NAV, (c, i) => (c === 'next' ? next() : c === 'back' ? back() : enter(c, i, { instant: true })));
+if (NAV !== '0') ui.nav(CHAPTERS, NAV, (c, i) => { sound.wake(); return c === 'next' ? next() : c === 'back' ? back() : enter(c, i, { instant: true }); });
 const sound = new Sound();
 const call = new Call(ui.el.call);
 const trondheim = new Trondheim(host);
@@ -263,7 +263,7 @@ async function rewind(over, my, dir) {
   const t0 = performance.now(), from = state.time ?? 12, span = 24 * 3;
   const screens = Object.keys(state.screens ?? {}).concat(Object.keys(DEFAULT_LAYOUT)).filter((n, i, a) => a.indexOf(n) === i);
   host.classList.add(dir < 0 ? 'rewinding' : 'forwarding');
-  clockFace?.show(true);   // the rest corner's clock, big over the picture
+  clockFace?.show(dir < 0);   // the rest corner's clock, big over the picture, on the way back to one year ago only
   sound.cut();
   let off = 0;
   while (performance.now() - t0 < over * 1000) {
@@ -357,6 +357,7 @@ addEventListener('keydown', (e) => {
 });
 function handleKey(e) {
   if (e.repeat) return;
+  sound.wake();
   if (e.code === 'KeyF') return toggleFree();
   if (e.code === 'KeyO' && free) { ui.el.debug.hidden = !ui.el.debug.hidden; return debugPanel(); }
   if (free) return;
@@ -369,6 +370,7 @@ function handleKey(e) {
 // A click on the picture (not on a button) also moves on, like a clicker
 host.addEventListener('click', (e) => {
   if (free || begin.parentNode || e.target.closest('button, .clickable, .debug')) return;
+  sound.wake();
   next();
 });
 

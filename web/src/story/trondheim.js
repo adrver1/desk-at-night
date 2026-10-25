@@ -28,10 +28,11 @@ const CAM = {
   A: V(-28.5, 30.5, 1.7), A_AT: V(-44.5, 37.5, 2.7),
   ME: V(-33.5, 31.5, 0),   // Adriaen by the fountain, turned to the camera at A
 };
-// As the camera arrives he turns round and walks to the entrance: round the
-// fountain to the left-hand door (Adriaen, 2026-10-25). His height follows
-// the ground, steps and ramp under him.
-const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-38, 33, 0), V(-43.6, 34.8, 0)] };
+// As the camera arrives he turns round and walks to the entrance: up the
+// steps south of the fountain (not over the ramp's rail), across the terrace
+// and up the platform steps to the left-hand door (Adriaen, 2026-10-25). His
+// height follows the ground and steps under him.
+const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-34.6, 34.6, 0), V(-39.6, 35.3, 0), V(-41.4, 35.9, 0), V(-43.4, 38.0, 0)] };
 
 export class Trondheim {
   constructor(host) {

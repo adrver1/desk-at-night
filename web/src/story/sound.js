@@ -44,15 +44,21 @@ export class Sound {
   preload(ids) { if (this.ctx) for (const id of ids) this.buffer(id); }
 
   // Play a line; resolves when it ends (or at once if it has no audio, after
-  // a reading time so its subtitle still shows)
+  // a reading time so its subtitle still shows). A suspended audio context
+  // (a phone may suspend it) never fires 'ended', so the line's own length,
+  // plus a little, ends it too: a silent line must not stall the beat.
   async line(id, { gain = 1 } = {}) {
     const dur = this.index[id]?.dur;
+    if (this.ctx?.state === 'suspended') this.ctx.resume?.();
     const buf = this.ctx ? await this.buffer(id) : null;
     if (!buf) { await new Promise((r) => setTimeout(r, (dur ?? 3) * 1000)); return; }
     this.duck(true);
-    await this.play(buf, gain);
+    await Promise.race([this.play(buf, gain), new Promise((r) => setTimeout(r, (buf.duration + 0.5) * 1000))]);
     this.duck(false);
   }
+
+  // On a click or key (the browser lets audio start only then): wake the context if it slept
+  wake() { if (this.ctx?.state !== 'running') this.ctx?.resume?.(); }
 
   play(buf, gain = 1) {
     return new Promise((resolve) => {
