@@ -1,6 +1,7 @@
 // Story mode QA: open story.html, enter each beat of the chosen chapters,
 // let it play for a while and screenshot it. Also reports page errors.
 //   node qa/story-tour.mjs <outDir> <chapter keys, e.g. 2,3> [seconds per beat] [url]
+// HIDE_UI=1 hides the overlays (stills for scripts/story-editor/seed.py).
 import { chromium } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 const [out, keys = '2', secs = '5', url = 'http://127.0.0.1:5173/story.html?nofs', vw = '1280', vh = '720'] = process.argv.slice(2);
@@ -17,7 +18,8 @@ for (const key of keys.split(',').map(Number)) {
   for (let i = 0; i < Number(n ?? 1); i++) {
     await page.evaluate(([k, b]) => __story.enter(k, b, { instant: true }), [key, i]);
     await page.waitForTimeout(+secs * 1000);
-    const id = await page.evaluate(() => __story.state.beat);
+    // HIDE_UI=1: the picture alone, for the story script editor's stills
+    const id = await page.evaluate((hide) => { if (hide) document.querySelectorAll('.story-ui').forEach((e) => (e.style.visibility = 'hidden')); return __story.state.beat; }, !!process.env.HIDE_UI);
     await page.screenshot({ path: `${out}/${key}-${String(i + 1).padStart(2, '0')}-${id}.png` });
     console.log(key, i + 1, id);
   }

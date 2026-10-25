@@ -27,7 +27,7 @@ export class StoryUI {
       title: add('title'), credit: add('credit'), subs: add('subs'), hud: add('hud'), clock: add('clockbadge'),
       clipboard: add('clipboard'), stars: add('stars'), panel: add('panel'), slide: add('slide'), log: add('log'),
       notices: add('notices'), call: add('call'), sign: add('signoff'), search: add('search'), banner: add('banner'),
-      org: add('org'), notes: add('notes'), boat: add('label3d'), debug: add('debug'),
+      org: add('org'), notes: add('notes'), boat: add('label3d'), callouts: add('callouts'), debug: add('debug'),
     };
     this.el.notes.hidden = true;
     this.el.debug.hidden = true;
@@ -237,7 +237,7 @@ export class StoryUI {
     const ids = SLIDE_ORDER, n = ids.indexOf(id) + 1;
     e.innerHTML = `<div class="num">${n} / ${ids.length}</div>`;
     const img = this.slideImages[id];
-    if (img) e.append(img);
+    if (img) { e.append(img); if (s.caption) e.append(h('div', 'cap', esc(s.caption))); }
     else e.insertAdjacentHTML('afterbegin', `<h2>${esc(s.title)}</h2><ul>${s.bullets.map((b) => `<li class="${b.startsWith('TODO') ? 'todo' : ''}">${esc(b)}</li>`).join('')}</ul>${s.placeholder ? `<div class="tag">${T('Plassholder · Adriaens lysbilde kommer her', 'Placeholder · Adriaen\'s slide goes here')}</div>` : '<div></div>'}`);
     fadeIn(e);
   }
@@ -381,6 +381,14 @@ export class StoryUI {
     ctx.fillStyle = 'rgba(6,10,16,0.82)';
     ctx.fillRect(0, 0, w, hh);
     drawGraph(ctx, w, hh, { level, since, t, bg: null });
+  }
+
+  // Pointers from the story script editor: [{ label, text, x, y }] with x, y
+  // in percent of the picture (where the editor's still puts them), or null
+  callouts(list) {
+    const e = this.el.callouts;
+    e.innerHTML = (list ?? []).map((c) => `<div class="callout${c.x > 62 ? ' left' : ''}" style="left:${c.x}%;top:${c.y}%"><div class="pin"></div><div class="lab"><b>${esc(c.label)}</b>${esc(c.text)}</div></div>`).join('');
+    e.classList.toggle('on', !!list?.length);
   }
 
   // A label pinned over a point on screen (x, y in px), or hidden

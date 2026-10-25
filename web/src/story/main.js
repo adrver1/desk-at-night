@@ -157,6 +157,7 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
   call.quiet();
   ui.subs();
   ui.title(null);
+  ui.callouts(null);
   chapter = c; beat = i;
   const ch = CHAPTERS[c], b = ch.beats[i];
   location.hash = `${ch.key}.${i + 1}`;
@@ -174,6 +175,7 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
   clockFace?.show(false);
   showHud();
   ui.notes(b.notes, notesOn);
+  ui.callouts(b.callouts);
   running = true; waiting = false;
   if (!skipDo) {
     for (const step of b.do ?? []) {

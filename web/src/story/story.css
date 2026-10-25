@@ -160,6 +160,7 @@
   background: #f7f5f0; color: #18202c; border-radius: 6px; box-shadow: 0 20px 70px #000c; overflow: hidden; display: grid; grid-template-rows: auto 1fr auto; padding: 5% 6%; }
 .slide.on { opacity: 1; transform: translate(-50%, -50%); }
 .slide img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.slide .cap { position: absolute; left: 0; right: 0; bottom: 0; background: #000b; color: #fff; padding: 1.4% 3%; font-size: calc(2 * var(--u)); }
 .slide h2 { margin: 0 0 4%; font: 600 calc(4.2 * var(--u))/1.1 var(--display); letter-spacing: -0.01em; }
 .slide ul { margin: 0; padding-left: 1.1em; display: grid; gap: 3%; align-content: start; font-size: calc(2.3 * var(--u)); line-height: 1.35; }
 .slide .tag { justify-self: start; font: 600 calc(1.1 * var(--u))/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: #9a5b00; background: #ffd78a; padding: 6px 10px; border-radius: 4px; }
@@ -322,3 +323,14 @@
 
 /* One year ago: Trondheim on its own canvas over the game (trondheim.js) */
 .trondheim { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+/* ------------------------------------------- pointers (story script editor) */
+.callouts { position: absolute; inset: 0; z-index: 9; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+.callouts.on { opacity: 1; }
+.callout { position: absolute; transform: translate(-50%, -50%); }
+.callout .pin { width: calc(1.6 * var(--u)); height: calc(1.6 * var(--u)); border-radius: 50%; background: #ffb43a; box-shadow: 0 0 0 calc(0.4 * var(--u)) #ffb43a55, 0 0 calc(1.4 * var(--u)) #ffb43a; animation: callout-pulse 1.6s infinite; }
+.callout .lab { position: absolute; left: 160%; top: 50%; transform: translateY(-50%); white-space: nowrap; background: #11161cee; border: 1px solid #ffb43a; border-radius: 8px; padding: calc(0.5 * var(--u)) calc(0.9 * var(--u)); font: max(12px, calc(1.3 * var(--u)))/1.25 var(--body); color: #fff; }
+.callout .lab b { display: block; color: #ffb43a; font: 600 max(13px, calc(1.5 * var(--u)))/1.1 var(--display); letter-spacing: 0.02em; text-transform: uppercase; }
+.callout.left .lab { left: auto; right: 160%; }
+@keyframes callout-pulse { 50% { box-shadow: 0 0 0 calc(0.9 * var(--u)) #ffb43a22, 0 0 calc(1.4 * var(--u)) #ffb43a; } }
+@media (prefers-reduced-motion: reduce) { .callout .pin { animation: none; } }

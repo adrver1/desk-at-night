@@ -35,6 +35,10 @@ fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
 
 - `content.js`: the whole script. Chapters, beats and their steps, the
   clipboard, stars, cards, slides, logs, the knowledge graph. Edit here.
+- `story.json`: the default run's on-screen text that the story script
+  editor changes: slides, the agents' chats, pointers per beat, notes and
+  title cards per beat, beats added or left out, the closing line (see
+  `web/scripts/story-editor/README.md`).
 - `lines.json`: every spoken line, with who says it and an optional `fx`
   (`radio`, `phone`, `robot` for the AI agents). The subtitles come from here too: `no` holds the
   Norwegian subtitle, `name` the name shown instead of the speaker's role.

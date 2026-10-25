@@ -1,0 +1,600 @@
+{
+ "_about": "On-screen text of the default story run that the story script editor (a private claude.ai page) edits: slides, the agents' chats, pointers (callouts) per beat, per-beat overrides of presenter notes and title cards, beats added in the editor, beats left out, and the closing line. Norwegian and English side by side. Spoken lines and their Norwegian subtitles stay in lines.json. content.js reads this file; web/scripts/story-editor/README.md says how edits come back from the editor.",
+ "slides": {
+  "y-01": {
+   "no": {
+    "title": "Trondheim, ett år tidligere",
+    "bullets": [
+     "TODO: Trondheim-scenen kommer her (drone over Torvet, ned til døra på Føniks)",
+     "Første uke i jobben"
+    ]
+   },
+   "en": {
+    "title": "Trondheim, one year ago",
+    "bullets": [
+     "TODO: the Trondheim scene goes here (drone over Torvet, down to the Føniks door)",
+     "First week on the job"
+    ]
+   },
+   "placeholder": true
+  },
+  "y-02": {
+   "no": {
+    "title": "Onboarding er bratt",
+    "bullets": [
+     "TODO(Adriaen): ditt lysbilde",
+     "Nytt anlegg, nye systemer, nye forkortelser",
+     "Tusenvis av styrende dokumenter",
+     "Hvem vet hva, og hvor står det?"
+    ]
+   },
+   "en": {
+    "title": "Onboarding is steep",
+    "bullets": [
+     "TODO(Adriaen): your slide",
+     "New plant, new systems, new acronyms",
+     "Thousands of governing documents",
+     "Who knows what, and where is it written?"
+    ]
+   },
+   "placeholder": true
+  },
+  "d-01": {
+   "no": {
+    "title": "Et bevisst valg",
+    "bullets": [
+     "TODO(Adriaen): ditt lysbilde",
+     "KI inn i min egen onboarding",
+     "Bygge verktøy for det, og for daglige reguleringsoppgaver"
+    ]
+   },
+   "en": {
+    "title": "A deliberate choice",
+    "bullets": [
+     "TODO(Adriaen): your slide",
+     "AI in my own onboarding",
+     "Build tools for it, and for daily control-engineering tasks"
+    ]
+   },
+   "placeholder": true
+  },
+  "d-02": {
+   "no": {
+    "title": "Fra spørsmål til verktøy",
+    "bullets": [
+     "TODO(Adriaen): ditt lysbilde",
+     "Hva spurte jeg om de første ukene?",
+     "Hva ble til verktøy?"
+    ]
+   },
+   "en": {
+    "title": "From questions to tools",
+    "bullets": [
+     "TODO(Adriaen): your slide",
+     "What did I ask about in the first weeks?",
+     "What became a tool?"
+    ]
+   },
+   "placeholder": true
+  },
+  "m-01": {
+   "no": {
+    "title": "Hva er mulig",
+    "bullets": [
+     "TODO(Adriaen): ditt lysbilde",
+     "Steptest-finner",
+     "Simulatorer",
+     "I-005 logikktester",
+     "Agenter for styrende dokumenter"
+    ]
+   },
+   "en": {
+    "title": "What is possible",
+    "bullets": [
+     "TODO(Adriaen): your slide",
+     "Step-test finder",
+     "Simulators",
+     "I-005 logic tester",
+     "Governing-document agents"
+    ]
+   },
+   "placeholder": true
+  },
+  "m-02": {
+   "no": {
+    "bullets": [
+     "TODO(Adriaen): ditt lysbilde",
+     "Finner brukbare strekk i historikken",
+     "Ingen tapte fat"
+    ],
+    "title": "Modeller uten nye steptester"
+   },
+   "en": {
+    "bullets": [
+     "TODO(Adriaen): your slide",
+     "Finds usable stretches in history",
+     "No lost barrels"
+    ],
+    "title": "Models without new step tests"
+   }
+  },
+  "m-03": {
+   "no": {
+    "bullets": [
+     "TODO(Adriaen): ditt lysbilde",
+     "Fysikkmodeller (Python, CasADi) som snakker OPC UA",
+     "Prøv regulatoren før anlegget gjør det"
+    ],
+    "title": "Å se er å tro"
+   },
+   "en": {
+    "bullets": [
+     "TODO(Adriaen): your slide",
+     "Physics models (Python, CasADi) that talk OPC UA",
+     "Try the controller before the plant does"
+    ],
+    "title": "Seeing is believing"
+   }
+  },
+  "m-04": {
+   "no": {
+    "title": "Test logikken før leverandøren",
+    "bullets": [
+     "TODO(Adriaen): ditt lysbilde",
+     "SCD etter I-005, kjørt i en interaktiv logikktester",
+     "Feil funnet på en laptop, ikke under igangkjøring"
+    ]
+   },
+   "en": {
+    "title": "Test the logic before the vendor",
+    "bullets": [
+     "TODO(Adriaen): your slide",
+     "SCD to I-005, run in an interactive logic tester",
+     "Mistakes found on a laptop, not at commissioning"
+    ]
+   },
+   "placeholder": true
+  },
+  "m-05": {
+   "no": {
+    "title": "Styrende dokumenter, med kilde",
+    "bullets": [
+     "TODO(Adriaen): ditt lysbilde",
+     "Agenter som svarer med henvisning",
+     "Sjekker endringer mot kravene"
+    ]
+   },
+   "en": {
+    "title": "Governing documents, with sources",
+    "bullets": [
+     "TODO(Adriaen): your slide",
+     "Agents that answer with a citation",
+     "Check changes against the requirements"
+    ]
+   },
+   "placeholder": true
+  },
+  "h-01": {
+   "no": {
+    "bullets": [
+     "TODO(Adriaen): ditt lysbilde",
+     "Utstyr, dokumenter, krav og lærdom, koblet sammen",
+     "Én kunnskapsbase, mange agenter"
+    ],
+    "title": "Kunnskapsgrafer"
+   },
+   "en": {
+    "bullets": [
+     "TODO(Adriaen): your slide",
+     "Equipment, documents, requirements and lessons, linked",
+     "One knowledge base, many agents"
+    ],
+    "title": "Knowledge graphs"
+   }
+  },
+  "h-02": {
+   "no": {
+    "bullets": [
+     "TODO(Adriaen): ditt lysbilde",
+     "Hver agent har sitt fag og sitt mandat",
+     "Mennesker leder dem"
+    ],
+    "title": "Flere agenter sammen"
+   },
+   "en": {
+    "bullets": [
+     "TODO(Adriaen): your slide",
+     "Each agent has its subject and its mandate",
+     "People lead them"
+    ],
+    "title": "Multi-agent work"
+   }
+  },
+  "h-03": {
+   "no": {
+    "bullets": [
+     "TODO(Adriaen): ditt lysbilde",
+     "Agentene bruker de samme verktøyene som oss",
+     "Historikk, simulatorer, logikktester, dokumenter"
+    ],
+    "title": "MCP-verktøy"
+   },
+   "en": {
+    "bullets": [
+     "TODO(Adriaen): your slide",
+     "The agents use the same tools we do",
+     "History, simulators, logic tester, documents"
+    ],
+    "title": "MCP tools"
+   }
+  },
+  "h-04": {
+   "no": {
+    "bullets": [
+     "TODO(Adriaen): ditt lysbilde",
+     "Inn i idédugnaden"
+    ],
+    "title": "Hva betyr det for oss?"
+   },
+   "en": {
+    "bullets": [
+     "TODO(Adriaen): your slide",
+     "Into the brainstorm"
+    ],
+    "title": "What does it mean for us?"
+   }
+  },
+  "deck-07": {
+   "no": {
+    "title": "Lysbilde 7 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 7"
+   }
+  },
+  "deck-08": {
+   "no": {
+    "title": "Lysbilde 8 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 8"
+   }
+  },
+  "deck-10": {
+   "no": {
+    "title": "Lysbilde 10 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 10"
+   }
+  },
+  "deck-11": {
+   "no": {
+    "title": "Lysbilde 11 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 11"
+   }
+  },
+  "deck-05": {
+   "no": {
+    "title": "Lysbilde 5 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 5"
+   }
+  },
+  "deck-12": {
+   "no": {
+    "title": "Lysbilde 12 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 12"
+   }
+  },
+  "deck-13": {
+   "no": {
+    "title": "Lysbilde 13 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 13"
+   }
+  },
+  "deck-14": {
+   "no": {
+    "title": "Lysbilde 14 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 14"
+   }
+  },
+  "deck-15": {
+   "no": {
+    "title": "Lysbilde 15 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 15"
+   }
+  },
+  "deck-16": {
+   "no": {
+    "title": "Lysbilde 16 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 16"
+   }
+  },
+  "deck-17": {
+   "no": {
+    "title": "Lysbilde 17 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 17"
+   }
+  },
+  "deck-18": {
+   "no": {
+    "title": "Lysbilde 18 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 18"
+   }
+  }
+ },
+ "chats": {
+  "plan": {
+   "title": {
+    "no": "Forretningsplan-agent",
+    "en": "Business-plan agent"
+   },
+   "who": "Brage",
+   "messages": [
+    [
+     "me",
+     {
+      "no": "Hvordan holder forretningsplanen hvis den nye brønnen kommer tre måneder for sent?",
+      "en": "How does the business plan hold up if the new well comes in three months late?"
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Produksjonen faller litt i tredje kvartal. To prosjekter kan flyttes fram og dekke gapet. Skal jeg lage utkast til begge?",
+      "en": "Production dips a little in the third quarter. Two projects can move forward to fill the gap. Shall I draft both?"
+     }
+    ],
+    [
+     "me",
+     {
+      "no": "Ja, lag begge. Og merk det som trenger godkjenning offshore.",
+      "en": "Yes, draft both. And flag anything that needs sign-off offshore."
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Utkastene er klare. To punkter trenger godkjenning, og de er sendt til kontrollrommet.",
+      "en": "Drafts ready. Two items need sign-off, and they have gone to the control room."
+     }
+    ]
+   ]
+  },
+  "slug": {
+   "title": {
+    "no": "Reguleringsagent · anti-slug",
+    "en": "Control agent · anti-slug"
+   },
+   "who": "Adriaen",
+   "messages": [
+    [
+     "me",
+     {
+      "no": "Stigerøret begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?",
+      "en": "The riser started slugging again overnight. Can you retune the anti-slug controller?"
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Ny modell tilpasset fra nattens data. Den foreslåtte innstillingen holder stigerøret stabilt i simulatoren.",
+      "en": "New model fitted from last night's data. The proposed tuning holds the riser steady in the simulator."
+     }
+    ],
+    [
+     "me",
+     {
+      "no": "Bra. Kjør den gjennom logikktesteren før jeg signerer.",
+      "en": "Good. Run it through the logic tester before I sign."
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Alle 14 testtilfeller består. Klar for din signatur.",
+      "en": "All 14 test cases pass. Ready for your signature."
+     }
+    ]
+   ]
+  }
+ },
+ "callouts": {
+  "t.brage": [
+   {
+    "target": "Wall3Screen",
+    "label": {
+     "no": "Forretningsplan-agent",
+     "en": "Business-plan agent"
+    },
+    "text": {
+     "no": "Brage spør, agenten svarer på båndet",
+     "en": "Brage asks, the agent answers on the band"
+    },
+    "x": 55,
+    "y": 28
+   }
+  ],
+  "m.step": [
+   {
+    "target": "Desk0Mon2Screen",
+    "label": {
+     "no": "Steptest-finner",
+     "en": "Step-test finder"
+    },
+    "text": {
+     "no": "Finner brukbare strekk i historikken",
+     "en": "Finds usable stretches in history"
+    },
+    "x": 30,
+    "y": 52
+   }
+  ],
+  "m.riser": [
+   {
+    "target": "Desk0Mon3Screen",
+    "label": {
+     "no": "Stigerørsimulator",
+     "en": "Riser simulator"
+    },
+    "text": {
+     "no": "Se det fylles og blåse gjennom",
+     "en": "Watch it fill and blow through"
+    },
+    "x": 33,
+    "y": 58
+   }
+  ],
+  "m.scd": [
+   {
+    "target": "Desk0Mon2Screen",
+    "label": {
+     "no": "I-005 logikktester",
+     "en": "I-005 logic tester"
+    },
+    "text": {
+     "no": "Trykk på bryterne for å teste",
+     "en": "Press the switches to test"
+    },
+    "x": 52,
+    "y": 80
+   }
+  ],
+  "m.docs": [
+   {
+    "target": "Desk0Mon4Screen",
+    "label": {
+     "no": "Dokumentagent",
+     "en": "Document agent"
+    },
+    "text": {
+     "no": "Svar med kilde",
+     "en": "Answers with a source"
+    },
+    "x": 18,
+    "y": 78
+   }
+  ],
+  "h.g1": [
+   {
+    "target": "band",
+    "label": {
+     "no": "Kunnskapsgrafen",
+     "en": "The knowledge graph"
+    },
+    "text": {
+     "no": "Vokser når kunnskap legges til",
+     "en": "Grows as knowledge is added"
+    },
+    "x": 12,
+    "y": 30
+   }
+  ]
+ },
+ "beats": {},
+ "inserted": [
+  {
+   "after": "h.s1",
+   "id": "new.deck07",
+   "slide": "deck-07",
+   "notes": "Deck slide 7."
+  },
+  {
+   "after": "new.deck07",
+   "id": "new.deck08",
+   "slide": "deck-08",
+   "notes": "Deck slide 8."
+  },
+  {
+   "after": "new.deck08",
+   "id": "new.deck10",
+   "slide": "deck-10",
+   "notes": "Deck slide 10. Left out for now: switch it on if there is time."
+  },
+  {
+   "after": "new.deck10",
+   "id": "new.deck11",
+   "slide": "deck-11",
+   "notes": "Deck slide 11. Left out for now: switch it on if there is time."
+  },
+  {
+   "after": "h.s2",
+   "id": "new.deck05",
+   "slide": "deck-05",
+   "notes": "Deck slide 5."
+  },
+  {
+   "after": "new.deck05",
+   "id": "new.deck12",
+   "slide": "deck-12",
+   "notes": "Deck slide 12."
+  },
+  {
+   "after": "new.deck12",
+   "id": "new.deck13",
+   "slide": "deck-13",
+   "notes": "Deck slide 13."
+  },
+  {
+   "after": "new.deck13",
+   "id": "new.deck14",
+   "slide": "deck-14",
+   "notes": "Deck slide 14. Left out for now: switch it on if there is time."
+  },
+  {
+   "after": "new.deck14",
+   "id": "new.deck15",
+   "slide": "deck-15",
+   "notes": "Deck slide 15. Left out for now: switch it on if there is time."
+  },
+  {
+   "after": "new.deck15",
+   "id": "new.deck16",
+   "slide": "deck-16",
+   "notes": "Deck slide 16. Left out for now: switch it on if there is time."
+  },
+  {
+   "after": "new.deck16",
+   "id": "new.deck17",
+   "slide": "deck-17",
+   "notes": "Deck slide 17. Left out for now: switch it on if there is time."
+  },
+  {
+   "after": "new.deck17",
+   "id": "new.deck18",
+   "slide": "deck-18",
+   "notes": "Deck slide 18. Left out for now: switch it on if there is time."
+  }
+ ],
+ "hidden": [
+  "new.deck10",
+  "new.deck11",
+  "new.deck14",
+  "new.deck15",
+  "new.deck16",
+  "new.deck17",
+  "new.deck18"
+ ],
+ "closing": {
+  "no": "Denne delen er ikke vår å bestemme. Den er deres.",
+  "en": "This part isn't ours to decide. It's yours."
+ }
+}
