@@ -29,7 +29,7 @@ WASD and the mouse, for questions and for debugging.
 
 URL options: `?chapter=N` (or `#chapter.beat`), `?mode=free`, `?nofs` (no
 fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
-`?sola=1` (the Sola apron opening, see below), `?story=full`, `?lang=en|no`, `?grade=1` (the old colour grades per act, off by default).
+`?sola=0` (skips the Sola apron opening, on by default; see below), `?story=full`, `?lang=en|no`, `?grade=1` (the old colour grades per act, off by default).
 
 ## Files
 
@@ -44,7 +44,7 @@ fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
   window. `epilogue.js`: the fly-out to the whole platform.
 - `ui.js`, `story.css`: overlays. `storyScreens.js`, `graph.js`: what the
   room's monitors and the display band show in story mode.
-- `sola.js`: the optional opening on the apron at Sola.
+- `sola.js`: the opening on the apron at Sola (on by default).
 - `trondheim.js`: one year ago, Torvet in Trondheim as a dream (chapter 3,
   `place: 'trondheim'`), on its own canvas. Models in
   `public/story/trondheim/`: `torvet.glb` (the dream variant of

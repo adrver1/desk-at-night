@@ -149,6 +149,7 @@ export class Epilogue {
   hide() {
     if (!this.on) return;
     this.on = false;
+    if (this.inside) this.inside.visible = true;
     const r = this.game.hooks.reflect, i = r.indexOf(this.scene);
     if (i >= 0) r.splice(i, 1);
     if (this.was) {
@@ -170,6 +171,13 @@ export class Epilogue {
 
   update(dt) {
     if (!this.on || !this.root) return;
+    // The night platform only once the camera is out through the window: until
+    // then the room's own view of the platform (its Outside mesh) shows, and
+    // the two models drawn together fight where they overlap
+    const out = this.game.camera.position.x < -5.6;
+    this.scene.visible = out;
+    this.inside ??= this.game.room.root.getObjectByName('Outside');
+    if (this.inside) this.inside.visible = !out;
     this.t = (performance.now() - this.t0) / 1000;   // wall clock, so a slow frame rate doesn't stretch it
     const L = this.game.outdoor3.light;
     // The sky, plus the platform's own floodlights at night

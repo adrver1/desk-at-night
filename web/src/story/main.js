@@ -6,8 +6,8 @@
 //
 // Keys: Space or → next, ← back, 1-9 chapter, F free mode (and back), P
 // presenter notes, O debug overlay (free mode). A presentation clicker sends
-// the same keys. URL: ?chapter=N, ?mode=free, ?sola=1 (the optional Sola
-// apron scene before the flight), ?nofs (no fullscreen on start),
+// the same keys. URL: ?chapter=N, ?mode=free, ?sola=0 (skips the Sola apron
+// scene before the flight, on by default), ?nofs (no fullscreen on start),
 // ?story=full (the three-act version), ?lang=en|no (on-screen language).
 import * as THREE from 'three';
 import '../play.js';
@@ -43,10 +43,10 @@ const sound = new Sound();
 const call = new Call(ui.el.call);
 const trondheim = new Trondheim(host);
 let cast = null, shots = null, epilogue = null;
-// The Sola opening (?sola=1) and its callback stills in Acts 1 and 3
-// (?solastills=1, on with ?sola=1 unless ?solastills=0). Both off by default.
-const SOLA_OPEN = q.get('sola') === '1';
-const SOLA_STILLS = (q.get('solastills') ?? (SOLA_OPEN ? '1' : '0')) === '1';
+// The Sola opening (on by default since 2026-10-25, off with ?sola=0) and its
+// callback stills in Acts 1 and 3 of the full version (only with ?solastills=1)
+const SOLA_OPEN = q.get('sola') !== '0';
+const SOLA_STILLS = q.get('solastills') === '1';
 const sola = SOLA_OPEN || SOLA_STILLS ? Object.assign(new Sola(game, { open: SOLA_OPEN }), { sound, titleText: TITLE, credits: CREDITS, music: MUSIC }) : null;
 for (const ch of CHAPTERS) ch.beats = ch.beats.filter((b) => !b.sola || SOLA_STILLS);
 
@@ -304,6 +304,7 @@ function next() {
     sound.cut();
     cast?.quiet(); call.quiet();
     ui.subs();
+    if (!b.card) ui.title(null);   // a title its steps put up goes with them
     if (b.end) apply(merge(state, b.end));
     if (state.sound === 'alarm') sound.startAlarm(0.1);
     running = false; waiting = true;

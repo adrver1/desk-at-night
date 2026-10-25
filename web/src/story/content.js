@@ -493,7 +493,7 @@ const SHORT_CHAPTERS = [
     beats: [{ id: 'pro', set: { act: 0 }, notes: 'Fade in from black. Title, credits, the flight. Space at the end goes to tomorrow\'s control room.' }],
   },
   {
-    key: 2, id: 'tomorrow', name: T('I morgen · Kontrollrommet', 'Tomorrow · The control room'),
+    key: 2, id: 'tomorrow', name: T('Framtidens EIGA', 'Tomorrow\'s EIGA'),
     base: { act: 3, time: 11.5, shot: 'wideRoom', ...DESK, cast: TOMORROW_CAST, graph: 5, graphOn: 'band', chats: { plan: 0, slug: 0 }, screens: TOMORROW_SCREENS },
     beats: [
       { id: 't.open', auto: true, do: [{ wait: 7 }], notes: 'Runs by itself for about a minute and a half. The control room of tomorrow: Brage at the meeting table, Adriaen at his desk, each with an agent.' },
@@ -519,8 +519,8 @@ const SHORT_CHAPTERS = [
     key: 3, id: 'year-ago', name: T('Ett år tidligere · Trondheim', 'One year ago · Trondheim'),
     base: { act: 5, time: 8.5, shot: 'desk', ...DESK, cast: {}, graph: 0, screens: BLANK },
     beats: [
-      { id: 'y.card', card: { text: T('Ett år tidligere', 'One year ago'), solid: true }, notes: 'One year ago. From here on you talk; Space moves on.' },
-      { id: 'y.trondheim', set: { place: 'trondheim' }, notes: 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you at the Føniks door. Your first week on the job.' },
+      { id: 'y.card', card: { text: '', solid: true }, notes: 'A plain black screen after the question. From here on you talk; Space moves on.' },
+      { id: 'y.trondheim', set: { place: 'trondheim' }, do: [{ wait: 0.8 }, { card: { text: T('For et år siden', 'One year ago'), sub: T('I november 2025', 'November 2025') } }, { wait: 6 }, { card: null }], notes: 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you at the Føniks door, the titles fade as it closes in, and you turn and walk in. Your first week on the job.' },
       { id: 'y.steep', set: { overlay: 'slide:y-02' }, notes: 'Onboarding is steep. TODO(Adriaen): your talking points.' },
       { id: 'y.room', set: { overlay: null, place: null, shot: 'band', screens: null }, notes: 'The room as it was to a newcomer: screens full of things you have yet to learn.' },
     ],

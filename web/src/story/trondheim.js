@@ -28,6 +28,10 @@ const CAM = {
   A: V(-28.5, 30.5, 1.7), A_AT: V(-44.5, 37.5, 2.7),
   ME: V(-33.5, 31.5, 0),   // Adriaen by the fountain, turned to the camera at A
 };
+// As the camera arrives he turns round and walks to the entrance: round the
+// fountain to the left-hand door (Adriaen, 2026-10-25). His height follows
+// the ground, steps and ramp under him.
+const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-38, 33, 0), V(-43.6, 34.8, 0)] };
 
 export class Trondheim {
   constructor(host) {
@@ -57,10 +61,14 @@ export class Trondheim {
         p.position.copy(CAM.ME);
         p.rotation.y = Math.atan2(-(CAM.A.x - CAM.ME.x), -(CAM.A.z - CAM.ME.z));
         this.mixer = new THREE.AnimationMixer(p);
-        const idle = THREE.AnimationClip.findByName(me.animations, 'idle');
-        if (idle) this.mixer.clipAction(idle).play();
+        const clip = (n) => { const c = THREE.AnimationClip.findByName(me.animations, n); return c && this.mixer.clipAction(c); };
+        this.idle = clip('idle');
+        this.walk = clip('walk');
+        this.me = p;
+        this.faceCam = p.rotation.y;
         scene.add(p);
       }
+      this.ground = [torvet?.scene, foniks?.scene].filter(Boolean);
       this.camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.3, 1500);
       this.ok = Boolean(torvet || foniks);
     })();
@@ -82,6 +90,7 @@ export class Trondheim {
     this.host.insertBefore(this.renderer.domElement, this.host.querySelector('.tint'));   // over the game, under the story's overlays
     this.t0 = performance.now();
     this.last = this.t0;
+    this.place(0);
     const loop = (now) => {
       if (!this.on) return;
       this.frame(now);
@@ -109,6 +118,30 @@ export class Trondheim {
     return { pos, at, fov: THREE.MathUtils.lerp(50, 55, k) };
   }
 
+  // Adriaen at t seconds: facing the camera, then turning and walking the
+  // path to the door, then standing there
+  place(t) {
+    const p = this.me;
+    if (!p) return;
+    const pts = WALK.path, d = Math.max(0, t - WALK.at - 0.6) * WALK.speed;   // 0.6 s to turn first
+    let pos = pts.at(-1), dir = pts.at(-1).clone().sub(pts.at(-2)), left = d, walking = false;
+    for (let i = 1; i < pts.length; i++) {
+      const seg = pts[i].clone().sub(pts[i - 1]), len = seg.length();
+      if (left < len) { pos = pts[i - 1].clone().addScaledVector(seg, left / len); dir = seg; walking = true; break; }
+      left -= len;
+    }
+    const want = t < WALK.at ? this.faceCam : Math.atan2(-dir.x, -dir.z);
+    const turn = THREE.MathUtils.smoothstep(t, WALK.at, WALK.at + 0.6);
+    p.rotation.y = this.faceCam + (((want - this.faceCam + 3 * Math.PI) % (2 * Math.PI)) - Math.PI) * (t < WALK.at ? 0 : turn);
+    // Feet on whatever is under him: ground, terrace steps, the ramp
+    this.ray ??= new THREE.Raycaster();
+    this.ray.set(new THREE.Vector3(pos.x, 4, pos.z), new THREE.Vector3(0, -1, 0));
+    const hit = this.ray.intersectObjects(this.ground, true).find((h) => h.face && h.face.normal.clone().transformDirection(h.object.matrixWorld).y > 0.7);
+    p.position.set(pos.x, hit ? hit.point.y : 0, pos.z);
+    const act = walking && t >= WALK.at + 0.6 ? this.walk : this.idle;
+    if (act && act !== this.act) { act.reset().fadeIn(0.3).play(); this.act?.fadeOut(0.3); this.act = act; }
+  }
+
   frame(now) {
     const r = this.renderer, cv = r.domElement;
     const w = cv.parentElement?.clientWidth || innerWidth, h = cv.parentElement?.clientHeight || innerHeight;
@@ -118,8 +151,9 @@ export class Trondheim {
     }
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    this.mixer?.update(dt);
     const t = (now - this.t0) / 1000, p = this.pose(t), cam = this.camera;
+    this.place(t);
+    this.mixer?.update(dt);
     cam.position.copy(p.pos);
     cam.lookAt(p.at);
     // A breath of life once it has landed
