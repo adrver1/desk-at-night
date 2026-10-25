@@ -19,7 +19,9 @@ await page.evaluate(([c, b, m, st]) => {
   cast.update = ((orig) => function (dt, cam, now) { if (!window.__manual) orig.call(this, dt, cam, now); })(cast.update);
   window.__manual = true;
   const from = JSON.parse(st);
-  if (Object.keys(from).length) { for (const p of Object.values(cast.people)) p.at = null; cast.place(from); }
+  if (Object.keys(from).length) { for (const p of Object.values(cast.people)) { p.at = null; p.want = null; } cast.place(from); }
+  const V = __game.camera.position.constructor, sh = __story.shots();
+  sh.custom = () => sh.look(new V(2.2, 7.5, 0.3), new V(2.2, 0, 0.29), 60);   // 'epilogue' as a checkpoint shot: straight down on the room
   window.__tick = (s) => { for (let i = 0; i < s * 30; i++) cast.constructor.prototype.update.call(cast, 1 / 30, __game.camera, performance.now() / 1000); };
   for (const [who, mv] of JSON.parse(m)) cast.move(who, mv);
 }, [chapter, beat, moves, start]);
