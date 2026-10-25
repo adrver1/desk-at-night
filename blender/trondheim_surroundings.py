@@ -41,7 +41,7 @@ def build(g, variant="v2"):
     {"v1": v1, "v2": v2, "v3": v3, "dream": v3}[variant]()
     if DREAM:
         whiten((set(bpy.data.objects) - before)
-               | {o for o in bpy.data.objects if o.name.startswith(("Ground", "Paving", "FoniksBack"))})
+               | {o for o in bpy.data.objects if o.name.startswith(("Ground", "Paving", "FoniksBack", "YellowBers"))})
 
 
 def finish(g):

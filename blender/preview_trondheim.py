@@ -40,23 +40,51 @@ def srgb(h):
 
 M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "cobble": ("#8a8780", 0.95), "granite": ("#a7a49d", 0.8), "dark": ("#3b3e41", 0.6),
-    "bronze": ("#4f6b5d", 0.45), "glass": ("#2a3540", 0.15), "phoenix": ("#d8c8ae", 0.75),
+    "bronze": ("#4f6b5d", 0.45), "glass": ("#42535f", 0.15), "phoenix": ("#d9c49c", 0.75),
     "roof": ("#5e4b40", 0.8), "road": ("#505356", 0.9), "tree": ("#4f6a35", 1.0),
     "trunk": ("#4a3a2c", 1.0), "c1": ("#c9a77c", 0.8), "c2": ("#b46a4f", 0.8),
     "c3": ("#e2ddcf", 0.8), "c4": ("#8f9b8a", 0.8), "c5": ("#c7b07a", 0.8),
-    "brick": ("#8e3b2e", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
+    "brick": ("#8a5442", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
     "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
-    "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3a3d42", 0.7), "roof_light": ("#8f9498", 0.8),
-    "copper": ("#6e3a2c", 0.55), "plinth": ("#59625d", 0.8), "amber": ("#61798a", 0.08), "glass_curve": ("#86a3b8", 0.06), "skylight": ("#c9cdcf", 0.5), "door": ("#4a2c1e", 0.5),
+    "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3e3738", 0.7), "roof_light": ("#8f9498", 0.8),
+    "canvas": ("#e4dac2", 0.9), "copper": ("#7f4c45", 0.55), "blind": ("#a9aeb0", 0.7), "blind_green": ("#8fb3a3", 0.7), "plinth": ("#59625d", 0.8), "amber": ("#61798a", 0.08), "glass_curve": ("#86a3b8", 0.06), "skylight": ("#c9cdcf", 0.5), "door": ("#4a2c1e", 0.5),
     "bronze_dark": ("#2f3a33", 0.45), "gold": ("#b8913a", 0.35), "travertine": ("#dcd2bf", 0.8), "orange": ("#c9583a", 0.8),
 }.items()}
 
 
+_CUBE_V = [(-.5, -.5, -.5), (.5, -.5, -.5), (.5, .5, -.5), (-.5, .5, -.5),
+           (-.5, -.5, .5), (.5, -.5, .5), (.5, .5, .5), (-.5, .5, .5)]
+_CUBE_F = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
+
+
 def box(name, loc, size, mat, rot=0.0):
-    bpy.ops.mesh.primitive_cube_add(size=1, location=loc, rotation=(0, 0, rot))
-    o = bpy.context.object
-    o.name, o.scale = name, size
-    o.data.materials.append(M[mat])
+    """A unit cube scaled to size. Built through the data API: bpy.ops primitives cost
+    ~50 ms each (a scene update per call), which made up most of a Føniks export."""
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(_CUBE_V, [], _CUBE_F)
+    me.materials.append(M[mat])
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
+    o.location, o.rotation_euler, o.scale = loc, (0, 0, rot), size
+    return o
+
+
+def pane(name, face, c, z, w, h, at, mat):
+    """A single quad facing out of a wall: face "s" faces -y (c = x, at = y), "w" faces
+    -x (c = y, at = x), "e" faces +x. For flat things on a wall (glass, frames): 2 triangles, and as an
+    open sheet strip_hidden() never mistakes it for buried."""
+    u0, u1, z0, z1 = c - w / 2, c + w / 2, z - h / 2, z + h / 2
+    if face == "s":
+        v = [(u0, at, z0), (u1, at, z0), (u1, at, z1), (u0, at, z1)]
+    elif face == "e":
+        v = [(at, u0, z0), (at, u1, z0), (at, u1, z1), (at, u0, z1)]
+    else:
+        v = [(at, u1, z0), (at, u0, z0), (at, u0, z1), (at, u1, z1)]
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(v, [], [(0, 1, 2, 3)])
+    me.materials.append(M[mat])
+    o = bpy.data.objects.new(name, me)
+    bpy.context.collection.objects.link(o)
     return o
 
 
@@ -160,6 +188,7 @@ def paving(name, size):
 # 1950s block on the south side and Munkegata running south past it to the cathedral
 SQ_W, SQ_E, SQ_S, SQ_N = -44.5, 42.0, -49.0, 43.0
 FONIKS_FRONT, FONIKS_SOUTH, FW = -44.5, 20.5, 38.0   # Føniks: front line, south end, length
+REST_RD, REST_RS = 7.0, 6.0   # the glass restaurant: depth of its front arm, of its south arm
 
 M["lamp"] = b.mat_flat("TrdLamp", (1, 1, 1), 0.3)
 box("Ground", (0, 0, -0.05), (500, 500, 0.1), "road")
@@ -206,11 +235,11 @@ def _logo():
 LOGO = _logo()
 
 
-def flag_mast(x, y, h=9.0):
+def flag_mast(x, y, h=9.0, z0=0.0):
     """A white mast with a hanging banner flag: white, the logo on both faces."""
-    cyl("Mast", (x, y, 0), 0.06, h, "frame", 6)
-    cyl("Truck", (x, y, h), 0.1, 0.12, "frame", 4)
-    fw, fh, top = 1.0, 2.6, h - 0.4
+    cyl("Mast", (x, y, z0), 0.06, h, "frame", 6)
+    cyl("Truck", (x, y, z0 + h), 0.1, 0.12, "frame", 4)
+    fw, fh, top = 1.0, 2.6, z0 + h - 0.4
     fx = x + 0.08 + fw / 2
     box("Flag", (fx, y, top - fh / 2), (fw, 0.02, fh), "flag")
     box("FlagBar", (fx, y, top), (fw + 0.1, 0.04, 0.04), "frame")
@@ -228,21 +257,24 @@ def flag_mast(x, y, h=9.0):
             o.modifiers.new("Tri", "TRIANGULATE").quad_method = "BEAUTY"
 
 
-def window(x, z, y, w=1.35, h=2.1, arch=False, side=False):
-    """A white-framed window with the white cross (mullion + transom) of the old hotel.
-    Faces -y, or -x with side=True (then x is along the wall and y is the wall line)."""
+def window(x, z, y, w=1.35, h=2.1, arch=False, side=False, panes=2):
+    """A white-framed window with the white cross (mullion + transom) of the old hotel,
+    or with two mullions for three panes. Faces -y, or -x with side=True (then x is
+    along the wall and y is the wall line)."""
+    # flat quads laid on the wall a centimetre apart (Adriaen: no depth needed, and they
+    # must sit on the wall, not float; closer than ~1 cm flickers on a phone's depth buffer)
     def B(name, cx, cz, sx, sz, dy, mat):
-        if side:
-            box(name, (y - dy, cx, cz), (0.12, sx, sz), mat)
-        else:
-            box(name, (cx, y - dy, cz), (sx, 0.12, sz), mat)
-    B("WinFrame", x, z, w + 0.3, h + 0.3, 0.05, "frame")
-    B("Win", x, z, w, h, 0.1, "glass")
-    B("Mullion", x, z, 0.1, h, 0.18, "frame")
-    B("Transom", x, z + h * 0.2, w, 0.1, 0.18, "frame")
-    if arch:   # a round glazed head: two flat half discs, frame behind glass
-        halfdisc("WinFrame", x, z + h / 2, w / 2 + 0.15, y - 0.11, "frame", side=side)
-        halfdisc("Win", x, z + h / 2, w / 2, y - 0.16, "glass", side=side)
+        return pane(name, "w" if side else "s", cx, cz, sx, sz, y - dy, mat)
+    B("WinFrame", x, z, w + 0.3, h + 0.3, 0.01, "frame")
+    B("Win", x, z, w, h, 0.02, "glass")
+    for u in ((x,) if panes == 2 else (x - w / 6, x + w / 6)):
+        B("Mullion", u, z, 0.1, h, 0.04, "frame")
+    # a hair behind the mullion: coplanar faces where the two cross render as a black spot
+    B("Transom", x, z + h * 0.2, w, 0.1, 0.03, "frame")
+    if arch:   # a rectangular window under a round white surround filled with render
+        # each a hair proud of the one behind: a face flush with the frame's front renders black
+        halfdisc("WinFrame", x, z + h / 2, w / 2 + 0.15, y - 0.005, "frame", side=side)
+        halfdisc("ArchFill", x, z + h / 2 + 0.12, w / 2 - 0.1, y - 0.015, "phoenix", side=side)
 
 
 def halfdisc(name, cx, cz, r, y, mat, n=8, side=False):
@@ -262,16 +294,19 @@ def balcony_door(x, z, w=1.5, h=3.65):
     """A tall door onto the front balcony (2025 photo): set in the brick under a cream
     arch with a keystone, a round sunburst fanlight over the white double door."""
     top = z + h / 2
-    box("DoorArch", (x, -0.16, (z - h / 2 + top) / 2), (w + 0.7, 0.08, h), "phoenix")
-    halfdisc("DoorArch", x, top, w / 2 + 0.35, -0.2, "phoenix")
-    box("Keystone", (x, -0.26, top + w / 2 + 0.2), (0.32, 0.08, 0.5), "phoenix")
-    window(x, z, -0.12, w, h)
-    halfdisc("WinFrame", x, top, w / 2 + 0.12, -0.235, "frame")
-    halfdisc("Win", x, top, w / 2, -0.285, "glass")
+    pane("DoorArch", "s", x, (z - h / 2 + top) / 2, w + 0.7, h, -0.02, "phoenix")   # all laid flat on the brick
+    halfdisc("DoorArch", x, top, w / 2 + 0.35, -0.02, "phoenix")
+    pane("Keystone", "s", x, top + w / 2 + 0.2, 0.32, 0.5, -0.03, "phoenix")
+    window(x, z, -0.03, w, h)
+    halfdisc("WinFrame", x, top, w / 2 + 0.12, -0.035, "frame")
+    halfdisc("Win", x, top, w / 2, -0.045, "glass")
     for k in (1, 2, 3):   # the sunburst bars
         a = math.pi * k / 4
-        b = box("Mullion", (x + 0.27 * w * math.cos(a), -0.33, top + 0.27 * w * math.sin(a)), (0.54 * w, 0.06, 0.06), "frame")
+        # not "Mullion": their inner ends bury each other, which fronts_only would
+        # take for a buried back and leave only the outer end square
+        b = box("Sunburst", (x + 0.27 * w * math.cos(a), -0.085, top + 0.27 * w * math.sin(a)), (0.54 * w, 0.01, 0.06), "frame")
         b.rotation_euler = (0, -a, 0)
+    box("SunHub", (x, -0.095, top + 0.03), (0.16, 0.01, 0.16), "frame")   # covers where the bars meet
 
 
 def rib(path, leg, at, quarter, r, z0, side):
@@ -340,24 +375,27 @@ def dormer(u, face, eave, side):
         return (face + out, along, z) if side else (along, face + out, z)
     def B(name, along, out, z, w, d, h, mat):
         box(name, P(along, out, z), (d, w, h) if side else (w, d, h), mat)
-    B("Dormer", u, 0.8, eave + 1.8, 1.6, 1.6, 2.4, "phoenix")             # z eave+0.6 .. +3.0
-    B("DormerFrame", u, -0.02, eave + 1.75, 1.2, 0.06, 2.25, "frame")
-    B("DormerWin", u, -0.06, eave + 1.75, 1.02, 0.06, 2.1, "glass")
-    B("DormerBar", u, -0.1, eave + 1.75, 0.08, 0.06, 2.1, "frame")
+    # roof tiles show between the cornice and the dormer; the window stands on a sill shelf
+    B("Dormer", u, 0.8, eave + 1.5, 1.6, 1.6, 1.8, "phoenix")             # z eave+0.6 .. +2.4
+    B("DormerSill", u, -0.08, eave + 0.68, 1.5, 0.3, 0.12, "phoenix")   # tan like the dormer (Adriaen)
+    for name, d, w, h, mat in (("DormerFrame", 0.01, 1.2, 1.56, "frame"), ("DormerWin", 0.02, 1.02, 1.42, "glass"),
+                               ("DormerBar", 0.03, 0.08, 1.42, "frame")):   # flat quads on its face
+        pane(name, "w" if side else "s", u, eave + 1.52, w, h, face - d, mat)
     # the hood: a round-topped arch, extruded back into the roof
-    n, w, rise, z0 = 6, 1.65, 0.55, eave + 3.0
+    n, w, rise, z0 = 6, 1.65, 0.55, eave + 2.4
     arc = [(-w / 2 + w * k / n, z0 + rise * (1 - (2 * k / n - 1) ** 2)) for k in range(n + 1)]
     ring = lambda out: [P(u + a_, out, z) for a_, z in arc]   # closes along its flat base
     front, back = ring(-0.05), ring(1.6)
     m = len(front)
-    faces = [tuple(range(m)), tuple(range(2 * m - 1, m - 1, -1))]
-    faces += [(i, i + 1, m + i + 1, m + i) for i in range(n)] + [(0, m, 2 * m - 1, n)]   # top, then base
-    me = bpy.data.meshes.new("DormerHood")
-    me.from_pydata(front + back, [], faces)
-    me.validate()
-    o = bpy.data.objects.new("DormerHood", me)
-    scene.collection.objects.link(o)
-    me.materials.append(M["phoenix"])
+    # a tan arched front under a slate-tiled top (Adriaen); its back and base sit in the roof
+    for name, faces, mat in (("DormerHood", [tuple(range(m))], "phoenix"),
+                             ("DormerHoodTop", [(i, i + 1, m + i + 1, m + i) for i in range(n)], "slate")):
+        me = bpy.data.meshes.new(name)
+        me.from_pydata(front + back, [], faces)
+        me.validate()
+        o = bpy.data.objects.new(name, me)
+        scene.collection.objects.link(o)
+        me.materials.append(M[mat])
 
 
 def skylight(loc, r=0.45):
@@ -392,28 +430,31 @@ def foniks():
     cx = L / 2
     box("Foniks", (cx, depth / 2, eave / 2), (L, depth, eave), "phoenix")
     box("FoniksPlinth", (cx, -0.12, 0.5), (L + 0.2, 0.3, 1.0), "plinth")   # dark green-grey base
-    box("FoniksCornice", (cx, depth / 2, eave - 0.2), (L + 0.8, depth + 0.8, 0.45), "frame")
+    box("FoniksCornice", (cx, depth / 2, eave - 0.2), (L + 0.8, depth + 0.8, 0.45), "phoenix")   # tan, like the render
     frustum("FoniksMansard", (cx, depth / 2), eave, L + 0.6, depth + 0.6, L - 3.4, depth - 3.4, 3.6, "slate")
-    frustum("FoniksRoof", (cx, depth / 2), eave + 3.6, L - 3.4, depth - 3.4, L - 14, 3, 2.6, "slate")
+    frustum("FoniksRoof", (cx, depth / 2), eave + 3.6, L - 3.4, depth - 3.4, L - 14, 0.02, 2.6, "slate")   # up to a sharp ridge (Adriaen)
     for x in (8.5, L - 8.5):
-        box("Chimney", (x, depth / 2 + 2, eave + 6.2), (1.6, 1.2, 2.0), "dark")
+        box("Chimney", (x, depth / 2, eave + 6.2 + 0.4), (1.6, 1.2, 2.0), "dark")   # astride the ridge
     # Cream corners and pilasters, red brick panels between the middle pilasters
-    # from above the ground floor up (2024 photos)
+    # from above the ground floor up (2024 photos); brick and reliefs are quads laid
+    # on the cream wall (WY: the face windows sit on)
+    WY = -0.02
     mid0, mid1 = PIER + BAY, L - PIER - BAY
     cols = [(mid0 + (i + 0.5) * (mid1 - mid0) / 4) for i in range(4)]
     bw = (mid1 - mid0) / 4
     for x0 in (0.0, L - PIER):   # brick corner piers, as on the south wall (aerial photo)
-        box("BrickPier", (x0 + PIER / 2, -0.05, (5.0 + eave - 1.2) / 2), (PIER, 0.12, eave - 1.2 - 5.0), "brick")
+        pane("BrickPier", "s", x0 + PIER / 2, (5.0 + eave - 1.2) / 2, PIER, eave - 1.2 - 5.0, -0.01, "brick")
     for x in (PIER - 0.35, L - PIER + 0.35):   # a cream strip between each pier and its bay
-        box("PierStrip", (x, -0.07, (5.0 + eave - 1.2) / 2), (0.7, 0.12, eave - 1.2 - 5.0), "phoenix")
+        pane("PierStrip", "s", x, (5.0 + eave - 1.2) / 2, 0.7, eave - 1.2 - 5.0, -0.02, "phoenix")
     for x in cols:
-        box("BrickPanel", (x, -0.05, (5.45 + eave - 0.6) / 2), (bw - 0.75, 0.12, eave - 0.6 - 5.45), "brick")   # pilasters ~0.75 m
-        box("Cartouche", (x, -0.14, 12.95), (1.3, 0.12, 0.7), "phoenix")   # carved relief between the upper windows
+        pane("BrickPanel", "s", x, (5.45 + eave - 1.2) / 2, bw - 0.75, eave - 1.2 - 5.45, -0.01, "brick")   # pilasters ~0.75 m
+        pane("Cartouche", "s", x, 12.15, 1.3, 0.7, -0.02, "phoenix")   # carved relief between the upper windows (rows 2 and 3)
     for i in range(5):   # capitals on the cream pilasters under the cornice
         box("Capital", (mid0 + i * bw, -0.16, eave - 1.2), (1.9, 0.2, 0.7), "phoenix")
     # The north bay's ground floor steps out again into a half-octagon with big
     # windows and a small dark lead roof (2025 photos)
-    ox, OP, OF, OH = L - PIER - BAY / 2, 1.2, 3.6, 4.3   # centre, how far out, front width, height
+    ox, OP, OH = L - PIER - BAY / 2, 1.2, 4.3   # centre, how far out, height
+    OF = BAY - 2 * OP   # front width: the half-octagon spans the whole bay
     oct_ = [(ox - OF / 2 - OP, -BD), (ox - OF / 2, -BD - OP), (ox + OF / 2, -BD - OP), (ox + OF / 2 + OP, -BD)]
     prism("Oriel", oct_ + [(ox + OF / 2 + OP, -BD + 0.1), (ox - OF / 2 - OP, -BD + 0.1)], 0, OH, "phoenix")
     grow = lambda pts, d: [(x + d * (1 if x > ox else -1) * (abs(x - ox) > 0.1), y - d * (y < -BD + 0.01)) for x, y in pts]
@@ -430,36 +471,33 @@ def foniks():
     o = bpy.data.objects.new("OrielRoof", me)
     scene.collection.objects.link(o)
     me.materials.append(M["dark"])
-    window(ox, 2.75, -BD - OP, 3.0, 2.3)
-    for sx in (-1, 1):   # narrow windows in the angled sides
-        a = math.radians(45 * sx)
-        cxw, cyw = ox + sx * (OF / 2 + OP / 2), -BD - OP / 2
-        n = (sx * 0.7071, -0.7071)
-        box("WinFrame", (cxw + n[0] * 0.05, cyw + n[1] * 0.05, 2.75), (1.2, 0.12, 2.6), "frame", a)
-        box("Win", (cxw + n[0] * 0.1, cyw + n[1] * 0.1, 2.75), (0.95, 0.12, 2.3), "glass", a)
+    window(ox, 2.75, -BD - OP, OF - 0.8, 2.3, panes=3)   # the angled sides are blank
     for bx in (PIER + BAY / 2, L - PIER - BAY / 2):   # the side bays come forward
         # the bays come out as far as the middle balcony and stop a floor short of
         # the eave; their tops are balconies behind a solid parapet with small slots
         box("Bay", (bx, -BD / 2, 12.7 / 2), (BAY, BD, 12.7), "phoenix")
-        box("BayCornice", (bx, -BD / 2 - 0.05, 12.75), (BAY + 0.3, BD + 0.2, 0.2), "frame")
+        box("BayCornice", (bx, -BD / 2 - 0.05, 12.75), (BAY + 0.3, BD + 0.2, 0.2), "phoenix")   # tan (Adriaen)
         box("BayParapet", (bx, -BD + 0.1, 13.35), (BAY, 0.2, 1.0), "phoenix")
         for sx in (-1, 1):
-            box("BayParapet", (bx + sx * (BAY / 2 - 0.1), -BD / 2, 13.35), (0.2, BD, 1.0), "phoenix")
+            # stop at the front parapet's back: a shared front face renders as a black stripe
+            box("BayParapet", (bx + sx * (BAY / 2 - 0.1), (-BD + 0.2) / 2, 13.35), (0.2, BD - 0.2, 1.0), "phoenix")
         for k in range(6):
             box("ParapetSlot", (bx - BAY / 2 + 0.6 + k * (BAY - 1.2) / 5, -BD - 0.02, 13.35), (0.25, 0.06, 0.35), "dark")
-    rows = (8.1, 11.3, 14.6)
+    rows = (7.2, 10.5, 13.8)   # spread over the wall, the top row clear of the frieze
     for z in rows:
         for x in (PIER / 2, L - PIER / 2):   # round-topped on the first and second floors, like the south wall
-            window(x, z, -0.12, arch=z in rows[:2])
+            window(x, z, WY, h=1.7 if z in rows[:2] else 2.1, arch=z in rows[:2])
         for bx in (PIER + BAY / 2, L - PIER - BAY / 2):
             for dx in (-1.6, 1.6):
-                window(bx + dx, z, -BD if z < 12.7 else -0.12)
+                window(bx + dx, z, -BD if z < 12.7 else WY)
         for x in cols:
             if z == rows[0]:   # tall arched doors out onto the balcony
-                balcony_door(x, 7.33, 1.2)
+                # sill on the balcony, arch top level with the round-topped pier
+                # windows, brick between the keystones and the windows above
+                balcony_door(x, 6.705, 1.2, 2.4)
             else:
-                window(x, z, -0.12, 1.05)   # narrower than the bay windows, brick either side
-    window(L - PIER / 2, 3.4, -0.12, 1.4, 2.4)   # (none behind the restaurant; the north bay has its oriel)
+                window(x, z, WY, 1.05)   # narrower than the bay windows, brick either side
+    window(L - PIER / 2, 3.4, WY, 1.4, 2.4)   # (none behind the restaurant; the north bay has its oriel)
     # Entrance (2025 street photos): a raised terrace along the front from the
     # restaurant to past the doors, wide steps down to the square that wrap round the
     # phoenix fountain (its basin is set into the steps), a ramp up along the
@@ -508,9 +546,12 @@ def foniks():
     # ...and a U-shaped ramp on up to the platform beside its steps (2025 photo): up
     # along the front towards the restaurant, a flat landing to turn on, then back
     # up along the wall to the platform
+    # (Adriaen: the low end must open onto the terrace, clear of the platform, and the
+    # landing must be a real flat turn)
     RW, ml = 1.2, (T1 + LAND) / 2
-    lx = cw + 1.2   # landing: cw..lx
-    slope(lx, s0, -RW, -2 * RW, ml, T1)
+    lx = cw + 1.6   # landing: cw..lx, deep enough to turn on
+    x_lo = s0 - 1.5   # the lower leg starts here, at terrace level; s0 - 1.5..s0 is the way in
+    slope(lx, x_lo, -RW, -2 * RW, ml, T1)
     box("RampLanding", ((cw + lx) / 2, -RW, ml / 2), (lx - cw, 2 * RW, ml), "granite")
     slope(lx, s0, 0, -RW, ml, LAND)
 
@@ -522,22 +563,22 @@ def foniks():
         a, c = Vector((*p0, z0 + 1.0)), Vector((*p1, z1 + 1.0))
         r = box("Handrail", (a + c) / 2, (0.05, 0.05, (c - a).length), "steel")
         r.rotation_euler = (c - a).to_track_quat("Z", "Y").to_euler()
-    rail((r0, -8.6), (r1, -8.6), 0.02, T1)
-    rail((r0, -7.2), (r1, -7.2), 0.02, T1)
+    rail((r0, -8.6), (r1, -8.6), 0.02, T1)   # outer side only (Adriaen: no rail along the glass)
+    rail((r1, -8.6), (cw + 1.6, -8.6), T1, T1)   # on round the top without a gap
     rail((cw + 1.6, -8.6), (cw + 1.6, -TD - 1.6), T1, T1)
-    rail((s0, -2 * RW), (lx, -2 * RW), T1, ml)   # outer rail, round the landing, between the legs
+    rail((x_lo, -2 * RW), (lx, -2 * RW), T1, ml)   # outer rail, round the landing, between the legs
     rail((lx, -2 * RW), (cw, -2 * RW), ml, ml)
     rail((cw, -2 * RW), (cw, -0.1), ml, ml)
     rail((lx, -RW), (s0, -RW), ml, LAND)
-    rail((lx, -0.1), (s0, -0.1), ml, LAND)
     rail((s1 + 0.2, -PD - 0.1), (t1, -PD - 0.1), LAND, LAND)
     for x in (d0, d1):
-        box("DoorFrame", (x, -0.08, LAND + 1.8), (2.1, 0.14, 3.6), "frame")
-        box("Door", (x, -0.15, LAND + 1.4), (1.7, 0.12, 2.8), "door")
-        box("Fanlight", (x, -0.15, LAND + 3.15), (1.7, 0.12, 0.6), "glass")
+        # top-aligned with the windows either side
+        pane("DoorFrame", "s", x, LAND + 1.575, 2.1, 3.15, -0.01, "frame")
+        pane("Door", "s", x, LAND + 1.2, 1.7, 2.4, -0.02, "door")
+        pane("Fanlight", "s", x, LAND + 2.725, 1.7, 0.55, -0.02, "glass")
     for x in (cols[0], cols[3]):
-        window(x, LAND + 1.7, -0.12, 1.5, 2.6)
-    box("EntryBalcony", ((mid0 + mid1) / 2, -0.8, 5.3), (mid1 - mid0, 1.6, 0.3), "frame")
+        window(x, LAND + 1.7, WY, 1.5, 2.6)
+    box("EntryBalcony", ((mid0 + mid1) / 2, -0.8, 5.3), (mid1 - mid0, 1.6, 0.3), "phoenix")
     box("EntryRail", ((mid0 + mid1) / 2, -1.55, 6.45), (mid1 - mid0, 0.1, 0.08), "dark")   # black wrought iron
     n = int((mid1 - mid0) / 0.5)
     for i in range(n):
@@ -555,28 +596,30 @@ def foniks():
     # in a quarter round that meets in a mitred hip at the corner, a flat dark roof
     # dotted with round skylights, a second curved glass strip leaning on the building,
     # and the door in a little arched porch on the corner with steps down to the square
-    RD, RS = 7.0, 6.0          # depth of the front arm, of the south arm
+    RD, RS = REST_RD, REST_RS
     WT, R, RI = 2.4, 2.0, 1.1  # wall top, eave radius, radius of the strip on the building
     outer = [(cw, -RD), (-RS, -RD), (-RS, depth)]            # street edge, corner in the middle
     wall = [(cw, 0.0), (0.0, 0.0), (0.0, depth)]             # the building's walls
     quarter = [(math.cos(t), math.sin(t)) for t in (k / 6 * math.pi / 2 for k in range(7))]
     # eave: from upright at the wall top to flat at the roof, inward from the street edge
-    sweep("RestaurantEave", outer, [(R - R * c, WT + R * sn) for c, sn in quarter], -1, "glass_curve")
+    sweep("RestaurantEave", outer, [(R - R * c, WT + R * sn) for c, sn in quarter], -1, "glass")
     # strip on the building: rises off the roof RI out from the wall and leans in onto it
-    sweep("RestaurantLean", wall, [(RI * c, WT + R + RI * sn) for c, sn in quarter], 1, "glass_curve")
+    sweep("RestaurantLean", wall, [(RI * c, WT + R + RI * sn) for c, sn in quarter], 1, "glass")   # one glass everywhere (Adriaen)
     for x0, x1, y0, y1 in ((-RS, cw, -RD, 0.0), (-RS, 0.0, 0.0, depth)):
         cxa, cya, wx, wy = (x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0
         box("RestaurantPlinth", (cxa, cya, 0.35), (wx, wy, 0.7), "granite")
-        box("Restaurant", (cxa, cya, (0.7 + WT) / 2), (wx - 0.1, wy - 0.1, WT - 0.7), "amber")
+        box("Restaurant", (cxa, cya, (0.7 + WT) / 2), (wx - 0.1, wy - 0.1, WT - 0.7), "glass")   # one window glass for all of Føniks (Adriaen)
         ux0, uy0 = x0 + R, y0 + (R if y0 < 0 else 0.0)   # the roof sits inside the eave
-        box("RestaurantUpper", ((ux0 + x1) / 2, (uy0 + y1) / 2, WT + R / 2), (x1 - ux0, y1 - uy0, R), "amber")   # glazed where an arm ends
+        box("RestaurantUpper", ((ux0 + x1) / 2, (uy0 + y1) / 2, WT + R / 2), (x1 - ux0, y1 - uy0, R), "glass")   # glazed where an arm ends
         box("RestaurantRoof", ((ux0 + x1) / 2, (uy0 + y1) / 2, WT + R), (x1 - ux0, y1 - uy0, 0.2), "dark")
     for x in [cw - 0.05 - i * 1.6 for i in range(int((cw + RS) / 1.6) + 1) if cw - 0.05 - i * 1.6 > -RS + 0.3]:   # frames on the street faces
         box("Mullion", (x, -RD, (0.7 + WT) / 2), (0.1, 0.12, WT - 0.7), "dark")
-        rib(outer, 0, x, quarter, R, WT, -1)
+        if x > -RS + R:   # a rib this close to the corner would cross the mitred hip
+            rib(outer, 0, x, quarter, R, WT, -1)
     for y in [depth - 0.05 - i * 1.6 for i in range(int((depth + RD) / 1.6) + 1) if depth - 0.05 - i * 1.6 > -RD + 0.3]:
         box("Mullion", (-RS, y, (0.7 + WT) / 2), (0.12, 0.1, WT - 0.7), "dark")
-        rib(outer, 1, y, quarter, R, WT, -1)
+        if y > -RD + R:
+            rib(outer, 1, y, quarter, R, WT, -1)
     for i in range(int((cw + RS - 3) / 2.0)):   # skylights between the eave and the strip
         for y in (-RD + R + 1.0, -RD + R + 2.9):
             skylight((-RS + 2.6 + i * 2.0, y, WT + R + 0.11))
@@ -598,27 +641,35 @@ def foniks():
         box("CornerStep", (st.x, st.y, (0.8 - i * 0.26) / 2), (2.4, 0.5, 0.8 - i * 0.26), "granite", math.radians(-45))
     # Eight round-topped dormers, over the window columns: two on each bay, four in the middle
     for x in [bx + dx for bx in (PIER + BAY / 2, L - PIER - BAY / 2) for dx in (-1.6, 1.6)] + cols:
-        dormer(x, 0.5, eave, False)
+        dormer(x, -0.2, eave, False)
     # The south side along Kongens gate (build -x face) is red brick, with the same
     # white-framed windows with crosses
-    box("SouthBrick", (-0.04, depth / 2, (5.0 + eave - 1.2) / 2), (0.08, depth, eave - 1.2 - 5.0), "brick")   # cream ground floor, tan band under the eave
-    box("SouthBand", (-0.1, depth / 2, eave - 0.6), (0.12, depth, 1.2), "phoenix")
+    # the brick and the tan band are single quads laid on the cream wall (no slab of their
+    # own), and the windows sit on the brick
+    pane("SouthBrick", "w", depth / 2, (5.0 + eave - 1.2) / 2, depth, eave - 1.2 - 5.0, -0.01, "brick")   # cream ground floor
+    pane("SouthBand", "w", depth / 2, eave - 0.6, depth, 1.2, -0.01, "phoenix")   # tan band under the eave
+    # the north end (+x face) the same as the other sides (Adriaen): dark plinth, cream
+    # ground floor, brick, tan band under the eave
+    pane("NorthBrick", "e", depth / 2, (5.0 + eave - 1.2) / 2, depth, eave - 1.2 - 5.0, L + 0.01, "brick")
+    pane("NorthBand", "e", depth / 2, eave - 0.6, depth, 1.2, L + 0.01, "phoenix")
+    box("FoniksPlinth", (L + 0.12, depth / 2, 0.5), (0.3, depth, 1.0), "plinth")
     for y in SOUTH_COLS:   # three round-topped dormers on the south slope
-        dormer(y, 0.5, eave, True)
-    for y in (0.7, depth - 0.7):   # cream quoins at both corners
-        box("Quoin", (-0.09, y, eave / 2), (0.1, 1.4, eave - 0.6), "phoenix")
+        dormer(y, -0.2, eave, True)
     for z in rows:
         for y in SOUTH_COLS:
-            window(y, z, 0.0, side=True, arch=z in rows[:2])
+            window(y, z, -0.01, side=True, h=1.7 if z in rows[:2] else 2.1, arch=z in rows[:2])
 
 
-def wing(name, root, side, scale=1.0):
-    """A raised, spread wing as a flat feathered outline with a little thickness."""
-    out = [(0, 0), (0.22, 0.32), (0.5, 0.7), (0.72, 1.05), (0.98, 1.32), (0.92, 1.05), (1.04, 0.9),
-           (0.9, 0.72), (0.98, 0.56), (0.82, 0.42), (0.86, 0.26), (0.66, 0.16), (0.62, 0.0), (0.42, -0.05),
-           (0.3, -0.2), (0.12, -0.12)]
-    pts = [(root[0] + side * 1.25 * u * scale, root[1] - 0.28 * u * u * scale, root[2] + 0.9 * v * scale)
-           for u, v in out]   # wider than tall, cupped forward like the real bird
+# A half-folded wing (Adriaen's close photo): a rounded shoulder just above the head,
+# the outer edge hanging straight down, the tip pointing down beside the outer lamp.
+# (out from the body's centre, height above the body's centre)
+WING = [(0.2, 0.2), (0.32, 0.5), (0.5, 0.62), (0.68, 0.58), (0.84, 0.42), (0.9, 0.1), (0.88, -0.3),
+        (0.8, -0.65), (0.7, -0.82), (0.58, -0.6), (0.44, -0.35), (0.3, -0.1)]
+
+
+def wing(name, centre, side):
+    """One half-folded wing as a flat outline with a little thickness, cupped forward."""
+    pts = [(centre[0] + side * u, centre[1] - 0.3 * (u - 0.2) ** 2, centre[2] + v) for u, v in WING]
     me = bpy.data.meshes.new(name)
     me.from_pydata(pts, [], [tuple(range(len(pts)))])
     o = bpy.data.objects.new(name, me)
@@ -630,10 +681,10 @@ def wing(name, root, side, scale=1.0):
 def phoenix_fountain(cx, cy, z0=0.15):
     """The phoenix fountain in front of the Føniks entrance (Adriaen's photo): a low
     round basin with a thick stone rim, a dark tiled column, three globe lamps at the
-    front and the bronze phoenix rising from its nest with both wings raised."""
+    front and the bronze phoenix rising from its nest, wings half folded and pointing down."""
     before = set(bpy.data.objects)
-    cyl("Water", (cx, cy, 0), 3.0, 0.32, "water", 24)
-    bpy.ops.mesh.primitive_torus_add(major_radius=3.0, minor_radius=0.3, major_segments=24, minor_segments=6,
+    cyl("Water", (cx, cy, 0), 3.0, 0.32, "water", 20)
+    bpy.ops.mesh.primitive_torus_add(major_radius=3.0, minor_radius=0.3, major_segments=20, minor_segments=4,
                                      location=(cx, cy, 0.3))
     bpy.context.object.scale.z = 1.3
     bpy.context.object.data.materials.append(M["granite"])
@@ -647,7 +698,7 @@ def phoenix_fountain(cx, cy, z0=0.15):
         a = math.radians(-90 + k * 32)
         x, y = cx + 0.5 * math.cos(a), cy + 0.5 * math.sin(a)
         cyl("LampStem", (x, y, 1.3), 0.03, 0.2, "dark", 6)
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=8, ring_count=5, radius=0.15, location=(x, y, 1.62))
+        bpy.ops.mesh.primitive_uv_sphere_add(segments=6, ring_count=4, radius=0.15, location=(x, y, 1.62))
         bpy.context.object.data.materials.append(M["lamp"])
     for k in range(7):   # the nest of flames it rises from
         t = k / 7 * math.tau
@@ -664,14 +715,101 @@ def phoenix_fountain(cx, cy, z0=0.15):
     beak = cyl("Beak", (cx + 0.16, cy - 0.12, 2.72), 0.045, 0.16, "bronze_dark", 4, 0.0)
     beak.rotation_euler = (0, math.radians(95), math.radians(-20))   # head turned to its left
     for side in (-1, 1):
-        wing("Wing", (cx + side * 0.18, cy + 0.02, 2.4), side, 0.95)
-        for u, v in ((0.82, 0.95), (0.86, 0.75), (0.8, 0.55), (0.7, 0.36)):   # round bosses along each wing
+        wing("Wing", (cx, cy + 0.02, 2.3), side)
+        for u, v in ((0.76, 0.42), (0.8, 0.24), (0.8, 0.04), (0.77, -0.16)):   # round bosses down the outer edge
             bpy.ops.mesh.primitive_uv_sphere_add(segments=4, ring_count=2, radius=0.06,
-                                                 location=(cx + side * (0.18 + 1.19 * u), cy + 0.02 - 0.27 * u * u - 0.06, 2.4 + 0.855 * v))
+                                                 location=(cx + side * u, cy + 0.02 - 0.3 * (u - 0.2) ** 2 - 0.06, 2.3 + v))
             bpy.context.object.data.materials.append(M["steel"])
     for o in set(bpy.data.objects) - before:   # raised on a stone drum to the terrace's height
         o.location.z += z0
     cyl("Drum", (cx, cy, 0), 3.25, z0 + 0.3, "granite", 24)
+
+
+# café furniture shared by the restaurant terrace and the annex's Frati terrace
+def chair(x, y, a):   # two slabs: a back that runs down to the ground as the rear legs, and the seat
+    c, s_ = math.cos(a), math.sin(a)
+    box("Chair", (x, y, 0.45), (0.42, 0.42, 0.04), "dark", a)
+    box("Chair", (x - 0.2 * c, y - 0.2 * s_, 0.45), (0.04, 0.42, 0.9), "dark", a)
+
+
+def table(x, y, w=0.8, d=0.8, rot=0.0):
+    box("CafeTable", (x, y, 0.73), (w, d, 0.04), "dark", rot)
+    box("CafeTable", (x, y, 0.36), (0.08, 0.08, 0.72), "dark")
+
+
+def parasol(x, y, size):
+    box("ParasolPole", (x, y, 1.45), (0.05, 0.05, 2.9), "dark")   # raised 40 cm (Adriaen)
+    o = cyl("Parasol", (x, y, 2.45), size / math.sqrt(2), 0.5, "canvas", 4, 0.04)
+    o.rotation_euler.z = math.pi / 4   # a square canopy lined up with the street
+
+
+def planter(x, y, s_=0.7):
+    box("Planter", (x, y, 0.3), (s_, s_, 0.6), "dark")
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=s_ * 0.62, location=(x, y, 0.6 + s_ * 0.45))
+    o = bpy.context.object
+    o.name, o.scale.z = "Shrub", 0.8
+    o.data.materials.append(M["tree"])
+
+
+def outdoor_seating(variant):
+    """The restaurant's outdoor seating (2024 drone photo, Adriaen's corner photo), in
+    Føniks's build frame: a terrace on the Kongens gate side behind low dark
+    windscreens, dark square planters with shrubs at the corner door and along the
+    front, and (TRD_PICNIC=1) picnic tables out on the square. Variants keep their furniture apart:
+    A = square parasols over four-seat tables, B = an awning along the glass over rows
+    of two-seat bistro tables, C = long beer-garden tables with benches under big
+    parasols. TRD_SEATING picks one; "none" leaves the square bare."""
+    if variant == "none":
+        return
+    x0, x1 = -REST_RS - 0.4, -REST_RS - 3.8      # terrace: from the glass out toward the street
+    y0, y1 = -REST_RD + 3.0, 11.6               # from past the corner door to near the annex
+    xm = (x0 + x1) / 2
+
+    def picnic(x, y):   # wooden table with fixed benches, long side along the front
+        box("Picnic", (x, y, 0.74), (1.8, 0.75, 0.05), "wood")
+        for k in (-1, 1):
+            box("Picnic", (x, y + k * 0.6, 0.45), (1.8, 0.28, 0.05), "wood")
+            box("Picnic", (x + k * 0.7, y, 0.36), (0.08, 1.4, 0.72), "wood")
+
+    # dark windscreens round the terrace's open sides
+    box("Windscreen", (x1, (y0 + y1) / 2, 0.5), (0.05, y1 - y0, 1.0), "dark")
+    for y in (y0, y1):
+        box("Windscreen", (xm, y, 0.5), (x0 - x1, 0.05, 1.0), "dark")
+    for x, y in ((x1, y0), (x1, y1), (-REST_RS - 0.5, -REST_RD + 1.7), (-REST_RS + 1.7, -REST_RD - 0.55),
+                 (-2.0, -REST_RD - 0.55), (1.6, -REST_RD - 0.55)):
+        planter(x, y)
+    if os.environ.get("TRD_PICNIC") == "1":   # picnic tables out on the square (Adriaen: off)
+        for x in (-4.5, -1.0, 2.5):
+            picnic(x, -REST_RD - 4.2)
+    n = 5
+    ys = [y0 + (i + 0.5) * (y1 - y0) / n for i in range(n)]
+    if variant == "A":
+        for y in ys:
+            parasol(xm, y, 2.6)
+            table(xm, y)
+            for a in (0, math.pi / 2, math.pi, -math.pi / 2):
+                chair(xm - 0.65 * math.cos(a), y - 0.65 * math.sin(a), a)
+    elif variant == "B":
+        hi, lo = 2.6, 2.2   # the awning: from just under the glass curve out over the terrace
+        aw = box("Awning", (xm, (y0 + y1) / 2, (hi + lo) / 2), (x0 - x1 + 0.4, y1 - y0, 0.04), "canvas")
+        aw.rotation_euler.y = math.atan2(hi - lo, x0 - x1 + 0.4)
+        box("AwningValance", (x1 - 0.2, (y0 + y1) / 2, lo - 0.12), (0.03, y1 - y0, 0.25), "canvas")
+        for x in (x0 - 0.9, x1 + 0.9):
+            for i in range(7):
+                y = y0 + 1.0 + i * (y1 - y0 - 2.0) / 6
+                cyl("CafeTable", (x, y, 0.71), 0.32, 0.04, "dark", 6)
+                box("CafeTable", (x, y, 0.36), (0.06, 0.06, 0.72), "dark")
+                for k in (-1, 1):
+                    chair(x, y + k * 0.55, -k * math.pi / 2)
+    else:   # C: beer garden
+        for y in ys[::2]:
+            parasol(xm, y, 3.4)
+        for y in ys:
+            box("LongTable", (xm, y, 0.74), (0.8, 2.6, 0.05), "wood")
+            box("LongTable", (xm, y, 0.36), (0.6, 0.08, 0.72), "wood")
+            for k in (-1, 1):
+                box("Bench", (xm + k * 0.65, y, 0.45), (0.3, 2.6, 0.05), "wood")
+                box("Bench", (xm + k * 0.65, y, 0.22), (0.25, 0.08, 0.44), "wood")
 
 
 FOUNT = (FW / 2, -6.5)   # phoenix fountain: centred on the doors, its back just clear of the platform steps
@@ -679,6 +817,7 @@ SOUTH_COLS = (2.9, 6.4, 9.9)   # south wall window columns, from the front (Kong
 _before = set(bpy.data.objects)
 foniks()
 phoenix_fountain(*FOUNT)   # set into the terrace steps, in front of the doors
+outdoor_seating(os.environ.get("TRD_SEATING", "A"))
 from mathutils import Matrix
 # Built facing -y with its south end at build x = 0; a quarter turn to the left makes
 # it face EAST, then it slides onto the square: front at FONIKS_FRONT, south end at
@@ -693,6 +832,7 @@ def FL(x, y, z=0.0):
 
 
 FONIKS_OBJS = set(bpy.data.objects) - _before
+bpy.context.view_layer.update()   # box() objects only get their matrix_world here
 for o in FONIKS_OBJS:
     if o.parent is None:
         o.matrix_world = FONIKS @ o.matrix_world
@@ -719,29 +859,332 @@ FB = FONIKS_FRONT - 12.8   # Føniks's back wall (GPS: SW roof corner)
 # travertine box of three storeys standing a little proud, six tall windows a floor;
 # a copper-clad top floor set back on top; a narrow copper-clad joint with its own
 # windows where it meets Føniks, the glass atrium roof showing behind)
-AS, JW = FONIKS_SOUTH - 1.0, 2.2   # annex street face, joint width
+AS, JW = FONIKS_SOUTH - 0.4, 2.2   # annex street face (40 cm proud of Føniks, Adriaen), joint width
 ax0, ax1 = FB - JW - 17.7, FB - JW   # 17.7 m wide (GPS pins on both street corners)
 acx = (ax0 + ax1) / 2
-box("FoniksAnnex", (acx, AS + 10.5, 9.8), (ax1 - ax0, 21, 19.6), "travertine")
-box("FoniksAnnexBase", (acx, AS - 0.05, 2.65), (ax1 - ax0 - 0.4, 0.12, 5.3), "glass")
-for i in range(6):
-    box("FoniksAnnexPier", (ax0 + 0.4 + i * (ax1 - ax0 - 0.8) / 5, AS - 0.12, 2.65), (0.5, 0.2, 5.3), "copper")
-box("FoniksAnnexBox", (acx, AS - 0.5, 11.05), (ax1 - ax0 + 0.6, 1.0, 11.5), "travertine")   # stands proud
-for row in range(3):
-    for i in range(6):
-        box("FoniksAnnexWin", (ax0 + 1.6 + i * (ax1 - ax0 - 3.2) / 5, AS - 1.05, 7.0 + row * 3.4),
-            (1.5, 0.12, 2.4), "glass")
-box("FoniksAnnexTop", (acx, AS + 10.5, 18.2), (ax1 - ax0 - 0.8, 19.4, 2.9), "copper")   # set back
+EX = ax0 + 15.6   # the entrance bay under the box's east end starts here, set back to the joint's copper (Adriaen)
+box("FoniksAnnex", ((ax0 + EX) / 2, AS + 10.5, 8.4), (EX - ax0, 21, 16.8), "travertine")
+box("FoniksAnnex", ((EX + ax1) / 2, (FONIKS_SOUTH + AS + 21) / 2, 8.4), (ax1 - EX, AS + 21 - FONIKS_SOUTH, 16.8), "travertine")   # the copper top floor sits on it
+# Street front, ground floor (winter photo): dark glass between copper piers on a granite
+# base, then a travertine pier down to the ground and the glazed entrance under the
+# box's east end
+gx = ax0 + 11.4
+box("FoniksAnnexBase", ((ax0 + gx) / 2, AS - 0.05, 2.65), (gx - ax0 - 0.2, 0.12, 5.3), "glass")
+box("FoniksAnnexPlinth", ((ax0 + gx) / 2, AS - 0.12, 0.3), (gx - ax0, 0.24, 0.6), "granite")
 for i in range(5):
-    box("FoniksAnnexTopWin", (ax0 + 2.5 + i * (ax1 - ax0 - 5) / 4, AS + 0.15, 18.0), (2.4, 0.12, 1.6), "glass")
-box("FoniksAnnexJoint", (FB - JW / 2, AS + 10.8, 7.3), (JW, 21, 14.6), "copper")   # set back a little
-for z in (3.0, 7.5, 11.5):
-    box("FoniksAnnexJointWin", (FB - JW / 2, AS + 0.25, z), (JW - 1.2, 0.12, 2.6), "glass")
-box("FoniksAnnexAwning", (acx, AS - 3.0, 3.0), (ax1 - ax0, 4.0, 0.15), "dark")
+    box("FoniksAnnexPier", (ax0 + 0.25 + i * (gx - ax0 - 0.5) / 4, AS - 0.14, 2.95), (0.5, 0.28, 4.7), "copper")
+box("FoniksAnnexGroundPier", (gx + 2.1, AS - 0.5, 2.65), (4.2, 1.0, 5.3), "travertine")
+pane("FoniksAnnexBase", "s", (EX + ax1) / 2 + 0.03, 1.75, ax1 - EX + 0.06, 3.5, FONIKS_SOUTH - 0.02, "glass")
+pane("FoniksAnnexJoint", "s", (EX + ax1) / 2 + 0.03, 4.4, ax1 - EX + 0.06, 1.8, FONIKS_SOUTH - 0.02, "copper")   # copper above the canopy, lapping onto the joint so no tan seam shows
+box("FoniksAnnexBox", (acx, (AS - 1.0 + FONIKS_SOUTH) / 2, 11.05), (ax1 - ax0, FONIKS_SOUTH - AS + 1.0, 11.5), "travertine")   # stands proud of the street, flush with the west wall and the annex's east side
+
+
+def annex_win(c, z, w, h, face, mat="glass"):
+    """A window on the annex: slim dark bronze frame flush on the wall (a raised
+    one cast a shadow that read as a wireframe), glass (or lowered blinds) on it. face "s" = on the box's street face (c = x), "w" = on the west wall (c = y)."""
+    if face == "s":
+        pane("FoniksAnnexFrame", "s", c, z, w + 0.12, h + 0.12, AS - 1.01, "bronze_dark")
+        pane("FoniksAnnexWin", "s", c, z, w, h, AS - 1.02, mat)
+    else:
+        pane("FoniksAnnexFrame", "w", c, z, w + 0.12, h + 0.12, ax0 - 0.01, "bronze_dark")
+        pane("FoniksAnnexWin", "w", c, z, w, h, ax0 - 0.02, mat)
+
+
+# The travertine box: six window columns, the first well in from the west corner; the
+# top row runs to the floor behind a glass balustrade, the middle row has its blinds down
+# Adriaen: one glass everywhere, so the lowered blinds and the glass balustrade from the
+# photos are plain window glass unless TRD_BLINDS=1
+if os.environ.get("TRD_BLINDS") != "1":
+    M["blind"] = M["blind_green"] = M["glass"]
+RAIL = "skylight" if os.environ.get("TRD_BLINDS") == "1" else "glass"
+ROWS = ((7.0, 2.3, "glass"), (10.4, 2.3, "blind"), (13.9, 2.6, "glass"))
+for z, h, mat in ROWS:
+    for x in [ax0 + 3.5 + i * 2.5 for i in range(6)]:
+        annex_win(x, z, 1.2, h, "s", mat)   # tall and narrow (summer street photos)
+    # the corner window wraps round onto Bersvendveita with no pier at the corner
+    # (Adriaen's markup): glass out to the box's corner, round its 1 m return, and on
+    # into the first west window
+    # one glass strip per face, meeting at the corner; frames only on the far edges
+    cx0, cx1, cy1 = ax0, ax0 + 1.25, AS + 1.2
+    pane("FoniksAnnexFrame", "s", (cx0 + cx1) / 2 + 0.06, z, cx1 - cx0, h + 0.12, AS - 1.01, "bronze_dark")
+    pane("FoniksAnnexWin", "s", (cx0 + cx1) / 2 - 0.01, z, cx1 - cx0 + 0.02, h, AS - 1.02, mat)
+    pane("FoniksAnnexFrame", "w", (AS - 1.01 + cy1) / 2 + 0.06, z, cy1 - AS + 1.01, h + 0.12, cx0 - 0.01, "bronze_dark")
+    pane("FoniksAnnexWin", "w", (AS - 1.02 + cy1) / 2, z, cy1 - AS + 1.02, h, cx0 - 0.02, mat)
+for x in [ax0 + 3.5 + i * 2.5 for i in range(6)]:
+    box("FoniksAnnexRail", (x, AS - 1.1, 13.1), (1.2, 0.04, 0.9), RAIL)
+box("FoniksAnnexRail", ((cx0 + cx1) / 2, AS - 1.1, 13.1), (cx1 - cx0, 0.04, 0.9), RAIL)
+box("FoniksAnnexRail", (cx0 - 0.1, (AS - 1.1 + cy1) / 2, 13.1), (0.04, cy1 - AS + 1.1, 0.9), RAIL)
+# Bersvendveita side (Adriaen's street photos): travertine for the first 13 m, five window
+# columns with the corner one, the same rows, a shop window, a door and plain travertine below, then copper-clad all the way along the block:
+# copper pilasters framing pairs and single windows with blinds, narrow bays of vertical
+# grilles, and louvred vents, green blinds and dark glass on the ground floor
+TW, BE = 13.0, FONIKS_SOUTH + FW   # where the copper starts, the block's north end
+box("FoniksAnnexShop", (ax0 - 0.05, AS + 4.1, 2.6), (0.12, 7.0, 4.2), "glass")
+box("FoniksAnnexDoor", (ax0 - 0.05, AS + 8.4, 1.25), (0.12, 1.2, 2.5), "door")
+for z, h, mat in ROWS:
+    for y in (AS + 3.6, AS + 6.2, AS + 8.8, AS + 11.4):   # the first column is the corner glass
+        annex_win(y, z, 1.2, h, "w", mat)
+# copper part, counted on Adriaen's photos from the travertine northwards to the yellow
+# brick neighbour: each floor has ten windows in singles (S) and pairs (P) that step
+# between floors, and a bay of vertical grilles (G) at the far end
+BAYS = {13.9: "SPSPSPSG", 10.4: "SSPSPSPG", 7.0: "SPSPSPSG", 2.5: "GSGGSSGG"}
+BW = {"S": 1.3, "P": 2.6, "G": 1.2}
+CE = AS + TW + sum(BW[c] + 0.55 for c in BAYS[13.9]) + 0.3   # where the copper building ends
+box("FoniksAnnexClad", (ax0 - 0.06, (AS + TW + CE) / 2, 8.4), (0.12, CE - AS - TW, 16.8), "copper")
+for z, row in BAYS.items():
+    y = AS + TW + 0.55
+    h = 3.6 if z < 5 else 2.3
+    for c in row:
+        w = BW[c] * (len(row) * 1.75 / sum(BW[q] for q in row) if z < 5 else 1.0)   # ground floor bays stretched to fit
+        if c == "G":
+            box("FoniksAnnexGrille", (ax0 - 0.14, y + w / 2, z), (0.06, w, h), "bronze_dark")
+        else:
+            mat = "blind_green" if z < 5 else ("glass" if z == 7.0 else "blind")
+            if z < 5:   # ground floor: one wide pane behind its blind
+                box("FoniksAnnexWin", (ax0 - 0.14, y + w / 2, z), (0.06, w - 0.1, h), mat)
+            else:
+                for i in range(1 if c == "S" else 2):
+                    box("FoniksAnnexWin", (ax0 - 0.14, y + 0.65 + i * 1.3, z), (0.06, 1.2, h), mat)
+        y += w + 0.55
+
+
+# Copper top floor (the cantina), set back about a metre from the travertine box on
+# both streets (Adriaen, Google 3D), a good third of the box's height, reaching on
+# over part of the joint
+# It covers the whole travertine and copper building (Adriaen), so it runs on behind the
+# joint to Føniks's back wall and north to the yellow neighbour
+tx0, tx1, ty0, ty1 = ax0 + 0.9, ax1, AS + 0.0, CE   # stops at the joint: nothing over it above 13.6 m (Adriaen)
+TT = 20.2
+AGY1 = CE - 3.5   # where the glass atrium ends in the north (Adriaen: on nearly to the north end)
+prism("FoniksAnnexTop", [(tx0, ty0), (tx1, ty0), (tx1, AGY1), (FB, AGY1), (FB, ty1), (tx0, ty1)], 16.75, TT, "copper")
+# Its roof (Adriaen, Google 3D): a rooftop bar inside a curved fence that sweeps from
+# the Bersvendveita side round to the street side, plain roof outside it along both
+# streets, utility rooms with white doors (HVAC on top) at the back of the bar, and a
+# glass roof bridging across to Føniks
+FC, FR = (ax0 + 14.9, AS + 14.5), 11.0   # the fence's centre and radius (moved north off the street edge, Adriaen)
+fence = [(FC[0] + FR * math.cos(math.pi + k * math.pi / 16), FC[1] + FR * math.sin(math.pi + k * math.pi / 16)) for k in range(9)]
+for (x0_, y0_), (x1_, y1_) in zip(fence, fence[1:]):
+    seg = box("RoofBarFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.6), (math.hypot(x1_ - x0_, y1_ - y0_) + 0.05, 0.06, 1.2), "dark")
+    seg.rotation_euler.z = math.atan2(y1_ - y0_, x1_ - x0_)
+# decking over everything inside the inner fences (Adriaen), as two convex pieces: the
+# quarter circle out to the joint-side railing, and the strip north of it up to the north room
+DN = AS + 15.4   # where the joint-side railing turns in to the utility room
+prism("RoofBarDeck", fence + [(tx1 - 0.1, fence[-1][1]), (tx1 - 0.1, DN), (fence[0][0], DN)], TT, TT + 0.06, "wood")
+prism("RoofBarDeck", [(fence[0][0], DN), (ax0 + 16.0, DN), (ax0 + 16.0, CE - 6.0), (fence[0][0], CE - 6.0)], TT, TT + 0.06, "wood")
+for k in range(7):   # seven tables round the fence, no parasols (Adriaen)
+    a_ = math.radians(186 + k * 13)
+    px_, py_ = FC[0] + (FR - 2.8) * math.cos(a_), FC[1] + (FR - 2.8) * math.sin(a_)
+    box("RoofBarTable", (px_, py_, TT + 0.79), (0.8, 0.8, 0.04), "dark", a_)
+    box("RoofBarTable", (px_, py_, TT + 0.42), (0.08, 0.08, 0.72), "dark")
+    for side in (-1, 1):   # a chair either side, along the fence
+        cx_, cy_ = px_ - side * 0.65 * math.sin(a_), py_ + side * 0.65 * math.cos(a_)
+        box("RoofBarChair", (cx_, cy_, TT + 0.45), (0.42, 0.42, 0.04), "dark", a_)
+        box("RoofBarChair", (cx_ - side * 0.2 * -math.sin(a_), cy_ - side * 0.2 * math.cos(a_), TT + 0.45), (0.42, 0.04, 0.9), "dark", a_)
+# and a railing round the roof edge: the Bersvendveita side up to the north room, the street side and
+# the joint side up to the utility rooms (Adriaen)
+US = AS + 8.3   # the south utility room's south face, just clear of the bar's tables
+for (x0_, y0_), (x1_, y1_) in (((tx0 + 0.1, CE - 4.0), (tx0 + 0.1, ty0 + 0.1)), ((tx0 + 0.1, CE - 4.0), (FC[0] - FR, CE - 4.0)),   # on to the north room, turning in to its wall (Adriaen)
+                               ((tx0 + 0.1, ty0 + 0.1), (tx1 - 0.1, ty0 + 0.1)),
+                               ((tx1 - 0.1, ty0 + 0.1), (tx1 - 0.1, US))):
+    box("RoofBarEdgeFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (abs(x1_ - x0_) + 0.06, abs(y1_ - y0_) + 0.06, 1.1), "copper")   # the same rusty copper as the annex cladding (Adriaen)
+# a flag pole on the roof's south-east corner, outside the bar (Adriaen)
+# with the Aker BP banner like the masts out front (Adriaen)
+_pre = set(bpy.data.objects)
+flag_mast(tx1 - 1.5, ty0 + 1.2, 7.0, TT)
+bpy.context.view_layer.update()
+from mathutils import Matrix
+_pole = Matrix.Translation((tx1 - 1.5, ty0 + 1.2, 0))
+_turn = _pole @ Matrix.Rotation(math.radians(90 - 15), 4, "Z") @ _pole.inverted()   # the flag flies out to N15°E (Adriaen)
+for o in set(bpy.data.objects) - _pre:
+    o.name = "FoniksRoof" + o.name   # so the lean export keeps it
+    o.matrix_world = _turn @ o.matrix_world
+# and fences closing the bar off from the rest of the roof (Adriaen): the arc's south end
+# out to the joint-side railing, and from the arc's west end north along the roof to the north utility room
+for run in (((fence[-1][0], fence[-1][1]), (tx1 - 0.1, fence[-1][1])),
+            ((fence[0][0], fence[0][1]), (fence[0][0], CE - 6.0))):
+    for (x0_, y0_), (x1_, y1_) in zip(run, run[1:]):
+        seg = box("RoofBarFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (math.hypot(x1_ - x0_, y1_ - y0_) + 0.06, 0.06, 1.1), "dark")
+        seg.rotation_euler.z = math.atan2(y1_ - y0_, x1_ - x0_)
+# a row of utility rooms down the middle, from a little south of where the copper starts
+# to near the north end (Adriaen, Google Earth), in tiers
+# the two middle ones run out to the joint side, the south one on into the bar (Adriaen)
+for ux0, ux1, uy0, uy1, uh in ((ax0 + 11.0, tx1, US, AS + 18.5, 3.0), (ax0 + 7.0, tx1, AS + 18.5, CE - 6.0, 3.4),
+                               (FC[0] - FR, ax0 + 15.0, CE - 6.0, CE - 1.5, 2.6)):   # the small west one is gone, the north one reaches out to the bar's fence (Adriaen)
+    if uy0 == US:   # the south one is open to the sky: just walls round fans, ducts and pipes (Adriaen, Google Earth)
+        WT = 0.5   # chunky parapet walls (Adriaen)
+        for cx_, cy_, sx_, sy_ in (((ux0 + ux1) / 2, uy0 + WT / 2, ux1 - ux0 - 2 * WT, WT), (ux0 + WT / 2, (uy0 + uy1) / 2, WT, uy1 - uy0),
+                                   (ux1 - WT / 2, (uy0 + uy1) / 2, WT, uy1 - uy0)):   # the north side is the next room's wall
+            box("FoniksAnnexUtility", (cx_, cy_, TT + uh / 2), (sx_, sy_, uh), "roof_light")
+        box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + 0.05), (ux1 - ux0 - 0.1, uy1 - uy0 - 0.1, 0.1), "roof_light")   # felt floor over the deck
+        for fy in (uy0 + 2.0, uy0 + 4.2):   # two big fan units by the joint side
+            box("FoniksAnnexPlant", (ux1 - 1.6, fy, TT + 0.6), (1.8, 1.8, 1.2), "steel")
+            cyl("FoniksAnnexFan", (ux1 - 1.6, fy, TT + 1.2), 0.6, 0.06, "dark", 8)
+        box("FoniksAnnexPlant", (ux0 + 2.2, (uy0 + 5.5 + uy1 - 0.8) / 2, TT + 1.3), (0.9, uy1 - 0.8 - uy0 - 5.5, 0.9), "steel")   # a big duct
+        cyl("FoniksAnnexPlant", (ux0 + 2.2, uy0 + 5.5, TT), 0.5, 1.8, "steel", 8)   # and its riser
+        box("FoniksAnnexPlant", (ux0 + 3.4, uy1 - 1.8, TT + 0.7), (1.6, 1.4, 1.4), "steel")   # an air handler
+        for k, py_ in enumerate((uy0 + 1.0, uy0 + 6.2, uy0 + 7.0)):   # pipe runs across
+            box("FoniksAnnexPipe", ((ux0 + ux1) / 2, py_, TT + 0.4 + 0.3 * k), (ux1 - ux0 - 0.4, 0.16, 0.16), "frame" if k else "dark")
+    else:
+        box("FoniksAnnexUtility", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh / 2), (ux1 - ux0, uy1 - uy0, uh), "roof_light")
+    # white doors onto the bar: the north room's in its south wall, the middle two's in
+    # their west walls, a little north of the middle (Adriaen)
+    if uy1 > CE - 2:
+        box("FoniksAnnexUtilDoor", (ux0 + 1.2, uy0 - 0.03, TT + 1.05), (0.9, 0.06, 2.1), "frame")
+    else:
+        box("FoniksAnnexUtilDoor", (ux0 - 0.03, uy0 + 0.6 * (uy1 - uy0), TT + 1.05), (0.06, 0.9, 2.1), "frame")
+    if uy0 != US:
+        box("FoniksAnnexHVAC", ((ux0 + ux1) / 2, (uy0 + uy1) / 2, TT + uh + 0.5), (2.2, 1.6, 1.0), "steel")
+# its street face: copper fins at both ends and the middle, two runs of three windows
+for fc in (tx0 + 0.6, acx, tx1 - 0.6):
+    box("FoniksAnnexFinBack", (fc, ty0 - 0.02, 18.5), (1.2, 0.06, 3.1), "bronze_dark")
+    for k in (-1, 0, 1):
+        box("FoniksAnnexFin", (fc + k * 0.4, ty0 - 0.14, 18.5), (0.1, 0.25, 3.1), "copper")
+for g0, g1 in ((tx0 + 1.2, acx - 0.6), (acx + 0.6, tx1 - 1.2)):
+    for k in range(3):
+        w = (g1 - g0 - 0.6) / 3
+        pane("FoniksAnnexTopWin", "s", g0 + w / 2 + k * (w + 0.3), 18.45, w, 2.3, ty0 - 0.02, "blind" if k == 1 else "glass")
+for y in [AS + 2.6, AS + 5.6] + [AS + 9.0 + 3.2 * k for k in range(int((CE - AS - 10.5) / 3.2))]:
+    pane("FoniksAnnexTopWin", "w", y, 18.45, 2.2, 2.3, tx0 - 0.02, "glass")
+# The copper-clad joint onto Føniks: a tall glazed entrance, two windows above, rising
+# past Føniks's eave; the glass atrium roof stands up behind it (winter photo)
+# it stops about halfway up the box's top floor (Adriaen's photo, "the 3.5th floor"); above
+# it the atrium's glass wall carries on in the same line up to the glass roof (no slot, Adriaen)
+JH = 13.6
+# the copper carries on Føniks's brick wall line (Adriaen), the annex stands proud of it
+JY = FONIKS_SOUTH
+box("FoniksAnnexJoint", (FB - JW / 2, (JY + AS + 21) / 2, JH / 2), (JW, AS + 21 - JY, JH), "copper")
+# its entrance glass runs on flush with the annex's entrance glass (Adriaen)
+# up to the canopy, both set back in the copper wall line (Adriaen)
+pane("FoniksAnnexJointWin", "s", FB - JW / 2, 1.75, JW, 3.5, JY - 0.02, "glass")
+# the entrance canopy (Adriaen's street photo): a deep copper box over the pavement on two
+# dark posts, from the travertine pier across the annex's entrance glass to Føniks
+CX0, CD = gx + 4.2, 3.2   # its west end, how far it reaches out from the annex glass
+box("FoniksAnnexCanopy", ((CX0 + FB) / 2, (JY + AS - 0.11 - CD) / 2, 3.9), (FB - CX0, JY - AS + 0.11 + CD, 0.8), "copper")   # back to the joint wall, which runs on flush above it
+for x in (CX0 + 0.15, FB - 0.15):
+    box("FoniksAnnexCanopyPost", (x, AS - 0.11 - CD + 0.15, 1.75), (0.1, 0.1, 3.5), "dark")
+pane("FoniksAnnexJointWin", "s", FB - JW / 2, 7.0, JW - 0.5, 2.3, JY - 0.02, "glass")
+pane("FoniksAnnexJointWin", "s", FB - JW / 2, 10.4, JW - 0.5, 2.3, JY - 0.02, "blind")
+# the glass roof bridging the annex and Føniks (Adriaen, Google Earth): from just under
+# the roof terrace's edge it rises over the gap and lands on Føniks's upper slate slope
+MS = lambda x: 16.8 + (x - (FB - 0.3)) * 3.6 / 2.0   # the mansard's height over x (eave 16.8, 2 m in over 3.6 m)
+MU = lambda x: 20.4 + (x - (FB + 1.7)) * 2.6 / 4.69   # the upper roof's, up to the ridge
+gx0, gz0, gz1 = FB - JW, TT - 0.2, 21.6
+gx1 = FB + 1.7 + (gz1 - 20.4) * 4.69 / 2.6   # where the glass meets the slates
+gy0, gy1 = JY + 4.6, AGY1   # it starts ~5 m back from the street (Adriaen); flat roof in front
+glass = prism("FoniksAtrium", [(gx0, gy0), (gx1, gy0), (gx1, gy1), (gx0, gy1)], 0, 0.1, "glass")
+for v in glass.data.vertices:
+    v.co.z += gz0 + (gz1 - gz0) * (v.co.x - gx0) / (gx1 - gx0)
+NB = round((gy1 - gy0) / 1.7) + 1   # glazing bars about 1.7 m apart
+for k in range(NB):
+    y_ = gy0 + 0.2 + k * (gy1 - gy0 - 0.4) / (NB - 1)
+    bar = box("FoniksAtriumBar", ((gx0 + gx1) / 2, y_, (gz0 + gz1) / 2 + 0.14), (math.hypot(gx1 - gx0, gz1 - gz0), 0.08, 0.08), "dark")
+    bar.rotation_euler.y = -math.atan2(gz1 - gz0, gx1 - gx0)
+# in front of it the joint stays at 13.6 m (Adriaen); the glass's south end comes down
+# to the joint's top and onto the slates
+me = bpy.data.meshes.new("FoniksAtriumWall")
+gs = [(gx0, JH), (FB, JH), (FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1), (gx0, gz0)]
+me.from_pydata([(x, gy0 - 0.02, z) for x, z in gs], [], [tuple(range(len(gs)))])
+me.materials.append(M["glass"])
+scene.collection.objects.link(bpy.data.objects.new("FoniksAtriumWall", me))
+# and its north end, from the cantina's roof and the slates up to the glass
+me = bpy.data.meshes.new("FoniksAtriumWall")
+gn = [(gx0 + (TT - gz0) * (gx1 - gx0) / (gz1 - gz0), TT), (FB, TT), (FB, MS(FB)), (FB + 1.7, MS(FB + 1.7)), (gx1, gz1)]
+me.from_pydata([(x, gy1 + 0.02, z) for x, z in gn], [], [tuple(range(len(gn)))[::-1]])
+me.materials.append(M["glass"])
+scene.collection.objects.link(bpy.data.objects.new("FoniksAtriumWall", me))
+# Føniks's west wall shows over the joint up to the atrium: brick with the tan band
+# under the eave, like the south wall (Adriaen)
+pane("FoniksWestBrick", "w", (JY + gy0) / 2, (JH + 15.6) / 2, gy0 - JY, 15.6 - JH, FB - 0.01, "brick")
+pane("FoniksWestBand", "w", (JY + gy0) / 2, 16.2, gy0 - JY, 1.2, FB - 0.01, "phoenix")
+# and north of the annex, where the west wall is in the open: plinth, cream ground floor,
+# brick, tan band, like the other sides (Adriaen)
+NE_ = FONIKS_SOUTH + FW
+pane("FoniksWestBrick", "w", (CE + NE_) / 2, (5.0 + 15.6) / 2, NE_ - CE, 15.6 - 5.0, FB - 0.01, "brick")
+pane("FoniksWestBand", "w", (CE + NE_) / 2, 16.2, NE_ - CE, 1.2, FB - 0.01, "phoenix")
+box("FoniksWestPlinth", (FB - 0.12, (CE + NE_) / 2, 0.5), (0.3, NE_ - CE, 1.0), "plinth")
+# Summer: a dark pergola with a canvas top over the glass bays (drone photos)
+AWE = EX - 1.2   # the canvas runs on almost to the entrance, a strip of travertine short of it (Adriaen)
+if os.environ.get("TRD_ANNEX_AWNING", "canvas") == "canvas":
+    # it slopes from a cassette on the wall under the travertine box down to the front beam
+    # (Adriaen's street photo)
+    y0, z0, y1, z1 = AS - 1.0, 5.1, AS - 4.9, 3.0
+    aw = box("FoniksAnnexAwning", ((ax0 + AWE) / 2, (y0 + y1) / 2, (z0 + z1) / 2), (AWE - ax0, math.hypot(y0 - y1, z0 - z1), 0.08), "canvas")
+    aw.rotation_euler.x = math.atan2(z0 - z1, y0 - y1)
+    box("FoniksAnnexAwningBeam", ((ax0 + AWE) / 2, AS - 1.1, 5.15), (AWE - ax0, 0.25, 0.3), "dark")   # the cassette
+    box("FoniksAnnexAwningBeam", ((ax0 + AWE) / 2, AS - 4.9, 2.85), (AWE - ax0, 0.15, 0.3), "dark")
+else:   # the older all-dark pergola, over the whole front
+    box("FoniksAnnexAwning", (acx, AS - 3.0, 3.0), (ax1 - ax0, 4.0, 0.15), "dark")
 for i in range(6):
-    box("PergolaPost", (ax0 + 1 + i * (ax1 - ax0 - 2) / 5, AS - 4.9, 1.5), (0.15, 0.15, 3.0), "dark")
-block("FoniksBack", FB - 22, FB, FONIKS_SOUTH + 20, FONIKS_SOUTH + FW, 15, "brick_dark", 4, (), None)
-box("FoniksAtrium", (FB - 6, FONIKS_SOUTH + 12, 16.5), (10, 18, 3.8), "glass_block")   # glass atrium behind the joint
+    box("PergolaPost", (ax0 + 0.5 + i * (AWE - ax0 - 1.0) / 5, AS - 4.9, 1.5), (0.15, 0.15, 3.0), "dark")
+# Frati's terrace out in front of the awning (Adriaen's street photos): four-seat tables
+# under square parasols behind a low dark fence, reaching as far out into Kongens gate as
+# the restaurant's terrace round the corner
+_pre = set(bpy.data.objects)
+fy0, fy1 = AS - 5.2, FONIKS_SOUTH - REST_RS - 3.8   # from the awning's posts out to the restaurant terrace's line
+fx0, fx1 = ax0 + 0.6, AWE
+fym = (fy0 + fy1) / 2
+box("Windscreen", ((fx0 + fx1) / 2, fy1, 0.5), (fx1 - fx0, 0.05, 1.0), "dark")
+for x, yw in ((fx0, AS - 0.25), (fx1, AS - 1.0)):   # the sides run back to the wall (Adriaen): the plinth, the travertine pier
+    box("Windscreen", (x, (yw + fy1) / 2, 0.5), (0.05, yw - fy1, 1.0), "dark")
+for x, y in ((fx0, fy1), (fx1, fy1)):
+    planter(x, y)
+NF = 5
+for i in range(NF):
+    x = fx0 + (i + 0.5) * (fx1 - fx0) / NF
+    parasol(x, fym, 2.6)
+    table(x, fym)
+    for a in (0, math.pi / 2, math.pi, -math.pi / 2):
+        chair(x - 0.65 * math.cos(a), fym - 0.65 * math.sin(a), a)
+for o in set(bpy.data.objects) - _pre:
+    o.name = "FoniksFrati" + o.name
+box("FoniksBack", ((ax0 + FB) / 2, (AS + 21 + CE) / 2, 8.4), (FB - ax0, CE - AS - 21, 16.8), "copper")   # the same building on along Bersvendveita
+block("YellowBers", ax0, FB, CE, BE, 15.5, "c5", 5, ("-x",), None)   # then the yellow brick neighbour
+
+
+def export_glb():
+    """Føniks on its own for the spin-around viewer and story mode. Called as soon as
+    Føniks and its annex are built, so the square, the town, the statue and the
+    characters are never built for an export."""
+    bpy.ops.object.select_all(action="DESELECT")
+    keep = FONIKS_OBJS | {o for o in bpy.data.objects if o.name.startswith(("Foniks", "PergolaPost", "RoofBar"))}
+    # Lean export: drop buried and flush-hidden faces, then one mesh per material
+    import mesh_cleanup
+    keep = [o for o in keep if o.type == "MESH"]
+    mesh_cleanup.strip_hidden(keep)
+    mesh_cleanup.fronts_only(keep, {"Win", "Mullion", "Transom", "Cartouche", "DormerWin", "Capital", "FoniksAnnexWin",
+                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "FoniksAnnexFrame", "FoniksAnnexRail", "FoniksAnnexFinBack", "FoniksAnnexGrille", "FoniksAnnexBalustrade", "Fanlight", "Door", "BrickPanel", "SouthBand", "NorthBand",
+                                    "ParapetSlot", "PierStrip", "Keystone", "DoorArch", "SunHub", "ArchFill"})
+    if os.environ.get("TRD_STATS"):   # triangles left per part, biggest first
+        import collections, re
+        tri, cnt = collections.Counter(), collections.Counter()
+        for o in keep:
+            tri[re.sub(r"\.\d+$", "", o.name)] += sum(len(p.vertices) - 2 for p in o.data.polygons)
+            cnt[re.sub(r"\.\d+$", "", o.name)] += 1
+        for k, v in tri.most_common(int(os.environ.get("TRD_STATS_N", 30))):
+            print(f"  {k:24s}{v:6d}  x{cnt[k]}")
+    merged = mesh_cleanup.merge_by_material(keep)
+    import facade_textures   # TRD_TEX=varied (Adriaen's pick)|lines|photo|none
+    merged = facade_textures.apply(merged, os.environ.get("TRD_TEX", "varied"), os.path.join(os.path.dirname(os.path.abspath(args.glb)), "tex"))
+    if os.environ.get("TRD_PALETTE", "1") == "1":   # every flat colour in one draw call (TRD_PALETTE=0: one per material)
+        merged = mesh_cleanup.merge_palette(merged, set(facade_textures.TEX) | {"glass", "water", "Lamp"})
+    for o in merged:   # only the textured meshes need their UVs
+        if o.name not in facade_textures.TEX:
+            while o.data.uv_layers:
+                o.data.uv_layers.remove(o.data.uv_layers[0])
+    for o in merged:
+        o.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=args.glb, use_selection=True, export_apply=True, export_yup=True)
+    # quantized vertex data, about half the bytes (needs node and web/node_modules; skipped without)
+    slim = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "web", "scripts", "slim_glb.mjs")
+    import shutil, subprocess
+    if os.environ.get("TRD_SLIM", "1") == "1" and shutil.which("node"):
+        subprocess.run(["node", slim, args.glb, args.glb], cwd=os.path.dirname(slim), check=False)
+    print("wrote", args.glb)
+    sys.exit(0)
+
+
+if args.glb:
+    export_glb()
 # Everything around the square except Føniks lives in trondheim_surroundings.py, in
 # variants side by side; TRD_SURROUND=v1 is round 6 with every street square to the square
 import trondheim_surroundings  # noqa: E402
@@ -879,32 +1322,10 @@ def aim(pos, bearing, pitch):
 # high over the south-east corner looking north-west; B1 = the overcast photo, lower
 B_POS, B1_POS = (79.3, -47.1, 48.1), (28.2, -48.1, 26.0)
 A_POS, A_AT = FL(10.0, -16.0, 1.7), FL(17.0, 0.0, 3.2)
-if args.glb:   # Føniks on its own for the spin-around viewer
-    bpy.ops.object.select_all(action="DESELECT")
-    keep = FONIKS_OBJS | {o for o in bpy.data.objects if o.name.startswith(("Foniks", "PergolaPost"))}
-    # Lean export: drop buried and flush-hidden faces, then one mesh per material
-    import mesh_cleanup
-    keep = [o for o in keep if o.type == "MESH"]
-    mesh_cleanup.strip_hidden(keep)
-    mesh_cleanup.fronts_only(keep, {"Win", "Mullion", "Transom", "Cartouche", "DormerWin", "Capital", "FoniksAnnexWin",
-                                    "FoniksAnnexTopWin", "FoniksAnnexJointWin", "Fanlight", "Door", "BrickPanel", "SouthBand",
-                                    "ParapetSlot", "PierStrip", "Keystone", "DoorArch"})
-    if os.environ.get("TRD_STATS"):   # triangles left per part, biggest first
-        import collections, re
-        tri = collections.Counter()
-        for o in keep:
-            tri[re.sub(r"\.\d+$", "", o.name)] += sum(len(p.vertices) - 2 for p in o.data.polygons)
-        for k, v in tri.most_common(30):
-            print(f"  {k:24s}{v:6d}")
-    for o in mesh_cleanup.merge_by_material(keep):
-        o.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=args.glb, use_selection=True, export_apply=True, export_yup=True)
-    print("wrote", args.glb)
-    sys.exit(0)
 
 if args.web:   # story mode: the dream square without Føniks, square-aligned, column at the origin
     import mesh_cleanup
-    foniks_parts = FONIKS_OBJS | {o for o in bpy.data.objects if o.name.startswith(("Foniks", "PergolaPost"))}
+    foniks_parts = FONIKS_OBJS | {o for o in bpy.data.objects if o.name.startswith(("Foniks", "PergolaPost", "RoofBar"))}
     bpy.ops.object.select_all(action="DESELECT")
     rigs = [o for o in bpy.data.objects if o.type == "ARMATURE"]
     for o in bpy.data.objects:   # bake the statue's pose into plain meshes, then drop the rigs
@@ -966,6 +1387,16 @@ SHOTS = {
     "C_statue": (FL(21.5, -1.2, 3.0), (2, 0, 10), 26.0, 16 / 9),
     # Like Adriaen's Google 3D view: over Kongens gate, Føniks's brick south wall and its annex
     "K_kongens": ((-12.0, -22.0, 38.0), (-46.0, 24.0, 6.0), 30.0, 16 / 9),
+    # P_*: from the spots of Adriaen's 2025 photos, for side-by-side checks
+    "P_front_close": ((-32.0, 39.5, 1.6), (-44.5, 39.5, 9.0), 20.0, 0.61),
+    "P_corner": ((-24.0, 12.0, 1.6), (-47.0, 30.0, 9.0), 20.0, 1.5),
+    "P_kongens": ((-60.0, -1.5, 1.7), (-60.0, 20.5, 9.0), 22.0, 1.34),
+    "P_fountain_steps": ((-30.0, 43.0, 1.6), (-44.5, 39.0, 3.5), 26.0, 0.97),
+    "P_ramp_terrace": ((-30.0, 31.0, 1.6), (-44.5, 40.0, 6.0), 20.0, 0.56),
+    "P_north_bay": ((-33.0, 46.0, 1.6), (-44.5, 52.0, 6.0), 22.0, 0.65),
+    # the restaurant's outdoor seating on the Kongens gate side, from above and from the street
+    "S_terrace": ((-29.0, -1.0, 13.0), (-47.0, 13.5, 0.5), 26.0, 1.5),
+    "S_terrace_street": ((-37.0, 4.0, 1.7), (-50.0, 13.5, 1.4), 24.0, 1.5),
     # Straight down, orthographic (lens < 0 = ortho width in metres), for the satellite check
     "T_top": ((0.0, 10.0, 300.0), (0.0, 10.001, 0.0), -160.0, 1.0),
 }

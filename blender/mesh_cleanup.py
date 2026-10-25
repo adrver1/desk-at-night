@@ -68,6 +68,9 @@ def _samples(f, mw):
 def strip_hidden(objs, ground=0.0):
     """Delete faces of objs that are buried in, or pressed flat against, another solid
     (any closed convex mesh in objs), and faces lying on or under the ground plane."""
+    # rotations set after an object is made only reach matrix_world on the next update;
+    # without it a rotated part is tested where it would sit unrotated
+    bpy.context.view_layer.update()
     objs = [o for o in objs if o.type == "MESH"]
     solids = []   # (object, planes, aabb min, aabb max)
     for o in objs:
@@ -175,3 +178,41 @@ def fronts_only(objs, names):
             bm.to_mesh(o.data)
         bm.free()
     print(f"fronts_only: removed {trimmed} side faces")
+
+
+def merge_palette(objs, skip, rough=0.7):
+    """Join the flat-coloured objects of objs (one per material, as merge_by_material
+    leaves them) into one mesh whose colours ride in a vertex colour attribute, so they
+    all draw in one call. Objects named in skip (textured, glossy or ones a viewer looks
+    up by name) stay as they are. Costs the merged materials their own roughness: all
+    take rough. Returns the objects to export."""
+    flat = [o for o in objs if o.name not in skip and o.data.materials]
+    if len(flat) < 2:
+        return objs
+    keep_names = {o.name for o in objs} - {o.name for o in flat}
+    for o in flat:
+        bsdf = next(n for n in o.data.materials[0].node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+        col = tuple(bsdf.inputs["Base Color"].default_value)
+        attr = o.data.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
+        attr.data.foreach_set("color", col * len(o.data.loops))
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in flat:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = flat[0]
+    bpy.ops.object.join()
+    pal = bpy.context.view_layer.objects.active
+    pal.name = "palette"
+    m = bpy.data.materials.new("TrdPalette")
+    m.use_nodes = True
+    nt = m.node_tree
+    bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Roughness"].default_value = rough
+    ca = nt.nodes.new("ShaderNodeVertexColor")
+    ca.layer_name = "Col"
+    nt.links.new(ca.outputs["Color"], bsdf.inputs["Base Color"])
+    pal.data.materials.clear()
+    pal.data.materials.append(m)
+    for p in pal.data.polygons:
+        p.material_index = 0
+    rest = [bpy.data.objects[n] for n in keep_names]
+    return rest + [pal]
