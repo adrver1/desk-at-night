@@ -566,7 +566,7 @@ def _portrait(w, h, picture="drawing", centre=None):
     return Image.merge("RGB", [im.point(lambda v, k=k: int(v * k)) for k in (1.0, 0.97, 0.91)])
 
 
-def photo_print(style="stickers", size=(0.105, 0.132), picture="drawing", ppm=7000, seed=14):
+def photo_print(style="stickers", size=(0.105, 0.132), picture="drawing", ppm=5000, seed=14):
     """The print behind the glass, size (w, h) in metres. "doodle": on a
     cream card mount with red and pink marker hearts all round it; "heart":
     cropped tighter on the face, for a heart-shaped window; otherwise the
