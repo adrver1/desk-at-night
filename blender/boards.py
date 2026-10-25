@@ -521,7 +521,12 @@ def binder_spines(size, shelves, seed=4, ppm=1100):
 
 # ------------------------------------------------------------ photo frame
 
-PORTRAIT = os.path.join(HERE, "assets", "ivar_aasen_rusti.jpg")
+# The pictures the frame can hold: image file, and the point (fractions of
+# the image) a crop is centred on
+PORTRAITS = {
+    "drawing": ("ivar_aasen_rusti.jpg", (0.5, 0.5)),  # charcoal drawing, signed Olav Rusti
+    "photo": ("ivar_aasen_photo.jpg", (0.5, 0.40)),   # studio photograph in a dark coat
+}
 HEART_RED, HEART_PINK = (200, 30, 55), (232, 96, 150)
 
 
@@ -546,10 +551,12 @@ def _heart_doodle(d, rng, x, y, s, color, filled):
     d.line(pts + pts[:2], fill=color, width=max(3, int(s * 0.09)), joint="curve")
 
 
-def _portrait(w, h, centre=(0.5, 0.5)):
-    """The drawing cropped to w:h around `centre` (fractions of the image),
-    printed: a touch warm, the paper a little lighter."""
-    im = Image.open(PORTRAIT).convert("L")
+def _portrait(w, h, picture="drawing", centre=None):
+    """A picture from PORTRAITS cropped to w:h around `centre` (fractions of
+    the image), printed: a touch warm, the paper a little lighter."""
+    path, default = PORTRAITS[picture]
+    centre = centre or default
+    im = Image.open(os.path.join(HERE, "assets", path)).convert("L")
     iw, ih = im.size
     cw, ch = (iw, iw * h / w) if iw / ih < w / h else (ih * w / h, ih)
     cx, cy = centre[0] * iw, centre[1] * ih
@@ -559,17 +566,18 @@ def _portrait(w, h, centre=(0.5, 0.5)):
     return Image.merge("RGB", [im.point(lambda v, k=k: int(v * k)) for k in (1.0, 0.97, 0.91)])
 
 
-def photo_print(style="stickers", size=(0.105, 0.132), ppm=7000, seed=14):
+def photo_print(style="stickers", size=(0.105, 0.132), picture="drawing", ppm=7000, seed=14):
     """The print behind the glass, size (w, h) in metres. "doodle": on a
     cream card mount with red and pink marker hearts all round it; "heart":
     cropped tighter on the face, for a heart-shaped window; otherwise the
-    plain portrait with a thin white print border."""
+    plain portrait with a thin white print border. `picture` is a key
+    of PORTRAITS."""
     W, H = round(size[0] * ppm), round(size[1] * ppm)
     rng = random.Random(seed)
     if style == "doodle":
         img = Image.new("RGB", (W, H), (240, 234, 222))
         m = round(0.016 * ppm)
-        img.paste(_portrait(W - 2 * m, H - 2 * m), (m, m))
+        img.paste(_portrait(W - 2 * m, H - 2 * m, picture), (m, m))
         d = ImageDraw.Draw(img)
         spots = [(0.07, 0.06, 1.0), (0.93, 0.07, 0.8), (0.06, 0.94, 0.8), (0.92, 0.93, 1.1), (0.50, 0.04, 0.6),
                  (0.05, 0.50, 0.6), (0.95, 0.42, 0.7), (0.30, 0.96, 0.6), (0.70, 0.965, 0.55), (0.96, 0.68, 0.5),
@@ -577,13 +585,14 @@ def photo_print(style="stickers", size=(0.105, 0.132), ppm=7000, seed=14):
                  (0.86, 0.80, 0.9), (0.15, 0.17, 0.7)]  # the last two stray onto the drawing's corners
         for i, (x, y, s) in enumerate(spots):
             _heart_doodle(d, rng, x * W, y * H, s * m * 1.15, HEART_RED if i % 3 else HEART_PINK, i % 4 == 0)
-        return _save(img, "photo_doodle.png")
+        return _save(img, f"photo_doodle_{picture}.png")
     if style == "heart":
-        return _save(_portrait(W, H, (0.52, 0.42)), "photo_heart.png")
+        x, y = PORTRAITS[picture][1]
+        return _save(_portrait(W, H, picture, (x + 0.02, y - 0.08)), f"photo_heart_{picture}.png")
     img = Image.new("RGB", (W, H), (246, 245, 240))
     m = round(0.004 * ppm)
-    img.paste(_portrait(W - 2 * m, H - 2 * m), (m, m))
-    return _save(img, "photo_" + style + ".png")
+    img.paste(_portrait(W - 2 * m, H - 2 * m, picture), (m, m))
+    return _save(img, f"photo_{style}_{picture}.png")
 
 
 def _save(img, name):

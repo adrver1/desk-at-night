@@ -1,6 +1,7 @@
 """Close-up Cycles stills of the control room's newer assets, in the room,
 before anything is baked: desk phone, rear TV with its PTZ camera, the
-whiteboards, the meeting table and the hanging ceiling microphones.
+whiteboards, the meeting table, the hanging ceiling microphones and the
+desk photo frames.
 
     python blender/preview_room_assets.py [--samples 64] [--out blender/build/room_assets]
 """
@@ -97,6 +98,10 @@ shots = {  # name: (location, aim, lens, width, height)
     "desk-apron": (cr.polar(0.8, a0 + 0.85, 0.80), cr.polar(cr.r_front(a0 + 0.45), a0 + 0.45, 0.62), 26, 16, 9),
     "binders": (Vector((-1.05, -2.05, 1.25)), Vector((-1.05, cr.ROOM_Y0, 0.85)), 30, 16, 9),
     "binders-close": (Vector((-0.75, -2.95, 1.05)), Vector((-1.25, cr.ROOM_Y0, 0.75)), 32, 16, 9),
+    **{f"photo{k}-{v}": (cam, Vector(cr.BOARDS[f"Photo{k}"][2]) + Vector((0, 0, 0.07)), lens, rw, rh)
+       for k, a in enumerate(cr.DESKS)
+       for v, cam, lens, rw, rh in (("seat", cr.polar(cr.r_front(a) - 0.30, a, 1.22), 30, 16, 9),
+                                    ("close", Vector(cr.BOARDS[f"Photo{k}"][2]) - cr.polar(0.45, a, -0.22), 40, 1, 1))},
     "band-right": (Vector((-1.2, -0.6, 1.5)), Vector((3.2, 3.6, 2.0)), 20, 16, 9),
 }
 only = set(filter(None, args.only.split(",")))
