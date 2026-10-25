@@ -36,12 +36,13 @@ fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
 - `content.js`: the whole script. Chapters, beats and their steps, the
   clipboard, stars, cards, slides, logs, the knowledge graph. Edit here.
 - `lines.json`: every spoken line, with who says it and an optional `fx`
-  (`radio`, `phone`). The subtitles come from here too: `no` holds the
+  (`radio`, `phone`, `robot` for the AI agents). The subtitles come from here too: `no` holds the
   Norwegian subtitle, `name` the name shown instead of the speaker's role.
 - `lang.js`: which run (`FULL`) and language (`LANG`, `T(no, en)`).
 - `main.js`: the engine (state per beat, keys, prologue, free mode).
 - `cast.js`, `shots.js`, `call.js`: people, the camera, the video and phone
-  window. `epilogue.js`: the fly-out to the whole platform.
+  window. `epilogue.js`: the fly-out to the whole platform. `clockFace.js`:
+  the rest corner's station clock, big over the picture during the rewind.
 - `ui.js`, `story.css`: overlays. `storyScreens.js`, `graph.js`: what the
   room's monitors and the display band show in story mode.
 - `sola.js`: the opening on the apron at Sola (on by default).
@@ -57,6 +58,16 @@ through a chapter, so back and jumping always land in the right state. `do`
 is the timed part (lines, waits, sounds, chat messages, the rewind); skipping
 a beat jumps to its `end`. A beat with `auto` goes on by itself when its
 steps are done (the cold open), and `card` shows a title card on entering.
+
+People move with `move` steps (cast.js): `{ move: 'supervisor', walk: PATHS.doorToDesk0 }`,
+`{ move, sit: 0, then: 'typing' }` (turns the chair round, sits, swings back to
+the desk), `{ move, stand: 1, toward: [x, z] }`, `{ move, carry: 'jug' }`,
+`{ move, pour: 'S0Mug' }`, `{ move, face: [x, z] }`. They queue per person and
+run alongside the lines; `{ idle: 'supervisor' }` waits until they are done, and
+`to: 'desk0typing'` names the spot (SPOTS) they end at, which the beat's `end`
+should say too. `mugs: { S0Mug: [fill, x, z] }` in a state sets how full a desk
+mug is and where it stands. `web/qa/story-moves.mjs` steps the moves in fixed
+ticks and screenshots them, since swiftshader is too slow to watch them live.
 
 ## Voices
 

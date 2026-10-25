@@ -38,6 +38,7 @@ CAST = {
     'analyst': ('am_echo', 1.0),        # curly_analyst, reliability engineer
     'tech': ('am_liam', 1.05),          # curly_fade_tech, on the radio
     'crew': ('bf_emma', 1.0),           # ground crew at Sola (the optional opening)
+    'agent': ('af_nova', 1.05),         # the AI agents on the screens, through the robot filter
 }
 
 
@@ -58,6 +59,19 @@ def radio(x):
 
 def phone(x):
     return band(x, 380, 3000, 2)
+
+
+def robot(x):
+    """The agents' voice: a metallic comb (a 9 ms feedback delay rings at
+    110 Hz, a flat machine pitch under the words), a light ring modulation
+    and a narrower band, so nobody takes it for a person."""
+    d = SR // 110
+    y = x.copy()
+    for i in range(d, len(y)):
+        y[i] += 0.55 * y[i - d]
+    t = np.arange(len(y)) / SR
+    y = y * (0.75 + 0.25 * np.sin(2 * np.pi * 55 * t))
+    return band(0.5 * x + 0.5 * y / (np.abs(y).max() + 1e-9), 180, 5500, 1.5)
 
 
 def mouth(x):
@@ -99,6 +113,8 @@ def main():
             s = radio(s)
         elif line.get('fx') == 'phone':
             s = phone(s)
+        elif line.get('fx') == 'robot':
+            s = robot(s)
         with tempfile.NamedTemporaryFile(suffix='.wav') as wav:
             sf.write(wav.name, s, SR)
             subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', wav.name, '-ac', '1', '-b:a', '48k', mp3], check=True)

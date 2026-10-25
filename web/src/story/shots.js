@@ -85,9 +85,12 @@ export class Shots {
       case 'brageBand': return this.look(new THREE.Vector3(2.8, 1.7, 2.6), new THREE.Vector3(-0.2, 1.6, -4), 45);
       case 'brage': {
         const head = headOf('supervisor');
-        if (head) return this.look(new THREE.Vector3(0.45, 1.55, -0.7), head.clone().add(new THREE.Vector3(0, -0.12, 0)), 45);
+        if (head) return this.look(new THREE.Vector3(0.15, 1.5, -2.4), head.clone().add(new THREE.Vector3(0, -0.15, 0)), 50);   // from the gap between the desks, his face lit by the band
         return this.target('brageBand');
       }
+      // The morning: both desks from behind (the chitchat), and close on Brage's mug for the pour
+      case 'pair': return this.look(new THREE.Vector3(2.3, 1.65, 0.7), new THREE.Vector3(-0.1, 1.0, -1.5), 55);
+      case 'pour': return this.look(new THREE.Vector3(0.3, 1.65, -2.5), new THREE.Vector3(-0.55, 1.12, -1.65), 62);
       case 'adriaenDesk': return this.look(new THREE.Vector3(0.3, 1.8, -0.8), new THREE.Vector3(1.9, 1.0, -2.2), 45);
       case 'adriaen': return this.look(new THREE.Vector3(2.5, 1.45, -0.35), new THREE.Vector3(1.45, 1.1, -1.95), 55);   // his profile, the monitors beyond
       default: break;

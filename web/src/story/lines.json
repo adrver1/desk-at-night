@@ -1,5 +1,5 @@
 {
-  "_about": "Every spoken line in story mode, by id. web/scripts/voices.py renders each one to public/story/voice/<id>.mp3 with the free Kokoro voice of its speaker (see SPEAKERS in content.js and CAST in voices.py). Change a text, re-run the script, and only that line is rendered again. fx: radio (VHF/intercom band-pass), phone (narrow band). All placeholder dialogue, to be checked by Adriaen.",
+  "_about": "Every spoken line in story mode, by id. web/scripts/voices.py renders each one to public/story/voice/<id>.mp3 with the free Kokoro voice of its speaker (see SPEAKERS in content.js and CAST in voices.py). Change a text, re-run the script, and only that line is rendered again. fx: radio (VHF/intercom band-pass), phone (narrow band), robot (the AI agents). All placeholder dialogue, to be checked by Adriaen.",
 
   "sola.crew1": { "who": "crew", "text": "Morning, all. Boarding now." },
   "sola.crew2": { "who": "crew", "text": "Follow the yellow walkway to the door, please." },
@@ -50,5 +50,14 @@
   "t.brage2": { "who": "supervisor", "name": "Brage", "text": "Good. Draft both, and flag anything that needs sign-off offshore.", "no": "Bra. Lag utkast til begge, og merk det som trenger godkjenning offshore." },
   "t.adr1": { "who": "operator", "name": "Adriaen", "text": "The riser started slugging again overnight. Can you retune the anti-slug controller?", "no": "Stigerøret begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?" },
   "t.adr2": { "who": "operator", "name": "Adriaen", "text": "Good. Run it through the logic tester before I sign.", "no": "Bra. Kjør den gjennom logikktesteren før jeg signerer." },
-  "t.adr3": { "who": "operator", "name": "Adriaen", "text": "Signed. A year ago, this would have taken me a week.", "no": "Signert. For ett år siden ville dette tatt meg en uke." }
+  "t.adr3": { "who": "operator", "name": "Adriaen", "text": "Signed. A year ago, this would have taken me a week.", "no": "Signert. For ett år siden ville dette tatt meg en uke." },
+  "t.gm1": { "who": "supervisor", "name": "Brage", "text": "Good morning, Adriaen.", "no": "God morgen, Adriaen." },
+  "t.gm2": { "who": "operator", "name": "Adriaen", "text": "Good morning.", "no": "God morgen." },
+  "t.gm3": { "who": "supervisor", "name": "Brage", "text": "Is the coffee fresh?", "no": "Er kaffen fersk?" },
+  "t.gm4": { "who": "operator", "name": "Adriaen", "text": "There's a little splash left from the night shift, but I can put on a new pot.", "no": "Det er igjen en liten skvett fra nattskiftet, men jeg kan sette på en ny kanne." },
+  "t.gm5": { "who": "supervisor", "name": "Brage", "text": "Thanks!", "no": "Takk!" },
+  "t.ai1": { "who": "agent", "name": "Agent", "fx": "robot", "text": "Production dips a little in the third quarter. Two projects can move forward to fill the gap. Shall I draft both?", "no": "Produksjonen faller litt i tredje kvartal. To prosjekter kan flyttes fram og dekke gapet. Skal jeg lage utkast til begge?" },
+  "t.ai2": { "who": "agent", "name": "Agent", "fx": "robot", "text": "Drafts ready. Two items need sign-off, and they have gone to the control room.", "no": "Utkastene er klare. To punkter trenger godkjenning, og de er sendt til kontrollrommet." },
+  "t.ai3": { "who": "agent", "name": "Agent", "fx": "robot", "text": "New model fitted from last night's data. The proposed tuning holds the riser steady in the simulator.", "no": "Ny modell tilpasset fra nattens data. Den foreslåtte innstillingen holder stigerøret stabilt i simulatoren." },
+  "t.ai4": { "who": "agent", "name": "Agent", "fx": "robot", "text": "All 14 test cases pass. Ready for your signature.", "no": "Alle 14 testtilfeller består. Klar for din signatur." }
 }
