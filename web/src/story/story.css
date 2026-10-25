@@ -59,6 +59,7 @@
 .title h1 { margin: 0; font: 600 calc(8 * var(--u))/1 var(--display); letter-spacing: -0.02em; text-shadow: 0 2px 30px #000; }
 .title h1.small { font-size: calc(5.2 * var(--u)); }
 .title p { margin: 0; font-size: calc(1.8 * var(--u)); color: var(--dim); }
+.title:not(.solid) p { font-size: calc(2.4 * var(--u)); color: #f2eee6; text-shadow: 0 1px 3px #000c, 0 2px 24px #000; }   /* over a picture, e.g. the pale dream Torvet */
 .credit { position: absolute; left: 6%; bottom: 16%; display: grid; gap: 4px; opacity: 0; transition: opacity 1.4s; z-index: 8; text-shadow: 0 1px 12px #000; }
 .credit.on { opacity: 1; }
 .credit small { font: 500 calc(1.2 * var(--u))/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase; color: #dcd6c8; }

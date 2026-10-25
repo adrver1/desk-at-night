@@ -23,7 +23,10 @@ export const MODELS = {
 // Chair spots follow the chairs (play.js moves nothing; we may move Chair1).
 const TABLE = [2.15, 2.35];
 export const SPOTS = {
+  desk0: { chair: 0 },
+  desk0typing: { chair: 0, pose: 'typing' },
   desk2: { chair: 1 },
+  desk2typing: { chair: 1, pose: 'typing' },
   besideDesk: { chair: 1, move: [-0.42, -1.12, 0.25] },   // Chair1 pulled up beside our desk, at [x, z, yaw]
   besideYou: { at: [0.1, -0.75], face: 'player' },
   behind: { at: [0.45, -0.2], face: 'player' },
@@ -33,7 +36,50 @@ export const SPOTS = {
   table2: { at: [2.55, 1.6], face: TABLE },
   table3: { at: [3.3, 2.0], face: TABLE },
   tableBand: { at: [1.3, 1.5], face: [0, -4] },   // at the meeting table, turned to the band (Brage, tomorrow)
+  door: { at: [4.75, 2.3], face: [0, 0] },         // just in through the door in the right wall
+  coffee: { at: [4.85, 4.72], face: [4.85, 6] },   // at the coffee machine in the rest corner
 };
+
+// Tomorrow's morning (Adriaen, 2026-10-25): the walks and the coffee run, in
+// three's x, z. Brage comes in by the door, round the meeting table to his
+// chair at the left desk; Adriaen goes through the opening in the rear wall
+// to the coffee machine and back with the jug to Brage's mug.
+export const PATHS = {
+  doorToDesk0: [[4.75, 2.3], [3.9, 1.05], [1.6, 0.2], [0.2, -0.45], [-0.62, -0.9]],
+  desk2ToCoffee: [[1.6, -1.0], [2.9, 0.3], [3.85, 1.4], [4.05, 3.1], [4.15, 4.0], [4.85, 4.72]],
+  coffeeToDesk0: [[4.85, 4.72], [4.15, 4.0], [4.05, 3.1], [3.6, 1.3], [1.6, 0.1], [0.3, -1.0], [-0.22, -1.62]],
+  desk0ToDesk2: [[-0.22, -1.62], [0.35, -0.95], [1.55, -0.95]],
+};
+const WALK_SPEED = 1.15;   // m/s, matching the walk clip's stride
+const TURN_RATE = 5;       // rad/s, how fast someone turns into a new direction
+const yawTo = (dx, dz) => Math.atan2(-dx, -dz);   // the yaw that faces along (dx, dz): people and chairs look down their -Z
+const wrap = (a) => ((a % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
+const smooth = (x) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3 - 2 * t); };
+
+// The coffee jug of the rest corner's machine (props._coffee_machine), to
+// carry and pour: glass round a third of coffee, a black lid and handle.
+// Origin at its foot, handle on +X, spout (the lip opposite) on -X
+function makeJug() {
+  const g = new THREE.Group();
+  g.name = 'CoffeeJug';
+  const lathe = (pts, mat) => new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), 24), mat);
+  const black = new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.5 });
+  const coffee = new THREE.MeshStandardMaterial({ color: 0x2a160b, roughness: 0.25 });
+  const glass = new THREE.MeshStandardMaterial({ color: 0xd8e4ea, roughness: 0.05, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false });
+  g.add(lathe([[0, 0], [0.062, 0], [0.066, 0.012], [0.067, 0.07], [0, 0.07]], coffee));
+  g.add(lathe([[0.062, 0], [0.067, 0.04], [0.067, 0.045], [0.064, 0.085], [0.052, 0.12], [0.053, 0.13]], glass));
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.056, 0.016, 24), black);
+  lid.position.y = 0.138;
+  g.add(lid);
+  const handle = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([
+    new THREE.Vector3(0.05, 0.122, 0), new THREE.Vector3(0.092, 0.118, 0), new THREE.Vector3(0.097, 0.055, 0), new THREE.Vector3(0.066, 0.025, 0)]), 12, 0.007, 6), black);
+  g.add(handle);
+  g.userData.grip = new THREE.Vector3(0.094, 0.09, 0);   // where the hand holds the handle
+  g.userData.spout = new THREE.Vector3(-0.056, 0.13, 0);
+  const stream = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.006, 1, 6).translate(0, -0.5, 0), coffee);
+  stream.visible = false;
+  return { jug: g, stream };
+}
 
 const loader = new GLTFLoader();
 loader.register((parser) => {   // as intro.js: embedded images straight to bitmaps (no blob: URLs)
@@ -60,7 +106,6 @@ export class Cast {
     this.key.position.set(0.5, 3, 1.5);
     this.scene.add(this.hemi, this.key);
     this.people = {};
-    this.chairHome = null;
     game.hooks.render.push((renderer, camera) => { if (this.visible) renderer.render(this.scene, camera); });
     this.visible = true;
   }
@@ -72,12 +117,13 @@ export class Cast {
       if (!gltf) return;
       const p = gltf.scene;
       const mixer = new THREE.AnimationMixer(p);
-      const act = Object.fromEntries(['idle', 'seated_idle', 'talk', 'blink'].map((n) => {
+      const act = Object.fromEntries(['idle', 'seated_idle', 'talk', 'blink', 'walk', 'stand_up', 'typing', 'point'].map((n) => {
         const clip = THREE.AnimationClip.findByName(gltf.animations, n);
         return [n, clip && mixer.clipAction(clip)];
       }));
       if (act.blink) act.blink.setLoop(THREE.LoopOnce);
       if (act.talk) { act.talk.play(); act.talk.setEffectiveWeight(0); }
+      for (const n of ['stand_up', 'point']) if (act[n]) { act[n].setLoop(THREE.LoopOnce); act[n].clampWhenFinished = true; }
       const bones = {};
       p.traverse((o) => {
         if (o.isBone) bones[o.name] = o;
@@ -85,49 +131,315 @@ export class Cast {
       });
       p.visible = false;
       this.scene.add(p);
-      this.people[who] = { root: p, mixer, act, bones, pose: null, level: 0, mouth: null, blinkAt: Math.random() * 3, turn: 0 };
+      this.people[who] = { who, root: p, mixer, act, bones, pose: null, level: 0, mouth: null, blinkAt: Math.random() * 3, turn: 0, queue: [], task: null, at: null };
     }));
-    const c = this.game.chairs[1]?.obj;
-    if (c) this.chairHome = [c.position.x, c.position.z, c.rotation.y];
+    this.chairHomes = this.game.chairs.map(({ obj: c }) => [c.position.x, c.position.z, c.rotation.y]);
+    const { jug, stream } = makeJug();
+    this.jug = jug; this.stream = stream;
+    jug.visible = false;
+    this.scene.add(jug, stream);
+    this.mugsRest = {};
+    for (const name of ['S0Mug', 'S1Mug']) {
+      const mug = this.game.room.root.getObjectByName(name), coffee = this.game.room.root.getObjectByName(name.replace('Mug', 'Coffee'));
+      if (mug && coffee) this.mugsRest[name] = { mug, coffee, y: coffee.position.y, home: mug.position.clone() };
+    }
   }
 
-  // Put everyone where `cast` ({ who: { at } }) says; those not named go away
+  // Put everyone where `cast` ({ who: { at } }) says; those not named go
+  // away. Someone already at their spot stays as they are (a `set` step in the
+  // middle of a walk must not snap them back); halt() makes everyone go.
   place(cast = {}) {
-    const chair = this.game.chairs[1]?.obj;
-    let moved = null;
+    let moved = null, any = false;
     for (const [who, p] of Object.entries(this.people)) {
-      const spot = SPOTS[cast[who]?.at];
+      const name = cast[who]?.at, spot = SPOTS[name];
+      if (name === p.at && (p.root.visible || !spot)) continue;
+      any = true;
+      p.at = name;
+      p.queue.length = 0; p.task = null;
       p.root.visible = Boolean(spot);
+      if (p.carry && !spot) this.carry(p, null);
       if (!spot) continue;
       if (spot.chair !== undefined) {
         const c = this.game.chairs[spot.chair]?.obj;
-        if (spot.move) moved = spot.move;
-        const [x, z, yaw] = spot.move ?? [c.position.x, c.position.z, c.rotation.y];
+        if (spot.move) moved = [spot.chair, spot.move];
+        const [x, z, yaw] = spot.move ?? this.chairHomes[spot.chair];
+        if (!spot.move) { c.position.x = x; c.position.z = z; c.rotation.y = yaw; }
         const f = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
         p.root.position.set(x + f.x * 0.06, 0, z + f.z * 0.06);
         p.root.rotation.set(0, yaw, 0);
-        this.pose(p, 'seated_idle');
+        this.pose(p, spot.pose ?? 'seated_idle');
       } else {
         const [x, z] = spot.at;
         const to = spot.face === 'player' ? [this.game.chairs[0].obj.position.x, this.game.chairs[0].obj.position.z] : spot.face;
         p.root.position.set(x, 0, z);
         p.root.rotation.set(0, Math.atan2(-(to[0] - x), -(to[1] - z)), 0);
-        this.pose(p, 'idle');
+        this.pose(p, spot.pose ?? 'idle');
       }
+      this.carry(p, spot.carry ?? null);
     }
-    // Chair1 goes where the operator pulled it, or back home
-    if (chair && this.chairHome) {
-      const [x, z, yaw] = moved ?? this.chairHome;
-      chair.position.x = x; chair.position.z = z; chair.rotation.y = yaw;
+    if (!any) return;
+    // The chairs go home, or where the operator pulled one, unless someone sits in it elsewhere
+    for (const [i, home] of this.chairHomes.entries()) {
+      const c = this.game.chairs[i]?.obj;
+      const sat = Object.values(this.people).some((p) => p.root.visible && SPOTS[p.at]?.chair === i);
+      if (!c || sat) continue;
+      const [x, z, yaw] = moved?.[0] === i ? moved[1] : home;
+      c.position.x = x; c.position.z = z; c.rotation.y = yaw;
+    }
+    if (moved) { const c = this.game.chairs[moved[0]].obj; [c.position.x, c.position.z, c.rotation.y] = moved[1]; }
+  }
+
+  // Stop every walk and sit midway: the next place() puts those people at their spots
+  halt() {
+    for (const p of Object.values(this.people)) {
+      if (!p.task && !p.queue.length) continue;
+      p.queue.length = 0; p.task = null; p.at = null;
+      for (const r of p.waiters ?? []) r();
+      p.waiters = [];
+    }
+    this.stream.visible = false;
+  }
+
+  // How full the mugs on the desks are (0 empty .. 1 full), and where they
+  // stand if not at home: { S0Mug: k | [k, x, z] }
+  mugs(fill = {}) {
+    for (const [name, m] of Object.entries(this.mugsRest ?? {})) {
+      const [k, x, z] = [].concat(fill[name] ?? 1);
+      m.mug.position.copy(m.home);
+      if (x !== undefined) { m.mug.position.x = x; m.mug.position.z = z; }
+      this.fillMug(name, k);
+    }
+  }
+  fillMug(name, k) {
+    const m = this.mugsRest[name];
+    if (!m) return;
+    m.coffee.position.y = m.y - (1 - k) * 0.055;
+    m.coffee.visible = k > 0.03;
+    m.k = k;
+  }
+
+  // ------------------------------------------------------------ moving about
+  // A move: { walk: [[x, z], ...] } | { sit: chair } | { stand: chair, toward: [x, z] }
+  // | { carry: 'jug' | null } | { pour: 'S0Mug' } | { face: [x, z] } | { pose: name }
+  // | { wait: s }. Moves queue up per person and play one after the other;
+  // `to` names the spot where the last one leaves them.
+  move(who, m) {
+    const p = this.people[who];
+    if (!p) return;
+    p.queue.push(m);
+    if (m.to) p.atAfter = m.to;
+  }
+  // Resolves once everyone named has finished their moves
+  idle(...whos) {
+    return Promise.all(whos.map((who) => {
+      const p = this.people[who];
+      if (!p || (!p.task && !p.queue.length)) return null;
+      return new Promise((r) => (p.waiters ??= []).push(r));
+    }));
+  }
+
+  fade(p, name, dur = 0.3) {
+    const next = p.act[name];
+    if (!next || p.pose === name) return;
+    const prev = p.pose && p.act[p.pose];
+    next.reset().setEffectiveWeight(1).play();
+    if (prev) next.crossFadeFrom(prev, dur, false);
+    p.pose = name;
+  }
+
+  start(p, m) {
+    const root = p.root, chairs = this.game.chairs;
+    const t = { m, k: 0 };
+    if (m.walk) {
+      const pts = m.walk.map(([x, z]) => new THREE.Vector3(x, 0, z));
+      if (pts[0].distanceTo(root.position) > 0.05) pts.unshift(root.position.clone());
+      t.pts = pts; t.d = 0;
+      t.len = pts.slice(1).reduce((a, q, i) => a + q.distanceTo(pts[i]), 0);
+      this.fade(p, 'walk', 0.25);
+      t.step = (dt) => {
+        t.d = Math.min(t.len, t.d + dt * (m.speed ?? WALK_SPEED));
+        let left = t.d, pos = pts.at(-1), dir = pts.at(-1).clone().sub(pts.at(-2));
+        for (let i = 1; i < pts.length; i++) {
+          const seg = pts[i].clone().sub(pts[i - 1]), len = seg.length();
+          if (left <= len) { pos = pts[i - 1].clone().addScaledVector(seg, left / len); dir = seg; break; }
+          left -= len;
+        }
+        root.position.copy(pos);
+        this.turnToward(root, yawTo(dir.x, dir.z), dt);
+        if (t.d >= t.len) { this.fade(p, 'idle', 0.3); return true; }
+        return false;
+      };
+    } else if (m.face) {
+      const want = yawTo(m.face[0] - root.position.x, m.face[1] - root.position.z);
+      t.step = (dt) => this.turnToward(root, want, dt) < 0.02;
+    } else if (m.pose) {
+      this.fade(p, m.pose, m.fade ?? 0.4);
+      t.step = () => true;
+    } else if (m.wait) {
+      t.step = (dt) => (t.k += dt) >= m.wait;
+    } else if (m.carry !== undefined) {
+      this.carry(p, m.carry);
+      if (m.put) {   // set the jug down there, upright, handle toward us
+        this.jug.visible = true;
+        this.jug.rotation.set(0, root.rotation.y - Math.PI / 2, 0);
+        this.jug.position.set(...m.put);
+      }
+      t.step = () => true;
+    } else if (m.sit !== undefined) {
+      // Turn the chair round to face us, step in front of it, sit down, and
+      // swing back round to the desk with it
+      const c = chairs[m.sit].obj, home = this.chairHomes[m.sit];
+      const pivot = new THREE.Vector3(c.position.x, 0, c.position.z);
+      const off = root.position.clone().sub(pivot).setY(0);
+      const face = yawTo(off.x, off.z);   // the chair's yaw when its seat faces us
+      const f = new THREE.Vector3(-Math.sin(face), 0, -Math.cos(face));
+      const from = c.rotation.y, spin = wrap(face - from), start = root.position.clone();
+      const toChair = yawTo(-off.x, -off.z), seatYaw0 = root.rotation.y;
+      const su = p.act.stand_up, dur = su?.getClip().duration ?? 1.5;
+      t.step = (dt) => {
+        t.k += dt;
+        const k = t.k;
+        // 0 - 0.9 s: he turns to the chair and spins it round to face him
+        if (k < 0.9) {
+          root.rotation.y = seatYaw0 + wrap(toChair - seatYaw0) * smooth(k / 0.4);
+          c.rotation.y = from + spin * smooth((k - 0.15) / 0.75);
+          return false;
+        }
+        c.rotation.y = face;
+        // 0.9 - 1.5 s: turns his back to it and steps up to the seat
+        if (k < 1.5) {
+          const u = smooth((k - 0.9) / 0.6);
+          root.rotation.y = toChair + wrap(face - toChair) * u;
+          root.position.lerpVectors(start, pivot.clone().addScaledVector(f, 0.3), u);
+          if (k - dt < 0.9) this.fade(p, 'walk', 0.15);
+          return false;
+        }
+        // 1.5 s +: sits down (the stand-up clip backwards)
+        const s0 = 1.5, s1 = s0 + dur * 0.9;
+        if (k < s1) {
+          if (k - dt < s0) { this.fade(p, 'stand_up', 0.25); if (su) su.timeScale = 0; }
+          const u = (k - s0) / (s1 - s0);
+          if (su) su.time = dur * (1 - u) * 0.999;
+          root.rotation.y = face;
+          root.position.copy(pivot.clone().addScaledVector(f, 0.3 - 0.24 * smooth(u)));
+          return false;
+        }
+        // then swings back round to the desk, chair and all
+        const s2 = s1 + 1.3;
+        if (k - dt < s1) { this.fade(p, 'seated_idle', 0.3); if (su) su.timeScale = 1; }
+        const u = smooth((k - s1) / (s2 - s1));
+        const yaw = face + wrap(home[2] - face) * u;
+        c.rotation.y = yaw;
+        const fy = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+        root.rotation.y = yaw;
+        root.position.copy(pivot).addScaledVector(fy, 0.06);
+        if (k >= s2) { if (m.then) this.fade(p, m.then, 0.6); return true; }
+        return false;
+      };
+    } else if (m.stand !== undefined) {
+      // Swing the chair round toward where we are going, then stand up out of it
+      const c = chairs[m.stand].obj;
+      const pivot = new THREE.Vector3(c.position.x, 0, c.position.z);
+      const from = c.rotation.y, face = yawTo(m.toward[0] - pivot.x, m.toward[1] - pivot.z), spin = wrap(face - from);
+      const su = p.act.stand_up, dur = su?.getClip().duration ?? 1.5;
+      t.step = (dt) => {
+        t.k += dt;
+        const k = t.k;
+        if (k < 1.1) {
+          if (k - dt <= 0 && p.pose !== 'seated_idle') this.fade(p, 'seated_idle', 0.4);
+          const yaw = from + spin * smooth(k / 1.1);
+          c.rotation.y = yaw; root.rotation.y = yaw;
+          root.position.copy(pivot).addScaledVector(new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), 0.06);
+          return false;
+        }
+        c.rotation.y = face;
+        const f = new THREE.Vector3(-Math.sin(face), 0, -Math.cos(face));
+        const s1 = 1.1 + dur;
+        if (k - dt < 1.1) { this.fade(p, 'stand_up', 0.2); if (su) su.timeScale = 0; }
+        const u = Math.min(1, (k - 1.1) / dur);
+        if (su) su.time = dur * u * 0.999;
+        root.rotation.y = face;
+        root.position.copy(pivot).addScaledVector(f, 0.06 + 0.32 * smooth(u));
+        if (k >= s1) { if (su) su.timeScale = 1; this.fade(p, 'idle', 0.3); return true; }
+        return false;
+      };
+    } else if (m.pour) {
+      // Hold the jug out over the mug, tip it, fill the mug, and back
+      const mug = this.mugsRest[m.pour];
+      const at = mug ? mug.mug.getWorldPosition(new THREE.Vector3()) : root.position.clone();
+      const want = yawTo(at.x - root.position.x, at.z - root.position.z);
+      const fill0 = mug?.k ?? 0, pt = p.act.point;
+      t.shift = new THREE.Vector3();
+      t.step = (dt) => {
+        t.k += dt;
+        const k = t.k;
+        this.turnToward(root, want, dt);
+        // the arm comes up: the point clip held halfway in, over the walk-free idle
+        if (pt) {
+          if (k - dt <= 0) { pt.reset().play(); pt.timeScale = 0; pt.time = 0.6; }
+          pt.setEffectiveWeight(0.9 * smooth(k / 0.7) * (1 - smooth((k - 4.3) / 0.6)));
+        }
+        const tilt = smooth((k - 0.9) / 0.6) * (1 - smooth((k - 3.4) / 0.5));
+        p.tilt = tilt * 1.25;
+        this.stream.visible = tilt > 0.75;
+        if (mug && tilt > 0.75) this.fillMug(m.pour, Math.min(1, fill0 + (1 - fill0) * (k - 1.3) / 1.9));
+        // step in so the spout is over the mug (at most 40 cm)
+        if (p.spoutAt && k > 0.3 && k < 3.4) {
+          const d = new THREE.Vector3(at.x - p.spoutAt.x, 0, at.z - p.spoutAt.z).multiplyScalar(Math.min(1, dt * 3));
+          if (t.shift.clone().add(d).length() < 0.4) { t.shift.add(d); root.position.add(d); }
+        }
+        if (k >= 5) { pt?.stop(); p.tilt = 0; return true; }
+        return false;
+      };
+    } else t.step = () => true;
+    return t;
+  }
+
+  // Turn a root toward a yaw at TURN_RATE; returns how far it still has to go
+  turnToward(root, want, dt) {
+    const d = wrap(want - root.rotation.y);
+    root.rotation.y += Math.sign(d) * Math.min(Math.abs(d), TURN_RATE * dt * Math.max(0.35, Math.min(1, Math.abs(d))));
+    return Math.abs(d);
+  }
+
+  carry(p, what) {
+    p.carry = what;
+    if (this.jug) this.jug.visible = Object.values(this.people).some((q) => q.carry === 'jug' && q.root.visible);
+    if (!what) p.tilt = 0;
+  }
+
+  // The jug in the right hand, hanging from its handle, tipped forward by p.tilt
+  holdJug(p) {
+    const hand = p.bones.handR ?? p.bones['hand.R'];
+    if (!hand) return;
+    p.root.updateMatrixWorld(true);
+    const h = hand.getWorldPosition(new THREE.Vector3());
+    const yaw = p.root.rotation.y;
+    this.jug.rotation.order = 'YXZ';
+    this.jug.rotation.set(0, yaw - Math.PI / 2, p.tilt ?? 0);
+    this.jug.updateMatrix();
+    const grip = this.jug.userData.grip.clone().applyEuler(this.jug.rotation);
+    this.jug.position.copy(h).sub(grip).add(new THREE.Vector3(0, -0.02, 0));
+    this.jug.updateMatrixWorld(true);
+    p.spoutAt = this.jug.localToWorld(this.jug.userData.spout.clone());
+    if (this.stream.visible) {
+      const top = p.spoutAt, mug = Object.values(this.mugsRest).reduce((a, m) => {
+        const w = m.mug.getWorldPosition(new THREE.Vector3());
+        return !a || w.distanceTo(top) < a.distanceTo(top) ? w : a;
+      }, null);
+      const bottom = mug ? new THREE.Vector3(top.x, mug.y + 0.07, top.z) : top.clone().setY(top.y - 0.15);
+      this.stream.position.copy(top);
+      this.stream.scale.set(1, Math.max(0.01, top.y - bottom.y), 1);
     }
   }
 
+  // Straight into a pose, with any other body clip stopped (talk and blink play on top)
   pose(p, name) {
-    if (p.pose === name) return;
     const next = p.act[name];
     if (!next) return;
-    next.reset().play();
-    if (p.pose && p.act[p.pose]) p.act[p.pose].stop();
+    for (const [n, a] of Object.entries(p.act)) if (a && n !== name && n !== 'talk' && n !== 'blink') { a.stop(); a.timeScale = 1; }
+    if (p.pose === name && next.isRunning()) return;
+    next.reset().setEffectiveWeight(1).play();
     p.pose = name;
     p.mixer.update(Math.random() * 3);
   }
@@ -149,6 +461,16 @@ export class Cast {
   update(dt, camera, now) {
     for (const p of Object.values(this.people)) {
       if (!p.root.visible) continue;
+      // Moves: the current one steps, the next starts when it is done
+      if (!p.task && p.queue.length) p.task = this.start(p, p.queue.shift());
+      if (p.task && p.task.step(dt)) {
+        p.task = null;
+        if (!p.queue.length) {
+          if (p.atAfter) { p.at = p.atAfter; p.atAfter = null; }
+          for (const r of p.waiters ?? []) r();
+          p.waiters = [];
+        }
+      }
       let level = 0;
       if (p.mouth) {
         p.mouthT += dt;
@@ -174,6 +496,7 @@ export class Cast {
         neck.rotateY(p.applied);
         p.bones.head?.rotateY(p.applied);
       }
+      if (p.carry === 'jug') this.holdJug(p);
     }
   }
 }

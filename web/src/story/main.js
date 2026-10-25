@@ -6,8 +6,8 @@
 //
 // Keys: Space or → next, ← back, 1-9 chapter, F free mode (and back), P
 // presenter notes, O debug overlay (free mode). A presentation clicker sends
-// the same keys. URL: ?chapter=N, ?mode=free, ?sola=1 (the optional Sola
-// apron scene before the flight), ?nofs (no fullscreen on start),
+// the same keys. URL: ?chapter=N, ?mode=free, ?sola=0 (skips the Sola apron
+// scene before the flight, on by default), ?nofs (no fullscreen on start),
 // ?story=full (the three-act version), ?lang=en|no (on-screen language).
 import * as THREE from 'three';
 import '../play.js';
@@ -24,6 +24,7 @@ import { Shots } from './shots.js';
 import { Epilogue } from './epilogue.js';
 import { Sola } from './sola.js';
 import { Trondheim } from './trondheim.js';
+import { ClockFace } from './clockFace.js';
 
 const game = window.__game;
 const q = new URLSearchParams(location.search);
@@ -42,11 +43,11 @@ if (NAV !== '0') ui.nav(CHAPTERS, NAV, (c, i) => (c === 'next' ? next() : c === 
 const sound = new Sound();
 const call = new Call(ui.el.call);
 const trondheim = new Trondheim(host);
-let cast = null, shots = null, epilogue = null;
-// The Sola opening (?sola=1) and its callback stills in Acts 1 and 3
-// (?solastills=1, on with ?sola=1 unless ?solastills=0). Both off by default.
-const SOLA_OPEN = q.get('sola') === '1';
-const SOLA_STILLS = (q.get('solastills') ?? (SOLA_OPEN ? '1' : '0')) === '1';
+let cast = null, shots = null, epilogue = null, clockFace = null;
+// The Sola opening (on by default since 2026-10-25, off with ?sola=0) and its
+// callback stills in Acts 1 and 3 of the full version (only with ?solastills=1)
+const SOLA_OPEN = q.get('sola') !== '0';
+const SOLA_STILLS = q.get('solastills') === '1';
 const sola = SOLA_OPEN || SOLA_STILLS ? Object.assign(new Sola(game, { open: SOLA_OPEN }), { sound, titleText: TITLE, credits: CREDITS, music: MUSIC }) : null;
 for (const ch of CHAPTERS) ch.beats = ch.beats.filter((b) => !b.sola || SOLA_STILLS);
 
@@ -123,6 +124,7 @@ function apply(s, { instant = false } = {}) {
   if (s.place === 'trondheim' && !trondheim.on) { trondheim.show(); game.hooks.hidden = true; }
   if (s.place !== 'trondheim' && trondheim.on) { trondheim.hide(); game.hooks.hidden = false; }
   cast?.place(s.cast);
+  cast?.mugs(s.mugs);
   ui.clipboard(s.clipboard);
   ui.clipAway(Boolean(s.shot?.startsWith('monitor:') || s.overlay?.startsWith('slide:') || s.overlay?.startsWith('log:') || s.overlay?.startsWith('vote:') || s.overlay?.startsWith('card:') || s.graphOn === 'overlay'));
   ui.stars(s.stars);
@@ -149,6 +151,7 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
   token++;
   const my = token;
   sound.cut();
+  cast?.halt();
   cast?.quiet();
   call.quiet();
   ui.subs();
@@ -167,6 +170,7 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
   if (b.title) ui.title({ eyebrow: `Act ${b.title}`, text: ACTS[b.title].name, sub: ACTS[b.title].sub, solid: true });
   if (b.card) ui.title(b.card);
   host.classList.remove('rewinding', 'forwarding');
+  clockFace?.show(false);
   showHud();
   ui.notes(b.notes, notesOn);
   running = true; waiting = false;
@@ -188,6 +192,10 @@ const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
 async function run(step, my) {
   if (step.at !== undefined) { await sleep(step.at); if (my !== token) return; }
   if (step.say) return say(step.say, my);
+  // People moving about: { move: who, walk | sit | stand | carry | pour | face | pose | wait, to: spot }
+  // queues and goes on at once; { idle: [who, ...] } waits for them to finish
+  if (step.move) { cast?.move(step.move, step); return; }
+  if (step.idle) return cast?.idle(...[].concat(step.idle));
   if (step.wait) return sleep(step.wait);
   if (step.set) return apply(merge(state, step.set));
   if (step.sound === 'ring') { sound.ring(2); return; }
@@ -255,10 +263,11 @@ async function rewind(over, my, dir) {
   const t0 = performance.now(), from = state.time ?? 12, span = 24 * 3;
   const screens = Object.keys(state.screens ?? {}).concat(Object.keys(DEFAULT_LAYOUT)).filter((n, i, a) => a.indexOf(n) === i);
   host.classList.add(dir < 0 ? 'rewinding' : 'forwarding');
+  clockFace?.show(true);   // the rest corner's clock, big over the picture
   sound.cut();
   let off = 0;
   while (performance.now() - t0 < over * 1000) {
-    if (my !== token) { host.classList.remove('rewinding', 'forwarding'); return; }
+    if (my !== token) { host.classList.remove('rewinding', 'forwarding'); clockFace?.show(false); return; }
     const k = (performance.now() - t0) / (over * 1000);
     setTime(from + dir * span * k * k * (3 - 2 * k));
     if (dir < 0) {
@@ -270,6 +279,7 @@ async function rewind(over, my, dir) {
     await sleep(1 / 30);
   }
   host.classList.remove('rewinding', 'forwarding');
+  clockFace?.show(false);
 }
 const smoothstep = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
 
@@ -303,7 +313,9 @@ function next() {
     token++;
     sound.cut();
     cast?.quiet(); call.quiet();
+    cast?.halt();
     ui.subs();
+    if (!b.card) ui.title(null);   // a title its steps put up goes with them
     if (b.end) apply(merge(state, b.end));
     if (state.sound === 'alarm') sound.startAlarm(0.1);
     running = false; waiting = true;
@@ -543,6 +555,7 @@ begin.addEventListener('click', start);
 game.ready.then(async () => {
   shots = new Shots(game);
   cast = new Cast(game);
+  clockFace = new ClockFace(game);
   shots.cast = cast;
   game.hooks.frame.push(frame);
   await Promise.all([cast.load(), sound.loadIndex()]);
@@ -578,5 +591,5 @@ window.__story = {
   get state() { return { chapter: CHAPTERS[chapter].id, beat: CHAPTERS[chapter].beats[beat]?.id, running, waiting, free, s: state }; },
   beats: (key) => CHAPTERS.find((ch) => ch.key === key)?.beats.length ?? 0,
   sola: () => sola, epilogue: () => epilogue, trondheim,
-  ui, cast: () => cast, shots: () => shots, S, sound, toggleFree, SPEAKERS,
+  ui, cast: () => cast, shots: () => shots, clockFace: () => clockFace, S, sound, toggleFree, SPEAKERS,
 };
