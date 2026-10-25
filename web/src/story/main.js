@@ -198,6 +198,7 @@ async function run(step, my) {
   if (step.move) { cast?.move(step.move, step); return; }
   if (step.idle) return cast?.idle(...[].concat(step.idle));
   if (step.wait) return sleep(step.wait);
+  if (step.torvet) return trondheim.reach(step.torvet);   // Trondheim's own timeline: 'meet' waits, 'in' goes
   if (step.set) return apply(merge(state, step.set));
   if (step.sound === 'ring') { sound.ring(2); return; }
   if (step.sound === 'alarmShort') { sound.startAlarm(3, 0.06); setTimeout(() => sound.stopAlarm(), 5000); return; }
@@ -290,6 +291,7 @@ async function say(id, my) {
   ui.subs(line.name ?? line.who, LANG === 'no' ? line.no ?? line.text : line.text);
   const mouth = sound.index[id]?.mouth ?? '';
   cast?.talk(line.who, mouth);
+  trondheim.talk(line.who, mouth);
   call.talk(line.who, mouth);
   shots?.speaker(line.who);
   await sound.line(id);

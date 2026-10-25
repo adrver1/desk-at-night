@@ -57,6 +57,7 @@ export const SPEAKERS = {
   tech: { name: 'Field technician (radio)', model: 'curly_fade_tech' },
   crew: { name: 'Ground crew' },
   agent: { name: 'AI agent (on the screens)' },
+  ceo: { name: 'CEO', model: 'glasses_ceo' },
 };
 
 export const TITLE = 'A day in the life of EIGA';
@@ -534,7 +535,10 @@ const SHORT_CHAPTERS = [
     base: { act: 5, time: 8.5, shot: 'desk', ...DESK, cast: {}, graph: 0, screens: BLANK },
     beats: [
       { id: 'y.card', card: { text: '', solid: true }, notes: 'A plain black screen after the question. From here on you talk; Space moves on.' },
-      { id: 'y.trondheim', set: { place: 'trondheim' }, do: [{ wait: 0.8 }, { card: { text: T('For et år siden', 'One year ago'), sub: T('I november 2025', 'November 2025') } }, { wait: 6 }, { card: null }], notes: 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you at the Føniks door, the titles fade as it closes in, and you turn and walk in. Your first week on the job.' },
+      { id: 'y.trondheim', set: { place: 'trondheim' },
+        do: [{ wait: 0.8 }, { card: { text: T('For et år siden', 'One year ago'), sub: T('I november 2025', 'November 2025') } }, { wait: 6 }, { card: null },
+          { torvet: 'meet' }, { say: 'y.ceo1' }, { wait: 0.5 }, { torvet: 'in' }],
+        notes: 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the Føniks steps, the titles fade as it closes in. The CEO comes out, welcomes you to Aker BP, and you go in together. Your first week on the job.' },
       { id: 'y.steep', set: { overlay: 'slide:y-02' }, notes: 'Onboarding is steep. TODO(Adriaen): your talking points.' },
       { id: 'y.room', set: { overlay: null, place: null, shot: 'band', screens: null }, notes: 'The room as it was to a newcomer: screens full of things you have yet to learn.' },
     ],
