@@ -17,7 +17,7 @@ import * as THREE from 'three';
 import { Helicopter } from '../helicopter.js';
 import { loadGltf } from './cast.js';
 
-const LENGTH = 27;   // s, from black to the hand-over to the cabin
+export const LENGTH = 27;   // s, from black to the hand-over to the cabin
 const WALK = 1.25;   // m/s, the walk clip's pace (intro.js)
 // The intro's cast and seats [row, place], so everyone flies where they boarded
 const CREW = ['blazer_lead', 'bearded_operator', 'crop_supervisor', 'curly_analyst', 'curly_fade_tech', 'glasses_engineer', 'grey_beard_lead'];

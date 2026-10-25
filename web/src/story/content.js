@@ -278,6 +278,19 @@ export const NOTICES = {
 export const SEARCH = ['Lifting operations, general (rev 2, superseded)', 'Crane operations manual, chapter 4', 'Supply vessel handling checklist', 'Lifting operations, offshore cranes (rev 3, superseded)', 'Deck operations, bad weather', 'Lifting operations, supply vessel (rev 5)'];
 
 // ---------------------------------------------------------------- the chapters
+
+// The prologue: one continuous intro (the Sola apron, then intro.html in a
+// frame), in subchapters the presenter can jump between (Adriaen,
+// 2026-10-25). `pro` names where each starts; main.js turns that into the
+// intro's clock (PRO_START) and moves the navigator along as it plays
+// through. The Sola one goes with ?sola=0.
+const PROLOGUE_BEATS = [
+  { id: 'pro.sola', pro: 'sola', set: { act: 0 }, notes: 'Sola heliport: fade in from black on the apron, the title, the crew boards the helicopter.' },
+  { id: 'pro.takeoff', pro: 'takeoff', set: { act: 0 }, notes: 'Up and away: the cabin, the title (when there is no Sola opening), the pilot on the intercom.' },
+  { id: 'pro.credits', pro: 'credits', set: { act: 0 }, notes: 'Over the North Sea: the credits, our eyes on the supply vessel and the crew.' },
+  { id: 'pro.landing', pro: 'landing', set: { act: 0 }, notes: 'The platform comes up: one turn round it, then outside for the descent, gear down, touchdown on the helideck.' },
+  { id: 'pro.walk', pro: 'walk', set: { act: 0 }, notes: 'Off the helicopter, across the deck to the stairs. Space at the end goes on to the next chapter.' },
+];
 // Keys 1 to 9 jump to these. `notes` are the presenter's talking points,
 // shown on the presenter strip (P). TODO(Adriaen): your own talking points.
 
@@ -286,7 +299,7 @@ const DESK = { wi: 'normal', sound: 'room' };
 const FULL_CHAPTERS = [
   {
     key: 1, id: 'prologue', name: 'Prologue · Flying in', prologue: true,
-    beats: [{ id: 'pro', set: { act: 0 }, notes: 'Fade in from black. Title, credits, the flight. Space at the end goes to Act 1.' }],
+    beats: PROLOGUE_BEATS,
   },
   {
     key: 2, id: 'a1-morning', name: 'Act 1 · The morning',
@@ -493,7 +506,7 @@ export const CLOSING = T('Denne delen er ikke vår å bestemme. Den er deres.', 
 const SHORT_CHAPTERS = [
   {
     key: 1, id: 'prologue', name: T('Prolog · Innflyging', 'Prologue · Flying in'), prologue: true,
-    beats: [{ id: 'pro', set: { act: 0 }, notes: 'Fade in from black. Title, credits, the flight. Space at the end goes to tomorrow\'s control room.' }],
+    beats: PROLOGUE_BEATS,
   },
   {
     key: 2, id: 'tomorrow', name: T('Framtidens EIGA', 'Tomorrow\'s EIGA'),
