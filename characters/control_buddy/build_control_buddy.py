@@ -1,0 +1,415 @@
+"""
+control_buddy: CtrlBuddy, the AI agent mascot from Adriaen's talk, as a
+low-poly robot. A tall domed head with ear bolts, wide dark shades under
+frowning brows, a small nose and a flat mouth, a pointed collar over the
+shoulders, a white tabard with a name badge, and segmented arms with
+joint rings. Its team-mates share the body and swap the badge and hat:
+the Scholar (COMPILER, mortarboard and bow tie) and the Nurse (LINTER,
+nurse cap and a first-aid patch).
+
+    python characters/control_buddy/build_control_buddy.py [--form walker|hover|desk|all]
+                                                           [--role buddy|scholar|nurse|all]
+
+Forms (all kept; FORM picks the live one):
+    walker  full size on legs, a crew member who walks and sits
+    hover   full size, the legs swapped for a thruster: it floats
+    desk    a 30 cm bust on a puck, a desk toy next to the keyboard
+
+Every part is rigid on the shared humanoid rig, so the crew's clips
+(idle, walk, point, talk, blink...) play on it. A robot has no skin to
+bend: each vertex follows exactly one bone.
+"""
+import argparse
+import math
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "..", "_shared"))
+import base_body as base  # noqa: E402  (imports bpy)
+import bpy  # noqa: E402
+from mathutils import Quaternion, Vector  # noqa: E402
+
+Mesh, X, Y, Z = base.Mesh, base.X, base.Y, base.Z
+FORM = "walker"
+FORMS, ROLES = ("walker", "hover", "desk"), ("buddy", "scholar", "nurse")
+DESK_SCALE, DESK_HEAD = 0.3, 1.6
+
+# Colours
+METAL, DARK, TABARD, LENS, INK = "light_grey", "charcoal", "white", "lens", "black"
+
+# Head: rings of (z, half width, half depth, forward offset, region),
+# a tall rounded box with a dome on top, as drawn
+HEAD = [(1.470, 0.105, 0.098, 0.0, "head"),
+        (1.490, 0.122, 0.112, 0.0, "head"),
+        (1.740, 0.124, 0.114, 0.0, "head"),
+        (1.805, 0.108, 0.100, 0.0, "head"),
+        (1.850, 0.072, 0.068, 0.0, "head"),
+        (1.868, 0.030, 0.028, 0.0, "head")]
+FACE_Y = 0.112          # the flat front of the head
+EYE_Z, MOUTH_Z = 1.640, 1.548
+TORSO = [(0.84, 0.150, 0.098, 0.0, "pelvis"),
+         (0.95, 0.152, 0.100, 0.0, "torso"),
+         (1.18, 0.180, 0.112, 0.0, "torso"),
+         (1.34, 0.190, 0.105, 0.0, "torso"),
+         (1.42, 0.110, 0.080, 0.0, "torso")]
+TABARD_W, TABARD_TOP, TABARD_BOTTOM = 0.135, 1.33, 0.78
+# 8-sided rings with wide flat faces front, back and sides: boxy metal
+BOX8 = (25, 65, 115, 155, 205, 245, 295, 335)
+
+# 3x5 pixel letters for the badges ('#' = filled)
+FONT = {
+    "B": ["##.", "#.#", "##.", "#.#", "##."], "C": ["###", "#..", "#..", "#..", "###"],
+    "D": ["##.", "#.#", "#.#", "#.#", "##."], "E": ["###", "#..", "##.", "#..", "###"],
+    "I": ["###", ".#.", ".#.", ".#.", "###"], "L": ["#..", "#..", "#..", "#..", "###"],
+    "M": ["#...#", "##.##", "#.#.#", "#...#", "#...#"], "N": ["#..#", "##.#", "#.##", "#..#", "#..#"],
+    "O": ["###", "#.#", "#.#", "#.#", "###"], "P": ["##.", "#.#", "##.", "#..", "#.."],
+    "R": ["##.", "#.#", "##.", "#.#", "#.#"], "T": ["###", ".#.", ".#.", ".#.", ".#."],
+    "U": ["#.#", "#.#", "#.#", "#.#", "###"], "Y": ["#.#", "#.#", ".#.", ".#.", ".#."],
+}
+BADGE = {"buddy": "CTRLBUDDY", "scholar": "COMPILER", "nurse": "LINTER"}
+
+
+def box(m, lo, hi, swatch, region):
+    """Axis-aligned box from corner lo to corner hi."""
+    (x0, y0, z0), (x1, y1, z1) = lo, hi
+    return m.hull([(x, y, z) for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)], swatch, region)
+
+
+def quad_y(m, x0, x1, z0, z1, y, swatch, region):
+    """Flat rectangle facing +Y at depth y: badge plates and letters."""
+    m.face([(x0, y, z0), (x0, y, z1), (x1, y, z1), (x1, y, z0)], swatch, region)
+
+
+def text(m, word, cx, cz, height, y, swatch="black", region="letters"):
+    """A word in the pixel font, centred on (cx, cz), as merged rectangles:
+    runs per row, stacked down while the run below is the same."""
+    px = height / 5
+    widths = [len(FONT[ch][0]) for ch in word]
+    total = (sum(widths) + len(word) - 1) * px
+    x = cx - total / 2
+    for ch, w in zip(word, widths):
+        rows = FONT[ch]
+        runs = []
+        for r, row in enumerate(rows):
+            c = 0
+            while c < w:
+                if row[c] == "#":
+                    s = c
+                    while c < w and row[c] == "#":
+                        c += 1
+                    runs.append((r, s, c))
+                else:
+                    c += 1
+        used = set()
+        for r, s, e in runs:
+            if (r, s, e) in used:
+                continue
+            r1 = r
+            while (r1 + 1, s, e) in runs:
+                r1 += 1
+                used.add((r1, s, e))
+            # the viewer faces -Y, so reading left to right runs towards -X
+            quad_y(m, 2 * cx - (x + e * px), 2 * cx - (x + s * px), cz + height / 2 - (r1 + 1) * px, cz + height / 2 - r * px,
+                   y, swatch, region)
+        x += (w + 1) * px
+    return total
+
+
+# ---------------------------------------------------------------- the head
+def head(role):
+    m = Mesh().tube(HEAD, angles=BOX8, swatch=METAL)
+    # ear bolts: flat boxes on the sides at eye height, a dark ring under each
+    for s in (1, -1):
+        box(m, (s * 0.118, -0.045, 1.575), (s * 0.150, 0.035, 1.680), METAL, "ear_bolt")
+        box(m, (s * 0.150, -0.030, 1.595), (s * 0.160, 0.020, 1.660), DARK, "ear_bolt")
+    # shades: two wide rectangular lenses on a bridge, standing off the face
+    y0, y1 = FACE_Y, FACE_Y + 0.018
+    for s in (1, -1):
+        box(m, (s * 0.012, y0, EYE_Z - 0.022), (s * 0.092, y1, EYE_Z + 0.022), LENS, "lens")
+    box(m, (-0.014, y0, EYE_Z + 0.004), (0.014, y1 - 0.004, EYE_Z + 0.018), LENS, "lens")
+    # frowning brows: bars over the lenses, inner ends low
+    for s in (1, -1):
+        a = Vector((s * 0.018, y1 - 0.004, EYE_Z + 0.030))
+        b = Vector((s * 0.088, y1 - 0.004, EYE_Z + 0.052))
+        m.loft([[p + d for d in (Vector((0, 0, -0.006)), Vector((0, 0.008, -0.006)),
+                                 Vector((0, 0.008, 0.006)), Vector((0, 0, 0.006)))] for p in (a, b)],
+               DARK, f"brow.{'R' if s > 0 else 'L'}")
+    # nose: a small wedge under the bridge
+    m.hull([(0.020, FACE_Y - 0.004, 1.590), (-0.020, FACE_Y - 0.004, 1.590),
+            (0.0, FACE_Y - 0.004, 1.618), (0.0, FACE_Y + 0.026, 1.592)], METAL, "nose")
+    # mouth: a short flat slot, rigid on the jaw so `talk` moves it
+    box(m, (-0.026, FACE_Y - 0.002, MOUTH_Z - 0.004), (0.026, FACE_Y + 0.004, MOUTH_Z + 0.004), INK, "mouth")
+    top = HEAD[-2][0]
+    if role == "scholar":
+        # mortarboard: a cap hugging the dome, a flat square board, a tassel
+        m.tube([(1.79, 0.112, 0.104, 0, "hat"), (1.88, 0.090, 0.086, 0, "hat")], angles=BOX8,
+               swatch=INK, cap_start=False)
+        board = [Vector((0.0, 0.0, 1.89)) + Vector((math.cos(a) * 0.21, math.sin(a) * 0.21, 0))
+                 for a in (math.radians(d) for d in (0, 90, 180, 270))]
+        m.loft([board, [p + Z * 0.012 for p in board]], INK, "hat")
+        m.bar((0, 0, 1.902), (0.14, 0.03, 1.902), 0.004, "gold", "hat")
+        m.bar((0.14, 0.03, 1.902), (0.15, 0.04, 1.80), 0.006, "gold", "hat")
+    elif role == "nurse":
+        # nurse cap: a short folded band around the dome, a red cross on front
+        m.tube([(top - 0.025, 0.110, 0.102, 0.004, "hat"), (top + 0.045, 0.095, 0.090, 0.008, "hat")],
+               angles=BOX8, swatch="white", cap_start=False)
+        cy, cz = 0.104, top + 0.012
+        quad_y(m, -0.008, 0.008, cz - 0.022, cz + 0.022, cy, "signal_red", "hat")
+        quad_y(m, -0.022, -0.008, cz - 0.008, cz + 0.008, cy, "signal_red", "hat")
+        quad_y(m, 0.008, 0.022, cz - 0.008, cz + 0.008, cy, "signal_red", "hat")
+    return m
+
+
+# ------------------------------------------------------------------ the body
+def torso(role, form):
+    rings = TORSO if form == "walker" else TORSO[1:]
+    m = Mesh().tube(rings, angles=BOX8, swatch=METAL)
+    m.tube([(1.38, 0.058, 0.055, 0, "neck"), (1.50, 0.050, 0.048, 0, "neck")], angles=base.HEX6,
+           swatch=DARK, cap_start=False, cap_end=False)
+    # pointed collar over the shoulders, like the lapels of a coat
+    collar = []
+    for a in BOX8:
+        r = math.radians(a)
+        collar += [(0.085 * math.cos(r), 0.075 * math.sin(r), 1.445), (0.10 * math.cos(r), 0.09 * math.sin(r), 1.41)]
+    for s in (1, -1):
+        collar += [(s * 0.265, 0.10, 1.285), (s * 0.265, -0.10, 1.285), (s * 0.20, 0.122, 1.30),
+                   (s * 0.20, -0.118, 1.30)]
+    m.hull(collar, TABARD, "collar")
+    # tabard: a flat white panel front and back with a black name badge
+    front = 0.118
+    bottom = TABARD_BOTTOM if form == "walker" else 0.92
+    for side in (1, -1):
+        y0 = side * front
+        y1 = side * (front + 0.014)
+        box(m, (-TABARD_W, min(y0, y1), bottom), (TABARD_W, max(y0, y1), TABARD_TOP), TABARD, "tabard")
+    fy = front + 0.0145
+    bw = 0.205 if role == "buddy" else 0.19
+    quad_y(m, -bw / 2 - 0.008, bw / 2 + 0.008, 1.172, 1.228, fy, INK, "badge")
+    quad_y(m, -bw / 2, bw / 2, 1.178, 1.222, fy + 0.0015, "white", "badge")
+    text(m, BADGE[role], 0, 1.200, 0.026, fy + 0.003)
+    if role == "nurse":  # first-aid patch at the bottom right
+        quad_y(m, 0.040, 0.112, 0.92, 0.99, fy, INK, "badge")
+        quad_y(m, 0.044, 0.108, 0.924, 0.986, fy + 0.0015, "white", "badge")
+        quad_y(m, 0.071, 0.081, 0.932, 0.978, fy + 0.003, "signal_red", "badge")
+        quad_y(m, 0.052, 0.100, 0.950, 0.960, fy + 0.003, "signal_red", "badge")
+    if role == "scholar":  # bow tie at the collar
+        m.hull([(0, 0.112, 1.385), (0.055, 0.118, 1.415), (0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
+        m.hull([(0, 0.112, 1.385), (-0.055, 0.118, 1.415), (-0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
+        box(m, (-0.012, 0.115, 1.373), (0.012, 0.130, 1.397), INK, "bowtie")
+    return m
+
+
+def arm(side):
+    """Segmented arm in the A-pose with a dark ring at shoulder, elbow and
+    wrist, and a blocky hand with a thumb."""
+    u, v, w = base.frame(base.arm_dir(1))
+    o = base.SHOULDER
+    m = Mesh()
+    m.tube([(-0.02, 0.066, 0.066, 0, "upper_arm"), (0.235, 0.060, 0.060, 0, "upper_arm")], origin=o,
+           axes=(u, v, w), angles=base.HEX6, swatch=METAL)
+    m.tube([(0.265, 0.058, 0.058, 0, "forearm"), (0.465, 0.052, 0.052, 0, "forearm")], origin=o,
+           axes=(u, v, w), angles=base.HEX6, swatch=METAL)
+    for t, r, reg in ((0.25, 0.074, "elbow"), (0.475, 0.064, "wrist")):
+        m.tube([(t - 0.018, r, r, 0, reg), (t + 0.018, r, r, 0, reg)], origin=o, axes=(u, v, w),
+               angles=base.HEX6, swatch=DARK)
+    # hand: a mitten block flat in the plane of the arm, thumb forward
+    c = o + w * 0.49
+    pts = []
+    for t, hw, hd in ((0.0, 0.034, 0.050), (0.10, 0.030, 0.056), (0.15, 0.020, 0.042)):
+        for su in (-1, 1):
+            for sv in (-1, 1):
+                pts.append(c + w * t + u * (su * hw) + v * (sv * hd))
+    m.hull(pts, METAL, "hand")
+    tb = c + w * 0.03 + v * 0.050
+    m.hull([tb - u * 0.014, tb + u * 0.014, tb - w * 0.02 - u * 0.012, tb - w * 0.02 + u * 0.012,
+            tb + w * 0.05 + v * 0.025], METAL, "hand")
+    return m if side > 0 else m.mirrored()
+
+
+def leg(side):
+    m = Mesh()
+    x = base.LEG_X * 1.05
+    m.tube([(0.90, 0.075, 0.078, 0, "thigh"), (0.50, 0.066, 0.068, 0, "thigh")], origin=(x, 0, 0),
+           angles=base.HEX6, swatch=METAL, axes=(X, Y, Z))
+    m.tube([(0.45, 0.062, 0.064, 0, "shin"), (0.11, 0.058, 0.060, 0, "shin")], origin=(x, 0, 0),
+           angles=base.HEX6, swatch=METAL)
+    m.tube([(0.445, 0.082, 0.084, 0, "knee"), (0.505, 0.082, 0.084, 0, "knee")], origin=(x, 0, 0),
+           angles=base.HEX6, swatch=DARK)
+    box(m, (x - 0.075, -0.09, 0.0), (x + 0.075, 0.17, 0.11), DARK, "boot")
+    m.hull([(x - 0.075, 0.17, 0.0), (x + 0.075, 0.17, 0.0), (x - 0.07, 0.17, 0.09), (x + 0.07, 0.17, 0.09),
+            (x - 0.07, 0.22, 0.0), (x + 0.07, 0.22, 0.0)], DARK, "boot")
+    return m if side > 0 else m.mirrored()
+
+
+def thruster():
+    """Instead of legs: the torso tapers into a cone with a glowing ring."""
+    m = Mesh()
+    m.tube([(0.95, 0.152, 0.100, 0, "skirt"), (0.82, 0.120, 0.090, 0, "skirt"), (0.66, 0.065, 0.060, 0, "skirt")],
+           angles=BOX8, swatch=METAL, cap_start=False, cap_end=False)
+    m.tube([(0.66, 0.080, 0.080, 0, "skirt"), (0.60, 0.070, 0.070, 0, "skirt")], angles=base.HEX6, swatch=DARK)
+    # a short cone of thrust under the nozzle
+    m.tube([(0.598, 0.060, 0.060, 0, "glow"), (0.50, 0.0, 0.0, 0, "glow")], angles=base.HEX6,
+           swatch="light_blue", cap_start=False, cap_end=False)
+    return m
+
+
+def puck():
+    """Round desk stand for the desk form, at full scale under the waist."""
+    m = Mesh()
+    m.tube([(0.84, 0.22, 0.20, 0, "stand"), (0.92, 0.21, 0.19, 0, "stand")], angles=BOX8,
+           swatch=DARK)
+    m.tube([(0.92, 0.15, 0.10, 0, "stand"), (0.96, 0.15, 0.10, 0, "stand")], angles=BOX8, swatch=METAL)
+    return m
+
+
+# --------------------------------------------------------------------- rig
+ARM_PARTS = {"upper_arm", "elbow", "forearm", "wrist", "hand"}
+
+
+def bone_for(region, co, form):
+    """Each vertex follows exactly one bone."""
+    tag = "R" if co.x > 0 else "L"
+    if region in ARM_PARTS:
+        if region == "upper_arm":
+            return f"upper_arm.{tag}"
+        return f"hand.{tag}" if region == "hand" else f"forearm.{tag}"
+    if region in ("thigh",):
+        return f"thigh.{tag}"
+    if region in ("knee", "shin"):
+        return f"shin.{tag}"
+    if region == "boot":
+        return f"foot.{tag}"
+    if region.startswith("brow."):
+        return region
+    if region == "mouth":
+        return "jaw"
+    if region in ("head", "ear_bolt", "lens", "nose", "hat"):
+        return "head"
+    if region == "neck":
+        return "neck" if co.z > 1.43 else "chest"
+    if region in ("pelvis", "skirt", "glow", "stand"):
+        return "root" if region == "stand" else "hips"
+    # torso, tabard, collar, badge, letters, bowtie: split along the spine
+    return "chest" if co.z > 1.17 else "spine" if co.z > 0.99 else "hips"
+
+
+def rigid_skin(ob, arm_ob, form):
+    regions = ob.data["regions"]
+    attr = ob.data.attributes["region"].data
+    owner = {}
+    for poly in ob.data.polygons:
+        reg = regions[attr[poly.index].value]
+        for vi in poly.vertices:
+            owner.setdefault(vi, reg)
+    for vi, reg in owner.items():
+        bn = bone_for(reg, ob.data.vertices[vi].co, form)
+        vg = ob.vertex_groups.get(bn) or ob.vertex_groups.new(name=bn)
+        vg.add([vi], 1.0, "REPLACE")
+    mod = ob.modifiers.new("Armature", "ARMATURE")
+    mod.object = arm_ob
+    ob.parent = arm_ob
+
+
+def akimbo(arm_ob):
+    """Hands on the hips, elbows out, as on the slides."""
+    pose = {}
+    for side, tag in ((1, "R"), (-1, "L")):
+        sh = Vector((side * base.SHOULDER.x, base.SHOULDER.y, base.SHOULDER.z))
+        elbow = Vector((side * 0.40, -0.07, 1.18))
+        wrist = Vector((side * 0.245, 0.0, 0.98))
+        hip = Vector((side * 0.17, 0.08, 0.87))
+        world = Quaternion()
+        for bn, a, b in ((f"upper_arm.{tag}", sh, elbow), (f"forearm.{tag}", elbow, wrist),
+                         (f"hand.{tag}", wrist, hip)):
+            bone = arm_ob.data.bones[bn]
+            rest = (bone.tail_local - bone.head_local).normalized()
+            q_world = rest.rotation_difference((b - a).normalized())
+            # local rotation in rest armature space, applied after the parent
+            q = world.inverted() @ q_world
+            world = q_world
+            axis, ang = q.to_axis_angle()
+            pose[bn] = (tuple(axis), math.degrees(ang))
+    pose["head"] = ((0, 0, 1), 0)
+    return pose
+
+
+# ------------------------------------------------------------------- build
+def build(form, role, out, renders=True):
+    base.reset()
+    parts = {"head": head(role), "torso": torso(role, form), "arm.R": arm(1), "arm.L": arm(-1)}
+    if form == "walker":
+        parts["leg.R"], parts["leg.L"] = leg(1), leg(-1)
+    elif form == "hover":
+        parts["thruster"] = thruster()
+    else:
+        parts["stand"] = puck()
+        # a desk toy gets a bobble head
+        parts["head"].verts = [Vector((p.x * DESK_HEAD, p.y * DESK_HEAD, 1.47 + (p.z - 1.47) * DESK_HEAD))
+                               for p in parts["head"].verts]
+    name = "control_buddy" if role == "buddy" else f"control_buddy_{role}"
+    sfx = "" if form == FORM else f"_{form}"
+    obs = [m.to_object(f"{name}{sfx}_{p}") for p, m in parts.items()]
+    regions = sorted({r for ob in obs for r in ob.data["regions"]})
+    for ob in obs:
+        local = list(ob.data["regions"])
+        for a in ob.data.attributes["region"].data:
+            a.value = regions.index(local[a.value])
+    bpy.ops.object.select_all(action="DESELECT")
+    for ob in obs:
+        ob.select_set(True)
+    bpy.context.view_layer.objects.active = obs[0]
+    bpy.ops.object.join()
+    ch = obs[0]
+    ch.name = ch.data.name = name + sfx
+    ch.data["regions"] = regions
+    tris = base.tri_count([ch])
+    arm_ob = base.armature(f"{name}{sfx}_rig")
+    rigid_skin(ch, arm_ob, form)
+    if form == "desk":
+        # a desk toy: the whole rig shrinks and the puck stands on z = 0
+        arm_ob.scale = (DESK_SCALE,) * 3
+        arm_ob.location.z = -0.84 * DESK_SCALE
+    os.makedirs(out, exist_ok=True)
+    if renders:
+        cam = base.setup_render()
+        kw = {} if form != "desk" else {"height": 0.22, "scale": 0.7}
+        title = f"{name}{sfx}  ·  {tris} triangles"
+        shots = base.render_views(cam, out, "t", **kw)
+        base.pose(arm_ob, akimbo(arm_ob))
+        shots += [(f"hands on hips {lbl}", p) for lbl, p in
+                  base.render_views(cam, out, "a", [("front", 0), ("3/4", 35)], **kw)]
+        base.pose(arm_ob, {})
+        base.strip(shots, os.path.join(out, f"turnaround_{role}{sfx}.png"), title)
+        hk = {"height": 1.66, "scale": 0.62} if form != "desk" else {"height": 0.42 * 1.0, "scale": 0.25}
+        if form == "desk":
+            hk["height"] = (1.47 + 0.19 * DESK_HEAD - 0.84) * DESK_SCALE
+            hk["scale"] = 0.62 * DESK_HEAD * DESK_SCALE
+        base.strip(base.render_views(cam, out, "c", base.VIEWS[:3], **hk),
+                   os.path.join(out, f"closeup_{role}{sfx}.png"), "head close-up")
+    bpy.context.preferences.filepaths.save_version = 0
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(out, f"{name}{sfx}.blend"), compress=True)
+    bpy.ops.object.select_all(action="DESELECT")
+    ch.select_set(True)
+    arm_ob.select_set(True)
+    import anims
+    anims.add_clips(arm_ob)
+    path = os.path.join(out, f"{name}{sfx}.glb")
+    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_apply=False,
+                              export_animations=True, export_animation_mode="NLA_TRACKS",
+                              export_frame_range=False)
+    anims.split_channels(path)
+    print(f"{name}{sfx}: {tris} triangles -> {out}")
+    return tris
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--form", default="all", choices=[*FORMS, "all"])
+    ap.add_argument("--role", default="all", choices=[*ROLES, "all"])
+    ap.add_argument("--out", default=HERE)
+    ap.add_argument("--no-renders", action="store_true")
+    a = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
+    for form in (FORMS if a.form == "all" else [a.form]):
+        for role in (ROLES if a.role == "all" else [a.role]):
+            build(form, role, a.out, not a.no_renders)
