@@ -40,7 +40,7 @@ const CAM = {
 // steps south of the fountain (not over the ramp's rail) and across the
 // terrace to the foot of the platform steps (Adriaen, 2026-10-25). Heights
 // follow the ground and steps under people.
-const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-34.6, 34.6, 0), V(-39.6, 35.3, 0), V(-41.0, 35.6, 0)] };
+const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-34.6, 34.6, 0), V(-39.6, 35.3, 0), V(-40.6, 36.2, 0), V(-40.97, 38.15, 0)] };
 // The CEO comes out of the left-hand door while Adriaen is still on the steps
 // by the fountain, welcomes him to Aker BP on the way down to meet him (the
 // beat's { torvet: 'meet' } step waits for MEET before the line), and they
@@ -48,11 +48,13 @@ const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-34.6, 34.6, 0), V(-
 // beside them ({ torvet: 'shake' } waits for the end of it). Then
 // { torvet: 'in' }: they go in together, the CEO leading (Adriaen, 2026-10-25).
 const DOOR = V(-44.3, 38.4, 0);
-const CEO = { at: GLIDE, speed: 0.9, path: [V(-43.7, 38.2, 0), V(-42.6, 37.1, 0), V(-41.75, 36.25, 0)] };
-const MEET = GLIDE + 1.5;
-const SHAKE = { at: GLIDE + 6.3, len: 2.2 };
-const CLOSE = { from: GLIDE + 3, to: GLIDE + 6.5, pos: V(-38.3, 37.5, 2.3), at: V(-41.4, 35.9, 1.8), fov: 48 };
-const IN = { ceo: [CEO.path.at(-1), V(-42.6, 37.1, 0), V(-43.6, 38.2, 0), DOOR], me: [WALK.path.at(-1), V(-41.9, 36.4, 0), V(-42.7, 37.2, 0), V(-43.5, 38.1, 0), DOOR], lag: 0.7 };
+// They meet on the terrace midway between two flag masts (x -41.2 at y 35.6
+// and 42.7), clear of both (Adriaen, 2026-10-25)
+const CEO = { at: GLIDE + 0.5, speed: 0.9, path: [V(-43.7, 38.4, 0), V(-41.75, 38.3, 0)] };
+const MEET = GLIDE + 1.8;
+const SHAKE = { at: GLIDE + 7.7, len: 2.2 };
+const CLOSE = { from: GLIDE + 4.4, to: GLIDE + 7.9, pos: V(-42.4, 34.9, 2.3), at: V(-41.3, 38.2, 1.8), fov: 48 };
+const IN = { ceo: [CEO.path.at(-1), V(-42.6, 38.4, 0), V(-43.6, 38.4, 0), DOOR], me: [WALK.path.at(-1), V(-41.6, 38.2, 0), V(-42.7, 38.3, 0), V(-43.5, 38.4, 0), DOOR], lag: 0.7 };
 const CUES = { meet: MEET, shake: SHAKE.at + SHAKE.len };
 // Where someone is d metres along a path: the point, the way they face, still walking or not
 function along(pts, d) {
