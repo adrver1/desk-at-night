@@ -27,7 +27,6 @@ OUT = os.path.join(HERE, '..', 'public', 'story', 'voice')
 SR, FPS = 24000, 30
 
 # Speaker -> (Kokoro voice, speed).
-# glasses_ceo never speaks (a silent cameo), so has no voice here.
 CAST = {
     'pilot': ('bm_fable', 1.0),         # behind the intercom filter
     'supervisor': ('am_michael', 1.0),  # blazer_lead, shift supervisor
@@ -38,6 +37,7 @@ CAST = {
     'analyst': ('am_echo', 1.0),        # curly_analyst, reliability engineer
     'tech': ('am_liam', 1.05),          # curly_fade_tech, on the radio
     'crew': ('bf_emma', 1.0),           # ground crew at Sola (the optional opening)
+    'ceo': ('am_onyx', 0.95),           # glasses_ceo, welcomes Adriaen at Føniks one year ago
     'agent': ('af_nova', 1.05),         # the AI agents on the screens, through the robot filter
 }
 

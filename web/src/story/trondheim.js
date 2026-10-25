@@ -13,12 +13,20 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { loadModel } from './cast.js';
+import { FlagField, loadCloth } from '../flags.js';
+import flagCloth from '../flag-cloth/flag.bin?url';
 
 const BASE = 'story/trondheim/';
 const GLIDE = 14;   // s from the drone view down to the door
 const SKY = 0xf1f3f4;
 // Blender's frame (x east, y north, z up) to three's (y up, north along -z)
 const V = (x, y, z) => new THREE.Vector3(x, z, -y);
+// The Aker BP flags on Føniks's five masts fly south along the front, as on
+// Adriaen's photo of the entrance, in a breeze between a light and a fresh one
+// (flags.js option C: the baked cloth). Hoists from flags.json, written by the
+// Føniks export.
+const FLAG_DOWNWIND = new THREE.Vector3(0.3, 0, 1).normalize();   // three's axes: south, a little out to the square
+const flagWind = (t) => 7 + 1.5 * Math.sin(t * 0.23) + 0.8 * Math.sin(t * 0.71 + 1);   // m/s
 // The cameras of preview_trondheim.py: B is fitted to Adriaen's drone photo
 // over the south-east corner, A stands at the Føniks door looking at it
 const CAM = {
@@ -29,10 +37,31 @@ const CAM = {
   ME: V(-33.5, 31.5, 0),   // Adriaen by the fountain, turned to the camera at A
 };
 // As the camera arrives he turns round and walks to the entrance: up the
-// steps south of the fountain (not over the ramp's rail), across the terrace
-// and up the platform steps to the left-hand door (Adriaen, 2026-10-25). His
-// height follows the ground and steps under him.
-const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-34.6, 34.6, 0), V(-39.6, 35.3, 0), V(-41.4, 35.9, 0), V(-43.4, 38.0, 0)] };
+// steps south of the fountain (not over the ramp's rail) and across the
+// terrace to the foot of the platform steps (Adriaen, 2026-10-25). Heights
+// follow the ground and steps under people.
+const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-34.6, 34.6, 0), V(-39.6, 35.3, 0), V(-41.4, 35.9, 0)] };
+// The CEO comes out of the left-hand door to meet him there and welcomes him
+// to Aker BP (Adriaen, 2026-10-25); the beat's { torvet: 'meet' } step waits
+// for MEET before the line. Then { torvet: 'in' }: they go in together, the
+// CEO leading, up the platform steps and through the door.
+const DOOR = V(-44.3, 38.4, 0);
+const CEO = { at: GLIDE + 4.6, speed: 1.15, path: [V(-43.7, 38.2, 0), V(-42.5, 37.0, 0)] };
+const MEET = GLIDE + 6.8;
+const IN = { ceo: [V(-42.5, 37.0, 0), V(-43.6, 38.2, 0), DOOR], me: [WALK.path.at(-1), V(-42.4, 37.0, 0), V(-43.5, 38.1, 0), DOOR], lag: 0.7 };
+const CUES = { meet: MEET };
+// Where someone is d metres along a path: the point, the way they face, still walking or not
+function along(pts, d) {
+  let left = Math.max(0, d);
+  for (let i = 1; i < pts.length; i++) {
+    const seg = pts[i].clone().sub(pts[i - 1]), len = seg.length();
+    if (left < len) return { pos: pts[i - 1].clone().addScaledVector(seg, left / len), dir: seg, walking: true };
+    left -= len;
+  }
+  return { pos: pts.at(-1).clone(), dir: pts.at(-1).clone().sub(pts.at(-2)), walking: false };
+}
+const yawOf = (dir) => Math.atan2(-dir.x, -dir.z);
+const turnTo = (from, to, k) => from + (((to - from + 3 * Math.PI) % (2 * Math.PI)) - Math.PI) * k;
 
 export class Trondheim {
   constructor(host) {
@@ -44,10 +73,13 @@ export class Trondheim {
   load() {
     this.loaded ??= (async () => {
       const loader = new GLTFLoader();
-      const [torvet, foniks, me] = await Promise.all([
+      const [torvet, foniks, me, ceo, flags] = await Promise.all([
         loader.loadAsync(`${BASE}torvet.glb`).catch((e) => { console.warn('trondheim: torvet.glb', e); return null; }),
         loader.loadAsync(`${BASE}foniks.glb`).catch((e) => { console.warn('trondheim: foniks.glb', e); return null; }),
         loadModel('bearded_operator').catch(() => null),   // one year ago: his own clothes, no PPE
+        loadModel('glasses_ceo').catch(() => null),        // in town: no PPE either
+        Promise.all([fetch(`${BASE}flags.json`).then((r) => r.json()), loadCloth('flag', flagCloth)])
+          .catch((e) => { console.warn('trondheim: flags', e); return null; }),
       ]);
       const scene = this.scene = new THREE.Scene();
       scene.background = new THREE.Color(SKY);
@@ -57,18 +89,28 @@ export class Trondheim {
       sun.position.set(60, 90, 40);
       scene.add(sun, sun.target);
       for (const g of [torvet, foniks]) if (g) scene.add(g.scene);
-      if (me) {
-        const p = me.scene;
-        p.position.copy(CAM.ME);
-        p.rotation.y = Math.atan2(-(CAM.A.x - CAM.ME.x), -(CAM.A.z - CAM.ME.z));
-        this.mixer = new THREE.AnimationMixer(p);
-        const clip = (n) => { const c = THREE.AnimationClip.findByName(me.animations, n); return c && this.mixer.clipAction(c); };
-        this.idle = clip('idle');
-        this.walk = clip('walk');
-        this.me = p;
-        this.faceCam = p.rotation.y;
-        scene.add(p);
+      if (flags) {
+        const [{ hoists }, cloth] = flags;
+        this.flags = new FlagField('flag', 'c', hoists.map(([x, y, z]) => ({ position: V(x, y, z) })), { cloth });
+        this.sunDir = sun.position.clone().normalize();
+        this.sunColor = sun.color;
+        scene.add(this.flags);
       }
+      // People: { root, mixer, idle, walk, talk, act }
+      const person = (g) => {
+        const root = g.scene, mixer = new THREE.AnimationMixer(root);
+        const clip = (n) => { const c = THREE.AnimationClip.findByName(g.animations, n); return c && mixer.clipAction(c); };
+        scene.add(root);
+        const talk = clip('talk');
+        talk?.setEffectiveWeight(0).play();
+        return { root, mixer, idle: clip('idle'), walk: clip('walk'), talk, act: null, mouth: null, level: 0 };
+      };
+      if (me) {
+        this.me = person(me);
+        this.me.root.position.copy(CAM.ME);
+        this.faceCam = Math.atan2(-(CAM.A.x - CAM.ME.x), -(CAM.A.z - CAM.ME.z));
+      }
+      if (ceo) this.ceo = person(ceo);
       this.ground = [torvet?.scene, foniks?.scene].filter(Boolean);
       this.camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.3, 1500);
       this.ok = Boolean(torvet || foniks);
@@ -91,6 +133,8 @@ export class Trondheim {
     this.host.insertBefore(this.renderer.domElement, this.host.querySelector('.tint'));   // over the game, under the story's overlays
     this.t0 = performance.now();
     this.last = this.t0;
+    this.tIn = null;
+    for (const p of [this.me, this.ceo]) if (p) p.mouth = null;
     this.place(0);
     const loop = (now) => {
       if (!this.on) return;
@@ -105,6 +149,25 @@ export class Trondheim {
     this.on = false;
     cancelAnimationFrame(this.raf);
     this.renderer?.domElement.remove();
+    for (const w of this.waits ?? []) w.r();
+    this.waits = [];
+  }
+
+  // The beat's { torvet: cue } steps: 'meet' resolves once the CEO has come
+  // out to Adriaen (or at once if the scene isn't up); 'in' sends them inside
+  reach(cue) {
+    if (cue === 'in') { this.tIn ??= this.time(); return Promise.resolve(); }
+    const at = CUES[cue] ?? 0;
+    if (!this.on || this.time() >= at) return Promise.resolve();
+    return new Promise((r) => (this.waits ??= []).push({ at, r }));
+  }
+
+  time() { return this.on && this.t0 !== undefined ? (performance.now() - this.t0) / 1000 : 0; }
+
+  // A spoken line's mouth track (as cast.talk): who is 'operator' or 'ceo'
+  talk(who, mouth) {
+    const p = who === 'ceo' ? this.ceo : who === 'operator' ? this.me : null;
+    if (p) { p.mouth = mouth; p.mouthT = 0; }
   }
 
   // Where the camera is t seconds into the glide: from B, descending in an
@@ -119,28 +182,62 @@ export class Trondheim {
     return { pos, at, fov: THREE.MathUtils.lerp(50, 55, k) };
   }
 
-  // Adriaen at t seconds: facing the camera, then turning and walking the
-  // path to the door, then standing there
+  // Everyone at t seconds. Adriaen: facing the camera, then turning and
+  // walking to the foot of the steps, turned to the CEO as they meet. The
+  // CEO: out of the door and down to him. After 'in', both up and inside.
   place(t) {
-    const p = this.me;
-    if (!p) return;
-    const pts = WALK.path, d = Math.max(0, t - WALK.at - 0.6) * WALK.speed;   // 0.6 s to turn first
-    let pos = pts.at(-1), dir = pts.at(-1).clone().sub(pts.at(-2)), left = d, walking = false;
-    for (let i = 1; i < pts.length; i++) {
-      const seg = pts[i].clone().sub(pts[i - 1]), len = seg.length();
-      if (left < len) { pos = pts[i - 1].clone().addScaledVector(seg, left / len); dir = seg; walking = true; break; }
-      left -= len;
+    const me = this.me, ceo = this.ceo;
+    const gone = (p, pos) => { p.root.visible = pos.distanceTo(DOOR) > 0.25; };
+    if (me) {
+      let { pos, dir, walking } = along(WALK.path, (t - WALK.at - 0.6) * WALK.speed);   // 0.6 s to turn first
+      const inside = this.tIn !== null && t - this.tIn > IN.lag;
+      if (inside) ({ pos, dir, walking } = along(IN.me, (t - this.tIn - IN.lag) * WALK.speed));
+      const r = me.root.rotation;
+      if (t < WALK.at) r.y = this.faceCam;
+      else if (t < WALK.at + 0.6) r.y = turnTo(this.faceCam, yawOf(dir), THREE.MathUtils.smoothstep(t, WALK.at, WALK.at + 0.6));
+      else if (walking || inside) r.y = yawOf(dir);
+      else if (ceo?.root.visible) r.y = turnTo(r.y, yawOf(ceo.root.position.clone().sub(pos)), 0.12);   // turned to the CEO
+      this.stand(me, pos, walking && t >= WALK.at + 0.6);
+      gone(me, pos);
     }
-    const want = t < WALK.at ? this.faceCam : Math.atan2(-dir.x, -dir.z);
-    const turn = THREE.MathUtils.smoothstep(t, WALK.at, WALK.at + 0.6);
-    p.rotation.y = this.faceCam + (((want - this.faceCam + 3 * Math.PI) % (2 * Math.PI)) - Math.PI) * (t < WALK.at ? 0 : turn);
-    // Feet on whatever is under him: ground, terrace steps, the ramp
+    if (ceo) {
+      let { pos, dir, walking } = along(CEO.path, (t - CEO.at) * CEO.speed), want = yawOf(dir);
+      if (!walking && me) want = yawOf(me.root.position.clone().sub(pos));
+      if (this.tIn !== null) ({ pos, dir, walking } = along(IN.ceo, (t - this.tIn) * WALK.speed)), want = yawOf(dir);
+      ceo.root.rotation.y = walking ? want : turnTo(ceo.root.rotation.y, want, 0.15);
+      this.stand(ceo, pos, walking);
+      ceo.root.visible = t >= CEO.at;
+      if (ceo.root.visible) gone(ceo, pos);
+    }
+    for (const w of this.waits ?? []) if (t >= w.at) w.r();
+    this.waits = (this.waits ?? []).filter((w) => t < w.at);
+  }
+
+  // Feet on whatever is under them (ground, terrace steps, the ramp), walking or standing
+  stand(p, pos, walking) {
     this.ray ??= new THREE.Raycaster();
     this.ray.set(new THREE.Vector3(pos.x, 4, pos.z), new THREE.Vector3(0, -1, 0));
     const hit = this.ray.intersectObjects(this.ground, true).find((h) => h.face && h.face.normal.clone().transformDirection(h.object.matrixWorld).y > 0.7);
-    p.position.set(pos.x, hit ? hit.point.y : 0, pos.z);
-    const act = walking && t >= WALK.at + 0.6 ? this.walk : this.idle;
-    if (act && act !== this.act) { act.reset().fadeIn(0.3).play(); this.act?.fadeOut(0.3); this.act = act; }
+    p.root.position.set(pos.x, hit ? hit.point.y : 0, pos.z);
+    const act = walking ? p.walk : p.idle;
+    if (act && act !== p.act) { act.reset().fadeIn(0.3).play(); p.act?.fadeOut(0.3); p.act = act; }
+  }
+
+  // Mouths: the talk clip weighted by the line's loudness, as in cast.js
+  mouths(dt) {
+    for (const p of [this.me, this.ceo]) {
+      if (!p) continue;
+      let level = 0;
+      if (p.mouth) {
+        p.mouthT += dt;
+        const i = Math.floor(p.mouthT * 30);
+        if (i >= p.mouth.length) p.mouth = null;
+        else level = Number(p.mouth[i]) / 3;
+      }
+      p.level += (level - p.level) * Math.min(1, dt * 18);
+      p.talk?.setEffectiveWeight(Math.min(1, p.level * 1.6));
+      p.mixer.update(dt);
+    }
   }
 
   frame(now) {
@@ -154,7 +251,7 @@ export class Trondheim {
     this.last = now;
     const t = (now - this.t0) / 1000, p = this.pose(t), cam = this.camera;
     this.place(t);
-    this.mixer?.update(dt);
+    this.mouths(dt);
     cam.position.copy(p.pos);
     cam.lookAt(p.at);
     // A breath of life once it has landed
@@ -162,6 +259,7 @@ export class Trondheim {
     cam.rotateX(0.003 * Math.sin(t * 0.51 + 1));
     if (cam.fov !== p.fov) cam.fov = p.fov;
     cam.updateProjectionMatrix();
+    this.flags?.update(t, cam, { speed: flagWind(t), dir: FLAG_DOWNWIND, sunDir: this.sunDir, sunColor: this.sunColor });
     r.render(this.scene, cam);
   }
 }
