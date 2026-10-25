@@ -1,7 +1,7 @@
 """
 control_buddy: CtrlBuddy, the AI agent mascot from Adriaen's talk, as a
 low-poly robot. A tall domed head with ear bolts, wide dark shades under
-frowning brows, a small nose and a flat mouth, a pointed collar over the
+frowning brows, a small nose and a flat mouth, pointed collar flaps over the
 shoulders, a white tabard with a name badge, and segmented arms with
 joint rings. Its team-mates share the body and swap the badge and hat:
 the Scholar (COMPILER, mortarboard and bow tie) and the Nurse (LINTER,
@@ -36,7 +36,7 @@ FORMS, ROLES = ("walker", "hover", "desk"), ("buddy", "scholar", "nurse")
 DESK_SCALE, DESK_HEAD = 0.3, 1.6
 
 # Colours
-METAL, DARK, TABARD, LENS, INK = "light_grey", "charcoal", "white", "lens", "black"
+METAL, DARK, TABARD, COLLAR, LENS, INK = "light_grey", "charcoal", "white", "white", "lens", "black"
 
 # Head: rings of (z, half width, half depth, forward offset, region),
 # a tall rounded box with a dome on top, as drawn
@@ -53,7 +53,7 @@ TORSO = [(0.84, 0.150, 0.098, 0.0, "pelvis"),
          (1.18, 0.180, 0.112, 0.0, "torso"),
          (1.34, 0.190, 0.105, 0.0, "torso"),
          (1.42, 0.110, 0.080, 0.0, "torso")]
-TABARD_W, TABARD_TOP, TABARD_BOTTOM = 0.135, 1.33, 0.78
+TABARD_W, TABARD_TOP, TABARD_BOTTOM = 0.135, 1.40, 0.78
 # 8-sided rings with wide flat faces front, back and sides: boxy metal
 BOX8 = (25, 65, 115, 155, 205, 245, 295, 335)
 
@@ -167,15 +167,15 @@ def torso(role, form):
     m = Mesh().tube(rings, angles=BOX8, swatch=METAL)
     m.tube([(1.38, 0.058, 0.055, 0, "neck"), (1.50, 0.050, 0.048, 0, "neck")], angles=base.HEX6,
            swatch=DARK, cap_start=False, cap_end=False)
-    # pointed collar over the shoulders, like the lapels of a coat
-    collar = []
-    for a in BOX8:
-        r = math.radians(a)
-        collar += [(0.085 * math.cos(r), 0.075 * math.sin(r), 1.445), (0.10 * math.cos(r), 0.09 * math.sin(r), 1.41)]
-    for s in (1, -1):
-        collar += [(s * 0.265, 0.10, 1.285), (s * 0.265, -0.10, 1.285), (s * 0.20, 0.122, 1.30),
-                   (s * 0.20, -0.118, 1.30)]
-    m.hull(collar, TABARD, "collar")
+    # collar flaps: one wedge over each shoulder, from the side of the neck
+    # to a point past the top of the arm, its lower edge running back into
+    # the side of the tabard (the tabard itself goes up to the neck)
+    for sd in (1, -1):
+        flap = []
+        for y in (0.128, -0.128):
+            flap += [(sd * 0.062, y * 0.80, 1.425), (sd * 0.062, y * 0.80, 1.395),
+                     (sd * TABARD_W, y * 0.9, 1.262), (sd * 0.300, y * 0.45, 1.315), (sd * 0.290, y * 0.45, 1.290)]
+        m.hull(flap, COLLAR, "collar")
     # tabard: a flat white panel front and back with a black name badge
     front = 0.118
     bottom = TABARD_BOTTOM if form == "walker" else 0.92
@@ -184,6 +184,12 @@ def torso(role, form):
         y1 = side * (front + 0.014)
         box(m, (-TABARD_W, min(y0, y1), bottom), (TABARD_W, max(y0, y1), TABARD_TOP), TABARD, "tabard")
     fy = front + 0.0145
+    # a thin dark edge round the front panel, like the drawing's ink line,
+    # so it stands apart from the white collar flaps behind it
+    e = 0.006
+    for x0, x1, z0, z1 in ((-TABARD_W, TABARD_W, TABARD_TOP - e, TABARD_TOP), (-TABARD_W, TABARD_W, bottom, bottom + e),
+                           (-TABARD_W, -TABARD_W + e, bottom, TABARD_TOP), (TABARD_W - e, TABARD_W, bottom, TABARD_TOP)):
+        quad_y(m, x0, x1, z0, z1, fy, DARK, "tabard")
     bw = 0.205 if role == "buddy" else 0.19
     quad_y(m, -bw / 2 - 0.008, bw / 2 + 0.008, 1.172, 1.228, fy, INK, "badge")
     quad_y(m, -bw / 2, bw / 2, 1.178, 1.222, fy + 0.0015, "white", "badge")
