@@ -53,7 +53,8 @@ export const PATHS = {
   coffeeToDesk0: [[4.85, 4.72], [4.15, 4.0], [4.05, 3.1], [3.6, 1.4], [1.6, 0.3], [0.3, -1.0], [-0.22, -1.62]],
   desk0ToDesk2: [[-0.22, -1.62], [0.35, -0.95], [1.55, -0.95]],
 };
-const WALK_SPEED = 1.15;   // m/s, matching the walk clip's stride
+const STRIDE = 1.15;       // m/s the walk clip's stride covers at its own pace
+const WALK_SPEED = 1.4;    // m/s, a brisk walk: the clip plays faster to match
 const TURN_RATE = 5;       // rad/s, how fast someone turns into a new direction
 const yawTo = (dx, dz) => Math.atan2(-dx, -dz);   // the yaw that faces along (dx, dz): people and chairs look down their -Z
 const wrap = (a) => ((a % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
@@ -263,6 +264,7 @@ export class Cast {
       t.pts = pts; t.d = 0;
       t.len = pts.slice(1).reduce((a, q, i) => a + q.distanceTo(pts[i]), 0);
       this.fade(p, 'walk', 0.25);
+      if (p.act.walk) p.act.walk.timeScale = (m.speed ?? WALK_SPEED) / STRIDE;
       t.step = (dt) => {
         t.d = Math.min(t.len, t.d + dt * (m.speed ?? WALK_SPEED));
         let left = t.d, pos = pts.at(-1), dir = pts.at(-1).clone().sub(pts.at(-2));
@@ -306,23 +308,23 @@ export class Cast {
       t.step = (dt) => {
         t.k += dt;
         const k = t.k;
-        // 0 - 0.9 s: he turns to the chair and spins it round to face him
-        if (k < 0.9) {
-          root.rotation.y = seatYaw0 + wrap(toChair - seatYaw0) * smooth(k / 0.4);
-          c.rotation.y = from + spin * smooth((k - 0.15) / 0.75);
+        // 0 - 0.7 s: he turns to the chair and spins it round to face him
+        if (k < 0.7) {
+          root.rotation.y = seatYaw0 + wrap(toChair - seatYaw0) * smooth(k / 0.3);
+          c.rotation.y = from + spin * smooth((k - 0.1) / 0.6);
           return false;
         }
         c.rotation.y = face;
-        // 0.9 - 1.5 s: turns his back to it and steps up to the seat
-        if (k < 1.5) {
-          const u = smooth((k - 0.9) / 0.6);
+        // 0.7 - 1.15 s: turns his back to it and steps up to the seat
+        if (k < 1.15) {
+          const u = smooth((k - 0.7) / 0.45);
           root.rotation.y = toChair + wrap(face - toChair) * u;
           root.position.lerpVectors(start, pivot.clone().addScaledVector(f, 0.3), u);
-          if (k - dt < 0.9) this.fade(p, 'walk', 0.15);
+          if (k - dt < 0.7) this.fade(p, 'walk', 0.15);
           return false;
         }
-        // 1.5 s +: sits down (the stand-up clip backwards)
-        const s0 = 1.5, s1 = s0 + dur * 0.9;
+        // 1.15 s +: sits down (the stand-up clip backwards)
+        const s0 = 1.15, s1 = s0 + dur * 0.7;
         if (k < s1) {
           if (k - dt < s0) { this.fade(p, 'stand_up', 0.25); if (su) su.timeScale = 0; }
           const u = (k - s0) / (s1 - s0);
@@ -332,7 +334,7 @@ export class Cast {
           return false;
         }
         // then swings back round to the desk, chair and all
-        const s2 = s1 + 1.3;
+        const s2 = s1 + 0.9;
         if (k - dt < s1) { this.fade(p, 'seated_idle', 0.3); if (su) su.timeScale = 1; }
         const u = smooth((k - s1) / (s2 - s1));
         const yaw = face + wrap(home[2] - face) * u;
@@ -352,18 +354,18 @@ export class Cast {
       t.step = (dt) => {
         t.k += dt;
         const k = t.k;
-        if (k < 1.1) {
-          if (k - dt <= 0 && p.pose !== 'seated_idle') this.fade(p, 'seated_idle', 0.4);
-          const yaw = from + spin * smooth(k / 1.1);
+        if (k < 0.8) {
+          if (k - dt <= 0 && p.pose !== 'seated_idle') this.fade(p, 'seated_idle', 0.3);
+          const yaw = from + spin * smooth(k / 0.8);
           c.rotation.y = yaw; root.rotation.y = yaw;
           root.position.copy(pivot).addScaledVector(new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)), 0.06);
           return false;
         }
         c.rotation.y = face;
         const f = new THREE.Vector3(-Math.sin(face), 0, -Math.cos(face));
-        const s1 = 1.1 + dur;
-        if (k - dt < 1.1) { this.fade(p, 'stand_up', 0.2); if (su) su.timeScale = 0; }
-        const u = Math.min(1, (k - 1.1) / dur);
+        const s1 = 0.8 + dur * 0.8;
+        if (k - dt < 0.8) { this.fade(p, 'stand_up', 0.2); if (su) su.timeScale = 0; }
+        const u = Math.min(1, (k - 0.8) / (dur * 0.8));
         if (su) su.time = dur * u * 0.999;
         root.rotation.y = face;
         root.position.copy(pivot).addScaledVector(f, 0.06 + 0.32 * smooth(u));
@@ -378,7 +380,7 @@ export class Cast {
       const fill0 = mug?.k ?? 0, pt = p.act.point;
       t.shift = new THREE.Vector3();
       t.step = (dt) => {
-        t.k += dt;
+        t.k += dt * 1.35;   // a brisk pour: the 5 s below take about 3.7 s
         const k = t.k;
         this.turnToward(root, want, dt);
         // the arm comes up: the point clip held halfway in, over the walk-free idle
