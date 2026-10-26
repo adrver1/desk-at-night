@@ -18,8 +18,9 @@ const fadeIn = (e) => { void e.offsetWidth; e.classList.add('on'); };
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 
 export class StoryUI {
-  constructor(parent, { privateBase }) {
+  constructor(parent, { privateBase, publicBase }) {
     this.privateBase = privateBase;
+    this.publicBase = publicBase;
     this.root = h('div', 'story-ui');
     parent.append(h('div', 'tint'), h('div', 'vignette'), this.root);
     const add = (cls, html) => { const e = h('div', cls, html); this.root.append(e); return e; };
@@ -249,19 +250,23 @@ export class StoryUI {
   }
 
   // Look for slide images in the private folder (git-ignored)
-  findSlides() {
-    for (const id of Object.keys(SLIDES)) {
+  // Slide pictures: public/story/slides/<id>.webp and one per click
+  // (<id>.bNN.webp) for slides with builds, or with ?private=1 a PNG of the
+  // same name in the private folder, when there is one
+  findSlides(privateOn) {
+    const load = (name, done) => {
       const img = new Image();
-      img.onload = () => { this.slideImages[id] = img; };
-      img.src = `${this.privateBase}slides/${id}.png`;
+      img.onload = () => done(img);
+      if (privateOn) { img.onerror = () => { img.onerror = null; img.src = `${this.publicBase}slides/${name}.webp`; }; img.src = `${this.privateBase}slides/${name}.png`; }
+      else img.src = `${this.publicBase}slides/${name}.webp`;
+    };
+    for (const id of Object.keys(SLIDES)) {
       const n = SLIDES[id].builds;
+      if (!n && !privateOn) continue;
+      load(id, (img) => { this.slideImages[id] = img; });
       if (!n) continue;
       const frames = this.slideBuilds[id] = Array(n + 1).fill(null);
-      frames.forEach((_, k) => {
-        const f = new Image();
-        f.onload = () => { frames[k] = f; };
-        f.src = `${this.privateBase}slides/${id}.b${String(k).padStart(2, '0')}.png`;
-      });
+      frames.forEach((_, k) => load(`${id}.b${String(k).padStart(2, '0')}`, (img) => { frames[k] = img; }));
     }
   }
 

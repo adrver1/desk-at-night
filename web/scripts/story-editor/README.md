@@ -46,9 +46,8 @@ When Adriaen says "sync": save the database with ArtifactData `list` and
     python scripts/story-editor/sync.py <that dir>
 
 It updates `story.json` and `lines.json` and prints what still needs a hand:
-lines to voice with `scripts/voices.py`, slide pictures to download into the
-private build (`public/story/private/slides/<id>.png`, git-ignored), and the
-open notes. Do the notes, answer each one in the database (`status: done`,
+lines to voice with `scripts/voices.py`, slide pictures to download into
+`public/story/slides/<id>.webp`, and the open notes. Do the notes, answer each one in the database (`status: done`,
 `reply`), check the run with `qa/story-tour.mjs`, open a PR, and re-seed so
 the editor shows what the game now does.
 
@@ -56,7 +55,23 @@ the editor shows what the game now does.
 
 A slide with `builds: N` in story.json has N clicks: the presenter's Space shows
 the next click before moving to the next beat, and ← steps back. The pictures,
-one per click, are `<slide id>.b00.png` (before the first click) to
-`.b<N>.png` in the git-ignored `public/story/private/slides/`. Make them from
-the deck with `pptx_anim_parse.py` and `pptx_anim_build.py`. In the editor a
-slide's `frames` lists the same pictures, and sync writes `builds` from it.
+one per click, are `<slide id>.b00.webp` (before the first click) to
+`.b<N>.webp` in `public/story/slides/` (Adriaen's CtrlBuddy deck is cleared
+for publication; with `?private=1` a PNG of the same name in the git-ignored
+`public/story/private/slides/` wins). Make them from the deck with
+`pptx_anim_parse.py` and `pptx_anim_build.py` (PNGs), then convert to WebP at
+most 1920 wide. In the editor a slide's `frames` lists the same pictures, and
+sync writes `builds` from it.
+
+## Chat beats
+
+Deck slides where Adriaen talks to his agent play as chats in the room
+instead: a beat in story.json `inserted` with `chat: <id>` shows that chat
+(story.json `chats`) on Desk0Mon1 and its reports on Desk0Mon2. The beat
+opens on the first message and each Space shows one more (no voice); ← steps
+back. A `show` message hands over a report: the chat shows it as an
+attachment and the camera turns to the next monitor, which shows its `file`
+from `public/story/reports/` (a picture, or a muted looping video). `faces`
+names the portraits beside the messages (`public/story/faces/<id>.png`,
+rendered from the character models with `qa/portraits.mjs`). In the editor a
+chat beat's doc carries `chat`, and its messages are chat items.

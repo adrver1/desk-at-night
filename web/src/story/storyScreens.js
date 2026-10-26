@@ -23,6 +23,8 @@ export const S = {
   clock: '12:00',                  // game time, for the headers
   images: {},                      // private tool screenshots, if any
   chats: {}, chatAt: {},           // messages shown per chat (content.js CHATS) and when the last came
+  reports: 'story/reports/',       // where the reports' pictures and videos are
+  videos: {},                      // report videos by file, with when they were last drawn (seen)
 };
 
 const C = {
@@ -338,12 +340,12 @@ function chat(ctx, w, h, id) {
   rect(ctx, 0, 0, w, h, '#14191f');
   const top = header(ctx, w, c.title, S.clock, '#1c2a27');
   agentIcon(ctx, w - 110 * s, 15 * s, 8 * s);
-  const px = 15 * s, lh = 20 * s, pad = 10 * s, maxW = w * 0.68;
+  const px = 15 * s, lh = 20 * s, pad = 10 * s, maxW = w * 0.62, fr = 17 * s, gap = 2 * fr + 22 * s;
   ctx.font = `500 ${px}px ${SANS}`;
   const bubbles = c.messages.slice(0, n).map(([who, msg], i) => {
     const typing = who === 'ai' && i === n - 1 && age < 1.4;
-    const lines = typing ? ['•••'] : wrap(ctx, msg, maxW - 2 * pad);
-    return { who, lines, typing, h: lines.length * lh + 2 * pad + (who === 'me' ? 0 : 16 * s) };
+    const lines = typing ? ['•••'] : who === 'show' ? [`▤  ${msg}`] : wrap(ctx, msg, maxW - 2 * pad);
+    return { who: who === 'show' ? 'ai' : who, lines, typing, h: lines.length * lh + 2 * pad + (who === 'me' ? 0 : 16 * s) };
   });
   // Stack from the bottom up, dropping what no longer fits
   let y = h - 44 * s;   // clear of the story's navigator when the screen fills the view
@@ -353,9 +355,12 @@ function chat(ctx, w, h, id) {
     if (y < top + 6 * s) break;
     ctx.font = `500 ${px}px ${SANS}`;   // text() below changes it
     const bw = Math.min(maxW, Math.max(...b.lines.map((l) => ctx.measureText(l).width)) + 2 * pad);
-    const x = b.who === 'me' ? w - 16 * s - bw : 16 * s;
+    const x = b.who === 'me' ? w - gap - bw : gap;
     const fresh = i === n - 1 && age < 0.4 ? age / 0.4 : 1;
     ctx.globalAlpha = fresh;
+    // the writer's portrait, level with the bubble's foot
+    const fx = b.who === 'me' ? w - 10 * s - fr : 10 * s + fr, fy = y + b.h - fr;
+    if (!face(ctx, c.faces[b.who], fx, fy, fr) && b.who === 'ai') agentIcon(ctx, fx, fy, fr * 0.8);
     ctx.fillStyle = b.who === 'me' ? '#2c4a6e' : '#20342f';
     ctx.beginPath(); ctx.roundRect(x, y, bw, b.h, 12 * s); ctx.fill();
     let ty = y + pad + 15 * s;
@@ -369,6 +374,53 @@ function chat(ctx, w, h, id) {
     y -= 10 * s;
   }
   if (!n) text(ctx, T('Klar.', 'Ready.'), 20 * s, top + 40 * s, { px: 15 * s, color: C.dim });
+}
+
+// A portrait in a ring (public/story/faces/<id>.png); false until it loads
+const faces = {};
+function face(ctx, id, x, y, r) {
+  if (!id) return false;
+  const img = faces[id] ??= Object.assign(new Image(), { src: `story/faces/${id}.png` });
+  if (!img.complete || !img.naturalWidth) return false;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = '#2a3a44'; ctx.fill(); ctx.clip();
+  ctx.drawImage(img, x - r, y - r, 2 * r, 2 * r);
+  ctx.restore();
+  ctx.strokeStyle = C.line; ctx.lineWidth = Math.max(1, r * 0.08);
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+  return true;
+}
+
+// The report beside a chat: the last one handed over, as its picture or
+// video (public/story/reports/<file>), or a placeholder until it loads
+function report(ctx, w, h, id) {
+  const s = w / 640, n = S.chats[id] ?? 0;
+  const m = CHATS[id].messages.slice(0, n).filter(([who]) => who === 'show').pop();
+  rect(ctx, 0, 0, w, h, '#14191f');
+  if (!m) { text(ctx, T('Venter på agenten …', 'Waiting for the agent …'), w / 2, h / 2, { px: 15 * s, color: C.dim, align: 'center' }); return; }
+  const [, title, { file } = {}] = m;
+  const media = file && S.reports ? reportMedia(file) : null;
+  const iw = media?.videoWidth || media?.naturalWidth, ih = media?.videoHeight || media?.naturalHeight;
+  if (iw && (media.complete || media.readyState >= 2)) {
+    if (media.tagName === 'VIDEO') { media.seen = S.now; if (media.paused) media.play().catch(() => {}); }
+    const k = Math.min(w / iw, h / ih), dw = iw * k, dh = ih * k;
+    ctx.drawImage(media, (w - dw) / 2, (h - dh) / 2, dw, dh);
+    return;
+  }
+  const top = header(ctx, w, title, T('rapport', 'report'), '#1c2a27');
+  agentIcon(ctx, w / 2, top + (h - top) * 0.42, 26 * s);
+  text(ctx, title, w / 2, top + (h - top) * 0.62, { px: 22 * s, weight: 600, color: C.bright, align: 'center' });
+}
+const reportFiles = {};
+function reportMedia(file) {
+  if (!(file in reportFiles)) {
+    const video = /\.(mp4|webm)$/i.test(file);
+    const el = reportFiles[file] = document.createElement(video ? 'video' : 'img');
+    if (video) { Object.assign(el, { muted: true, loop: true, playsInline: true, preload: 'auto', seen: 0 }); S.videos[file] = el; }
+    el.src = S.reports + file;
+  }
+  return reportFiles[file];
 }
 
 // The business plan beside Brage's chat: production by quarter, the plan
@@ -434,6 +486,11 @@ const ADD = {
   govDocs: ['Governing documents', govDocs],
 };
 export function addStoryScreens() {
+  // a chat and its report screen for every chat (chat beats use them)
+  for (const id of Object.keys(CHATS)) {
+    ADD[`chat:${id}`] = [CHATS[id].title, (c, w, h) => chat(c, w, h, id)];
+    ADD[`report:${id}`] = ['Report', (c, w, h) => report(c, w, h, id)];
+  }
   for (const [id, entry] of Object.entries(ADD)) {
     CONTENT[id] = entry;
     if (!LIVE.includes(id)) LIVE.push(id);

@@ -449,7 +449,18 @@ export const PLAIN_CARDS = {
 // for a moment first. The text is in story.json, with the default run's
 // slides, the pointers and the closing line (the story script editor edits it).
 const tx = (o) => (o ? T(o.no ?? o.en, o.en ?? o.no) : '');
-export const CHATS = Object.fromEntries(Object.entries(STORY.chats).map(([id, c]) => [id, { title: tx(c.title), who: c.who, messages: c.messages.map(([who, m]) => [who, tx(m)]) }]));
+// `faces` name the portraits beside the messages (public/story/faces/<id>.png;
+// the agent's falls back to the agent icon).
+// A 'show' message is a report the agent hands over: the chat shows it as an
+// attachment and the screen beside it the picture or video (`file` in
+// public/story/reports/).
+const chatOf = (c) => ({ title: tx(c.title), who: c.who, faces: c.faces ?? {}, messages: c.messages.map(([who, m]) => [who, tx(m), m]) });
+export const CHATS = Object.fromEntries(Object.entries(STORY.chats).map(([id, c]) => [id, chatOf(c)]));
+// the private build's own wording of a chat (overrides.json `chats`)
+export const setChat = (id, c) => { CHATS[id] = chatOf({ ...STORY.chats[id], ...c }); };
+// A chat beat (story.json inserted, `chat`): the chat on one of Adriaen's
+// monitors, its reports on the next; each press shows one more message
+export const CHAT_SCREEN = 'Desk0Mon1Screen', REPORT_SCREEN = 'Desk0Mon2Screen';
 
 // Slides of the default run. TODO(Adriaen): your own slides, as text in
 // story.json (or the editor) or as PNGs in public/story/private/slides/<id>.png
@@ -618,6 +629,10 @@ function applyStory(chapters) {
       let overlay = ch.base?.overlay ?? null;
       for (const b of ch.beats.slice(0, i + 1)) for (const st of [b.set, b.end]) if (st && 'overlay' in st) overlay = st.overlay;
       const nb = { id: add.id, notes: add.notes ?? '', set: { overlay: add.slide ? `slide:${add.slide}` : null } };
+      if (add.chat) {
+        nb.chat = add.chat;
+        nb.set = { ...nb.set, shot: `monitor:${CHAT_SCREEN}`, screens: { [CHAT_SCREEN]: `chat:${add.chat}`, [REPORT_SCREEN]: `report:${add.chat}` }, chats: { [add.chat]: 1 } };
+      }
       if (add.card) nb.card = { text: tx(add.card), solid: !!add.solid };
       if (STORY.callouts[add.id]) nb.callouts = STORY.callouts[add.id].map((c) => ({ ...c, label: tx(c.label), text: tx(c.text) }));
       const after = ch.beats[i + 1];

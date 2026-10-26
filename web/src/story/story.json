@@ -359,7 +359,10 @@
       "en": "Drafts ready. Two items need sign-off, and they have gone to the control room."
      }
     ]
-   ]
+   ],
+   "faces": {
+    "me": "brage"
+   }
   },
   "slug": {
    "title": {
@@ -396,7 +399,218 @@
       "en": "All 14 test cases pass. Ready for your signature."
      }
     ]
-   ]
+   ],
+   "faces": {
+    "me": "adriaen"
+   }
+  },
+  "step": {
+   "title": {
+    "no": "CtrlBuddy",
+    "en": "CtrlBuddy"
+   },
+   "messages": [
+    [
+     "me",
+     {
+      "no": "Å lete etter steptester tar tid. Kan du finne perioder i historikken der regulatoren sto i manuell og noen steppet ventilen?",
+      "en": "Hunting for step tests takes time. Can you find stretches in the history where the controller was in manual and someone stepped the valve?"
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Jeg gikk gjennom historikken i CDF og fant flere perioder som ligner steptester. Her er katalogen.",
+      "en": "I went through the history in CDF and found several stretches that look like step tests. Here is the catalogue."
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Steptest-katalog",
+      "en": "Step-test catalogue",
+      "file": "step-1.webp"
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Den beste kandidaten",
+      "en": "The best candidate",
+      "file": "step-2.webp"
+     }
+    ]
+   ],
+   "who": "Adriaen",
+   "faces": {
+    "me": "adriaen",
+    "ai": "ctrlbuddy"
+   }
+  },
+  "sim": {
+   "title": {
+    "no": "CtrlBuddy",
+    "en": "CtrlBuddy"
+   },
+   "messages": [
+    [
+     "me",
+     {
+      "no": "Jeg lærer best ved å gjøre, la oss derfor bygge en simulator for å lære dette konseptet.",
+      "en": "I learn best by doing, so let's build a simulator to learn this concept."
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Her er en simulator for slugging i stigerøret, og en for innløpsseparatoren.",
+      "en": "Here is a simulator of riser slugging, and one of the inlet separator."
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Simulator for slugging i stigerøret",
+      "en": "Riser slugging simulator",
+      "file": "sim-1.mp4"
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Simulator for innløpsseparatoren",
+      "en": "Inlet separator simulator",
+      "file": "sim-2.webp"
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Jeg er ganske sikker på at du parametriserte modellen feil. Jeg sjekket dokumentet på CDF, og det står at separatoren er 7 meter lang, ikke 8 meter…",
+      "en": "I'm fairly sure you parametrised the model wrong. I checked the document in CDF, and it says the separator is 7 metres long, not 8…"
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "… og forresten: du modellerte ventilen som en lineær ventil, men jeg analyserte nylige tidsseriedata, og den er mer kompatibel med en likeprosentlig karakteristikk.",
+      "en": "… and by the way: you modelled the valve as linear, but I analysed recent time series, and it fits an equal-percentage characteristic better."
+     }
+    ],
+    [
+     "me",
+     {
+      "no": "… jepp, jeg sjekket leverandørens datablad, og det står tydelig at den er likeprosentlig.",
+      "en": "… yep, I checked the vendor's datasheet, and it clearly says equal percentage."
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Verktøy for regulatortuning",
+      "en": "Controller tuning tool",
+      "file": "sim-3.webp"
+     }
+    ]
+   ],
+   "who": "Adriaen",
+   "faces": {
+    "me": "adriaen",
+    "ai": "ctrlbuddy"
+   }
+  },
+  "pcs7": {
+   "title": {
+    "no": "CtrlBuddy",
+    "en": "CtrlBuddy"
+   },
+   "messages": [
+    [
+     "me",
+     {
+      "no": "MA? HB? Hvordan funker funksjonsblokkene i Siemens PCS7?",
+      "en": "MA? HB? How do the function blocks in Siemens PCS7 work?"
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Jeg har lest NORSOK I-005 og PCS7-manualene. Her er blokkene og logikken mellom dem.",
+      "en": "I have read NORSOK I-005 and the PCS7 manuals. Here are the blocks and the logic between them."
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Funksjonsblokkene, forklart",
+      "en": "The function blocks, explained",
+      "file": "pcs7-1.mp4"
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "… og det ble til et nytt APC-grensesnitt på Ivar Aasen.",
+      "en": "… and it turned into a new APC interface on Ivar Aasen."
+     }
+    ]
+   ],
+   "who": "Adriaen",
+   "faces": {
+    "me": "adriaen",
+    "ai": "ctrlbuddy"
+   }
+  },
+  "loops": {
+   "title": {
+    "no": "CtrlBuddy",
+    "en": "CtrlBuddy"
+   },
+   "messages": [
+    [
+     "me",
+     {
+      "no": "Hvilke sløyfer skal jeg overvåke? Hvordan finne tuningsbehov?",
+      "en": "Which loops should I watch? How do I find what needs tuning?"
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Jeg bruker ABB LoopInsight-ferdigheten min på historikken. Her er sløyfene som trenger oppmerksomhet.",
+      "en": "I run my ABB LoopInsight skill on the history. Here are the loops that need attention."
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Sløyfer som trenger oppmerksomhet",
+      "en": "Loops that need attention",
+      "file": "loops-1.webp"
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Én sløyfe i detalj",
+      "en": "One loop in detail",
+      "file": "loops-2.webp"
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Bevis og tidsserier",
+      "en": "Evidence and time series",
+      "file": "loops-3.webp"
+     }
+    ]
+   ],
+   "who": "Adriaen",
+   "faces": {
+    "me": "adriaen",
+    "ai": "ctrlbuddy"
+   }
   }
  },
  "callouts": {
@@ -500,6 +714,18 @@
  },
  "inserted": [
   {
+   "after": "m.s2",
+   "id": "c.step",
+   "chat": "step",
+   "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."
+  },
+  {
+   "after": "m.s3",
+   "id": "c.sim",
+   "chat": "sim",
+   "notes": "Samtale: simulatorene, rettelsene og tuningverktøyet."
+  },
+  {
    "after": "m.s3",
    "id": "new.ctrl06",
    "slide": "ctrl-06",
@@ -507,9 +733,21 @@
   },
   {
    "after": "m.s4",
+   "id": "c.pcs7",
+   "chat": "pcs7",
+   "notes": "Samtale: funksjonsblokkene."
+  },
+  {
+   "after": "m.s4",
    "id": "new.ctrl05",
    "slide": "ctrl-05",
    "notes": "Lysbilde 5."
+  },
+  {
+   "after": "new.ctrl05",
+   "id": "c.loops",
+   "chat": "loops",
+   "notes": "Samtale: sløyferapporten."
   },
   {
    "after": "h.s1",
@@ -552,7 +790,11 @@
   "d.s1",
   "d.wake",
   "d.s2",
+  "m.s2",
+  "m.s3",
   "new.ctrl06",
+  "m.s4",
+  "new.ctrl05",
   "h.g1",
   "h.g2",
   "h.s3",

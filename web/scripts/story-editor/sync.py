@@ -7,7 +7,7 @@
 (slides, chats, pointers, notes and title cards per beat, added and left-out
 beats) and src/story/lines.json (spoken lines and subtitles, new lines), then
 prints what needs a hand: new or changed lines to voice, slide pictures to
-download into the private build, and the open notes to Claude.
+download into the build, and the open notes to Claude.
 """
 import json, os, sys, glob
 
@@ -51,6 +51,7 @@ for i, b in enumerate(beats):
         prev = beats[i - 1]['id'] if i else None
         add = {'after': b.get('after') or prev, 'id': bid}
         if b.get('slide'): add['slide'] = b['slide']['id']
+        if b.get('chat'): add['chat'] = b['chat']   # a chat beat (story.json chats)
         if b.get('card') is not None: add['card'] = {'no': b['card'].get('text', ''), 'en': b['card'].get('en', b['card'].get('text', ''))}
         if b.get('notes'): add['notes'] = b['notes']
         story['inserted'].append(add); changed.append(f'new beat {bid}')
@@ -70,7 +71,7 @@ for i, b in enumerate(beats):
                 if it.get('no') is not None and l.get('no', '') != it['no']: l['no'] = it['no']; changed.append(f'subtitle {it["id"]}')
         elif k == 'chat':
             m = story['chats'][it['key']]['messages'][it['idx']]
-            if not same(m[1], both(it)): m[1] = both(it); changed.append(f'chat {it["key"]} {it["idx"] + 1}')
+            if not same({k: m[1].get(k, '') for k in ('no', 'en')}, both(it)): m[1] = {**m[1], **both(it)}; changed.append(f'chat {it["key"]} {it["idx"] + 1}')   # keeps a report's file
         elif k == 'card':
             cards.append(False if it.get('removed') else both(it))   # False: removed in the editor
     base_cards = [both(c) for c in base.get('cards', [])]
@@ -99,6 +100,6 @@ if new:
 open(lines_p, 'w').write('\n'.join(out) + '\n')
 print('changed:', ', '.join(changed) or 'nothing')
 if voice: print('voice these lines:  python web/scripts/voices.py --model <dir> --only', ' '.join(voice))
-for sid, url in pictures: print(f'picture slide {sid}: download {url} to web/public/story/private/slides/{sid}.png (private, git-ignored)')
+for sid, url in pictures: print(f'picture slide {sid}: download {url} to web/public/story/slides/{sid}.webp')
 for n in notes:
     if n.get('status') != 'done': print(f'NOTE [{n.get("beatId")} / {n.get("target")}] {n.get("text")}')

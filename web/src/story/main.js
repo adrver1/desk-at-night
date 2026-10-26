@@ -11,7 +11,7 @@
 // ?story=full (the three-act version), ?lang=en|no (on-screen language).
 import * as THREE from 'three';
 import '../play.js';
-import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS } from './content.js';
+import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN } from './content.js';
 import { FULL, LANG, T } from './lang.js';
 import lines from './lines.json';
 import { StoryUI } from './ui.js';
@@ -36,7 +36,7 @@ const GRADES = q.get('grade') === '1';
 addStoryScreens();
 
 const host = document.getElementById('game');
-const ui = new StoryUI(host, { privateBase: PRIVATE });
+const ui = new StoryUI(host, { privateBase: PRIVATE, publicBase: 'story/' });
 // The chapter navigator along the bottom (?nav=a|b|c, off with ?nav=0); see ui.nav
 const NAV = new URLSearchParams(location.search).get('nav') ?? 'b';
 if (NAV !== '0') ui.nav(CHAPTERS, NAV, (c, i) => { sound.wake(); return c === 'next' ? next() : c === 'back' ? back() : enter(c, i, { instant: true }); });
@@ -62,9 +62,10 @@ function applyOverrides(o) {
   import('./content.js').then((c) => {
     for (const [id, v] of Object.entries(o.cards ?? {})) Object.assign(c.CARDS[id] ?? {}, v);
     for (const [id, v] of Object.entries(o.slides ?? {})) c.SLIDES[id] = { ...c.SLIDES[id], ...v };
+    for (const [id, v] of Object.entries(o.chats ?? {})) c.setChat(id, v);
   });
 }
-if (PRIVATE_ON) ui.findSlides();
+ui.findSlides(PRIVATE_ON);
 if (PRIVATE_ON) for (const id of ['stepTest', 'riser', 'antiSlug', 'scd', 'govDocs']) {
   const img = new Image();
   img.onload = () => { S.images[id] = img; };
@@ -94,8 +95,27 @@ const merge = (a, b) => {
 function stateAt(c, i) {
   const ch = CHAPTERS[c];
   let s = merge({ act: 0, graph: 0, alarms: null, overlay: null, boatLabel: null, org: null, tool: null, chats: null, place: null, sound: 'room' }, ch.base);
-  for (let k = 0; k < i; k++) s = merge(merge(s, ch.beats[k].set), ch.beats[k].end);
+  for (let k = 0; k < i; k++) s = chatDone(merge(merge(s, ch.beats[k].set), ch.beats[k].end), ch.beats[k]);
   return merge(s, ch.beats[i].set);
+}
+
+// A chat beat once past: every message shown
+const chatDone = (s, b) => (b.chat ? { ...s, chats: { ...s.chats, [b.chat]: CHATS[b.chat].messages.length } } : s);
+
+// A chat beat's clicks: one message more (or less), the camera on the chat,
+// or on the report beside it when the message hands one over
+function chatStep(dir) {
+  const b = CHAPTERS[chapter]?.beats[beat], id = b?.chat;
+  if (!id || running) return false;
+  const n = (state.chats?.[id] ?? 0) + dir;
+  if (n < 1 || n > CHATS[id].messages.length) return false;
+  chatTo(id, n, dir > 0);
+  return true;
+}
+function chatTo(id, n, typing) {
+  const show = CHATS[id].messages[n - 1][0] === 'show';
+  apply(merge(state, { chats: { ...state.chats, [id]: n }, shot: `monitor:${show ? REPORT_SCREEN : CHAT_SCREEN}` }));
+  if (typing) S.chatAt[id] = S.now;
 }
 
 // ---------------------------------------------------------------- applying state
@@ -184,6 +204,7 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
       await run(step, my);
     }
   } else if (b.end) apply(merge(state, b.end), { instant: true });
+  if (skipDo && b.chat) chatTo(b.chat, CHATS[b.chat].messages.length, false);   // stepped back into: all of it
   if (my !== token) return;
   running = false; waiting = true;
   showHud();
@@ -313,6 +334,7 @@ function next() {
   if (CHAPTERS[chapter].prologue) return prologueNext();
   if (ui.advanceVote()) return;
   if (!running && ui.stepBuild(1)) return;
+  if (chatStep(1)) return;
   const b = CHAPTERS[chapter].beats[beat];
   if (running && b.skip !== 'next') {
     // Mid-beat: finish it at once (lines stop, its end state shows)
@@ -335,6 +357,7 @@ function next() {
 function back() {
   if (free) return;
   if (ui.stepBuild(-1)) return;
+  if (chatStep(-1)) return;
   // a slide we step back into shows all its clicks
   if (beat > 0 || chapter > 0) ui.buildFromEnd = true;
   if (beat > 0) enter(chapter, beat - 1, { instant: true, skipDo: true });
@@ -576,6 +599,8 @@ function frame(dt, now) {
   }
   cast?.update(dt, game.camera, S.now);
   epilogue?.update(dt);
+  // a report's video plays only while its screen is drawn
+  for (const v of Object.values(S.videos)) if (!v.paused && S.now - v.seen > 0.5) v.pause();
 }
 
 let lastT = performance.now();

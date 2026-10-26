@@ -1,6 +1,6 @@
 #   python3 pptx_anim_build.py <unpacked deck dir> <out dir with anim.json>
 # then render each k<NN>.pptx (LibreOffice, to PDF) and take page N of k<NN> as
-# slide N after NN clicks: <slide id>.b<NN>.png in public/story/private/slides/.
+# slide N after NN clicks: <slide id>.b<NN>.png (then WebP in public/story/slides/).
 # Appear/Disappear only; motion paths jump to where they end.
 # Build one copy of the unpacked deck per click count k: every slide shows its
 # state after k clicks (its final state once it runs out of clicks).

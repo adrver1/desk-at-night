@@ -1,0 +1,30 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>html,body{margin:0;background:transparent}</style>
+<script type="module">
+// Head-and-shoulders portrait of one character model, for the story chats'
+// avatars (web/qa/portraits.mjs screenshots it). ?m=<glb url>&yaw=<deg>&k=<head share>
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const q = new URLSearchParams(location.search), S = 256;
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(S, S); renderer.setClearColor(0, 0); renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2.2));
+const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(1.5, 2.5, 3); scene.add(sun);
+const gltf = await new GLTFLoader().loadAsync(q.get('m'));
+const root = gltf.scene; scene.add(root);
+root.rotation.y = THREE.MathUtils.degToRad(Number(q.get('yaw') ?? 0));
+root.updateMatrixWorld(true);
+const box = new THREE.Box3().setFromObject(root), c = box.getCenter(new THREE.Vector3());
+const top = box.max.y, k = Number(q.get('k') ?? 0.2), h = (box.max.y - box.min.y) * k;
+const cy = top - h * 0.55;
+const cam = new THREE.PerspectiveCamera(22, 1, 0.05, 50);
+const dist = (h * 0.75) / Math.tan(THREE.MathUtils.degToRad(11));
+const dir = new THREE.Vector3(Number(q.get('dx') ?? 0.35), 0.08, 1).normalize();
+cam.position.set(c.x + dir.x * dist, cy + dir.y * dist, c.z + dir.z * dist);
+cam.lookAt(c.x, cy, c.z);
+renderer.render(scene, cam);
+document.title = 'ready';
+</script>
