@@ -58,7 +58,8 @@ controls.ceiling = controls.light / 100;
 const coarse = matchMedia('(pointer: coarse)').matches;
 if (coarse) ui.game.classList.add('coarse');
 
-const renderer = new THREE.WebGLRenderer({ canvas: ui.canvas, antialias: true });
+// ?aa=0 turns off multisampling, to see what it costs (docs/performance.md)
+const renderer = new THREE.WebGLRenderer({ canvas: ui.canvas, antialias: new URLSearchParams(location.search).get('aa') !== '0' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.5 : 2));
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
