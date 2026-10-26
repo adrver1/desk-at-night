@@ -130,6 +130,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .seg2.beat.hid { opacity: .4 }
 .seg2.beat.cur { outline: 2px solid var(--accent); outline-offset: 1px }
 .seg2.slide { background: var(--t-slide) }
+.blk.gone { opacity: .45; text-decoration: line-through }
+.blk.gone .mono { text-decoration: none }
 .seg2 .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: #0006 }
 .frame .clicks { position: absolute; left: 50%; bottom: 1.2cqw; transform: translateX(-50%); display: flex; align-items: center; gap: .6em; background: #000c; color: #fff; border-radius: 99px; padding: .2em .3em; font: 500 max(11px, 1.6cqw) var(--mono); white-space: nowrap }
 .frame .clicks button { all: unset; cursor: pointer; width: 2em; height: 2em; display: grid; place-items: center; border-radius: 50%; font-size: 1.2em }
@@ -241,7 +243,7 @@ function frame(b, opts = {}) {
   const it = m >= 0 ? items[m] : items.find((x) => x.kind === 'line');
   if (it?.kind === 'line' && !b.slide) h += `<div class="subs"><span><b>${esc(it.who)}:</b> ${esc(L === 'no' ? it.no || it.en : it.en)}</span></div>`;
   if (it?.kind === 'chat') h += `<div class="chatb"><b>${esc(it.chat)} · ${esc(it.from)}</b>${esc(it[L])}</div>`;
-  if (it?.kind === 'card') h += `<div class="card">${esc(it[L])}${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`;
+  if (it?.kind === 'card' && !it.removed) h += `<div class="card">${esc(it[L])}${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`;
   (b.callouts || []).forEach((c, i) => { h += `<div class="co${c.x > 62 ? ' left' : ''}${opts.drag === i ? ' drag' : ''}" data-co="${i}" style="left:${c.x}%;top:${c.y}%"><div class="pin"></div><div class="lab"><b>${esc(txt(c.label))}</b>${esc(txt(c.text))}</div></div>`; });
   return `<div class="frame">${h}</div>`;
 }
@@ -274,7 +276,7 @@ function render(scroll) {
     if (x.kind === 'fx') { body += `<button class="cue${on}" data-m="${j}">${esc(x.what)}${at}</button>`; return; }
     if (x.kind === 'line') body += `<button class="blk dl${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${esc(x.who)} ${x.fx ? `<em>(${esc(x.fx)})</em>` : ''} <em>spoken in English${at}</em></div><div>${esc(L === 'no' ? x.no || x.en || '…' : x.en || '…')}</div><div class="alt">${esc(L === 'no' ? x.en : x.no)}</div></button>`;
     if (x.kind === 'chat') body += `<button class="blk dl chat${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${esc(x.from)} <em>on the screen · ${esc(x.chat)}${at}</em></div><div>${esc(x[L])}</div></button>`;
-    if (x.kind === 'card') body += `<button class="blk cd${on}" data-edit="${k}|item${j}" data-m="${j}">${esc(x[L] || '(card)')}${x.sub ? `<div class="mono">${esc(x.sub)}</div>` : ''}</button>`;
+    if (x.kind === 'card') body += `<button class="blk cd${on}${x.removed ? ' gone' : ''}" data-edit="${k}|item${j}" data-m="${j}">${x.removed ? '<div class="mono">removed from the story</div>' : ''}${esc(x[L] || '(card)')}${x.sub ? `<div class="mono">${esc(x.sub)}</div>` : ''}</button>`;
     body += stickies(k, 'item' + j);
   });
   (b.callouts || []).forEach((c, j) => { body += `<button class="blk cl" data-edit="${k}|co${j}">POINTER → ${esc(c.target)}: <b>${esc(txt(c.label) || '…')}</b>, ${esc(txt(c.text))}</button>${stickies(k, 'co' + j)}`; });
@@ -325,7 +327,7 @@ function timeline(scroll) {
     (b.items || []).forEach((it, j) => {
       const t = it.t ?? 0, on = k === curKey && j === moment ? ' on' : '';
       if (it.kind === 'line' || it.kind === 'chat') rows[it.kind === 'line' ? 'talk' : 'chat'] += `<button class="seg2 ${it.kind}${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:${Math.max(6, Math.min((it.d || 1.5) * PX, p.x + p.w - X(t)))}px" title="${esc(it.who || it.from)}: ${esc(it[L] || it.en)}">${esc(it.who || it.from)}</button>`;
-      if (it.kind === 'card') rows.slide += `<button class="seg2 card${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:${Math.max(30, Math.min(80, p.x + p.w - X(t)))}px">${esc(it[L] || 'card')}</button>`;
+      if (it.kind === 'card' && !it.removed) rows.slide += `<button class="seg2 card${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:${Math.max(30, Math.min(80, p.x + p.w - X(t)))}px">${esc(it[L] || 'card')}</button>`;
       if (it.kind === 'move' || it.kind === 'fx') rows.people += `<button class="seg2 move${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:8px" title="${esc((it.who ? it.who + ' ' : '') + it.what)}"></button>`;
     });
   });
@@ -407,7 +409,8 @@ function edit(key, what, draft) {
     sheet('Title card', fld('f_c', 'Text on the card (empty = plain black)', b.card?.text), (f) => { nb.card = { ...nb.card, text: val(f, 'f_c') }; finish(f, 'beatcard'); });
   } else if (what.startsWith('item')) {
     const j = +what.slice(4), x = b.items[j];
-    const del = x.isNew ? '<button type="button" class="btn danger" id="f_del">Remove</button>' : '';
+    const del = x.isNew ? '<button type="button" class="btn danger" id="f_del">Remove</button>'
+      : x.kind === 'card' ? `<button type="button" class="btn${x.removed ? '' : ' danger'}" id="f_gone">${x.removed ? 'Put it back' : 'Remove from the story'}</button>` : '';
     let inner = '';
     if (x.kind === 'line') inner = `${x.isNew ? `<label class="f">Who says it<select class="t" id="f_who">${SPEAKERS.map(([r, n]) => `<option value="${r}" ${x.role === r ? 'selected' : ''}>${n}</option>`).join('')}</select></label>` : `<p class="mono">${esc(x.who)} · line ${esc(x.id)}</p>`}
       <div class="two">${fld('f_en', 'Spoken (English, the voice reads this)', x.en, 1, 3)}${fld('f_no', 'Subtitle (Norwegian)', x.no, 1, 3)}</div>`;
@@ -419,6 +422,7 @@ function edit(key, what, draft) {
       finish(f, what);
     }, del);
     document.getElementById('f_del')?.addEventListener('click', () => { nb.items.splice(j, 1); saveBeat(nb); closeSheet(); });
+    document.getElementById('f_gone')?.addEventListener('click', () => { nb.items[j].removed = !x.removed; saveBeat(nb); closeSheet(); });
   } else if (what.startsWith('co')) {
     const j = +what.slice(2), c = nb.callouts[j];
     for (const k of ['label', 'text']) if (typeof c[k] === 'string') c[k] = { no: c[k], en: '' };

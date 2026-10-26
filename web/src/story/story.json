@@ -491,7 +491,13 @@
    }
   ]
  },
- "beats": {},
+ "beats": {
+  "ep.line": {
+   "cards": [
+    false
+   ]
+  }
+ },
  "inserted": [
   {
    "after": "m.s3",
@@ -543,7 +549,14 @@
   }
  ],
  "hidden": [
-  "new.ctrl06"
+  "d.s1",
+  "d.wake",
+  "d.s2",
+  "new.ctrl06",
+  "h.g1",
+  "h.g2",
+  "h.s3",
+  "h.g3"
  ],
  "closing": {
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",

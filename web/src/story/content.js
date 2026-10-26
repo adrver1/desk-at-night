@@ -589,6 +589,11 @@ const SHORT_CHAPTERS = [
 // title cards per beat, pointers, beats left out, and beats it added (a slide
 // or a title card after a given beat, with the same camera)
 function applyStory(chapters) {
+  // a chapter whose beats are all left out goes, and the rest renumber
+  for (let c = chapters.length - 1; c >= 0; c--) {
+    if (!chapters[c].prologue && chapters[c].beats.every((b) => STORY.hidden.includes(b.id))) chapters.splice(c, 1);
+  }
+  chapters.forEach((ch, c) => { ch.key = c + 1; });
   for (const ch of chapters) {
     for (const b of ch.beats) {
       const o = STORY.beats[b.id];
@@ -597,6 +602,7 @@ function applyStory(chapters) {
       // title cards its steps show, in order
       const cards = (b.do ?? []).filter((st) => st.card);
       (o?.cards ?? []).forEach((c, i) => {
+        if (c === false && cards[i]) { b.do.splice(b.do.indexOf(cards[i]), 1); return; }   // removed in the editor
         if (!c) return;
         if (cards[i]) cards[i].card = { ...cards[i].card, text: tx(c) };
         else (b.do ??= []).push({ card: { text: tx(c) } }, { wait: 3 }, { card: null });   // a card added in the editor

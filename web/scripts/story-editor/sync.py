@@ -72,7 +72,7 @@ for i, b in enumerate(beats):
             m = story['chats'][it['key']]['messages'][it['idx']]
             if not same(m[1], both(it)): m[1] = both(it); changed.append(f'chat {it["key"]} {it["idx"] + 1}')
         elif k == 'card':
-            cards.append(both(it))
+            cards.append(False if it.get('removed') else both(it))   # False: removed in the editor
     base_cards = [both(c) for c in base.get('cards', [])]
     if not same(cards, base_cards): o['cards'] = cards
     if say: o['say'] = say
