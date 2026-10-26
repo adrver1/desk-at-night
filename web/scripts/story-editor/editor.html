@@ -128,6 +128,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .seg2.beat.auto { background: repeating-linear-gradient(135deg, var(--t-auto) 0 6px, var(--bg) 6px 12px) }
 .seg2.beat.new { border-color: var(--t-new); color: var(--t-new); border-width: 2px }
 .seg2.beat.hid { opacity: .4 }
+.hidtog { cursor: pointer; gap: 5px } .hidtog input { margin: 0; accent-color: var(--t-new) }
 .seg2.beat.cur { outline: 2px solid var(--accent); outline-offset: 1px }
 .seg2.slide { background: var(--t-slide) }
 .blk.gone { opacity: .45; text-decoration: line-through }
@@ -201,7 +202,7 @@ input.t, textarea.t, select.t { width: 100%; font: 15px/1.4 var(--body); color: 
     <span class="k"><i style="background:var(--t-line)"></i>spoken</span><span class="k"><i style="background:var(--t-chat)"></i>chat</span>
     <span class="k opt"><i style="background:var(--t-move)"></i>people</span><span class="k opt"><i style="border:2px solid var(--t-new)"></i>new beat</span>
     <span class="k opt"><i style="background:repeating-linear-gradient(135deg,var(--t-auto) 0 3px,var(--bg) 3px 6px);border:1px solid var(--line)"></i>plays by itself (≈ seconds)</span>
-    <span class="spacer"></span><span>← → to step through beats</span>
+    <span class="spacer"></span><label class="k hidtog"><input type="checkbox" id="showHid"> show left-out beats</label><span>← → to step through beats</span>
   </div>
   <div class="tlscroll" id="tlscroll"><div class="tl" id="tl"></div></div>
 </nav>
@@ -216,6 +217,10 @@ const rid = () => Math.random().toString(36).slice(2, 7);
 let L = 'no', curKey = null, moment = -1;
 try { L = localStorage.getItem('sse.lang') || 'no'; curKey = localStorage.getItem('sse.beat'); } catch {}
 let db = null, beats = [], notes = [], showNotes = false;
+// left-out beats on the timeline and in ← → stepping (the beat on screen always shows)
+let showHid = false;
+try { showHid = localStorage.getItem('sse.hid') === '1'; } catch {}
+const vis = () => (showHid ? beats : beats.filter((b) => !b.hidden || b._key === curKey));
 const SPEAKERS = [['supervisor', 'Brage'], ['operator', 'Adriaen'], ['agent', 'Agent'], ['ceo', 'CEO'], ['pilot', 'Pilot'], ['crew', 'Ground crew'], ['engineer', 'Control engineer'], ['oim', 'OIM']];
 const TARGETS = ['band', 'window', 'clock', 'door', 'coffee', 'meeting table', ...[0, 1, 2, 3, 4, 5].flatMap((i) => [`Desk0Mon${i}Screen`, `Desk1Mon${i}Screen`]), ...[0, 1, 2, 3, 4, 5, 6].map((i) => `Wall${i}Screen`), 'LinkScreen', 'TvScreen'];
 const SHOTS = { wideRoom: 'wide room', band: 'display band', brageBand: 'Brage + band', brage: 'Brage', adriaen: 'Adriaen', adriaenDesk: 'Adriaen at his desk', pair: 'the two of them', pour: 'pouring', desk: 'desk', epilogue: 'fly-out', trondheim: 'Trondheim' };
@@ -236,7 +241,7 @@ function go(key, m = -1, c = -1) { curKey = key; moment = m; click = c; try { lo
 function step(d) {
   const b = cur(), nc = nClicks(b);
   if (nc) { const c = clickAt(b) + d; if (c >= 0 && c < nc) { click = c; render(); return; } }
-  const i = beats.indexOf(b); const n = beats[Math.min(beats.length - 1, Math.max(0, i + d))];
+  const bs = vis(), i = bs.indexOf(b); const n = bs[Math.min(bs.length - 1, Math.max(0, i + d))];
   if (n && n !== b) go(n._key, -1, d > 0 ? 0 : -1);
 }
 
@@ -310,7 +315,7 @@ function render(scroll) {
   if (!b.slide && !b.card && !(b.items || []).length && !(b.callouts || []).length) body += '<p class="mono">Nothing written in this beat yet: only the camera and the room. Add something below.</p>';
   body += `<div class="addrow"><button data-add="${k}|line">+ line</button><button data-add="${k}|pointer">+ pointer</button><button data-add="${k}|card">+ title card</button><button data-add="${k}|note">+ note to Claude</button></div>
     <div class="addrow"><button data-ins="${i + 1}">+ new slide or card after this beat</button></div>`;
-  app.innerHTML = `<div class="beathead"><span class="ch">${esc(b.chName)} · beat ${i + 1} of ${beats.length}</span><h2>${esc(b.id)}</h2>
+  app.innerHTML = `<div class="beathead"><span class="ch">${esc(b.chName)} · beat ${vis().indexOf(b) + 1} of ${vis().length}</span><h2>${esc(b.id)}</h2>
       ${b.isNew ? '<span class="tag new">new</span>' : ''}${b.hidden ? '<span class="tag">left out</span>' : ''}${b.auto ? `<span class="tag">plays by itself · ≈${fmt(b.dur || 0)}</span>` : '<span class="tag">waits for Space</span>'}
       <span class="spacer"></span><button class="btn" data-edit="${k}|beat">Beat settings</button></div>
     <div class="stagegrid"><div class="stagecol">${frame(b, { moment })}
@@ -332,6 +337,7 @@ function renderNotes() {
 // ------------------------------------------------------------ the timeline
 const PX = 9;
 function timeline(scroll) {
+  const beats = vis();   // this function's beats: the ones on the timeline
   const W = (b) => Math.max(b.slide || b.card ? 70 : 58, b.dur ? b.dur * PX + 10 : 0);
   let x = 0; const pos = beats.map((b) => { const p = { x, w: W(b) }; x += p.w + 3; return p; });
   const total = x;
@@ -515,6 +521,9 @@ app.addEventListener('click', (e) => {
 });
 document.getElementById('notes').addEventListener('click', (e) => { const a = e.target.closest('[data-jump]'); if (a) { go(a.dataset.jump); scrollTo({ top: 0, behavior: 'smooth' }); } });
 document.getElementById('notesBtn').addEventListener('click', () => { showNotes = !showNotes; renderNotes(); });
+const hidBox = document.getElementById('showHid');
+hidBox.checked = showHid;
+hidBox.addEventListener('change', () => { showHid = hidBox.checked; try { localStorage.setItem('sse.hid', showHid ? '1' : '0'); } catch {} render(); });
 document.querySelectorAll('[data-l]').forEach((b) => b.addEventListener('click', () => { L = b.dataset.l; try { localStorage.setItem('sse.lang', L); } catch {} render(); }));
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { closeSheet(); return; }
