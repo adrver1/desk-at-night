@@ -130,6 +130,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .seg2.beat.hid { opacity: .4 }
 .seg2.beat.cur { outline: 2px solid var(--accent); outline-offset: 1px }
 .seg2.slide { background: var(--t-slide) }
+.seg2 .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: #0006 }
+.frame .clicks { position: absolute; left: 50%; bottom: 1.2cqw; transform: translateX(-50%); display: flex; align-items: center; gap: .6em; background: #000c; color: #fff; border-radius: 99px; padding: .2em .3em; font: 500 max(11px, 1.6cqw) var(--mono); white-space: nowrap }
+.frame .clicks button { all: unset; cursor: pointer; width: 2em; height: 2em; display: grid; place-items: center; border-radius: 50%; font-size: 1.2em }
+.frame .clicks button:hover:not([disabled]) { background: #fff2 }
+.frame .clicks button[disabled] { opacity: .3; cursor: default }
 .seg2.card { background: var(--t-card) }
 .seg2.line { background: var(--t-line) }
 .seg2.chat { background: var(--t-chat) }
@@ -203,8 +208,18 @@ const other = () => (L === 'no' ? 'en' : 'no');
 const txt = (o) => (typeof o === 'string' ? o : o?.[L] || o?.[other()] || '');
 function setStatus(t, bad) { statusEl.textContent = t; statusEl.classList.toggle('bad', !!bad); }
 const cur = () => beats.find((b) => b._key === curKey) || beats[0];
-function go(key, m = -1) { curKey = key; moment = m; try { localStorage.setItem('sse.beat', key); } catch {} render(true); }
-function step(d) { const i = beats.indexOf(cur()); const n = beats[Math.min(beats.length - 1, Math.max(0, i + d))]; if (n) go(n._key); }
+// PowerPoint clicks: which picture of a slide's builds shows (-1 = all of them)
+let click = -1;
+const frames = (b) => (b.slide?.frames?.length > 1 ? b.slide.frames : null);
+const clickAt = (b) => { const f = frames(b); return f ? (click < 0 || click >= f.length ? f.length - 1 : click) : 0; };
+function go(key, m = -1, c = -1) { curKey = key; moment = m; click = c; try { localStorage.setItem('sse.beat', key); } catch {} render(true); }
+// like the game: → shows a slide's next click first, then the next beat
+function step(d) {
+  const b = cur(), f = frames(b);
+  if (f) { const c = clickAt(b) + d; if (c >= 0 && c < f.length) { click = c; render(); return; } }
+  const i = beats.indexOf(b); const n = beats[Math.min(beats.length - 1, Math.max(0, i + d))];
+  if (n && n !== b) go(n._key, -1, d > 0 ? 0 : -1);
+}
 
 // ------------------------------------------------------------ the frame
 function frame(b, opts = {}) {
@@ -218,8 +233,10 @@ function frame(b, opts = {}) {
   if (shot) h += `<div class="shot">camera: ${esc(shotName(shot))}</div>`;
   if (b.slide) {
     const s = b.slide[L] || b.slide.en || {};
-    h += `<div class="slide">${b.slide.image ? `<img src="${esc(b.slide.image)}" alt="">${s.caption ? `<div class="cap">${esc(s.caption)}</div>` : ''}` : `<h2>${esc(s.title)}</h2><ul>${(s.bullets || []).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`}</div>`;
+    const f = frames(b), ci = clickAt(b);
+    h += `<div class="slide">${b.slide.image ? `<img src="${esc(f ? f[ci] : b.slide.image)}" alt="">${s.caption ? `<div class="cap">${esc(s.caption)}</div>` : ''}` : `<h2>${esc(s.title)}</h2><ul>${(s.bullets || []).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`}</div>`;
   }
+  if (frames(b) && opts.drag == null) { const f = frames(b), ci = clickAt(b); h += `<div class="clicks"><button data-click="-1" ${ci ? '' : 'disabled'} aria-label="Previous click">‹</button><span>${ci ? `click ${ci} of ${f.length - 1}` : `before the first click (${f.length - 1})`}</span><button data-click="1" ${ci < f.length - 1 ? '' : 'disabled'} aria-label="Next click">›</button></div>`; }
   if (b.card) h += `<div class="card${b.card.solid ? ' solid' : ''}">${esc(b.card.text)}</div>`;
   const it = m >= 0 ? items[m] : items.find((x) => x.kind === 'line');
   if (it?.kind === 'line' && !b.slide) h += `<div class="subs"><span><b>${esc(it.who)}:</b> ${esc(L === 'no' ? it.no || it.en : it.en)}</span></div>`;
@@ -247,7 +264,7 @@ function render(scroll) {
   if (b.notes) body += `<button class="blk dir" data-edit="${k}|notes" title="Presenter notes">${esc(b.notes)}</button>`;
   if (b.slide) {
     const s = b.slide[L] || {};
-    body += `<button class="blk sl" data-edit="${k}|slide"><span class="mono">slide ${esc(b.slide.id)}${b.slide.image ? ' · picture' : ''}${b.slide.placeholder ? ' · placeholder' : ''}</span>${b.slide.image ? `<img src="${esc(b.slide.image)}" alt="">${s.caption ? `<div>${esc(s.caption)}</div>` : ''}` : `<h4>${esc(s.title || 'Untitled slide')}</h4><ul>${(s.bullets || []).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`}</button>${stickies(k, 'slide')}`;
+    body += `<button class="blk sl" data-edit="${k}|slide"><span class="mono">slide ${esc(b.slide.id)}${b.slide.image ? ' · picture' : ''}${frames(b) ? ` · ${frames(b).length - 1} clicks` : ''}${b.slide.placeholder ? ' · placeholder' : ''}</span>${b.slide.image ? `<img src="${esc(b.slide.image)}" alt="">${s.caption ? `<div>${esc(s.caption)}</div>` : ''}` : `<h4>${esc(s.title || 'Untitled slide')}</h4><ul>${(s.bullets || []).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`}</button>${stickies(k, 'slide')}`;
   }
   if (b.card) body += `<button class="blk cd" data-edit="${k}|beatcard">${esc(b.card.text || '(black card)')}</button>`;
   (b.items || []).forEach((x, j) => {
@@ -295,7 +312,9 @@ function timeline(scroll) {
     const p = pos[i], k = b._key, X = (t) => p.x + 5 + Math.min(t * PX, p.w - 10);
     if (i === beats.length - 1 || beats[i + 1].ch !== b.ch) { rows.scene += `<button class="seg2 chap" data-go="${beats[start]._key}" style="left:${pos[start].x}px;width:${p.x + p.w - pos[start].x}px" title="${esc(b.chName)}">${esc(b.chName)}</button>`; start = i + 1; }
     rows.beat += `<button class="seg2 beat${b.auto ? ' auto' : ''}${b.isNew ? ' new' : ''}${b.hidden ? ' hid' : ''}${k === curKey || (!curKey && !i) ? ' cur' : ''}" data-go="${k}" style="left:${p.x}px;width:${p.w}px" title="${esc(b.id)}">${esc(b.id)}${b.auto ? ` ≈${Math.round(b.dur)}s` : ''}</button>`;
-    if (b.slide) rows.slide += `<button class="seg2 slide" data-go="${k}" style="left:${p.x}px;width:${p.w}px" title="${esc(txt(b.slide)?.title || b.slide[L]?.title)}">${esc(b.slide[L]?.title || 'slide')}</button>`;
+    if (b.slide) { const f = frames(b), n = f ? f.length - 1 : 0;
+      const ticks = f ? f.slice(1).map((_, c) => `<i class="tick" style="left:${((c + 1) / (n + 1)) * 100}%"></i>`).join('') : '';
+      rows.slide += `<button class="seg2 slide${f ? ' builds' : ''}" data-go="${k}" style="left:${p.x}px;width:${p.w}px" title="${esc(b.slide[L]?.title || 'slide')}${n ? ` · ${n} clicks` : ''}">${ticks}${esc(b.slide[L]?.title || 'slide')}${n ? ` · ${n}` : ''}</button>`; }
     if (b.card) rows.slide += `<button class="seg2 card" data-go="${k}" style="left:${p.x}px;width:${p.w}px">${esc(b.card.text || 'black')}</button>`;
     const shot0 = b.ctx?.shot || b.ctx?.place;
     const cues = (shot0 ? [{ x: p.x, shot: shot0, j: null }] : []).concat((b.items || []).map((it, j) => (it.kind === 'shot' ? { x: X(it.t ?? 0), shot: it.shot, j } : null)).filter(Boolean));
@@ -369,6 +388,7 @@ function edit(key, what, draft) {
       <div class="two">${fld('f_tno', 'Title (Norwegian)', s.no?.title)}${fld('f_ten', 'Title (English)', s.en?.title)}</div>
       <div class="two">${fld('f_bno', 'Bullets, one per line (Norwegian)', (s.no?.bullets || []).join('\n'), 1, 5)}${fld('f_ben', 'Bullets, one per line (English)', (s.en?.bullets || []).join('\n'), 1, 5)}</div>
       <div id="imgrow" ${s.image ? '' : 'hidden'}><label class="f">Picture (PNG or JPG exported from PowerPoint; it stays private)<input type="file" id="f_img" accept="image/png,image/jpeg"></label>
+      ${frames(b) ? `<p class="mono">${frames(b).length - 1} clicks from your PowerPoint animations. A new picture replaces them with a single picture.</p>` : ''}
       <div class="two">${fld('f_cno', 'Caption (Norwegian)', s.no?.caption)}${fld('f_cen', 'Caption (English)', s.en?.caption)}</div></div>
       <label class="check"><input type="checkbox" id="f_ph" ${s.placeholder ? 'checked' : ''}> Still a placeholder (shows the yellow tag)</label>`,
       async (f) => {
@@ -378,7 +398,7 @@ function edit(key, what, draft) {
         const kind = f.querySelector('#f_kind').value;
         if (kind === 'text') delete nb.slide.image;
         const file = f.querySelector('#f_img').files?.[0];
-        if (kind === 'image' && file) nb.slide.image = await upload(file);
+        if (kind === 'image' && file) { nb.slide.image = await upload(file); delete nb.slide.frames; }
         finish(f, 'slide');
       });
     const f = document.getElementById('sheetForm');
@@ -457,6 +477,7 @@ async function upload(file) {
 app.addEventListener('click', (e) => {
   const ed = e.target.closest('[data-edit]');
   if (ed) { if (ed.dataset.m != null) moment = +ed.dataset.m; const [k, w] = ed.dataset.edit.split('|'); edit(k, w); return; }
+  const ck = e.target.closest('[data-click]'); if (ck) { const b = cur(); click = Math.max(0, Math.min(frames(b).length - 1, clickAt(b) + +ck.dataset.click)); render(); return; }
   const mm = e.target.closest('[data-m]'); if (mm) { moment = moment === +mm.dataset.m ? -1 : +mm.dataset.m; render(); return; }
   const ad = e.target.closest('[data-add]'); if (ad) { const [k, w] = ad.dataset.add.split('|'); add(k, w); return; }
   const ins = e.target.closest('[data-ins]'); if (ins) insertAt(+ins.dataset.ins);

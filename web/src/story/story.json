@@ -136,26 +136,26 @@
     ],
     "title": "Seeing is believing"
    },
-   "builds": 8
+   "builds": 9
   },
   "m-04": {
    "no": {
-    "title": "Test logikken før leverandøren",
     "bullets": [
      "TODO(Adriaen): ditt lysbilde",
      "SCD etter I-005, kjørt i en interaktiv logikktester",
      "Feil funnet på en laptop, ikke under igangkjøring"
-    ]
+    ],
+    "title": "Test logikken før leverandøren"
    },
    "en": {
-    "title": "Test the logic before the vendor",
     "bullets": [
      "TODO(Adriaen): your slide",
      "SCD to I-005, run in an interactive logic tester",
      "Mistakes found on a laptop, not at commissioning"
-    ]
+    ],
+    "title": "Test the logic before the vendor"
    },
-   "placeholder": true
+   "builds": 6
   },
   "m-05": {
    "no": {
@@ -231,7 +231,7 @@
     ],
     "title": "MCP tools"
    },
-   "builds": 1
+   "placeholder": true
   },
   "h-04": {
    "no": {
@@ -248,44 +248,18 @@
     ],
     "title": "What does it mean for us?"
    },
-   "builds": 7
+   "builds": 6
   },
-  "deck-07": {
+  "ctrl-06": {
    "no": {
-    "title": "Lysbilde 7 fra presentasjonen"
+    "title": "Lysbilde 6 fra presentasjonen"
    },
    "en": {
-    "title": "Deck slide 7"
+    "title": "Deck slide 6"
    },
-   "builds": 4
+   "builds": 8
   },
-  "deck-08": {
-   "no": {
-    "title": "Lysbilde 8 fra presentasjonen"
-   },
-   "en": {
-    "title": "Deck slide 8"
-   },
-   "builds": 2
-  },
-  "deck-10": {
-   "no": {
-    "title": "Lysbilde 10 fra presentasjonen"
-   },
-   "en": {
-    "title": "Deck slide 10"
-   },
-   "builds": 13
-  },
-  "deck-11": {
-   "no": {
-    "title": "Lysbilde 11 fra presentasjonen"
-   },
-   "en": {
-    "title": "Deck slide 11"
-   }
-  },
-  "deck-05": {
+  "ctrl-05": {
    "no": {
     "title": "Lysbilde 5 fra presentasjonen"
    },
@@ -294,7 +268,16 @@
    },
    "builds": 5
   },
-  "deck-12": {
+  "ctrl-11": {
+   "no": {
+    "title": "Lysbilde 11 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 11"
+   },
+   "builds": 3
+  },
+  "ctrl-12": {
    "no": {
     "title": "Lysbilde 12 fra presentasjonen"
    },
@@ -303,7 +286,25 @@
    },
    "builds": 2
   },
-  "deck-13": {
+  "ctrl-08": {
+   "no": {
+    "title": "Lysbilde 8 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 8"
+   },
+   "builds": 5
+  },
+  "ctrl-09": {
+   "no": {
+    "title": "Lysbilde 9 fra presentasjonen"
+   },
+   "en": {
+    "title": "Deck slide 9"
+   },
+   "builds": 5
+  },
+  "ctrl-13": {
    "no": {
     "title": "Lysbilde 13 fra presentasjonen"
    },
@@ -312,7 +313,7 @@
    },
    "builds": 5
   },
-  "deck-14": {
+  "ctrl-14": {
    "no": {
     "title": "Lysbilde 14 fra presentasjonen"
    },
@@ -320,40 +321,6 @@
     "title": "Deck slide 14"
    },
    "builds": 6
-  },
-  "deck-15": {
-   "no": {
-    "title": "Lysbilde 15 fra presentasjonen"
-   },
-   "en": {
-    "title": "Deck slide 15"
-   }
-  },
-  "deck-16": {
-   "no": {
-    "title": "Lysbilde 16 fra presentasjonen"
-   },
-   "en": {
-    "title": "Deck slide 16"
-   }
-  },
-  "deck-17": {
-   "no": {
-    "title": "Lysbilde 17 fra presentasjonen"
-   },
-   "en": {
-    "title": "Deck slide 17"
-   },
-   "builds": 5
-  },
-  "deck-18": {
-   "no": {
-    "title": "Lysbilde 18 fra presentasjonen"
-   },
-   "en": {
-    "title": "Deck slide 18"
-   },
-   "builds": 12
   }
  },
  "chats": {
@@ -444,8 +411,8 @@
      "no": "Brage spør, agenten svarer på båndet",
      "en": "Brage asks, the agent answers on the band"
     },
-    "x": 55,
-    "y": 28
+    "x": 61,
+    "y": 38
    }
   ],
   "m.step": [
@@ -527,86 +494,56 @@
  "beats": {},
  "inserted": [
   {
+   "after": "m.s3",
+   "id": "new.ctrl06",
+   "slide": "ctrl-06",
+   "notes": "Lysbilde 6. Skjult i PowerPoint-filen din, så den er utelatt her også."
+  },
+  {
+   "after": "m.s4",
+   "id": "new.ctrl05",
+   "slide": "ctrl-05",
+   "notes": "Lysbilde 5."
+  },
+  {
    "after": "h.s1",
-   "id": "new.deck07",
-   "slide": "deck-07",
-   "notes": "Deck slide 7."
+   "id": "new.ctrl11",
+   "slide": "ctrl-11",
+   "notes": "Lysbilde 11."
   },
   {
-   "after": "new.deck07",
-   "id": "new.deck08",
-   "slide": "deck-08",
-   "notes": "Deck slide 8."
-  },
-  {
-   "after": "new.deck08",
-   "id": "new.deck10",
-   "slide": "deck-10",
-   "notes": "Deck slide 10. Left out for now: switch it on if there is time."
-  },
-  {
-   "after": "new.deck10",
-   "id": "new.deck11",
-   "slide": "deck-11",
-   "notes": "Deck slide 11. Left out for now: switch it on if there is time."
+   "after": "new.ctrl11",
+   "id": "new.ctrl12",
+   "slide": "ctrl-12",
+   "notes": "Lysbilde 12."
   },
   {
    "after": "h.s2",
-   "id": "new.deck05",
-   "slide": "deck-05",
-   "notes": "Deck slide 5."
+   "id": "new.ctrl08",
+   "slide": "ctrl-08",
+   "notes": "Lysbilde 8."
   },
   {
-   "after": "new.deck05",
-   "id": "new.deck12",
-   "slide": "deck-12",
-   "notes": "Deck slide 12."
+   "after": "new.ctrl08",
+   "id": "new.ctrl09",
+   "slide": "ctrl-09",
+   "notes": "Lysbilde 9."
   },
   {
-   "after": "new.deck12",
-   "id": "new.deck13",
-   "slide": "deck-13",
-   "notes": "Deck slide 13."
+   "after": "new.ctrl09",
+   "id": "new.ctrl13",
+   "slide": "ctrl-13",
+   "notes": "Lysbilde 13."
   },
   {
-   "after": "new.deck13",
-   "id": "new.deck14",
-   "slide": "deck-14",
-   "notes": "Deck slide 14. Left out for now: switch it on if there is time."
-  },
-  {
-   "after": "new.deck14",
-   "id": "new.deck15",
-   "slide": "deck-15",
-   "notes": "Deck slide 15. Left out for now: switch it on if there is time."
-  },
-  {
-   "after": "new.deck15",
-   "id": "new.deck16",
-   "slide": "deck-16",
-   "notes": "Deck slide 16. Left out for now: switch it on if there is time."
-  },
-  {
-   "after": "new.deck16",
-   "id": "new.deck17",
-   "slide": "deck-17",
-   "notes": "Deck slide 17. Left out for now: switch it on if there is time."
-  },
-  {
-   "after": "new.deck17",
-   "id": "new.deck18",
-   "slide": "deck-18",
-   "notes": "Deck slide 18. Left out for now: switch it on if there is time."
+   "after": "new.ctrl13",
+   "id": "new.ctrl14",
+   "slide": "ctrl-14",
+   "notes": "Lysbilde 14."
   }
  ],
  "hidden": [
-  "new.deck10",
-  "new.deck11",
-  "new.deck14",
-  "new.deck15",
-  "new.deck16",
-  "new.deck17",
-  "new.deck18"
+  "new.ctrl06"
  ],
  "closing": {
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",
