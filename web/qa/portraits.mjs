@@ -7,6 +7,7 @@ const FACES = {
   adriaen: ['web/public/story/chars/bearded_operator.glb', 180, 0.2],
   brage: ['web/public/story/chars/blazer_lead.glb', 180, 0.2],
   ctrlbuddy: ['characters/control_buddy/control_buddy.glb', 180, 0.3],
+  ceo: ['web/public/story/chars/glasses_ceo.glb', 180, 0.2],
 };
 const only = process.argv[2];
 const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });

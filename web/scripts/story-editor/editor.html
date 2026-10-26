@@ -147,7 +147,8 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .frame .report img, .frame .report video { max-width: 100%; max-height: 100%; object-fit: contain }
 .frame .report .tag { position: absolute; right: 1.4cqw; top: 1.4cqw; font: 500 max(9px, 1.5cqw) var(--mono); background: #000a; color: #fffc; padding: .3cqw .8cqw; border-radius: .5cqw }
 .frame .chatb img { float: left; width: 4cqw; height: 4cqw; border-radius: 50%; margin: 0 1cqw .4cqw 0; background: #2a3a44 }
-.blk.dl.chat .av { width: 22px; height: 22px; border-radius: 50%; vertical-align: middle; margin-right: 6px; background: #2a3a44 }
+.frame .subs .av { width: 3.4cqw; height: 3.4cqw; border-radius: 50%; vertical-align: middle; margin-right: .6cqw; background: #2a3a44 }
+.blk.dl .av, .blk.dl.chat .av { width: 22px; height: 22px; border-radius: 50%; vertical-align: middle; margin-right: 6px; background: #2a3a44 }
 .frame .clicks { position: absolute; left: 50%; bottom: 1.2cqw; transform: translateX(-50%); display: flex; align-items: center; gap: .6em; background: #000c; color: #fff; border-radius: 99px; padding: .2em .3em; font: 500 max(11px, 1.6cqw) var(--mono); white-space: nowrap }
 .frame .clicks button { all: unset; cursor: pointer; width: 2em; height: 2em; display: grid; place-items: center; border-radius: 50%; font-size: 1.2em }
 .frame .clicks button:hover:not([disabled]) { background: #fff2 }
@@ -232,6 +233,10 @@ const cur = () => beats.find((b) => b._key === curKey) || beats[0];
 // PowerPoint clicks: which picture of a slide's builds shows (-1 = all of them)
 let click = -1;
 const frames = (b) => (b.slide?.frames?.length > 1 ? b.slide.frames : null);
+// portraits by speaker (rendered from the game's character models); a chat
+// message can name its own (face)
+const FACES = { operator: '/_blob/e843ffe77159bdf030d620a084c1a5e1', supervisor: '/_blob/6fc4cbbfffdc804572371e4843791e90', ceo: '/_blob/fca9288847b48a48e6f95d34bdda18b4', agent: '/_blob/c2cd444a4a98dd0189e91fc16f85f1c4' };
+const faceOf = (x) => x.face || (x.kind === 'line' ? FACES[x.role] : x.who === 'me' ? null : FACES.agent);
 // a chat beat's clicks: one message each, like the game
 const chatSteps = (b) => (b.chat ? (b.items || []).filter((x) => x.kind === 'chat') : null);
 const nClicks = (b) => frames(b)?.length || chatSteps(b)?.length || 0;
@@ -267,14 +272,14 @@ function frame(b, opts = {}) {
     if (m >= 0 && items[m]?.kind === 'chat') { ci = cs.indexOf(items[m]); }
     const x = cs[ci];
     if (x?.who === 'show' && x.media) h += `<div class="report">${x.video ? `<video src="${esc(x.media)}" autoplay muted loop playsinline></video>` : `<img src="${esc(x.media)}" alt="">`}<div class="tag">next screen · ${esc(x[L] || x.en)}</div></div>`;
-    else h += `<div class="chatscr"><div class="hd">${esc(x?.chat || 'Chat')}</div>${cs.slice(0, ci + 1).slice(-5).map((y, j, a) => `<div class="msg${y.who === 'me' ? ' me' : ''}${j === a.length - 1 ? ' new' : ''}">${y.face ? `<img class="av" src="${esc(y.face)}" alt="">` : '<span class="av"></span>'}<div class="bub">${y.who === 'me' ? '' : `<b>${esc(y.chat)}</b>`}${y.who === 'show' ? '▤ ' : ''}${esc(y[L] || y.en)}</div></div>`).join('')}</div>`;
+    else h += `<div class="chatscr"><div class="hd">${esc(x?.chat || 'Chat')}</div>${cs.slice(0, ci + 1).slice(-5).map((y, j, a) => `<div class="msg${y.who === 'me' ? ' me' : ''}${j === a.length - 1 ? ' new' : ''}">${faceOf(y) ? `<img class="av" src="${esc(faceOf(y))}" alt="">` : '<span class="av"></span>'}<div class="bub">${y.who === 'me' ? '' : `<b>${esc(y.chat)}</b>`}${y.who === 'show' ? '▤ ' : ''}${esc(y[L] || y.en)}</div></div>`).join('')}</div>`;
     if (opts.drag == null) h += `<div class="clicks"><button data-click="-1" ${ci ? '' : 'disabled'} aria-label="Previous message">‹</button><span>message ${ci + 1} of ${cs.length}</span><button data-click="1" ${ci < cs.length - 1 ? '' : 'disabled'} aria-label="Next message">›</button></div>`;
   }
   if (frames(b) && opts.drag == null) { const f = frames(b), ci = clickAt(b); h += `<div class="clicks"><button data-click="-1" ${ci ? '' : 'disabled'} aria-label="Previous click">‹</button><span>${ci ? `click ${ci} of ${f.length - 1}` : `before the first click (${f.length - 1})`}</span><button data-click="1" ${ci < f.length - 1 ? '' : 'disabled'} aria-label="Next click">›</button></div>`; }
   if (b.card) h += `<div class="card${b.card.solid ? ' solid' : ''}">${esc(b.card.text)}</div>`;
   const it = m >= 0 ? items[m] : items.find((x) => x.kind === 'line');
-  if (it?.kind === 'line' && !b.slide) h += `<div class="subs"><span><b>${esc(it.who)}:</b> ${esc(L === 'no' ? it.no || it.en : it.en)}</span></div>`;
-  if (it?.kind === 'chat' && !cs) h += `<div class="chatb">${it.face ? `<img src="${esc(it.face)}" alt="">` : ''}<b>${esc(it.chat)} · ${esc(it.from)}</b>${esc(it[L])}</div>`;
+  if (it?.kind === 'line' && !b.slide) h += `<div class="subs"><span>${faceOf(it) ? `<img class="av" src="${esc(faceOf(it))}" alt="">` : ''}<b>${esc(it.who)}:</b> ${esc(L === 'no' ? it.no || it.en : it.en)}</span></div>`;
+  if (it?.kind === 'chat' && !cs) h += `<div class="chatb">${faceOf(it) ? `<img src="${esc(faceOf(it))}" alt="">` : ''}<b>${esc(it.chat)} · ${esc(it.from)}</b>${esc(it[L])}</div>`;
   if (it?.kind === 'card' && !it.removed) h += `<div class="card">${esc(it[L])}${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`;
   (b.callouts || []).forEach((c, i) => { h += `<div class="co${c.x > 62 ? ' left' : ''}${opts.drag === i ? ' drag' : ''}" data-co="${i}" style="left:${c.x}%;top:${c.y}%"><div class="pin"></div><div class="lab"><b>${esc(txt(c.label))}</b>${esc(txt(c.text))}</div></div>`; });
   return `<div class="frame">${h}</div>`;
@@ -306,8 +311,8 @@ function render(scroll) {
     if (x.kind === 'shot') { body += `<button class="cue${on}" data-m="${j}">CAMERA → <b>${esc(shotName(x.shot))}</b>${at}</button>`; return; }
     if (x.kind === 'move') { body += `<button class="cue${on}" data-m="${j}">${esc(x.who)} ${esc(x.what)}${at}</button>`; return; }
     if (x.kind === 'fx') { body += `<button class="cue${on}" data-m="${j}">${esc(x.what)}${at}</button>`; return; }
-    if (x.kind === 'line') body += `<button class="blk dl${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${esc(x.who)} ${x.fx ? `<em>(${esc(x.fx)})</em>` : ''} <em>spoken in English${at}</em></div><div>${esc(L === 'no' ? x.no || x.en || '…' : x.en || '…')}</div><div class="alt">${esc(L === 'no' ? x.en : x.no)}</div></button>`;
-    if (x.kind === 'chat') body += `<button class="blk dl chat${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${x.face ? `<img class="av" src="${esc(x.face)}" alt="">` : ''}${esc(x.from)} <em>${b.chat ? `click ${(chatSteps(b) || []).indexOf(x) + 1}${x.who === 'show' ? ' · report on the next screen' : ''}` : `on the screen · ${esc(x.chat)}`}${at}</em></div><div>${esc(x[L])}</div></button>`;
+    if (x.kind === 'line') body += `<button class="blk dl${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${faceOf(x) ? `<img class="av" src="${esc(faceOf(x))}" alt="">` : ''}${esc(x.who)} ${x.fx ? `<em>(${esc(x.fx)})</em>` : ''} <em>spoken in English${at}</em></div><div>${esc(L === 'no' ? x.no || x.en || '…' : x.en || '…')}</div><div class="alt">${esc(L === 'no' ? x.en : x.no)}</div></button>`;
+    if (x.kind === 'chat') body += `<button class="blk dl chat${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${faceOf(x) ? `<img class="av" src="${esc(faceOf(x))}" alt="">` : ''}${esc(x.from)} <em>${b.chat ? `click ${(chatSteps(b) || []).indexOf(x) + 1}${x.who === 'show' ? ' · report on the next screen' : ''}` : `on the screen · ${esc(x.chat)}`}${at}</em></div><div>${esc(x[L])}</div></button>`;
     if (x.kind === 'card') body += `<button class="blk cd${on}${x.removed ? ' gone' : ''}" data-edit="${k}|item${j}" data-m="${j}">${x.removed ? '<div class="mono">removed from the story</div>' : ''}${esc(x[L] || '(card)')}${x.sub ? `<div class="mono">${esc(x.sub)}</div>` : ''}</button>`;
     body += stickies(k, 'item' + j);
   });
