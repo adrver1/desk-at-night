@@ -237,12 +237,20 @@ async function bytes(name) {
   return res.arrayBuffer();
 }
 
+// Anisotropic filtering: each tap of it costs on every pixel of the room, and
+// the light maps are smooth, so they go without; the albedo and whiteboards
+// get a little, which keeps the floor and desks sharp at a glance.
+// ?aniso=old gives every map the GPU's most (16 on most), as before 2026-10-26
+const ANISO_OLD = new URLSearchParams(location.search).get('aniso') === 'old';
+const ANISO_COLOUR = 4;
+
 async function texture(renderer, buffer, srgb) {
   const bitmap = await createImageBitmap(new Blob([buffer]), { imageOrientation: 'none', colorSpaceConversion: 'none' });
   const tex = new THREE.Texture(bitmap);
   tex.flipY = false;
   tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
-  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const most = renderer.capabilities.getMaxAnisotropy();
+  tex.anisotropy = ANISO_OLD ? most : srgb ? Math.min(most, ANISO_COLOUR) : 1;
   tex.needsUpdate = true;
   return tex;
 }
