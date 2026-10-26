@@ -133,6 +133,20 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .blk.gone { opacity: .45; text-decoration: line-through }
 .blk.gone .mono { text-decoration: none }
 .seg2 .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: #0006 }
+.frame .chatscr { position: absolute; inset: 0; background: #14191f; display: flex; flex-direction: column; justify-content: flex-end; gap: 1.2cqw; padding: 7cqw 3cqw 8cqw; overflow: hidden }
+.frame .chatscr .hd { position: absolute; left: 0; right: 0; top: 0; background: #1c2a27; font: 600 max(9px, 1.9cqw) var(--body); padding: 1.2cqw 2cqw }
+.frame .msg { display: flex; align-items: flex-end; gap: 1.4cqw; max-width: 82% }
+.frame .msg.me { flex-direction: row-reverse; align-self: flex-end }
+.frame .msg .av { flex: none; width: 7cqw; height: 7cqw; border-radius: 50%; background: #2a3a44; border: 1px solid #454b52; object-fit: cover }
+.frame .msg .bub { background: #20342f; border-radius: 1.4cqw; padding: 1.1cqw 1.6cqw; font-size: max(9px, 1.9cqw); line-height: 1.3 }
+.frame .msg.me .bub { background: #2c4a6e }
+.frame .msg .bub b { display: block; color: #5fd0ad; font: 600 max(8px, 1.3cqw) var(--body); margin-bottom: .3cqw }
+.frame .msg.new .bub { outline: 2px solid #ffd78a }
+.frame .report { position: absolute; inset: 0; background: #14191f; display: grid; place-items: center }
+.frame .report img, .frame .report video { max-width: 100%; max-height: 100%; object-fit: contain }
+.frame .report .tag { position: absolute; right: 1.4cqw; top: 1.4cqw; font: 500 max(9px, 1.5cqw) var(--mono); background: #000a; color: #fffc; padding: .3cqw .8cqw; border-radius: .5cqw }
+.frame .chatb img { float: left; width: 4cqw; height: 4cqw; border-radius: 50%; margin: 0 1cqw .4cqw 0; background: #2a3a44 }
+.blk.dl.chat .av { width: 22px; height: 22px; border-radius: 50%; vertical-align: middle; margin-right: 6px; background: #2a3a44 }
 .frame .clicks { position: absolute; left: 50%; bottom: 1.2cqw; transform: translateX(-50%); display: flex; align-items: center; gap: .6em; background: #000c; color: #fff; border-radius: 99px; padding: .2em .3em; font: 500 max(11px, 1.6cqw) var(--mono); white-space: nowrap }
 .frame .clicks button { all: unset; cursor: pointer; width: 2em; height: 2em; display: grid; place-items: center; border-radius: 50%; font-size: 1.2em }
 .frame .clicks button:hover:not([disabled]) { background: #fff2 }
@@ -213,12 +227,15 @@ const cur = () => beats.find((b) => b._key === curKey) || beats[0];
 // PowerPoint clicks: which picture of a slide's builds shows (-1 = all of them)
 let click = -1;
 const frames = (b) => (b.slide?.frames?.length > 1 ? b.slide.frames : null);
-const clickAt = (b) => { const f = frames(b); return f ? (click < 0 || click >= f.length ? f.length - 1 : click) : 0; };
+// a chat beat's clicks: one message each, like the game
+const chatSteps = (b) => (b.chat ? (b.items || []).filter((x) => x.kind === 'chat') : null);
+const nClicks = (b) => frames(b)?.length || chatSteps(b)?.length || 0;
+const clickAt = (b) => { const n = nClicks(b); return n ? (click < 0 || click >= n ? n - 1 : click) : 0; };
 function go(key, m = -1, c = -1) { curKey = key; moment = m; click = c; try { localStorage.setItem('sse.beat', key); } catch {} render(true); }
 // like the game: → shows a slide's next click first, then the next beat
 function step(d) {
-  const b = cur(), f = frames(b);
-  if (f) { const c = clickAt(b) + d; if (c >= 0 && c < f.length) { click = c; render(); return; } }
+  const b = cur(), nc = nClicks(b);
+  if (nc) { const c = clickAt(b) + d; if (c >= 0 && c < nc) { click = c; render(); return; } }
   const i = beats.indexOf(b); const n = beats[Math.min(beats.length - 1, Math.max(0, i + d))];
   if (n && n !== b) go(n._key, -1, d > 0 ? 0 : -1);
 }
@@ -238,11 +255,21 @@ function frame(b, opts = {}) {
     const f = frames(b), ci = clickAt(b);
     h += `<div class="slide">${b.slide.image ? `<img src="${esc(f ? f[ci] : b.slide.image)}" alt="">${s.caption ? `<div class="cap">${esc(s.caption)}</div>` : ''}` : `<h2>${esc(s.title)}</h2><ul>${(s.bullets || []).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`}</div>`;
   }
+  const cs = chatSteps(b);
+  if (cs) {
+    // the chat on Adriaen's monitor; a report it hands over fills the next one
+    let ci = clickAt(b);
+    if (m >= 0 && items[m]?.kind === 'chat') { ci = cs.indexOf(items[m]); }
+    const x = cs[ci];
+    if (x?.who === 'show' && x.media) h += `<div class="report">${x.video ? `<video src="${esc(x.media)}" autoplay muted loop playsinline></video>` : `<img src="${esc(x.media)}" alt="">`}<div class="tag">next screen · ${esc(x[L] || x.en)}</div></div>`;
+    else h += `<div class="chatscr"><div class="hd">${esc(x?.chat || 'Chat')}</div>${cs.slice(0, ci + 1).slice(-5).map((y, j, a) => `<div class="msg${y.who === 'me' ? ' me' : ''}${j === a.length - 1 ? ' new' : ''}">${y.face ? `<img class="av" src="${esc(y.face)}" alt="">` : '<span class="av"></span>'}<div class="bub">${y.who === 'me' ? '' : `<b>${esc(y.chat)}</b>`}${y.who === 'show' ? '▤ ' : ''}${esc(y[L] || y.en)}</div></div>`).join('')}</div>`;
+    if (opts.drag == null) h += `<div class="clicks"><button data-click="-1" ${ci ? '' : 'disabled'} aria-label="Previous message">‹</button><span>message ${ci + 1} of ${cs.length}</span><button data-click="1" ${ci < cs.length - 1 ? '' : 'disabled'} aria-label="Next message">›</button></div>`;
+  }
   if (frames(b) && opts.drag == null) { const f = frames(b), ci = clickAt(b); h += `<div class="clicks"><button data-click="-1" ${ci ? '' : 'disabled'} aria-label="Previous click">‹</button><span>${ci ? `click ${ci} of ${f.length - 1}` : `before the first click (${f.length - 1})`}</span><button data-click="1" ${ci < f.length - 1 ? '' : 'disabled'} aria-label="Next click">›</button></div>`; }
   if (b.card) h += `<div class="card${b.card.solid ? ' solid' : ''}">${esc(b.card.text)}</div>`;
   const it = m >= 0 ? items[m] : items.find((x) => x.kind === 'line');
   if (it?.kind === 'line' && !b.slide) h += `<div class="subs"><span><b>${esc(it.who)}:</b> ${esc(L === 'no' ? it.no || it.en : it.en)}</span></div>`;
-  if (it?.kind === 'chat') h += `<div class="chatb"><b>${esc(it.chat)} · ${esc(it.from)}</b>${esc(it[L])}</div>`;
+  if (it?.kind === 'chat' && !cs) h += `<div class="chatb">${it.face ? `<img src="${esc(it.face)}" alt="">` : ''}<b>${esc(it.chat)} · ${esc(it.from)}</b>${esc(it[L])}</div>`;
   if (it?.kind === 'card' && !it.removed) h += `<div class="card">${esc(it[L])}${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`;
   (b.callouts || []).forEach((c, i) => { h += `<div class="co${c.x > 62 ? ' left' : ''}${opts.drag === i ? ' drag' : ''}" data-co="${i}" style="left:${c.x}%;top:${c.y}%"><div class="pin"></div><div class="lab"><b>${esc(txt(c.label))}</b>${esc(txt(c.text))}</div></div>`; });
   return `<div class="frame">${h}</div>`;
@@ -275,7 +302,7 @@ function render(scroll) {
     if (x.kind === 'move') { body += `<button class="cue${on}" data-m="${j}">${esc(x.who)} ${esc(x.what)}${at}</button>`; return; }
     if (x.kind === 'fx') { body += `<button class="cue${on}" data-m="${j}">${esc(x.what)}${at}</button>`; return; }
     if (x.kind === 'line') body += `<button class="blk dl${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${esc(x.who)} ${x.fx ? `<em>(${esc(x.fx)})</em>` : ''} <em>spoken in English${at}</em></div><div>${esc(L === 'no' ? x.no || x.en || '…' : x.en || '…')}</div><div class="alt">${esc(L === 'no' ? x.en : x.no)}</div></button>`;
-    if (x.kind === 'chat') body += `<button class="blk dl chat${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${esc(x.from)} <em>on the screen · ${esc(x.chat)}${at}</em></div><div>${esc(x[L])}</div></button>`;
+    if (x.kind === 'chat') body += `<button class="blk dl chat${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${x.face ? `<img class="av" src="${esc(x.face)}" alt="">` : ''}${esc(x.from)} <em>${b.chat ? `click ${(chatSteps(b) || []).indexOf(x) + 1}${x.who === 'show' ? ' · report on the next screen' : ''}` : `on the screen · ${esc(x.chat)}`}${at}</em></div><div>${esc(x[L])}</div></button>`;
     if (x.kind === 'card') body += `<button class="blk cd${on}${x.removed ? ' gone' : ''}" data-edit="${k}|item${j}" data-m="${j}">${x.removed ? '<div class="mono">removed from the story</div>' : ''}${esc(x[L] || '(card)')}${x.sub ? `<div class="mono">${esc(x.sub)}</div>` : ''}</button>`;
     body += stickies(k, 'item' + j);
   });
@@ -326,7 +353,7 @@ function timeline(scroll) {
     if (notesFor(k).some((n) => n.status !== 'done')) rows.ptr += `<button class="seg2 note" data-go="${k}" style="left:${p.x + p.w - 22}px;width:20px" title="Open note">✎</button>`;
     (b.items || []).forEach((it, j) => {
       const t = it.t ?? 0, on = k === curKey && j === moment ? ' on' : '';
-      if (it.kind === 'line' || it.kind === 'chat') rows[it.kind === 'line' ? 'talk' : 'chat'] += `<button class="seg2 ${it.kind}${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:${Math.max(6, Math.min((it.d || 1.5) * PX, p.x + p.w - X(t)))}px" title="${esc(it.who || it.from)}: ${esc(it[L] || it.en)}">${esc(it.who || it.from)}</button>`;
+      if (it.kind === 'line' || it.kind === 'chat') rows[it.kind === 'line' ? 'talk' : 'chat'] += `<button class="seg2 ${it.kind}${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:${Math.max(6, Math.min((it.d || 1.5) * PX, p.x + p.w - X(t)))}px" title="${esc(it.kind === 'chat' ? it.from : it.who)}: ${esc(it[L] || it.en)}">${esc(it.kind === 'chat' ? it.from : it.who)}</button>`;
       if (it.kind === 'card' && !it.removed) rows.slide += `<button class="seg2 card${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:${Math.max(30, Math.min(80, p.x + p.w - X(t)))}px">${esc(it[L] || 'card')}</button>`;
       if (it.kind === 'move' || it.kind === 'fx') rows.people += `<button class="seg2 move${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:8px" title="${esc((it.who ? it.who + ' ' : '') + it.what)}"></button>`;
     });
@@ -481,7 +508,7 @@ async function upload(file) {
 app.addEventListener('click', (e) => {
   const ed = e.target.closest('[data-edit]');
   if (ed) { if (ed.dataset.m != null) moment = +ed.dataset.m; const [k, w] = ed.dataset.edit.split('|'); edit(k, w); return; }
-  const ck = e.target.closest('[data-click]'); if (ck) { const b = cur(); click = Math.max(0, Math.min(frames(b).length - 1, clickAt(b) + +ck.dataset.click)); render(); return; }
+  const ck = e.target.closest('[data-click]'); if (ck) { const b = cur(); click = Math.max(0, Math.min(nClicks(b) - 1, clickAt(b) + +ck.dataset.click)); moment = -1; render(); return; }
   const mm = e.target.closest('[data-m]'); if (mm) { moment = moment === +mm.dataset.m ? -1 : +mm.dataset.m; render(); return; }
   const ad = e.target.closest('[data-add]'); if (ad) { const [k, w] = ad.dataset.add.split('|'); add(k, w); return; }
   const ins = e.target.closest('[data-ins]'); if (ins) insertAt(+ins.dataset.ins);
