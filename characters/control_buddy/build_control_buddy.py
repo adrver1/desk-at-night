@@ -31,7 +31,7 @@ import bpy  # noqa: E402
 from mathutils import Quaternion, Vector  # noqa: E402
 
 Mesh, X, Y, Z = base.Mesh, base.X, base.Y, base.Z
-FORM = "walker"
+FORM = "hover"
 FORMS, ROLES = ("walker", "hover", "desk"), ("buddy", "scholar", "nurse")
 DESK_SCALE, DESK_HEAD = 0.3, 1.6
 
