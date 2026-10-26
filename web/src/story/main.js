@@ -660,6 +660,9 @@ function start() {
   const fromHash = hc ? CHAPTERS.findIndex((ch) => ch.key === hc) : -1;
   chapter = fromHash >= 0 && !q.has('chapter') ? fromHash : c;
   beat = Math.min(CHAPTERS[chapter].beats.length - 1, fromHash >= 0 && !q.has('chapter') ? Math.max(0, (hb || 1) - 1) : Math.max(0, (qb || 1) - 1));
+  // ?beat=<beat id> (the story script editor's ▶ links): that beat, wherever it is now
+  const want = q.get('beat');
+  if (want) CHAPTERS.forEach((ch, ci) => { const bi = ch.beats.findIndex((b) => b.id === want); if (bi >= 0) { chapter = ci; beat = bi; } });
   if (CHAPTERS[chapter].prologue || game.room) enter(chapter, beat, { instant: true });
   if (q.get('mode') === 'free') game.ready.then(() => setTimeout(toggleFree, 300));
 }

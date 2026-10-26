@@ -53,6 +53,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (max-width: 860px) { .stagegrid { grid-template-columns: 1fr } }
 .stagecol { display: grid; gap: 8px; min-width: 0; position: sticky; top: 60px }
 @media (max-width: 860px) { .stagecol { position: static } }
+a.btn { text-decoration: none; display: inline-block; margin-right: 8px }
 .navbtns { display: flex; gap: 8px; align-items: center }
 .navbtns .btn { padding: 6px 14px }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 6px; align-content: start; min-width: 0 }
@@ -235,6 +236,8 @@ let click = -1;
 const frames = (b) => (b.slide?.frames?.length > 1 ? b.slide.frames : null);
 // portraits by speaker (rendered from the game's character models); a chat
 // message can name its own (face)
+// the live game, for each beat's ▶ link
+const GAME = 'https://adrver1.github.io/desk-at-night/story.html';
 const FACES = { operator: '/_blob/e843ffe77159bdf030d620a084c1a5e1', supervisor: '/_blob/6fc4cbbfffdc804572371e4843791e90', ceo: '/_blob/fca9288847b48a48e6f95d34bdda18b4', agent: '/_blob/c2cd444a4a98dd0189e91fc16f85f1c4' };
 const faceOf = (x) => x.face || (x.kind === 'line' ? FACES[x.role] : x.who === 'me' ? null : FACES.agent);
 // a chat beat's clicks: one message each, like the game
@@ -322,7 +325,7 @@ function render(scroll) {
     <div class="addrow"><button data-ins="${i + 1}">+ new slide or card after this beat</button></div>`;
   app.innerHTML = `<div class="beathead"><span class="ch">${esc(b.chName)} · beat ${vis().indexOf(b) + 1} of ${vis().length}</span><h2>${esc(b.id)}</h2>
       ${b.isNew ? '<span class="tag new">new</span>' : ''}${b.hidden ? '<span class="tag">left out</span>' : ''}${b.auto ? `<span class="tag">plays by itself · ≈${fmt(b.dur || 0)}</span>` : '<span class="tag">waits for Space</span>'}
-      <span class="spacer"></span><button class="btn" data-edit="${k}|beat">Beat settings</button></div>
+      <span class="spacer"></span>${b.hidden ? '' : `<a class="btn" href="${GAME}?beat=${encodeURIComponent(b.id)}" target="_blank" rel="noopener" title="Opens the live game at this beat, with its animation and sound. Edits show there once synced and merged.">▶ Play in the game</a>`}<button class="btn" data-edit="${k}|beat">Beat settings</button></div>
     <div class="stagegrid"><div class="stagecol">${frame(b, { moment })}
       <div class="navbtns"><button class="btn" id="prev" ${i ? '' : 'disabled'}>◀ Back</button><span class="mono">${moment >= 0 ? 'showing one moment; tap it again to see the whole beat' : 'tap a line or cue to see that moment'}</span><span class="spacer"></span><button class="btn" id="next" ${i < beats.length - 1 ? '' : 'disabled'}>Next ▶</button></div></div>
     <div class="panel"><h3>In this beat</h3>${body}</div></div>`;
