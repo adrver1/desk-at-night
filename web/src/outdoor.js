@@ -677,6 +677,41 @@ export function reflectable(...objects) {
 // when frames stay slow, and back up when they've been smooth for a while
 const LEVELS = ['c', 'b'];
 const BIAS = new THREE.Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1);
+// From inside the room the sky and sea only show through the window, so the
+// main view draws them (and the mirror) only in the window's box on screen,
+// and not at all while the window is out of view; ?seaclip=0 draws them full
+// screen, as before
+const SEA_CLIP = new URLSearchParams(location.search).get('seaclip') !== '0';
+const MIRROR_NUDGE = 0.06;   // how far the waves move a mirror lookup (oceanFragment), in texture widths
+
+// The part of a convex polygon (world points) in front of a camera, in the
+// camera's view space (Sutherland-Hodgman against a plane just ahead of it;
+// not the near plane, as what is nearer still shows sky through it)
+function inFront(points, camera) {
+  const v = points.map((p) => p.clone().applyMatrix4(camera.matrixWorldInverse));
+  const z = -1e-3, out = [];
+  for (let i = 0; i < v.length; i++) {
+    const a = v[i], b = v[(i + 1) % v.length], ina = a.z <= z, inb = b.z <= z;
+    if (ina) out.push(a);
+    if (ina !== inb) out.push(a.clone().lerp(b, (z - a.z) / (b.z - a.z)));
+  }
+  return out;
+}
+
+// The box in pixels (x, y from the bottom left, w, h) that view-space points
+// cover in a w×h picture, grown by `margin` pixels and kept inside it; null
+// when it misses the picture
+function screenBox(view, camera, w, h, margin) {
+  if (view.length < 3) return null;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of view) {
+    p.applyMatrix4(camera.projectionMatrix);   // view space to normalised device coordinates
+    x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+  }
+  const ax = Math.max(0, Math.floor((x0 * 0.5 + 0.5) * w - margin)), bx = Math.min(w, Math.ceil((x1 * 0.5 + 0.5) * w + margin));
+  const ay = Math.max(0, Math.floor((y0 * 0.5 + 0.5) * h - margin)), by = Math.min(h, Math.ceil((y1 * 0.5 + 0.5) * h + margin));
+  return bx > ax && by > ay ? new THREE.Vector4(ax, ay, bx - ax, by - ay) : null;
+}
 
 export class Outdoor {
   // seaLevel: the sea's height in the frame (m); heading: the true bearing of
@@ -848,6 +883,9 @@ export class Outdoor {
     this.glass.position.x = lo.x - 0.05;
     this.glass.visible = false;
     this.room.add(this.glass);
+    // The opening's corners, for drawing only what shows through it (render())
+    this.clip = SEA_CLIP;
+    this.window = { x: lo.x, corners: [[lo.y, lo.z], [lo.y, hi.z], [hi.y, hi.z], [hi.y, lo.z]].map(([y, z]) => new THREE.Vector3(lo.x, y, z)) };
     this.rain.material.uniforms.uMaxX.value = lo.x - 0.4;
   }
 
@@ -978,17 +1016,35 @@ export class Outdoor {
     this.ocean.position.set(at.x, this.seaLevel, at.z);
     for (const s of this.surfaces) s.position.set(at.x, this.seaLevel, at.z);
     this.rain.material.uniforms.uCenter.value.copy(at);
+    // Seen from inside, only the part through the window (see SEA_CLIP)
+    const through = main ? this.throughWindow(renderer) : undefined;
+    this.waterline.visible = through !== null;
+    if (through === null) {   // the window is out of view: no sky or sea at all
+      renderer.clear();
+      return;
+    }
     u.uMirrorOn.value = reflect ? 1 : 0;
-    if (reflect) this.renderMirror(renderer, reflect, camera, out);
+    if (reflect) this.renderMirror(renderer, reflect, camera, out, through?.mirror);
     if (main) {
       const size = renderer.getDrawingBufferSize(new THREE.Vector2()).multiplyScalar(0.5).ceil();
       if (this.half.width !== size.x || this.half.height !== size.y) this.half.setSize(size.x, size.y);
+      // The box at half resolution, a texel wider all round for the upscale's filtering
+      const b = through?.screen, x = b && Math.max(0, Math.floor(b.x / 2) - 1), y = b && Math.max(0, Math.floor(b.y / 2) - 1);
+      const box = b && new THREE.Vector4(x, y, Math.min(size.x, Math.ceil((b.x + b.z) / 2) + 1) - x, Math.min(size.y, Math.ceil((b.y + b.w) / 2) + 1) - y);
+      if (box) this.half.scissor.copy(box);
+      this.half.scissorTest = Boolean(box);
       renderer.setRenderTarget(this.half);
       renderer.clear();
       renderer.render(this.scene, this.camera);
       renderer.setRenderTarget(null);
       renderer.clear();
+      if (through) {
+        const k = renderer.getPixelRatio(), b = through.screen;   // setScissor takes CSS pixels
+        renderer.setScissor(b.x / k, b.y / k, b.z / k, b.w / k);
+        renderer.setScissorTest(true);
+      }
       renderer.render(this.blitScene, this.blitCamera);
+      if (through) renderer.setScissorTest(false);
     } else {
       renderer.clear();
       renderer.render(this.scene, this.camera);
@@ -996,9 +1052,46 @@ export class Outdoor {
     renderer.clearDepth();
   }
 
+  // Where the window shows on screen, for the main view (render()):
+  // undefined to draw everything (seen from outside, no window, ?seaclip=0,
+  // or the caller already scissors, like play.js warming up into one
+  // pixel), null when the window is out of view, else { screen, mirror }:
+  // the boxes in the drawing buffer and the mirror picture (a quarter of
+  // it), as Vector4 (x, y from the bottom left, width, height)
+  throughWindow(renderer) {
+    const win = this.window, cam = this.camera;
+    if (!this.clip || !win || cam.position.x < win.x || renderer.getScissorTest()) return undefined;
+    cam.updateMatrixWorld();
+    const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+    const front = inFront(win.corners, cam);
+    const screen = screenBox(front.map((p) => p.clone()), cam, size.x, size.y, 2);
+    if (!screen) return null;
+    // The sea seen through the window is mirrored where the window's mirror
+    // image shows to the mirror camera, give or take the waves' nudge
+    const m = this.mirrorView(cam), w = Math.ceil(size.x / 4), h = Math.ceil(size.y / 4), y = this.seaLevel;
+    const world = front.map((p) => p.clone().applyMatrix4(cam.matrixWorld)).map((p) => { p.y = 2 * y - p.y; return p; });
+    const mirror = screenBox(inFront(world, m), m, w, h, MIRROR_NUDGE * Math.max(w, h) + 2);
+    return { screen, mirror: mirror ?? new THREE.Vector4(0, 0, 1, 1) };
+  }
+
+  // The mirror camera for `camera` (this.camera, already placed): the same
+  // camera reflected in the flat sea
+  mirrorView(camera) {
+    const m = this.mirrorCam, y = this.seaLevel, flip = (p) => { p.y = 2 * y - p.y; return p; };
+    m.position.copy(flip(camera.position.clone()));
+    const look = flip(new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).add(camera.position));
+    m.up.set(0, 1, 0).applyQuaternion(camera.quaternion);
+    m.up.y *= -1;
+    m.lookAt(look);
+    m.updateMatrixWorld();
+    m.projectionMatrix.copy(camera.projectionMatrix);
+    m.projectionMatrixInverse.copy(camera.projectionMatrixInverse);
+    return m;
+  }
+
   // The mirror picture: `scene` seen from under the sea, at a quarter of the
-  // screen's resolution (half of a render target's)
-  renderMirror(renderer, scene, camera, out) {
+  // screen's resolution (half of a render target's); only inside `box` if given
+  renderMirror(renderer, scene, camera, out, box = null) {
     const size = out ? new THREE.Vector2(out.width, out.height).multiplyScalar(0.5) : renderer.getDrawingBufferSize(new THREE.Vector2()).multiplyScalar(0.25);
     size.ceil();
     const id = out ? out.width : 0;
@@ -1008,14 +1101,10 @@ export class Outdoor {
       target.texture.name = out ? 'cctv mirror' : 'mirror';
     }
     if (target.width !== size.x || target.height !== size.y) target.setSize(size.x, size.y);
+    if (box) target.scissor.copy(box);
+    target.scissorTest = Boolean(box);
     this.uniforms.uMirror.value = target.texture;
-    const m = this.mirrorCam, y = this.seaLevel, flip = (p) => { p.y = 2 * y - p.y; return p; };
-    m.position.copy(flip(this.camera.position.clone()));
-    const look = flip(new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).add(this.camera.position));
-    m.up.set(0, 1, 0).applyQuaternion(this.camera.quaternion);
-    m.up.y *= -1;
-    m.lookAt(look);
-    m.updateMatrixWorld();
+    const m = this.mirrorView(this.camera);
     m.projectionMatrix.copy(camera.projectionMatrix);
     m.projectionMatrixInverse.copy(camera.projectionMatrixInverse);
     this.uniforms.uMirrorMatrix.value.copy(BIAS).multiply(m.projectionMatrix).multiply(m.matrixWorldInverse);

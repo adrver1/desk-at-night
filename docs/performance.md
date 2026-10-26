@@ -151,6 +151,21 @@ Safari's Timelines show frames and JavaScript, but as far as I know they
 don't list our `frame`/`step`/`render` markers by name. For per-pass numbers
 on the phone, use the panel's **Copy report**.
 
+## Switches for before/after checks
+
+The room pages (`play.html`, `control.html`, `story.html`) take these, to
+see what one thing costs on your own GPU. Compare the `gpu` line and the
+pass table with and without:
+
+| Option | What it turns back on |
+|---|---|
+| `?seaclip=0` | Sky, sea and mirror drawn over the whole screen. Normally, seen from inside, they are drawn only in the window's box on screen, and not at all while the window is out of view |
+| `?aniso=old` | 16× anisotropic filtering on every baked map. Normally the light maps have none (they are smooth) and the albedo and whiteboards 4× |
+| `?aa=0` | Turns multisampling (antialiasing) off, to see what it costs. `play.html` and `story.html` only |
+
+For example `story.html?perf=1&seaclip=0&aniso=old` is the page as it was
+before 2026-10-26.
+
 ## Other tools
 
 - **Spector.js** (Chrome/Firefox extension): captures one frame and lists
