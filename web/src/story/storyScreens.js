@@ -340,7 +340,7 @@ function chat(ctx, w, h, id) {
   rect(ctx, 0, 0, w, h, '#14191f');
   const top = header(ctx, w, c.title, S.clock, '#1c2a27');
   agentIcon(ctx, w - 110 * s, 15 * s, 8 * s);
-  const px = 15 * s, lh = 20 * s, pad = 10 * s, maxW = w * 0.62, fr = 17 * s, gap = 2 * fr + 22 * s;
+  const px = 15 * s, lh = 20 * s, pad = 10 * s, maxW = w * 0.58, fr = 30 * s, gap = 2 * fr + 22 * s;
   ctx.font = `500 ${px}px ${SANS}`;
   const bubbles = c.messages.slice(0, n).map(([who, msg], i) => {
     const typing = who === 'ai' && i === n - 1 && age < 1.4;
@@ -350,9 +350,10 @@ function chat(ctx, w, h, id) {
   // Stack from the bottom up, dropping what no longer fits
   let y = h - 44 * s;   // clear of the story's navigator when the screen fills the view
   for (let i = bubbles.length - 1; i >= 0; i--) {
-    const b = bubbles[i];
-    y -= b.h;
+    const b = bubbles[i], row = Math.max(b.h, 2 * fr);   // a row as tall as its portrait at least
+    y -= row;
     if (y < top + 6 * s) break;
+    y += row - b.h;   // the bubble sits at the row's foot
     ctx.font = `500 ${px}px ${SANS}`;   // text() below changes it
     const bw = Math.min(maxW, Math.max(...b.lines.map((l) => ctx.measureText(l).width)) + 2 * pad);
     const x = b.who === 'me' ? w - gap - bw : gap;
@@ -371,7 +372,7 @@ function chat(ctx, w, h, id) {
       ty += lh;
     }
     ctx.globalAlpha = 1;
-    y -= 10 * s;
+    y -= row - b.h + 10 * s;
   }
   if (!n) text(ctx, T('Klar.', 'Ready.'), 20 * s, top + 40 * s, { px: 15 * s, color: C.dim });
 }
