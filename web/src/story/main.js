@@ -57,12 +57,20 @@ const PRIVATE_ON = q.get('private') === '1';
 if (PRIVATE_ON) fetch(`${PRIVATE}overrides.json`).then((r) => (r.ok ? r.json() : null)).then((o) => { if (o) applyOverrides(o); }).catch(() => {});
 if (q.get('fps') === '1' || q.has('perf')) document.documentElement.classList.add('show-fps');   // the panel sits on <body>, outside the game
 function applyOverrides(o) {
-  // { lines: { id: text }, cards: { id: { initiative, status } }, slides: { id: {...} } }
-  for (const [id, text] of Object.entries(o.lines ?? {})) if (lines[id]) lines[id].text = text;
-  import('./content.js').then((c) => {
+  // { lines: { id: text | { text, no } }, cards: { id: { initiative, status } }, slides: { id: {...} | { no, en } },
+  //   chats: { id: {...} }, chatText: { id: { index: { no, en } } }, beats: { id: { notes, callouts } } }
+  //   (the last two from the story editor's live stage)
+  for (const [id, v] of Object.entries(o.lines ?? {})) if (lines[id]) Object.assign(lines[id], typeof v === 'string' ? { text: v } : v);
+  const tx = (v) => (v && typeof v === 'object' ? T(v.no ?? v.en, v.en ?? v.no) : v ?? '');
+  for (const [id, v] of Object.entries(o.beats ?? {})) for (const ch of CHAPTERS) for (const b of ch.beats) if (b.id === id) {
+    if ('notes' in v) b.notes = v.notes;
+    if ('callouts' in v) b.callouts = v.callouts?.map((c) => ({ ...c, label: tx(c.label), text: tx(c.text) }));
+  }
+  return import('./content.js').then((c) => {
     for (const [id, v] of Object.entries(o.cards ?? {})) Object.assign(c.CARDS[id] ?? {}, v);
-    for (const [id, v] of Object.entries(o.slides ?? {})) c.SLIDES[id] = { ...c.SLIDES[id], ...v };
+    for (const [id, v] of Object.entries(o.slides ?? {})) c.SLIDES[id] = { ...c.SLIDES[id], ...(v.no || v.en ? T(v.no ?? v.en, v.en ?? v.no) : v) };
     for (const [id, v] of Object.entries(o.chats ?? {})) c.setChat(id, v);
+    for (const [id, v] of Object.entries(o.chatText ?? {})) c.setChatText(id, v);
   });
 }
 ui.findSlides(PRIVATE_ON);
@@ -643,6 +651,7 @@ game.ready.then(async () => {
 }).catch((e) => { go.textContent = `Could not load: ${e.message}`; console.error(e); });
 sound.loadIndex();
 
+let wantBeat = null;   // __story.goto before Start
 function start() {
   if (!begin.parentNode) return;
   if (go.disabled && !q.has('chapter')) {
@@ -661,7 +670,7 @@ function start() {
   chapter = fromHash >= 0 && !q.has('chapter') ? fromHash : c;
   beat = Math.min(CHAPTERS[chapter].beats.length - 1, fromHash >= 0 && !q.has('chapter') ? Math.max(0, (hb || 1) - 1) : Math.max(0, (qb || 1) - 1));
   // ?beat=<beat id> (the story script editor's ▶ links): that beat, wherever it is now
-  const want = q.get('beat');
+  const want = wantBeat ?? q.get('beat');
   if (want) CHAPTERS.forEach((ch, ci) => { const bi = ch.beats.findIndex((b) => b.id === want); if (bi >= 0) { chapter = ci; beat = bi; } });
   if (CHAPTERS[chapter].prologue || game.room) enter(chapter, beat, { instant: true });
   if (q.get('mode') === 'free') game.ready.then(() => setTimeout(toggleFree, 300));
@@ -669,7 +678,16 @@ function start() {
 
 // For automated screenshots and checks
 window.__story = {
-  start, next, back, enter: (key, i = 0, o) => enter(CHAPTERS.findIndex((ch) => ch.key === key), i, o),
+  start, next, back, override: applyOverrides,
+  // the story editor's live stage: play a beat by its id, with its moves and lines
+  goto: (id) => {
+    const ci = CHAPTERS.findIndex((ch) => ch.beats.some((b) => b.id === id));
+    if (ci < 0) return false;
+    if (begin.parentNode) { wantBeat = id; return true; }   // Start (a tap in the game, so sound may play) goes there
+    game.ready.then(() => enter(ci, CHAPTERS[ci].beats.findIndex((b) => b.id === id)));
+    return true;
+  },
+  enter: (key, i = 0, o) => enter(CHAPTERS.findIndex((ch) => ch.key === key), i, o),
   get state() { return { chapter: CHAPTERS[chapter].id, beat: CHAPTERS[chapter].beats[beat]?.id, running, waiting, free, s: state }; },
   beats: (key) => CHAPTERS.find((ch) => ch.key === key)?.beats.length ?? 0,
   sola: () => sola, epilogue: () => epilogue, trondheim,

@@ -458,6 +458,11 @@ const chatOf = (c) => ({ title: tx(c.title), who: c.who, faces: c.faces ?? {}, m
 export const CHATS = Object.fromEntries(Object.entries(STORY.chats).map(([id, c]) => [id, chatOf(c)]));
 // the private build's own wording of a chat (overrides.json `chats`)
 export const setChat = (id, c) => { CHATS[id] = chatOf({ ...STORY.chats[id], ...c }); };
+// the story editor's wording, by message: { 2: { no, en } } (keeps each report's file)
+export const setChatText = (id, texts) => {
+  const c = STORY.chats[id];
+  if (c) CHATS[id] = chatOf({ ...c, messages: c.messages.map(([who, m], i) => [who, texts[i] ? { ...m, ...texts[i] } : m]) });
+};
 // A chat beat (story.json inserted, `chat`): the chat on one of Adriaen's
 // monitors, its reports on the next; each press shows one more message
 export const CHAT_SCREEN = 'Desk0Mon1Screen', REPORT_SCREEN = 'Desk0Mon2Screen';

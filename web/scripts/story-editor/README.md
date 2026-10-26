@@ -75,3 +75,22 @@ from `public/story/reports/` (a picture, or a muted looping video). `faces`
 names the portraits beside the messages (`public/story/faces/<id>.png`,
 rendered from the character models with `qa/portraits.mjs`). In the editor a
 chat beat's doc carries `chat`, and its messages are chat items.
+
+## Live stage
+
+The editor's **◉ Live** button plays the beat in the game itself, on the
+stage, with its moves and sound (tap Start in the game once so it may play
+sound). A claude.ai artifact cannot frame or fetch another site, GitHub Pages
+included, so the editor carries the built game as its own files:
+
+    cd web && npx vite build && python scripts/story-editor/pack_game.py dist <out>
+
+and publish the editor with `root: <out>` and every file under it in `files`
+(about 250 files and 40 MB, inside one publish's 255 files and 64 MB). Redo
+this after each sync that changes the game.
+
+The editor talks to the game through `window.__story` (same origin):
+`override()` hands it the beat's wording as edited (lines, chat messages,
+text slides, presenter notes, pointers) and `goto(id)` plays the beat; it
+follows the game when a beat moves on by itself or on Space in the game. New
+beats, order, timing and hidden beats need a sync first.

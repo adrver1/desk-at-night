@@ -85,6 +85,10 @@ a.btn { text-decoration: none; display: inline-block; margin-right: 8px }
 .empty { padding-block: 40px; color: var(--muted); max-width: 60ch }
 
 /* Frame: what the audience sees */
+.liveslot { position: relative; aspect-ratio: 16 / 9; background: var(--stage); border-radius: 6px; color: #c8d0d8; display: grid; place-items: center; text-align: center; padding: 16px; font: 13px var(--body) }
+#livebox { position: absolute; z-index: 5; border-radius: 6px; overflow: hidden; background: #000 }
+#livebox iframe { width: 100%; height: 100%; border: 0; display: block }
+.btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink) }
 .frame { position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: var(--stage); border-radius: 6px; overflow: hidden; container-type: inline-size; color: #fff; touch-action: none }
 .frame img.still { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover }
 .frame .noshot { position: absolute; inset: 0; display: grid; place-items: center; font: 500 4cqw var(--mono); color: #fff8 }
@@ -220,6 +224,10 @@ let L = 'no', curKey = null, moment = -1;
 try { L = localStorage.getItem('sse.lang') || 'no'; curKey = localStorage.getItem('sse.beat'); } catch {}
 let db = null, beats = [], notes = [], showNotes = false;
 // left-out beats on the timeline and in ← → stepping (the beat on screen always shows)
+// the live game on the stage: the built game, shipped as this page's own files
+// (pack_game.py), playing the beat with its moves and sound
+let live = false, liveBox = null, liveBeat = null, liveLang = null, liveMiss = null;
+try { live = localStorage.getItem('sse.live') === '1'; } catch {}
 let showHid = false;
 try { showHid = localStorage.getItem('sse.hid') === '1'; } catch {}
 const vis = () => (showHid ? beats : beats.filter((b) => !b.hidden || b._key === curKey));
@@ -247,11 +255,63 @@ const clickAt = (b) => { const n = nClicks(b); return n ? (click < 0 || click >=
 function go(key, m = -1, c = -1) { curKey = key; moment = m; click = c; try { localStorage.setItem('sse.beat', key); } catch {} render(true); }
 // like the game: → shows a slide's next click first, then the next beat
 function step(d) {
+  const g = game();
+  if (live && g) { d > 0 ? g.next() : g.back(); return; }   // the editor follows the game
   const b = cur(), nc = nClicks(b);
   if (nc) { const c = clickAt(b) + d; if (c >= 0 && c < nc) { click = c; render(); return; } }
   const bs = vis(), i = bs.indexOf(b); const n = bs[Math.min(bs.length - 1, Math.max(0, i + d))];
   if (n && n !== b) go(n._key, -1, d > 0 ? 0 : -1);
 }
+
+// ------------------------------------------------------------ the live game
+const game = () => { try { return liveBox?.firstChild.contentWindow.__story ?? null; } catch { return null; } };
+// this beat's wording as edited here, for the game (story.json and lines.json
+// change only on a sync; new beats, order and timing need one)
+function overridesFor(b) {
+  const o = { lines: {}, chatText: {}, slides: {}, beats: { [b.id]: { notes: b.notes || '', callouts: b.callouts || [] } } };
+  for (const x of b.items || []) {
+    if (x.kind === 'line' && !x.isNew) o.lines[x.id] = { text: x.en || '', no: x.no || '' };
+    if (x.kind === 'chat' && x.key != null) (o.chatText[x.key] ??= {})[x.idx] = { no: x.no || '', en: x.en || '' };
+  }
+  if (b.slide && !b.slide.image) o.slides[b.slide.id] = { no: b.slide.no || {}, en: b.slide.en || {} };
+  return o;
+}
+function liveShow(b) {
+  const slot = document.getElementById('liveslot');
+  let playable = !b.hidden;
+  if (!liveBox || liveLang !== L) {
+    liveBox?.remove();
+    liveBox = document.createElement('div'); liveBox.id = 'livebox';
+    liveBox.innerHTML = `<iframe src="story.html?nofs&lang=${L}&beat=${encodeURIComponent(b.id)}" allow="autoplay; fullscreen" title="The game at this beat"></iframe>`;
+    document.body.append(liveBox);
+    liveLang = L; liveBeat = null;
+    liveBox.firstChild.addEventListener('load', () => { liveBeat = null; if (live) liveShow(cur()); });
+    requestAnimationFrame(livePlace);
+  }
+  const g = game();
+  if (g && playable && liveBeat !== b.id) {
+    liveBeat = b.id;
+    Promise.resolve(g.override(overridesFor(b))).then(() => { if (!g.goto(b.id)) { liveMiss = b.id; if (cur() === b) liveBox.style.visibility = 'hidden'; } });
+  }
+  liveBox.style.visibility = playable && liveMiss !== b.id ? '' : 'hidden';
+}
+// keep the game over its slot, and the editor on the game's beat
+function livePlace() {
+  if (!liveBox) return;
+  const slot = document.getElementById('liveslot');
+  if (slot) { const r = slot.getBoundingClientRect(); Object.assign(liveBox.style, { left: `${r.left + scrollX}px`, top: `${r.top + scrollY}px`, width: `${r.width}px`, height: `${r.height}px`, display: '' }); }
+  else liveBox.style.display = 'none';
+  requestAnimationFrame(livePlace);
+}
+setInterval(() => {
+  const g = live && game(), id = g?.state?.beat;
+  if (!id || id === liveBeat) return;
+  const b = beats.find((x) => x.id === id);
+  liveBeat = id;
+  if (!b) return;
+  g.override(overridesFor(b));   // a beat the game moved on to by itself
+  if (b !== cur()) { curKey = b._key; moment = -1; click = -1; render(true); }
+}, 400);
 
 // ------------------------------------------------------------ the frame
 function frame(b, opts = {}) {
@@ -325,12 +385,14 @@ function render(scroll) {
     <div class="addrow"><button data-ins="${i + 1}">+ new slide or card after this beat</button></div>`;
   app.innerHTML = `<div class="beathead"><span class="ch">${esc(b.chName)} · beat ${vis().indexOf(b) + 1} of ${vis().length}</span><h2>${esc(b.id)}</h2>
       ${b.isNew ? '<span class="tag new">new</span>' : ''}${b.hidden ? '<span class="tag">left out</span>' : ''}${b.auto ? `<span class="tag">plays by itself · ≈${fmt(b.dur || 0)}</span>` : '<span class="tag">waits for Space</span>'}
-      <span class="spacer"></span>${b.hidden ? '' : `<a class="btn" href="${GAME}?beat=${encodeURIComponent(b.id)}" target="_blank" rel="noopener" title="Opens the live game at this beat, with its animation and sound. Edits show there once synced and merged.">▶ Play in the game</a>`}<button class="btn" data-edit="${k}|beat">Beat settings</button></div>
-    <div class="stagegrid"><div class="stagecol">${frame(b, { moment })}
-      <div class="navbtns"><button class="btn" id="prev" ${i ? '' : 'disabled'}>◀ Back</button><span class="mono">${moment >= 0 ? 'showing one moment; tap it again to see the whole beat' : 'tap a line or cue to see that moment'}</span><span class="spacer"></span><button class="btn" id="next" ${i < beats.length - 1 ? '' : 'disabled'}>Next ▶</button></div></div>
+      <span class="spacer"></span><button class="btn" id="liveBtn" aria-pressed="${live}" title="Play this beat in the game right here, with its animation and sound">◉ Live</button>${b.hidden || live ? '' : `<a class="btn" href="${GAME}?beat=${encodeURIComponent(b.id)}" target="_blank" rel="noopener" title="Opens the live game at this beat, with its animation and sound. Edits show there once synced and merged.">▶ Play in the game</a>`}<button class="btn" data-edit="${k}|beat">Beat settings</button></div>
+    <div class="stagegrid"><div class="stagecol">${live ? `<div class="liveslot" id="liveslot">${b.hidden ? 'Left out of the run: show it again (Beat settings) and sync to play it.' : 'This beat is not in the game yet: it plays here once synced.'}</div>` : frame(b, { moment })}
+      <div class="navbtns"><button class="btn" id="prev" ${i ? '' : 'disabled'}>◀ Back</button><span class="mono">${live ? 'tap Start in the game once for sound; Back and Next press ← and Space there' : moment >= 0 ? 'showing one moment; tap it again to see the whole beat' : 'tap a line or cue to see that moment'}</span><span class="spacer"></span><button class="btn" id="next" ${i < beats.length - 1 ? '' : 'disabled'}>Next ▶</button></div></div>
     <div class="panel"><h3>In this beat</h3>${body}</div></div>`;
   document.getElementById('prev').onclick = () => step(-1);
   document.getElementById('next').onclick = () => step(1);
+  document.getElementById('liveBtn').onclick = () => { live = !live; try { localStorage.setItem('sse.live', live ? '1' : '0'); } catch {} if (!live) { liveBox?.remove(); liveBox = null; liveBeat = null; } render(); };
+  if (live) liveShow(b);
   timeline(scroll);
 }
 function renderNotes() {
