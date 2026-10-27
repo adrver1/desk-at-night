@@ -72,6 +72,18 @@ export const CREDITS = [
   ['Built with', 'Claude · GitHub Copilot', 'descent'],
 ];
 
+// The AI Catalyst Run 2026 crew as they board at Sola (sola.js): first name
+// and business unit, per cast model. Adriaen OK'd these for the public repo.
+export const CREW_NAMES = {
+  bearded_operator: ['Adriaen', 'OPS'],
+  blazer_lead: ['Brage', 'FSP'],
+  grey_beard_lead: ['Tore', 'PROG'],
+  glasses_engineer: ['Idar', 'FSP'],
+  curly_fade_tech: ['Kristian', 'DIGE'],
+  crop_supervisor: ['Bjørn', 'People & Safety'],
+  curly_analyst: ['Daniel', 'D&W'],
+};
+
 export const ACTS = {
   1: { name: 'Yesterday', sub: 'The day as it was' },
   2: { name: 'Today', sub: 'What one engineer can build now' },

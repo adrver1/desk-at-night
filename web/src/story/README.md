@@ -29,7 +29,7 @@ WASD and the mouse, for questions and for debugging.
 
 URL options: `?chapter=N` (or `#chapter.beat`), `?mode=free`, `?nofs` (no
 fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
-`?sola=0` (skips the Sola apron opening, on by default; see below), `?story=full`, `?lang=en|no`, `?grade=1` (the old colour grades per act, off by default).
+`?sola=0` (skips the Sola apron opening, on by default; see below), `?tags=a|b|c|0` (how the crew's first names and BU show as they board at Sola: lower third, default; tags over heads; roll call; off), `?story=full`, `?lang=en|no`, `?grade=1` (the old colour grades per act, off by default).
 
 ## Files
 
