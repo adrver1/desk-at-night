@@ -307,7 +307,7 @@ export class Separator {
 
   update(dt = 0, stir = 0) {
     const U = this.U, lv = this.levels;
-    U.uTime.value += dt; swirlTime.value = U.uTime.value; swirlGas.value = this.gasFlow ?? 1; U.uStir.value = stir; U.uCut.value = this.c; U.uGlass.value = this.glass ? 1 : 0;
+    U.uTime.value += dt; U.uStir.value = stir; U.uCut.value = this.c; U.uGlass.value = this.glass ? 1 : 0;
     U.uIface.value = lv.interface; U.uSurf.value = lv.surface; U.uBucket.value = lv.bucket; U.uEmul.value = lv.emulsion;
     this.particles.visible = U.uLook.value > 0.5 && (this.glass || this.c < R);
     if (this.sweepCap.visible && this.capC !== this.c) {
@@ -679,25 +679,24 @@ function makeVaneInlet(U, clip, mat) {
   g.userData.spray = new THREE.Vector3(plate.x0 - 0.2, plate.x0 + 0.05, plate.y0);
   return g;
 }
-// Cyclone deck: a vertical plate closing the top of the vessel ahead of the gas
-// outlet, carrying two rows of small axial cyclones, with a sealed floor
-// behind it. All gas has to pass through the cyclones; the liquid they spin
-// out drains into a header under the deck and down a downcomer into the oil
-// compartment. The cyclone mouths swirl faster with more gas (uGas).
+// Cyclone deck (axial demisting cyclones): a vertical plate closing the top of
+// the vessel ahead of the gas outlet, with a sealed floor behind it, so all gas
+// passes through the cyclone tubes in the deck. Their swirl elements are static
+// vanes inside the tubes: nothing moves. Kept as blocks: the deck face carries
+// a texture of tube mouths, the tubes are one box behind it. Liquid spun out
+// drains into a header under the deck and down a downcomer into the oil
+// compartment.
 function makeCycloneDeck(mat, clip) {
   const g = new THREE.Group(); g.name = 'cyclone deck';
   const x = DIM.deckX, y0 = DIM.deckY, r = RI - 0.01;
   const parts = [];
-  // deck plate: the circle segment above y0, in the (z, y) plane
   const pm = Math.acos(y0 / r), seg = new THREE.Shape();
   for (let i = 0; i <= 10; i++) { const a = -pm + (2 * pm * i) / 10; const v = [r * Math.sin(a), r * Math.cos(a)]; i ? seg.lineTo(...v) : seg.moveTo(...v); }
   seg.closePath();
-  parts.push(atX(new THREE.ShapeGeometry(seg), x));
-  // cyclone boxes behind the deck, and the sealed floor to the head
+  const face = atX(new THREE.ShapeGeometry(seg), x - 0.005);
   const w = Math.sqrt(r * r - y0 * y0) - 0.02;
-  const box = new THREE.BoxGeometry(0.55, 0.3, 2 * w - 0.3); box.translate(x + 0.28, y0 + 0.16, 0); parts.push(box);
+  const box = new THREE.BoxGeometry(0.55, 0.36, 2 * w - 0.3); box.translate(x + 0.28, y0 + 0.19, 0); parts.push(box);
   const floor = new THREE.BoxGeometry(L / 2 - x, 0.015, 2 * w); floor.translate((x + L / 2) / 2, y0, 0); parts.push(floor);
-  // drain header under the deck and the downcomer into the oil compartment
   const hdr = new THREE.BoxGeometry(0.1, 0.1, 2 * w - 0.4); hdr.translate(x + 0.1, y0 - 0.12, 0); parts.push(hdr);
   const dc = [[x + 0.1, y0 - 0.15], [x + 0.1, 0.2], [x + 0.5, -0.05], [x + 0.5, -0.7]];
   for (let i = 0; i < dc.length - 1; i++) {
@@ -706,30 +705,23 @@ function makeCycloneDeck(mat, clip) {
     c.rotateZ(-Math.atan2(bx - ax, by - ay)); c.translate((ax + bx) / 2, (ay + by) / 2, 0); parts.push(c);
   }
   const steel = new THREE.Mesh(mergeGeometries(parts.map((p) => (p.index ? p.toNonIndexed() : p)).map(onlyPosNormUv)), mat);
-  steel.name = 'deck, cyclone boxes, header and downcomer';
-  // cyclone mouths on the upstream face: two rows, swirling
-  const mouths = [], n = 12, rc = 0.055;
-  for (const [row, yy] of [[0, y0 + 0.1], [1, y0 + 0.24]]) {
-    for (let i = 0; i < n; i++) {
-      const z = (i - (n - 1) / 2) * ((2 * w - 0.5) / (n - 1)) + (row ? 0.04 : 0);
-      if (yy + rc > Math.sqrt(Math.max(0, r * r - z * z)) - 0.02) continue;
-      const c = new THREE.CircleGeometry(rc, 10); c.rotateY(-Math.PI / 2); c.translate(x - 0.005, yy, z); mouths.push(c);
-    }
-  }
-  const swirl = new THREE.MeshBasicMaterial({ color: 0xffffff, clippingPlanes: clip, side: THREE.DoubleSide });
-  swirl.customProgramCacheKey = () => 'cyclone-swirl';
-  swirl.onBeforeCompile = (sh) => {
-    sh.uniforms.uTime = swirlTime; sh.uniforms.uGas = swirlGas;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vUv2;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvUv2 = uv;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vUv2; uniform float uTime, uGas;')
-      .replace('vec4 diffuseColor = vec4( diffuse, opacity );', `vec2 q = vUv2 * 2. - 1.; float rr = length(q), an = atan(q.y, q.x);
-float arms = sin(4. * an + 9. * rr - uTime * (6. + 10. * uGas));
-vec4 diffuseColor = vec4(mix(vec3(0.08, 0.09, 0.1), vec3(0.75, 0.8, 0.82), smoothstep(0.3, 0.9, arms) * (1. - rr * 0.6)), 1.);`);
-  };
-  g.add(steel, new THREE.Mesh(mergeGeometries(mouths), swirl));
+  steel.name = 'cyclone boxes, floor, header and downcomer';
+  const faceMat = mat.clone(); faceMat.map = mouthsTexture(); faceMat.clippingPlanes = clip;
+  const deck = new THREE.Mesh(face, faceMat); deck.name = 'deck plate';
+  g.add(steel, deck);
   return g;
 }
-const swirlTime = { value: 0 }, swirlGas = { value: 1 };
+// tube mouths on the deck face: dark circles on a 0.16 m pitch (UVs are metres)
+function mouthsTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#d7cfbf'; g.fillRect(0, 0, 64, 64);
+  g.fillStyle = '#3a3f44'; g.beginPath(); g.arc(32, 32, 20, 0, 2 * Math.PI); g.fill();
+  g.strokeStyle = '#8f8a80'; g.lineWidth = 4; g.stroke();
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / 0.16, 1 / 0.16); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
 
 const onlyPosNormUv = (geo) => { for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k); return geo; };
 
