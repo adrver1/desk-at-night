@@ -774,8 +774,24 @@ export class SeparatorSim {
     this.qWout = this.base.water; this.qOout = this.base.oil; this.qOver = this.base.oil; this.qGas = 1;
     this.slugs = []; this.packets = []; this.t = 0; this.source = DIM.inletX; this.stir = 0; this.emulsion = 0.14;
     this.lsep = DIM.weirX - X0 + 0.5; this.loil = X1 + 0.5 - DIM.weirX;
+    // outlet valves: the controllers output an opening 0..1 (calibrated as if
+    // the valve were linear); the valve's characteristic turns it into flow
+    this.valve = 'linear'; // or 'eqp' (equal percentage, rangeability 30)
+    this.qmax = { water: 0.8, oil: 1.2 }; // m3/s fully open
+    this.u = { water: this.base.water / 0.8, oil: this.base.oil / 1.2 };
+    this.manualOut = { water: null, oil: null };
   }
   slug(size = 1) { this.slugs.push({ t0: this.t, size, waved: false }); }
+  /** Loop 'water' (interface) or 'oil' (oil compartment) to manual, valve held at `opening` (0..1): for step tests. */
+  manual(loop, opening = this.u[loop]) { this.manualOut[loop] = THREE.MathUtils.clamp(opening, 0, 1); }
+  /** Back to automatic, bumpless: the integral picks up from the current opening. */
+  auto(loop) {
+    if (this.manualOut[loop] == null) return;
+    this.manualOut[loop] = null;
+    const [h, sp, key] = loop === 'water' ? [this.hW, this.sp.interface, 'iW'] : [this.hO, this.sp.bucket, 'iO'];
+    this[key] = (this.u[loop] * this.qmax[loop] - this.base[loop]) / this.tune[loop].kc - (h - sp);
+  }
+  flow(loop, u) { return this.qmax[loop] * (this.valve === 'eqp' ? 30 ** (u - 1) * (u > 0 ? 1 : 0) : u); }
   waves(x) {
     let d = 0;
     for (const p of this.packets) { const u = x - p.x; d += p.a * Math.exp(-(u * u) / 1.6) * Math.cos(u * 2.2); }
@@ -806,8 +822,11 @@ export class SeparatorSim {
       if (q > 0 && q < max) this[key] = i;
       return THREE.MathUtils.clamp(q, 0, max);
     };
-    this.qWout = pi(this.hW, this.sp.interface, this.base.water, this.tune.water, 'iW', 0.8);
-    this.qOout = pi(this.hO, this.sp.bucket, this.base.oil, this.tune.oil, 'iO', 1.2);
+    const out = (loop, h, sp, key) => this.manualOut[loop] ?? pi(h, sp, this.base[loop], this.tune[loop], key, this.qmax[loop]) / this.qmax[loop];
+    this.u.water = out('water', this.hW, this.sp.interface, 'iW');
+    this.u.oil = out('oil', this.hO, this.sp.bucket, 'iO');
+    this.qWout = this.flow('water', this.u.water);
+    this.qOout = this.flow('oil', this.u.oil);
     this.hW += ((qWin - this.qWout) / (chord(this.hW) * this.lsep)) * dt;
     this.hL += ((qWin - this.qWout + qOin - this.qOver) / (chord(this.hL) * this.lsep)) * dt;
     this.hO += ((this.qOver - this.qOout) / (chord(this.hO) * this.loil)) * dt;
