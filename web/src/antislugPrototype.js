@@ -69,6 +69,9 @@ const sep = new Separator({ inlet: 'vane', gas: 'cyclones' });
 sep.group.position.copy(SEP);
 sep.setCut({ style: 'glass', amount: 1 });
 sep.U.uLook.value = 1;
+// the well's own production choke on the tree does the choking here: hide the
+// separator's inlet choke (its sim keeps choke = 0.6, the normal stream)
+if (sep.valves?.choke) sep.valves.choke.group.visible = false;
 scene.add(sep.group);
 const sepSim = new SeparatorSim();
 // Well stream into the separator. SeparatorSim takes slugs as events; a
