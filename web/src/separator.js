@@ -17,7 +17,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 export const DIM = {
   R: 1.53, T: 0.03, L: 8, // outer radius, wall, tangent to tangent
   weirX: 1.45, weirT: 0.03, crest: -0.44, // crest ~1.06 m above the bottom
-  baffleX: null, baffleTop: 0.2, // no calming baffle in this vessel (set a position to add one)
+  baffleX: -1.0, baffleTop: 0.6, // perforated distribution baffle downstream of the inlet zone (null = none)
   inletX: -1.9, gasX: 3.5, waterX: 1.0, oilX: 2.6,
   inletR: 0.3, gasR: 0.3, liquidR: 0.15, // nozzle bores
   saddleX: [-2.0, 2.0], deck: -1.85, ground: -3.1, // saddles stand on a skid frame above the deck
@@ -559,7 +559,7 @@ void main() {
 // inlet nozzle into the device; the liquid leaves it as falling sheets
 // (streaks scroll down, broken into gulps at normal flow, a solid gush during
 // a slug: uFlow = inflow / normal). Both are asset variants.
-function fallMaterial(U, clip, key, color = 0x9a6a2c) {
+function fallMaterial(U, clip, key, color = 0x9a6a2c, mode = 'fall') {
   const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.3, side: THREE.DoubleSide, clippingPlanes: clip }); // opaque + discard: no blending, no sorting
   mat.customProgramCacheKey = () => key;
   mat.onBeforeCompile = (sh) => {
@@ -571,11 +571,12 @@ varying vec3 vP; uniform float uTime, uFlow, uLook, uSurf;
 ${GLSL}`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 if (vP.y < uSurf - 0.02) discard; // only above the liquid
 float solid = clamp((uFlow - 1.) / 2., 0., 1.);
-float down = vP.y * 3. + uTime * (3.5 + 1.2 * min(uFlow, 4.));
-float across = (vP.x + vP.z) * 14.;
+${mode === 'film' ? `float down = -vP.x * 2. + uTime * (1.5 + 0.8 * min(uFlow, 4.));
+float across = vP.z * 6.;` : `float down = vP.y * 3. + uTime * (3.5 + 1.2 * min(uFlow, 4.));
+float across = (vP.x + vP.z) * 14.;`}
 // long falling strands that break into drops; more and wider strands as the flow rises
 float gulp = vnoise(vec2(across, down * 0.22)) * 0.75 + vnoise(vec2(across * 2.3, down * 1.4)) * 0.25;
-if (gulp < 0.62 - 0.4 * solid) discard;
+if (gulp < ${mode === 'film' ? '0.35 - 0.3 * solid' : '0.62 - 0.4 * solid'}) discard;
 float streak = vnoise(vec2(across * 2.5, down * 3.));
 diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.88, 0.76), smoothstep(0.6, 0.85, streak) * 0.55 * uLook); // entrained gas
 `);
@@ -589,65 +590,84 @@ function streamDown(U, clip, x, y0, y1, r, key) {
 }
 
 // Vane type, as built in many inlet separators: an inlet box under the nozzle
-// whose curved back turns the feed toward the inlet head, into a tapered duct
-// along the roof with rows of angled vanes for sides. The vanes slice the feed
-// into flat sheets; liquid rains down out of the duct, gas spreads along the
-// vessel. All steel is merged into one mesh, the falling sheets into another.
+// whose curved back turns the feed toward the inlet head, into a vane box
+// along the roof that narrows toward the head. Its sides are two stacked rows
+// of curved vanes ("vane ladders"); top and bottom are closed. The vanes slice
+// the feed into flat jets out of both sides: gas spreads along the vessel,
+// liquid falls onto an inclined plate below, runs down it toward the head and
+// pours off its end into the pool, away from the outlets. All steel is merged
+// into one mesh, all moving liquid into two.
 function makeVaneInlet(U, clip, mat) {
   const g = new THREE.Group(); g.name = 'inlet device (vane)';
-  const xn = DIM.inletX, rN = DIM.inletR, yT = RI - 0.12, w = 0.45, rB = 0.6;
-  const xb = xn - rN, xe = -L / 2 + 0.25; // elbow/duct joint, duct end near the head
-  const yb0 = 0.64, yb1 = 0.55; // duct bottom: the support plates slope down toward the head
+  const xn = DIM.inletX, rN = DIM.inletR, yT = RI - 0.18, depth = 0.52, yB = yT - depth;
+  const xb = xn - rN, xe = -L / 2 + 0.25; // elbow/vane box joint, vane box end near the head
+  const hw = (x) => THREE.MathUtils.lerp(0.5, 0.32, (xb - x) / (xb - xe)); // half width, narrowing toward the head
+  const plate = { x0: -L / 2 + 0.35, x1: xb + 0.1, y0: 0.546, y1: 0.644, hw: 1.3 }; // inclined plate, low end at the head
+  const plateY = (x) => THREE.MathUtils.lerp(plate.y0, plate.y1, (x - plate.x0) / (plate.x1 - plate.x0));
   const parts = [];
-  // inlet box sides: quarter-circle outline (the curved back at +x)
+  const quad = (a, b, c, d) => {
+    const q = new THREE.BufferGeometry();
+    q.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b, ...c, ...a, ...c, ...d], 3));
+    q.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(12).fill(0), 2));
+    q.computeVertexNormals(); return q;
+  };
+  // inlet box: quarter-circle sides, curved back at +x
   const side = new THREE.Shape();
   side.moveTo(xn + rN, yT);
-  for (let i = 1; i <= 5; i++) { const a = -(i / 5) * Math.PI / 2; side.lineTo(xb + rB * Math.cos(a), yT + rB * Math.sin(a)); }
+  for (let i = 1; i <= 5; i++) { const a = -(i / 5) * Math.PI / 2; side.lineTo(xb + depth * Math.cos(a), yT + depth * Math.sin(a)); }
   side.lineTo(xb, yT); side.closePath();
-  for (const z of [-w, w]) { const s = new THREE.ShapeGeometry(side); s.translate(0, 0, z); parts.push(s); }
-  // curved back plate
-  const back = new THREE.PlaneGeometry(2 * w, 1, 1, 5), pb = back.attributes.position;
+  for (const z of [-hw(xb), hw(xb)]) { const sg = new THREE.ShapeGeometry(side); sg.translate(0, 0, z); parts.push(sg); }
+  const back = new THREE.PlaneGeometry(2 * hw(xb), 1, 1, 5), pb = back.attributes.position;
   for (let i = 0; i < pb.count; i++) {
-    const a = -(pb.getY(i) + 0.5) * Math.PI / 2, z = pb.getX(i);
-    pb.setXYZ(i, xb + rB * Math.cos(a), yT + rB * Math.sin(a), z);
+    const a = -(pb.getY(i) + 0.5) * Math.PI / 2;
+    pb.setXYZ(i, xb + depth * Math.cos(a), yT + depth * Math.sin(a), pb.getX(i));
   }
   back.computeVertexNormals(); parts.push(back);
-  // roof over box and duct, end plate
-  const roof = new THREE.BoxGeometry(xn + rN - xe, 0.02, 2 * w + 0.04); roof.translate((xn + rN + xe) / 2, yT + 0.01, 0); parts.push(roof);
-  const end = new THREE.BoxGeometry(0.02, yT - yb1, 2 * w); end.translate(xe, (yT + yb1) / 2, 0); parts.push(end);
-  // vanes down both sides, following the tapering duct bottom
-  // support plates: two narrow strips along the bottom edges, carrying the vanes
-  for (const sd of [-1, 1]) {
-    const len = Math.hypot(xb - xe, yb0 - yb1), sp = new THREE.BoxGeometry(len, 0.015, 0.18);
-    sp.rotateZ(Math.atan2(yb0 - yb1, xb - xe)); sp.translate((xb + xe) / 2, (yb0 + yb1) / 2, sd * (w - 0.08)); parts.push(sp);
-  }
-  const n = 10;
+  const roofBox = new THREE.BoxGeometry(xn + rN - xb, 0.02, 2 * hw(xb)); roofBox.translate((xn + rN + xb) / 2, yT, 0); parts.push(roofBox);
+  // vane box: closed top, bottom, middle shelf and end; tapered in plan
+  for (const y of [yT, yB + depth / 2, yB]) parts.push(quad([xb, y, -hw(xb)], [xe, y, -hw(xe)], [xe, y, hw(xe)], [xb, y, hw(xb)]));
+  parts.push(quad([xe, yB, -hw(xe)], [xe, yB, hw(xe)], [xe, yT, hw(xe)], [xe, yT, -hw(xe)]));
+  // vane ladders: 9 curved vanes per ladder, two ladders per side
+  const n = 9, taper = Math.atan2(0.5 - 0.32, xb - xe);
   for (let i = 0; i < n; i++) {
-    const x = xb - 0.12 - ((xb - 0.12 - xe - 0.12) * i) / (n - 1);
-    const yb = THREE.MathUtils.lerp(yb0, yb1, (xb - x) / (xb - xe)), h = yT - yb;
-    for (const sd of [-1, 1]) {
-      const v = new THREE.BoxGeometry(0.26, h, 0.015); v.rotateY(sd * 0.7); v.translate(x, yT - h / 2, sd * w); parts.push(v);
+    const x = xb - 0.1 - ((xb - xe - 0.2) * i) / (n - 1);
+    for (const sd of [-1, 1]) for (const row of [0, 1]) {
+      const hgt = depth / 2 - 0.02, y = yB + 0.01 + row * depth / 2 + hgt / 2;
+      for (const [dx, ang] of [[-0.06, 0.25], [0.04, 0.85]]) { // two facets = a curved vane
+        const v = new THREE.BoxGeometry(0.11, hgt, 0.012);
+        v.rotateY(sd * (ang + taper)); v.translate(x + dx, y, sd * (hw(x) - 0.02 + (dx > 0 ? 0.035 : 0))); parts.push(v);
+      }
     }
   }
+  // inclined plate under the vane box, spanning the vessel
+  parts.push(quad([plate.x0, plate.y0, -plate.hw], [plate.x1, plate.y1, -plate.hw], [plate.x1, plate.y1, plate.hw], [plate.x0, plate.y0, plate.hw]));
   const steel = new THREE.Mesh(mergeGeometries(parts.map((p) => (p.index ? p.toNonIndexed() : p)).map(onlyPosNormUv)), mat);
-  steel.name = 'inlet box and vane duct';
+  steel.name = 'inlet box, vane box and inclined plate';
   g.add(steel);
+
   g.add(streamDown(U, clip, xn, R + 0.35, yT - 0.1, rN * 0.75, 'inlet-stream'));
-  // falling sheets: out of the vane gaps on both sides and the open bottom
+  // liquid jets out of both vane ladders, falling onto the inclined plate
   const sheets = [];
-  for (const z of [-w - 0.08, 0, w + 0.08]) {
-    const p = new THREE.PlaneGeometry(xb - xe - 0.1, 1, 6, 3), pp = p.attributes.position;
+  for (const sd of [-1, 1]) {
+    const p = new THREE.PlaneGeometry(1, 1, 6, 2), pp = p.attributes.position;
     for (let i = 0; i < pp.count; i++) {
-      const x = (xb + xe) / 2 + pp.getX(i), t = pp.getY(i) + 0.5;
-      const top = THREE.MathUtils.lerp(yb0, yb1, (xb - x) / (xb - xe)) + (z ? 0.15 : 0);
-      pp.setXYZ(i, x, THREE.MathUtils.lerp(-1.0, top, t), z);
+      const x = THREE.MathUtils.lerp(xe + 0.05, xb - 0.05, pp.getX(i) + 0.5), t = pp.getY(i) + 0.5;
+      const z = sd * (hw(x) + 0.08 + 0.12 * (1 - t)); // thrown out a little as they fall
+      pp.setXYZ(i, x, THREE.MathUtils.lerp(plateY(x) + 0.01, yT - 0.05, t), z);
     }
     p.computeVertexNormals(); sheets.push(p);
   }
-  const fall = new THREE.Mesh(mergeGeometries(sheets), fallMaterial(U, clip, 'inlet-sheet'));
+  // the curtain pouring off the plate's low end into the pool
+  const cur = new THREE.PlaneGeometry(2 * plate.hw - 0.1, plate.y0 + 1.0, 8, 4);
+  cur.rotateY(Math.PI / 2); cur.translate(plate.x0 - 0.04, (plate.y0 - 1.0) / 2, 0); sheets.push(cur);
+  const fall = new THREE.Mesh(mergeGeometries(sheets.map(onlyPosNormUv)), fallMaterial(U, clip, 'inlet-sheet'));
   fall.name = 'falling liquid';
-  g.add(fall);
-  g.userData.spray = new THREE.Vector3(xe + 0.1, xb - 0.1, yb0);
+  // a film running down the inclined plate toward the head
+  const film = new THREE.Mesh(quad([plate.x0, plate.y0 + 0.02, -plate.hw + 0.05], [plate.x1 - 0.1, plate.y1 + 0.02, -plate.hw + 0.05],
+    [plate.x1 - 0.1, plate.y1 + 0.02, plate.hw - 0.05], [plate.x0, plate.y0 + 0.02, plate.hw - 0.05]), fallMaterial(U, clip, 'inlet-film', 0x9a6a2c, 'film'));
+  film.name = 'liquid film';
+  g.add(fall, film);
+  g.userData.spray = new THREE.Vector3(plate.x0 - 0.2, plate.x0 + 0.05, plate.y0);
   return g;
 }
 const onlyPosNormUv = (geo) => { for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k); return geo; };

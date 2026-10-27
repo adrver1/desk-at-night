@@ -89,7 +89,9 @@ const LABELS = [
   ['Water', () => new THREE.Vector3(-0.8, (sep.levels.interface - 1.5) / 2, sep.c)],
   ['Weir', () => new THREE.Vector3(DIM.weirX, DIM.crest + 0.32, sep.c)],
   ['Oil compartment', () => new THREE.Vector3(DIM.weirX + 1.2, sep.levels.bucket - 0.3, sep.c)],
-  ['Inlet device', () => new THREE.Vector3(-2.9, 1.25, sep.c)],
+  ['Vane inlet', () => new THREE.Vector3(-2.9, 1.42, sep.c)],
+  ['Inclined plate', () => new THREE.Vector3(-2.6, 0.45, sep.c)],
+  ['Perforated baffle', () => new THREE.Vector3(DIM.baffleX, 0.75, sep.c)],
   ['Mist extractor', () => new THREE.Vector3((DIM.mistX[0] + DIM.mistX[1]) / 2, 0.55, sep.c)],
 ].map(([text, at]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at }; });
 
