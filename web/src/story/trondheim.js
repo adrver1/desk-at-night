@@ -55,7 +55,13 @@ const MEET = GLIDE + 1.8;
 const SHAKE = { at: GLIDE + 7.7, len: 2.2 };
 const CLOSE = { from: GLIDE + 4.4, to: GLIDE + 7.9, pos: V(-42.4, 34.9, 2.3), at: V(-41.3, 38.2, 1.8), fov: 48 };
 const IN = { ceo: [CEO.path.at(-1), V(-42.6, 38.4, 0), V(-43.6, 38.4, 0), DOOR], me: [WALK.path.at(-1), V(-41.6, 38.2, 0), V(-42.7, 38.3, 0), V(-43.5, 38.4, 0), DOOR], lag: 0.7 };
-const CUES = { meet: MEET, shake: SHAKE.at + SHAKE.len };
+// Without the CEO (the default since 2026-10-27, Adriaen: the greeting took
+// too long) Adriaen walks on from the foot of the steps straight in at the
+// door; ?ceo=1 brings back the CEO, the welcome and the handshake
+export const CEO_MEET = new URLSearchParams(location.search).get('ceo') === '1';
+const SOLO = [...WALK.path, ...IN.me.slice(1)];
+const pathLength = (pts) => pts.slice(1).reduce((n, q, i) => n + q.distanceTo(pts[i]), 0);
+const CUES = { meet: MEET, shake: SHAKE.at + SHAKE.len, door: WALK.at + 0.6 + pathLength(SOLO) / WALK.speed };
 // Where someone is d metres along a path: the point, the way they face, still walking or not
 function along(pts, d) {
   let left = Math.max(0, d);
@@ -128,7 +134,7 @@ export class Trondheim {
         this.me.root.position.copy(CAM.ME);
         this.faceCam = Math.atan2(-(CAM.A.x - CAM.ME.x), -(CAM.A.z - CAM.ME.z));
       }
-      if (ceo) this.ceo = person(ceo);
+      if (ceo && CEO_MEET) this.ceo = person(ceo);
       this.ground = [torvet?.scene, foniks?.scene].filter(Boolean);
       this.camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.3, 1500);
       this.ok = Boolean(torvet || foniks);
@@ -198,7 +204,7 @@ export class Trondheim {
     const pos = a.lerp(b, k);
     const at = CAM.B_AT.clone().lerp(CAM.A_AT, THREE.MathUtils.smoothstep(k, 0.1, 0.8));
     // then in beside the two of them for the handshake
-    const c = THREE.MathUtils.smoothstep(t, CLOSE.from, CLOSE.to);
+    const c = CEO_MEET ? THREE.MathUtils.smoothstep(t, CLOSE.from, CLOSE.to) : 0;
     if (c > 0) return { pos: pos.lerp(CLOSE.pos, c), at: at.lerp(CLOSE.at, c), fov: THREE.MathUtils.lerp(55, CLOSE.fov, c) };
     return { pos, at, fov: THREE.MathUtils.lerp(50, 55, k) };
   }
@@ -210,7 +216,7 @@ export class Trondheim {
     const me = this.me, ceo = this.ceo;
     const gone = (p, pos) => { p.root.visible = pos.distanceTo(DOOR) > 0.25; };
     if (me) {
-      let { pos, dir, walking } = along(WALK.path, (t - WALK.at - 0.6) * WALK.speed);   // 0.6 s to turn first
+      let { pos, dir, walking } = along(CEO_MEET ? WALK.path : SOLO, (t - WALK.at - 0.6) * WALK.speed);   // 0.6 s to turn first
       const inside = this.tIn !== null && t - this.tIn > IN.lag;
       if (inside) ({ pos, dir, walking } = along(IN.me, (t - this.tIn - IN.lag) * WALK.speed));
       const r = me.root.rotation;
