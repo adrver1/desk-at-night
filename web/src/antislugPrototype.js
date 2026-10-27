@@ -65,20 +65,13 @@ well.group.position.set(WELL_X, WELL_Y, 0); well.group.scale.setScalar(WS);
 scene.add(well.group);
 
 // the separator, cut open (glass), with its own level loops
-const sep = new Separator({ inlet: 'vane', gas: 'cyclones' });
+const sep = new Separator({ inlet: 'vane', gas: 'cyclones', inletChoke: false }); // the tree's production choke does the choking
 sep.group.position.copy(SEP);
 sep.setCut({ style: 'glass', amount: 1 });
 sep.U.uLook.value = 1;
-// the well's own production choke on the tree does the choking here: hide the
-// separator's inlet choke (its sim keeps choke = 0.6, the normal stream)
-if (sep.valves?.choke) sep.valves.choke.group.visible = false;
 scene.add(sep.group);
 const sepSim = new SeparatorSim();
-// Well stream into the separator. SeparatorSim takes slugs as events; a
-// standing "slug" held at its peak (t0 three seconds back) turns its size
-// into a steady inflow multiplier: inflow = normal * (1 + 9 * size).
-const feed = { t0: 0, size: 0, waved: true };
-sepSim.slugs.push(feed);
+// the well stream drives the separator's inflow through sepSim.feed (1 = normal)
 const NOMINAL = 14.8; // kg/s of well liquid that counts as the separator's normal inflow (the controlled well)
 // The well runs ~120x faster than the separator (which runs in real time), so a
 // surge that takes minutes in the well passes in seconds on screen; scaling
@@ -239,7 +232,7 @@ function tick() {
   flowUpdate(run.contents.material.uniforms, dt, sim);
   // the well stream into the separator; a sharp rise starts a wave down the vessel
   const f = Math.max(0.1, 1 + (sim.wOil / NOMINAL - 1) * SURGE);
-  feed.t0 = sepSim.t - 3; feed.size = (f - 1) / 9;
+  sepSim.feed = f;
   if ((waveCool -= dt) < 0 && (f - lastFeed) / Math.max(dt, 1e-3) > 1.5) { sepSim.packets.push({ x: sepSim.source, v: 3.2, a: 0.12 }); waveCool = 2.5; }
   lastFeed = f;
   sepSim.step(dt); sepSim.apply(sep); sep.update(dt, sepSim.stir);
