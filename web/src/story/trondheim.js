@@ -59,9 +59,11 @@ const IN = { ceo: [CEO.path.at(-1), V(-42.6, 38.4, 0), V(-43.6, 38.4, 0), DOOR],
 // too long) Adriaen walks on from the foot of the steps straight in at the
 // door; ?ceo=1 brings back the CEO, the welcome and the handshake
 export const CEO_MEET = new URLSearchParams(location.search).get('ceo') === '1';
-const SOLO = [...WALK.path, ...IN.me.slice(1)];
+// He walks the whole glide: in from the south-east of the square, past the
+// fountain and up the steps, in shot all the way down (Adriaen, 2026-10-27)
+const SOLO = [V(-26, 21, 0), ...WALK.path, ...IN.me.slice(1)];
 const pathLength = (pts) => pts.slice(1).reduce((n, q, i) => n + q.distanceTo(pts[i]), 0);
-const CUES = { meet: MEET, shake: SHAKE.at + SHAKE.len, door: WALK.at + 0.6 + pathLength(SOLO) / WALK.speed };
+const CUES = { meet: MEET, shake: SHAKE.at + SHAKE.len, door: pathLength(SOLO) / WALK.speed };
 // Where someone is d metres along a path: the point, the way they face, still walking or not
 function along(pts, d) {
   let left = Math.max(0, d);
@@ -215,8 +217,13 @@ export class Trondheim {
   place(t) {
     const me = this.me, ceo = this.ceo;
     const gone = (p, pos) => { p.root.visible = pos.distanceTo(DOOR) > 0.25; };
-    if (me) {
-      let { pos, dir, walking } = along(CEO_MEET ? WALK.path : SOLO, (t - WALK.at - 0.6) * WALK.speed);   // 0.6 s to turn first
+    if (me && !CEO_MEET) {
+      const { pos, dir, walking } = along(SOLO, t * WALK.speed);
+      me.root.rotation.y = yawOf(dir);
+      this.stand(me, pos, walking);
+      gone(me, pos);
+    } else if (me) {
+      let { pos, dir, walking } = along(WALK.path, (t - WALK.at - 0.6) * WALK.speed);   // 0.6 s to turn first
       const inside = this.tIn !== null && t - this.tIn > IN.lag;
       if (inside) ({ pos, dir, walking } = along(IN.me, (t - this.tIn - IN.lag) * WALK.speed));
       const r = me.root.rotation;
