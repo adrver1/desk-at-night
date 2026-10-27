@@ -8,8 +8,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Separator, SeparatorSim, DIM } from './separator.js';
 import { Gauge } from './gauge.js';
-import { perfPanel, perfWatch } from './perf.js';
+import { perfPanel, perfWatch, perfRow } from './perf.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // Adriaen (the bearded_operator cast model, deck PPE) for scale; inlined so
 // the one-file preview page needs no fetch
 import adriaenGlb from '../../characters/bearded_operator/bearded_operator_ppe_deck.glb?inline';
@@ -25,7 +26,27 @@ const VARIANTS = {
 const canvas = document.querySelector('canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: q.has('shot') });
 perfWatch(renderer);
-renderer.setPixelRatio(Math.min(devicePixelRatio, matchMedia('(pointer: coarse)').matches ? 1.25 : 2));
+// Adaptive resolution: start at up to 1.5x (1.25x on touch screens), step
+// down by 0.25 when the frame rate sags, back up when there is headroom.
+// Only after the first touch or key: until then browsers may cap an embedded
+// page at 30 fps, which says nothing about the GPU. ?dpr=1 pins it.
+const res = { max: Math.min(devicePixelRatio, matchMedia('(pointer: coarse)').matches ? 1.25 : 1.5), min: 0.75, armed: false, frames: 0, t0: 0, good: 0, hold: 0 };
+res.dpr = +q.get('dpr') || res.max;
+renderer.setPixelRatio(res.dpr);
+for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => { res.armed = true; }, { once: true });
+function adaptResolution(now) {
+  if (q.get('dpr') || !res.armed) return;
+  if (!res.t0) { res.t0 = now; res.frames = 0; return; }
+  res.frames++;
+  if (now - res.t0 < 1000) return;
+  const fps = (res.frames * 1000) / (now - res.t0);
+  res.t0 = now; res.frames = 0;
+  let next = res.dpr;
+  if (fps < 50 && res.dpr > res.min) { next = res.dpr - 0.25; res.hold = 10; res.good = 0; }
+  else if (fps > 58 && --res.hold < 0 && ++res.good >= 3 && res.dpr < res.max) { next = Math.min(res.max, res.dpr + 0.25); res.good = 0; }
+  if (next !== res.dpr) { res.dpr = next; renderer.setPixelRatio(next); frame(); }
+}
+perfRow('resolution', () => `${res.dpr.toFixed(2)}x${q.get('dpr') ? ' pinned' : res.armed ? ' auto' : ' (auto after first touch)'}`);
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.localClippingEnabled = true;
@@ -41,8 +62,21 @@ sun.position.set(-6, 12, 9); sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
 Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 6, bottom: -6, near: 1, far: 40 });
 scene.add(sun, new THREE.HemisphereLight(0xcfe3ff, 0x30302c, 0.6));
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 40), new THREE.MeshStandardMaterial({ color: 0x3a4246, roughness: 0.9 }));
-floor.rotation.x = -Math.PI / 2; floor.position.y = DIM.ground; floor.receiveShadow = true;
+// matte floor without shadow lookups (it fills half the screen); soft blob
+// shadows under the skid and Adriaen ground the scene instead
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 40), new THREE.MeshLambertMaterial({ color: 0x3a4246 }));
+floor.rotation.x = -Math.PI / 2; floor.position.y = DIM.ground;
+const blobMat = new THREE.MeshBasicMaterial({ color: 0x000000, alphaMap: blobTexture(), transparent: true, opacity: 0.55, depthWrite: false });
+const blob = (w, d, x, z) => { const b = new THREE.Mesh(new THREE.PlaneGeometry(w, d), blobMat); b.rotation.x = -Math.PI / 2; b.position.set(x, DIM.ground + 0.002, z); scene.add(b); return b; };
+blob(DIM.L + 1.4, 3.4, 0.6, -0.5); // skid + vessel, nudged away from the sun
+blob(1.1, 0.9, -5.5, 0.6); // Adriaen
+function blobTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), grd = g.createRadialGradient(32, 32, 4, 32, 32, 32);
+  grd.addColorStop(0, '#fff'); grd.addColorStop(1, '#000');
+  g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
 const grid = new THREE.GridHelper(60, 60, 0x55626a, 0x465157); grid.position.y = DIM.ground + 0.005;
 scene.add(floor, grid);
 
@@ -56,13 +90,15 @@ const gauges = {
   water: new Gauge({ tag: 'FI 2003', unit: 'm³/h', min: 0, max: 2500, major: 500 }),
   oil: new Gauge({ tag: 'FI 2004', unit: 'm³/h', min: 0, max: 2500, major: 500 }),
 };
+const stems = [];
 for (const [k, g] of Object.entries(gauges)) {
   const key = 'gauge' + k[0].toUpperCase() + k.slice(1), at = sep.anchors[key];
-  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 10), sep.mats.pipe);
-  stem.rotation.x = Math.PI / 2; stem.position.copy(at).add(new THREE.Vector3(0, 0, 0.12));
+  const stem = new THREE.CylinderGeometry(0.04, 0.04, 0.3, 6);
+  stem.rotateX(Math.PI / 2); stem.translate(at.x, at.y, at.z + 0.12); stems.push(stem);
   g.group.position.copy(at).add(new THREE.Vector3(0, 0, 0.42));
-  scene.add(stem, g.group);
+  scene.add(g.group);
 }
+scene.add(new THREE.Mesh(mergeGeometries(stems), sep.mats.pipe)); // one draw for all gauge stems
 
 // Adriaen beside the inlet head, for scale (1.75 m against the 3 m vessel)
 let mixer = null;
@@ -160,7 +196,8 @@ document.getElementById('status').hidden = true;
 const clock = new THREE.Clock(), v = new THREE.Vector3();
 const m3h = (q) => q * 3600;
 let lastStyle = null;
-function tick() {
+function tick(now) {
+  adaptResolution(now);
   const dt = Math.min(clock.getDelta(), 0.05);
   if (state.slugging && sim.t > state.nextSlug) { sim.slug(0.7 + 0.6 * Math.random()); state.nextSlug = sim.t + 14 + 8 * Math.random(); }
   sim.step(dt); sim.apply(sep);
@@ -188,4 +225,4 @@ function tick() {
   requestAnimationFrame(tick);
 }
 window.proto = { sim, sep, state, refresh };
-tick();
+requestAnimationFrame(tick);

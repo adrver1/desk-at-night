@@ -176,8 +176,13 @@ export class Separator {
 
     // internals (clipped with the cut)
     const int = new THREE.Group(); int.name = 'internals';
-    const weir = new THREE.Mesh(atX(new THREE.ExtrudeGeometry(segmentShape(RI - 0.005, DIM.crest), { depth: DIM.weirT, bevelEnabled: false }), DIM.weirX + DIM.weirT / 2), m.int);
-    weir.name = 'weir';
+    // weir plate and the vortex breakers over the liquid outlets: one mesh
+    const plain = [atX(new THREE.ExtrudeGeometry(segmentShape(RI - 0.005, DIM.crest), { depth: DIM.weirT, bevelEnabled: false }), DIM.weirX + DIM.weirT / 2)];
+    for (const x of [DIM.waterX, DIM.oilX]) for (const rot of [0, Math.PI / 2]) {
+      const vb = new THREE.BoxGeometry(0.5, 0.22, 0.025); vb.rotateY(rot); vb.translate(x, -RI + 0.13, 0); plain.push(vb);
+    }
+    const weir = new THREE.Mesh(mergeGeometries(plain.map((g) => onlyPosNormUv(g.toNonIndexed()))), m.int);
+    weir.name = 'weir and vortex breakers';
     int.add(weir);
     if (DIM.baffleX != null) {
       const baffleMat = m.int.clone(); baffleMat.alphaMap = holesTexture(); baffleMat.alphaTest = 0.5; baffleMat.clippingPlanes = clip;
@@ -192,35 +197,31 @@ export class Separator {
     pad.position.set((m0 + m1) / 2, RI - 0.55, 0); pad.name = 'mist extractor (mesh pad)';
     this.gasInternals = { cyclones: makeCycloneDeck(m.int, clip), meshpad: pad };
     for (const o of Object.values(this.gasInternals)) int.add(o);
-    for (const x of [DIM.waterX, DIM.oilX]) {
-      for (const rot of [0, Math.PI / 2]) {
-        const vb = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.025), m.int);
-        vb.rotation.y = rot; vb.position.set(x, -RI + 0.13, 0); int.add(vb);
-      }
-    }
     this.group.add(int);
     this.internals = int;
 
-    // nozzles, flanges, pipes, saddles (never clipped)
+    // nozzles, flanges, pipes, skid and saddles (never clipped), merged into
+    // one mesh per material: few draw calls
+    const pipework = [];
     const nozzle = (x, up, r) => {
-      const g = new THREE.Group();
-      const n = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.5, 10, 1, true), m.pipe);
-      n.material.side = THREE.DoubleSide;
-      const f = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.6, r * 1.6, 0.06, 10), m.pipe);
-      n.position.y = up ? R + 0.1 : -R - 0.1; f.position.y = up ? R + 0.35 : -R - 0.35;
-      g.add(n, f); g.position.x = x; return g;
+      const n = new THREE.CylinderGeometry(r, r, 0.5, 10, 1, true), f = new THREE.CylinderGeometry(r * 1.6, r * 1.6, 0.06, 10);
+      n.translate(x, up ? R + 0.1 : -R - 0.1, 0); f.translate(x, up ? R + 0.35 : -R - 0.35, 0);
+      pipework.push(n.toNonIndexed(), f.toNonIndexed());
     };
-    this.group.add(nozzle(DIM.inletX, true, DIM.inletR), nozzle(DIM.gasX, true, DIM.gasR),
-      nozzle(DIM.waterX, false, DIM.liquidR), nozzle(DIM.oilX, false, DIM.liquidR));
+    m.pipe.side = THREE.DoubleSide; // open nozzle ends
+    nozzle(DIM.inletX, true, DIM.inletR); nozzle(DIM.gasX, true, DIM.gasR);
+    nozzle(DIM.waterX, false, DIM.liquidR); nozzle(DIM.oilX, false, DIM.liquidR);
     const V = (x, y, z) => new THREE.Vector3(x, y, z), top = R + 1.7, low = DIM.ground + 0.5;
     const pr = DIM.liquidR * 0.85, gr = DIM.gasR * 0.85;
-    this.pipes = {
-      inlet: pipeAlong([V(DIM.inletX, top, -4), V(DIM.inletX, top, 0), V(DIM.inletX, R + 0.38, 0)], gr, m.pipe),
-      gas: pipeAlong([V(DIM.gasX, R + 0.38, 0), V(DIM.gasX, top, 0), V(DIM.gasX, top, -4)], gr, m.pipe),
-      water: pipeAlong([V(DIM.waterX, -R - 0.38, 0), V(DIM.waterX, low, 0), V(DIM.waterX, low, -4)], pr, m.pipe),
-      oil: pipeAlong([V(DIM.oilX, -R - 0.38, 0), V(DIM.oilX, low, 0), V(DIM.oilX, low, -4)], pr, m.pipe),
-    };
-    for (const p of Object.values(this.pipes)) { p.castShadow = true; this.group.add(p); }
+    for (const pts of [
+      [V(DIM.inletX, top, -4), V(DIM.inletX, top, 0), V(DIM.inletX, R + 0.38, 0)],
+      [V(DIM.gasX, R + 0.38, 0), V(DIM.gasX, top, 0), V(DIM.gasX, top, -4)],
+      [V(DIM.waterX, -R - 0.38, 0), V(DIM.waterX, low, 0), V(DIM.waterX, low, -4)],
+      [V(DIM.oilX, -R - 0.38, 0), V(DIM.oilX, low, 0), V(DIM.oilX, low, -4)],
+    ]) { const g = pipeAlong(pts, pts[0].y > 0 ? gr : pr, m.pipe).geometry; pipework.push(g.index ? g.toNonIndexed() : g); }
+    this.pipework = new THREE.Mesh(mergeGeometries(pipework.map(onlyPosNormUv)), m.pipe);
+    this.pipework.castShadow = true; this.pipework.name = 'nozzles and pipes';
+    this.group.add(this.pipework);
     this.anchors.gaugeInlet = V(DIM.inletX, (top + R) / 2 + 0.05, gr);
     this.anchors.gaugeGas = V(DIM.gasX, (top + R) / 2 + 0.05, gr);
     this.anchors.gaugeWater = V(DIM.waterX, low + 0.18, pr); // below the skid beam
@@ -234,24 +235,23 @@ export class Separator {
       }
     }
     for (const x of DIM.saddleX) { const c = new THREE.BoxGeometry(0.3, 0.3, 2.0); c.translate(x, DIM.deck - 0.15, 0); skid.push(c); }
-    const skidMesh = new THREE.Mesh(mergeGeometries(skid), m.saddle);
-    skidMesh.castShadow = skidMesh.receiveShadow = true; skidMesh.name = 'skid';
-    this.group.add(skidMesh);
     for (const x of DIM.saddleX) {
       const s = new THREE.Shape(), w = 1.25, h0 = DIM.deck;
       s.moveTo(-w, h0); s.lineTo(w, h0); s.lineTo(w, -Math.sqrt(R * R - w * w));
       for (let i = 1; i < 16; i++) { const z = w - (2 * w * i) / 16; s.lineTo(z, -Math.sqrt(R * R - z * z)); }
       s.lineTo(-w, -Math.sqrt(R * R - w * w)); s.closePath();
       const g = new THREE.ExtrudeGeometry(s, { depth: 0.35, bevelEnabled: false });
-      g.translate(0, 0, -0.175); g.rotateY(-Math.PI / 2);
-      const saddle = new THREE.Mesh(g, m.saddle); saddle.position.x = x; saddle.castShadow = saddle.receiveShadow = true;
-      this.group.add(saddle);
+      g.translate(0, 0, -0.175); g.rotateY(-Math.PI / 2); g.translate(x, 0, 0);
+      skid.push(g);
     }
+    const skidMesh = new THREE.Mesh(mergeGeometries(skid.map((g) => onlyPosNormUv(g.index ? g.toNonIndexed() : g))), m.saddle);
+    skidMesh.castShadow = skidMesh.receiveShadow = true; skidMesh.name = 'skid and saddles';
+    this.group.add(skidMesh);
 
     // liquids: one rebuilt mesh per phase, plus GPU particles (droplets, bubbles, spray)
     this.U = {
       uTime: { value: 0 }, uLook: { value: 1 }, uStir: { value: 0 }, uCut: { value: BIG }, uGlass: { value: 0 },
-      uIface: { value: 0 }, uSurf: { value: 0 }, uBucket: { value: 0 }, uEmul: { value: 0.1 }, uSize: { value: 1 }, uFlow: { value: 1 }, uIn: { value: new THREE.Vector3() },
+      uIface: { value: 0 }, uSurf: { value: 0 }, uBucket: { value: 0 }, uEmul: { value: 0.1 }, uSize: { value: 1 }, uFlow: { value: 1 }, uIn: { value: new THREE.Vector3() }, uNoise: { value: noiseTexture() },
     };
     this.particles = makeParticles(this.U);
     // inlet devices (asset variants; setInlet picks the live one)
@@ -434,10 +434,20 @@ function overflowSheet(arr, head, bucket, c) {
 // ---------------------------------------------------------------- liquid look
 
 // Shared GLSL: value noise and the interior radius
+// random values on a small tiling grid, filtered linearly: vnoise() reads it
+const NOISE_N = 64;
+function noiseTexture() {
+  const d = new Uint8Array(NOISE_N * NOISE_N);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.sin(i * 12.9898 + 78.233) * 43758.5453 % 1 + 1) % 1 * 255;
+  const t = new THREE.DataTexture(d, NOISE_N, NOISE_N, THREE.RedFormat, THREE.UnsignedByteType);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.magFilter = t.minFilter = THREE.LinearFilter; t.needsUpdate = true;
+  return t;
+}
 const GLSL = /* glsl */ `
-float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * .1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+uniform sampler2D uNoise;
+// smooth value noise in one bilinear fetch: bend the cell coordinate, let the sampler blend
 float vnoise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
-  return mix(mix(hash12(i), hash12(i + vec2(1, 0)), f.x), mix(hash12(i + vec2(0, 1)), hash12(i + vec2(1, 1)), f.x), f.y); }
+  return textureLod(uNoise, (i + f + 0.5) / ${NOISE_N}., 0.).r; }
 float rIn(float x) { float u = x < ${X0.toFixed(3)} ? (${X0.toFixed(3)} - x) / ${AI.toFixed(3)} : x > ${X1.toFixed(3)} ? (x - ${X1.toFixed(3)}) / ${AI.toFixed(3)} : 0.;
   return u >= 1. ? 0. : ${RI.toFixed(3)} * sqrt(1. - u * u); }
 `;

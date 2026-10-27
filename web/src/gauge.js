@@ -7,11 +7,12 @@
 // The gauge faces +z, centred on its group's origin. `size` is the face
 // diameter in metres (real ones are 0.1 to 0.15 m; scenes may exaggerate).
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const SWEEP = (270 * Math.PI) / 180; // min at lower left, max at lower right
 
 export class Gauge {
-  constructor({ tag = '', unit = '', min = 0, max = 100, red = null, major = null, minor = 5, size = 0.5, damping = 0.35 } = {}) {
+  constructor({ tag = '', unit = '', min = 0, max = 100, red = null, major = null, minor = 5, size = 0.5, damping = 0.35, glass = false } = {}) {
     Object.assign(this, { tag, unit, min, max, red, size, damping });
     this.major = major ?? niceStep((max - min) / 8);
     this.minor = minor;
@@ -21,8 +22,11 @@ export class Gauge {
     this.group.name = `gauge ${tag}`;
 
     const steel = new THREE.MeshStandardMaterial({ color: 0x2a2f33, metalness: 0.7, roughness: 0.35 });
-    const bezel = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.12, r * 1.12, r * 0.32, 16), steel);
-    bezel.rotation.x = Math.PI / 2; bezel.position.z = -r * 0.16;
+    // bezel and hub share a material: one mesh (3 draw calls per gauge, 4 with glass)
+    const bezelGeo = new THREE.CylinderGeometry(r * 1.12, r * 1.12, r * 0.32, 16);
+    bezelGeo.rotateX(Math.PI / 2); bezelGeo.translate(0, 0, -r * 0.16);
+    const hubGeo = new THREE.CircleGeometry(r * 0.07, 6); hubGeo.translate(0, 0, 0.016);
+    const bezel = new THREE.Mesh(mergeGeometries([bezelGeo.toNonIndexed(), hubGeo.toNonIndexed()]), steel);
     this.texture = new THREE.CanvasTexture(this.drawFace());
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.anisotropy = 4;
@@ -33,12 +37,12 @@ export class Gauge {
     s.moveTo(-r * 0.035, -r * 0.18); s.lineTo(0, r * 0.84); s.lineTo(r * 0.035, -r * 0.18); s.closePath();
     this.needle = new THREE.Mesh(new THREE.ShapeGeometry(s), new THREE.MeshStandardMaterial({ color: 0xc8261e, roughness: 0.5 }));
     this.needle.position.z = 0.012;
-    const hub = new THREE.Mesh(new THREE.CircleGeometry(r * 0.07, 6), steel);
-    hub.position.z = 0.016;
-    const glass = new THREE.Mesh(new THREE.CircleGeometry(r * 1.02, 20),
-      new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.08, roughness: 0.05, metalness: 0, depthWrite: false }));
-    glass.position.z = 0.03;
-    this.group.add(bezel, face, this.needle, hub, glass);
+    this.group.add(bezel, face, this.needle);
+    if (glass) { // a faint transparent cover: costs a sorted, blended draw
+      const cover = new THREE.Mesh(new THREE.CircleGeometry(r * 1.02, 20),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.08, roughness: 0.05, metalness: 0, depthWrite: false }));
+      cover.position.z = 0.03; this.group.add(cover);
+    }
     this.update(1);
   }
 
