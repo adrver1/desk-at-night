@@ -52,7 +52,7 @@ export class Valve {
     const mat = (o) => new THREE.MeshStandardMaterial({ clippingPlanes: clip, ...o });
     this.m = {
       steel: mat({ color: 0x7b858b, metalness: 0.45, roughness: 0.5, side: THREE.DoubleSide }),
-      trim: mat({ color: 0xc9ccc8, metalness: 0.7, roughness: 0.3 }),
+      trim: mat({ color: 0xd08a2e, metalness: 0.6, roughness: 0.35, side: THREE.DoubleSide }), // plug + stem in brass, to stand out against the cage
       cage: mat({ color: 0xb8bbb6, metalness: 0.6, roughness: 0.4, side: THREE.DoubleSide, alphaMap: cageTexture(), alphaTest: 0.5 }),
     };
     this.m.steelFront = this.m.steel.clone(); this.m.steelFront.clippingPlanes = clip;
@@ -80,27 +80,53 @@ export class Valve {
     }
     this.fluid = new THREE.Mesh(merge(fluidGeo), this.fluidMat); this.fluid.name = 'fluid'; this.fluid.renderOrder = 1;
 
+    // inner walls: a seat deck with the seat bore, so the only way through is
+    // the seat. Globe: an S-shaped bridge (deck + a wall up on the inlet side
+    // and down on the outlet side): in under the deck, up through the seat into
+    // the cage, out through its uncovered holes, over to the outlet. Angle: in
+    // from the side above the deck, through the cage holes, down the seat.
+    const ys = body === 'angle' ? -1.2 * R : -0.3 * R, walls = [];
+    const bore = new THREE.Path().absarc(0, 0, 0.8 * R, 0, 2 * Math.PI, true);
+    let deck;
+    if (body === 'angle') {
+      deck = new THREE.Shape().absarc(0, 0, 1.55 * R, 0, 2 * Math.PI, false);
+    } else {
+      deck = new THREE.Shape(); const w = 0.95 * R, d = 1.78 * R;
+      deck.moveTo(-w, -d); deck.lineTo(w, -d); deck.lineTo(w, d); deck.lineTo(-w, d); deck.closePath();
+      // side walls: circle segments (radius rw) above the deck on the inlet side, below it on the outlet side
+      const rw = 1.82 * R;
+      for (const [x, up] of [[-w, true], [w, false]]) {
+        const a0 = Math.asin(ys / rw), sh = new THREE.Shape(), n = 8;
+        for (let i = 0; i <= n; i++) {
+          const a = up ? a0 + ((Math.PI - 2 * a0) * i) / n : Math.PI - a0 + ((Math.PI + 2 * a0) * i) / n;
+          const v = [rw * Math.cos(a), rw * Math.sin(a)]; i ? sh.lineTo(...v) : sh.moveTo(...v);
+        }
+        sh.closePath();
+        const g = new THREE.ShapeGeometry(sh); g.rotateY(Math.PI / 2); g.translate(x, 0, 0); walls.push(g);
+      }
+    }
+    deck.holes.push(bore);
+    const deckGeo = new THREE.ShapeGeometry(deck, 12); deckGeo.rotateX(-Math.PI / 2); deckGeo.translate(0, ys, 0); walls.push(deckGeo);
     // trim: seat ring + cage (static), plug + stem (moving)
-    const seat = new THREE.CylinderGeometry(0.95 * R, 0.95 * R, 0.14 * R, 10, 1, true); seat.translate(0, -0.95 * R, 0);
-    const web = new THREE.CylinderGeometry(0.95 * R, 0.95 * R, 0.04 * R, 10); web.translate(0, -1.02 * R, 0); // seat ring face
-    this.cageMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.78 * R, 0.78 * R, 1.6 * R, 10, 1, true), this.m.cage);
-    this.cageMesh.position.y = -0.1 * R; this.cageMesh.name = 'cage';
+    const seat = new THREE.CylinderGeometry(0.86 * R, 0.86 * R, 0.14 * R, 12, 1, true); seat.translate(0, ys, 0);
+    this.cageMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.78 * R, 0.78 * R, 1.4 * R, 10, 1, true), this.m.cage);
+    this.cageMesh.position.y = ys + 0.7 * R; this.cageMesh.name = 'cage';
     const yokeTop = 4.8 * R, posts = [];
     for (const sx of [-1, 1]) { const p = new THREE.BoxGeometry(0.22 * R, yokeTop - bonnetTop, 0.3 * R); p.translate(sx * 0.75 * R, (yokeTop + bonnetTop) / 2, 0); posts.push(p); }
     const yokePlate = new THREE.BoxGeometry(1.9 * R, 0.12 * R, 0.7 * R); yokePlate.translate(0, yokeTop, 0); posts.push(yokePlate);
     this.travel = 1.0 * R; // plug lift from closed to open
-    const plug = new THREE.CylinderGeometry(0.74 * R, 0.74 * R, 0.9 * R, 10); plug.translate(0, -0.45 * R, 0);
-    const stem = new THREE.CylinderGeometry(0.11 * R, 0.11 * R, yokeTop - 0.0 * R, 6); stem.translate(0, (yokeTop) / 2, 0);
-    const pointer = new THREE.BoxGeometry(0.5 * R, 0.06 * R, 0.06 * R); pointer.translate(0.3 * R, 3.9 * R, 0); // position indicator on the stem
+    this.plugY = ys + 0.9 * R; // plug top when closed: its bottom then sits on the seat
+    const plug = new THREE.CylinderGeometry(0.76 * R, 0.76 * R, 0.9 * R, 10); plug.translate(0, -0.45 * R, 0);
+    const stem = new THREE.CylinderGeometry(0.11 * R, 0.11 * R, yokeTop, 6); stem.translate(0, yokeTop / 2, 0);
+    const pointer = new THREE.BoxGeometry(0.5 * R, 0.06 * R, 0.06 * R); pointer.translate(0.3 * R, 3.6 * R - this.plugY, 0); // position indicator on the stem
     this.plug = new THREE.Mesh(merge([plug, stem, pointer]), this.m.trim); this.plug.name = 'plug and stem';
-    this.plugY = -0.12 * R; // plug bottom at the seat when closed
 
     // actuator: one solid painted housing (looks are variants)
     const s = THREE.MathUtils.clamp(R * 2.4, 0.26, 0.6), base = yokeTop + 0.06 * R;
     this.actuators = {};
     for (const kind of ACTUATORS) this.actuators[kind] = this.makeActuator(kind, s, base);
 
-    this.backSteel = new THREE.Mesh(merge([...steel.back, seat, web, ...posts]), this.m.steel); this.backSteel.name = 'body back half';
+    this.backSteel = new THREE.Mesh(merge([...steel.back, seat, ...walls, ...posts]), this.m.steel); this.backSteel.name = 'body back half';
     this.frontSteel = new THREE.Mesh(merge(steel.front), this.m.steelFront); this.frontSteel.name = 'body front half';
     this.group.add(this.backSteel, this.frontSteel, this.cageMesh, this.plug, this.fluid);
     for (const a of Object.values(this.actuators)) this.group.add(a.group);
