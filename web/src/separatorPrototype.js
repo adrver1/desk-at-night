@@ -9,10 +9,13 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Separator, SeparatorSim, DIM } from './separator.js';
 import { Gauge } from './gauge.js';
+import { perfPanel, perfWatch } from './perf.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 // Adriaen (the bearded_operator cast model, deck PPE) for scale; inlined so
 // the one-file preview page needs no fetch
 import adriaenGlb from '../../characters/bearded_operator/bearded_operator_ppe_deck.glb?inline';
+
+perfPanel();
 
 const q = new URLSearchParams(location.search);
 const VARIANTS = {
@@ -23,6 +26,7 @@ const VARIANTS = {
 
 const canvas = document.querySelector('canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: q.has('shot') });
+perfWatch(renderer);
 renderer.setPixelRatio(Math.min(devicePixelRatio, matchMedia('(pointer: coarse)').matches ? 1.5 : 2));
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;

@@ -288,28 +288,50 @@ export class Separator {
     const surf = (x) => lv.surface + wave(x);
     const bottom = () => -BIG;
     const sepA = X0 - AI, sepB = DIM.weirX - DIM.weirT / 2, oilA = DIM.weirX + DIM.weirT / 2, oilB = X1 + AI;
-    const out = { water: [], emulsion: [], oil: [] };
+    const out = this.soups ??= { water: new Soup(this.liquids.water), emulsion: new Soup(this.liquids.emulsion), oil: new Soup(this.liquids.oil) };
+    for (const soup of Object.values(out)) soup.n = 0;
     const layer = (arr, x0, x1, n, lo, hi, top) => buildLayer(arr, x0, x1, n, lo, hi, top, c, front);
     layer(out.water, sepA, sepB, 170, bottom, (x) => iface(x) - e2, false);
     layer(out.emulsion, sepA, sepB, 170, (x) => iface(x) - e2, (x) => iface(x) + e2, false);
     layer(out.oil, sepA, sepB, 170, (x) => iface(x) + e2, surf, true);
     layer(out.oil, oilA, oilB, 50, bottom, (x) => lv.bucket + rip(x), true);
     if (this.overflow > 0.003) overflowSheet(out.oil, this.overflow, lv.bucket, c);
-    for (const [k, arr] of Object.entries(out)) {
-      const mesh = this.liquids[k], pos = mesh.geometry.attributes.position;
-      const nv = Math.min(arr.length / 3, pos.count);
-      pos.array.set(arr.length / 3 > pos.count ? arr.slice(0, pos.count * 3) : arr);
-      pos.needsUpdate = true;
-      mesh.geometry.setDrawRange(0, nv);
-      mesh.geometry.computeVertexNormals();
-      mesh.visible = nv > 0;
+    for (const soup of Object.values(out)) soup.upload();
+  }
+}
+
+// Flat-shaded triangle soup written straight into a mesh's buffers, one
+// normal per quad: no garbage and no normal pass each frame
+class Soup {
+  constructor(mesh) {
+    this.mesh = mesh; this.geo = mesh.geometry;
+    this.p = this.geo.attributes.position.array; this.nr = this.geo.attributes.normal.array; this.n = 0;
+  }
+  quad(a, b, c, d) {
+    if (this.n + 6 > this.p.length / 3) return;
+    // normal from the diagonals, so degenerate edges still give a direction
+    const ux = c[0] - a[0], uy = c[1] - a[1], uz = c[2] - a[2], vx = d[0] - b[0], vy = d[1] - b[1], vz = d[2] - b[2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+    for (const v of [a, b, c, a, c, d]) {
+      const i = this.n++ * 3;
+      this.p[i] = v[0]; this.p[i + 1] = v[1]; this.p[i + 2] = v[2];
+      this.nr[i] = nx; this.nr[i + 1] = ny; this.nr[i + 2] = nz;
     }
+  }
+  upload() {
+    const { position, normal } = this.geo.attributes;
+    position.clearUpdateRanges(); normal.clearUpdateRanges();
+    position.addUpdateRange(0, this.n * 3); normal.addUpdateRange(0, this.n * 3);
+    position.needsUpdate = normal.needsUpdate = true;
+    this.geo.setDrawRange(0, this.n);
+    this.mesh.visible = this.n > 0;
   }
 }
 
 // One liquid layer between lo(x) and hi(x) over x0..x1, seen through a cut at
 // z = c (or, when `front`, through a glass front: the curved wall at z > 0).
-// Emits a flat triangle soup into arr.
+// Writes into a Soup.
 function buildLayer(arr, x0, x1, n, lo, hi, top, c, front) {
   const cut = c < BIG / 2;
   const col = [];
@@ -319,7 +341,7 @@ function buildLayer(arr, x0, x1, n, lo, hi, top, c, front) {
     const y0 = Math.max(lo(x), -r), y1 = Math.min(hi(x), r);
     col.push({ x, r, y0, y1: Math.max(y0, y1) });
   }
-  const quad = (a, b, cc, d) => arr.push(...a, ...b, ...cc, ...a, ...cc, ...d);
+  const quad = (a, b, cc, d) => arr.quad(a, b, cc, d);
   for (let i = 0; i < n; i++) {
     const A = col[i], B = col[i + 1];
     if (A.y1 <= A.y0 && B.y1 <= B.y0) continue;
@@ -363,10 +385,10 @@ function overflowSheet(arr, head, bucket, c) {
     const [za0, za1] = zf(ya), [zb0, zb1] = zf(yb);
     if (za1 <= za0) continue;
     for (const dx of [0, thick]) {
-      arr.push(xa + dx, ya, za0, xb + dx, yb, zb0, xb + dx, yb, zb1, xa + dx, ya, za0, xb + dx, yb, zb1, xa + dx, ya, za1);
+      arr.quad([xa + dx, ya, za0], [xb + dx, yb, zb0], [xb + dx, yb, zb1], [xa + dx, ya, za1]);
     }
     // the face toward the cut
-    arr.push(xa, ya, za1, xb, yb, zb1, xb + thick, yb, zb1, xa, ya, za1, xb + thick, yb, zb1, xa + thick, ya, za1);
+    arr.quad([xa, ya, za1], [xb, yb, zb1], [xb + thick, yb, zb1], [xa + thick, ya, za1]);
   }
 }
 
