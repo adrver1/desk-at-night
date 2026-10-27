@@ -2,14 +2,17 @@
 // gas-lifted platform well slugs (casing heading) with the choke wide open;
 // switch the controller on and the choke holds bottom-hole pressure, the
 // slugs go away and the well can run more open, so it produces more.
-//   A  single: one well, controller on/off, trend keeps the "before"
-//   B  twins:  the same well twice, left without and right with the controller
-// URL: antislug-prototype.html?layout=single|twins&auto=1&view=whole|top|bottom&speed=120
+// Topside the choke feeds the cut-open inlet separator from the separator
+// scene, so the slugs show up as level swings there too (Adriaen picked
+// "separator now, platform later"; the twin-well layout of the first
+// preview is replaced by a faint "without controller" line in the trend).
+// URL: antislug-prototype.html?auto=1&view=whole|topside|bottom&speed=120
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { SlugSim } from './slugSim.js';
-import { SlugWell, WELL_DIM as D } from './slugWell.js';
+import { SlugWell, WELL_DIM as D, pipeRun, flowUpdate } from './slugWell.js';
+import { Separator, SeparatorSim, DIM as SDIM } from './separator.js';
 import { perfPanel, perfWatch } from './perf.js';
 
 perfPanel();
@@ -20,7 +23,7 @@ perfWatch(renderer);
 renderer.setPixelRatio(+q.get('dpr') || Math.min(devicePixelRatio, matchMedia('(pointer: coarse)').matches ? 1.25 : 1.5));
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.localClippingEnabled = true; // the choke's glass cut
+renderer.localClippingEnabled = true; // the glass cuts of the choke and the separator
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x141c21);
@@ -29,90 +32,122 @@ scene.environmentIntensity = 0.6;
 const sun = new THREE.DirectionalLight(0xffffff, 2.0); sun.position.set(-5, 10, 8);
 scene.add(sun, new THREE.HemisphereLight(0xcfe3ff, 0x30302c, 0.7));
 
+// Layout in metres: the deck top at y = 0. The well model is drawn at half
+// size, so its group is scaled 2x (tree ~3 m); the separator is real size.
+const WS = 2, WELL_X = -9, WELL_Y = 0.4 * WS; // casing head bottom on the deck
+const wy = (local) => WELL_Y + WS * local; // well-local height -> world
+const SEP = new THREE.Vector3(0, -SDIM.ground, 0); // skid feet on the deck
+const BOTTOM = wy(D.res[0]) - 1.5;
+
 // backdrop: sea under the deck, rock strata, the reservoir band at the bottom
 function strataTexture() {
   const c = document.createElement('canvas'); c.width = 64; c.height = 512;
-  const g = c.getContext('2d'), y = (m) => ((-0.25 - m) / 14.25) * 512; // scene y (m) -> pixel row
-  const grd = g.createLinearGradient(0, 0, 0, y(-2.6)); grd.addColorStop(0, '#1d4a5e'); grd.addColorStop(1, '#0f2a38');
-  g.fillStyle = grd; g.fillRect(0, 0, 64, y(-2.6));
+  const g = c.getContext('2d'), y = (m) => ((-0.25 - m) / (-0.25 - BOTTOM)) * 512; // world y -> pixel row
+  const grd = g.createLinearGradient(0, 0, 0, y(-5)); grd.addColorStop(0, '#1d4a5e'); grd.addColorStop(1, '#0f2a38');
+  g.fillStyle = grd; g.fillRect(0, 0, 64, y(-5));
   const bands = ['#3b3a35', '#45423a', '#34332f', '#4a463c', '#3a3832', '#433f37'];
-  for (let i = 0, yy = y(-2.6); yy < y(D.res[1]); i++) { const h = 18 + (i * 37) % 30; g.fillStyle = bands[i % bands.length]; g.fillRect(0, yy, 64, h); yy += h; }
-  g.fillStyle = '#7a6236'; g.fillRect(0, y(D.res[1]), 64, y(D.res[0]) - y(D.res[1]));
-  for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(30,20,8,${0.25 + 0.3 * Math.random()})`; g.fillRect(Math.random() * 64, y(D.res[1]) + Math.random() * (y(D.res[0]) - y(D.res[1])), 1.5, 1.5); }
-  g.fillStyle = '#2b2925'; g.fillRect(0, y(D.res[0]), 64, 512);
+  for (let i = 0, yy = y(-5); yy < y(wy(D.res[1])); i++) { const h = 18 + (i * 37) % 30; g.fillStyle = bands[i % bands.length]; g.fillRect(0, yy, 64, h); yy += h; }
+  const r0 = y(wy(D.res[1])), r1 = y(wy(D.res[0]));
+  g.fillStyle = '#7a6236'; g.fillRect(0, r0, 64, r1 - r0);
+  for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(30,20,8,${0.25 + 0.3 * Math.random()})`; g.fillRect(Math.random() * 64, r0 + Math.random() * (r1 - r0), 1.5, 1.5); }
+  g.fillStyle = '#2b2925'; g.fillRect(0, r1, 64, 512);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
-const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(30, 14.25), new THREE.MeshBasicMaterial({ map: strataTexture() }));
-backdrop.position.set(0.5, -0.25 - 14.25 / 2, -1.6);
-const deck = new THREE.Mesh(new THREE.BoxGeometry(30, 0.25, 2.6), new THREE.MeshStandardMaterial({ color: 0x55606a, roughness: 0.8, metalness: 0.2 }));
-deck.position.set(0.5, -0.125, -0.3);
+const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(60, -0.25 - BOTTOM), new THREE.MeshBasicMaterial({ map: strataTexture() }));
+backdrop.position.set(-4, (-0.25 + BOTTOM) / 2, -6.5);
+const deck = new THREE.Mesh(new THREE.BoxGeometry(28, 0.25, 9), new THREE.MeshStandardMaterial({ color: 0x55606a, roughness: 0.8, metalness: 0.2 }));
+deck.position.set(-4, -0.125, -2);
 scene.add(backdrop, deck);
 
-// wells and their sims; the second one only shows in the twins layout
+// the well, its choke and controller
+const well = new SlugWell({ name: 'well', flowline: false });
+well.group.position.set(WELL_X, WELL_Y, 0); well.group.scale.setScalar(WS);
+scene.add(well.group);
+
+// the separator, cut open (glass), with its own level loops
+const sep = new Separator({ inlet: 'vane', gas: 'cyclones' });
+sep.group.position.copy(SEP);
+sep.setCut({ style: 'glass', amount: 1 });
+sep.U.uLook.value = 1;
+scene.add(sep.group);
+const sepSim = new SeparatorSim();
+// Well stream into the separator. SeparatorSim takes slugs as events; a
+// standing "slug" held at its peak (t0 three seconds back) turns its size
+// into a steady inflow multiplier: inflow = normal * (1 + 9 * size).
+const feed = { t0: 0, size: 0, waved: true };
+sepSim.slugs.push(feed);
+const NOMINAL = 14.8; // kg/s of well liquid that counts as the separator's normal inflow (the controlled well)
+// The well runs ~120x faster than the separator (which runs in real time), so a
+// surge that takes minutes in the well passes in seconds on screen; scaling
+// the deviation keeps roughly the liquid volume a real surge would bring.
+const SURGE = 8;
+
+// flowline: choke outlet down, back behind the separator, along to its inlet pipe
+const chokeOut = new THREE.Vector3(WELL_X + WS * D.chokeX, wy(D.wing - 3.4 * 0.13), 0);
+const inletStart = new THREE.Vector3(SDIM.inletX, SDIM.R + 1.7, -4).add(SEP); // where the separator's own inlet pipe begins
+const FY = 1.0;
+const run = pipeRun([chokeOut, new THREE.Vector3(chokeOut.x, FY, 0), new THREE.Vector3(chokeOut.x, FY, -4), new THREE.Vector3(inletStart.x, FY, -4), inletStart], 0.24);
+scene.add(run.contents, run.sleeve);
+
+// sims: the well, a twin without controller (faint line in the trend), and
+// a safe fixed choke as the reference for the production bar
 const SAFE_U = 0.3; // the fixed choke an operator would settle for without a controller
 const state = {
-  layout: q.get('layout') === 'twins' ? 'twins' : 'single', auto: q.get('auto') === '1', u: 0.7, sp: 110,
-  view: ['whole', 'top', 'bottom'].includes(q.get('view')) ? q.get('view') : 'whole', speed: +q.get('speed') || 120, labels: q.get('labels') !== '0',
+  auto: q.get('auto') === '1', u: 0.7, sp: 110,
+  view: ['whole', 'topside', 'bottom', 'separator'].includes(q.get('view')) ? q.get('view') : 'whole', speed: +q.get('speed') || 120, labels: q.get('labels') !== '0',
 };
-const wells = [new SlugWell({ name: 'well A' }), new SlugWell({ name: 'well B' })];
-const sims = [new SlugSim(), new SlugSim()];
-for (const w of wells) scene.add(w.group);
+const sim = new SlugSim(), ghost = new SlugSim();
 const ref = new SlugSim(); ref.u = SAFE_U; ref.step(9000);
 const REF = { oil: ref.wro, pbh: ref.pbh };
-
-// history for the trend: one sample per 10 sim s
 const DT_S = 10, KEEP = 360, AVG = 300; // trend: last hour; averages: last 50 min (two slug cycles)
 const hist = [[], []];
 let acc = 0;
 function sample() {
-  for (let i = 0; i < 2; i++) { const s = sims[i]; hist[i].push({ p: s.pbh, u: s.uOut, oil: s.wro, auto: s.auto }); if (hist[i].length > KEEP) hist[i].shift(); }
+  [sim, ghost].forEach((s, i) => { hist[i].push({ p: s.pbh, u: s.uOut, oil: s.wro, auto: s.auto }); if (hist[i].length > KEEP) hist[i].shift(); });
 }
 function applyModes() {
-  const twins = state.layout === 'twins';
-  sims[0].auto = twins ? false : state.auto; sims[0].u = state.u;
-  sims[1].auto = true; sims[1].u = state.u;
-  for (const s of sims) s.sp = state.sp;
-  wells[1].group.visible = twins;
-  wells[0].group.position.x = twins ? -2.7 : 0; wells[1].group.position.x = 2.7;
+  sim.auto = state.auto; sim.u = state.u; sim.sp = state.sp;
+  ghost.auto = false; ghost.u = state.auto ? 0.7 : state.u;
 }
+function advance(t) { for (; t > 0; t -= DT_S) { sim.step(DT_S); ghost.step(DT_S); sample(); } }
 // pre-roll: slugging with the choke at 70 %, so the trend starts full
-applyModes();
-for (const s of sims) { s.u = 0.7; s.auto = false; s.step(8000); }
-applyModes();
-advance(KEEP * DT_S);
-function advance(t) { for (; t > 0; t -= DT_S) { for (const s of sims) s.step(DT_S); sample(); } }
+for (const s of [sim, ghost]) { s.u = 0.7; s.step(8000); }
+applyModes(); advance(KEEP * DT_S);
 
 // camera: fit the chosen view into the band between the HUD and the dock
-const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
+const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 400);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
-const VIEWS = { // centre and half extents (scene m) for the single layout; twins widen x
-  whole: { c: [0.4, -5.4], h: [3.0, 8.6] },
-  top: { c: [0.6, 1.2], h: [2.6, 1.9] },
-  bottom: { c: [-0.2, -11.4], h: [2.4, 2.4] },
+const VIEWS = { // centre and half extents (m)
+  whole: { c: [-4, -12.6], h: [12.5, 15.6] },
+  topside: { c: [-4.4, 3.4], h: [9.6, 4.6] },
+  separator: { c: [0, 3.6], h: [5.6, 3.6] },
+  bottom: { c: [WELL_X - 0.6, wy(-11.2)], h: [4.4, 4.4] },
 };
 const hud = document.getElementById('hud'), dock = document.getElementById('dock');
 function frame() {
   const w = innerWidth, h = innerHeight, top = hud.offsetHeight, bot = dock.offsetHeight, band = Math.max(120, h - top - bot);
   renderer.setSize(w, h, false); camera.aspect = w / h;
   camera.setViewOffset(w, h, 0, -(top - bot) / 2, w, h);
-  const v = VIEWS[state.view], twins = state.layout === 'twins';
-  const hx = v.h[0] + (twins ? 2.7 : 0), hy = v.h[1], t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const dist = Math.max(hy / (t * band / h), hx / (t * camera.aspect)) * 1.04;
-  controls.target.set(twins && state.view !== 'whole' ? 0 : v.c[0], v.c[1], 0);
-  camera.position.set(controls.target.x + dist * 0.12, controls.target.y + dist * 0.05, dist);
+  const v = VIEWS[state.view], t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const dist = Math.max(v.h[1] / (t * band / h), v.h[0] / (t * camera.aspect)) * 1.04;
+  controls.target.set(v.c[0], v.c[1], 0);
+  const lift = state.view === 'topside' || state.view === 'separator' ? 0.22 : 0.05; // look down a little on the deck
+  camera.position.set(controls.target.x + dist * 0.12, controls.target.y + dist * lift, dist);
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', frame);
 
-// labels
-// which labels each view shows (the topside is too small to label in the whole view)
+// labels: [text, world position, views (w whole, t topside, s separator, b bottom)]
+const wl = (key) => () => well.group.localToWorld(well.anchors[key].clone());
 const LABELS = [
-  ['Lift gas in', 'gasIn', 't'], ['Christmas tree', 'tree', 't'], ['Production choke', 'choke', 'tw'], ['Controller (PIC)', 'pic', 't'], ['To separator', 'toSep', 't'],
-  ['Tubing', 'tubing', 'w'], ['Annulus (lift gas)', 'annulus', 'w'], ['Gas-lift valve', 'glv', 'wb'], ['Packer', 'packer', 'b'], ['Reservoir ≈ 2 km down', 'res', 'wb'],
-  ['Bottom-hole pressure', 'gauge', 'wb'],
-].map(([text, key, views]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, key, views }; });
-const titles = ['Without controller', 'Anti-slug control'].map((text) => { const el = document.createElement('div'); el.className = 'lbl'; el.style.font = '600 13px var(--sans)'; el.textContent = text; document.body.append(el); return el; });
+  ['Lift gas in', wl('gasIn'), 't'], ['Christmas tree', wl('tree'), 't'], ['Production choke', wl('choke'), 'tw'], ['Controller (PIC)', wl('pic'), 't'],
+  ['Flowline', () => new THREE.Vector3((chokeOut.x + inletStart.x) / 2, FY + 0.5, -4), 't'],
+  ['Inlet separator', () => new THREE.Vector3(1.5, SEP.y + SDIM.R + 0.5, 0), 'tws'],
+  ['Liquid level', () => new THREE.Vector3(-2.6, SEP.y + sepSim.hL + 0.2, 1.2), 's'], ['Weir', () => new THREE.Vector3(SDIM.weirX, SEP.y + SDIM.crest + 0.3, 1.2), 's'],
+  ['Tubing', wl('tubing'), 'w'], ['Annulus (lift gas)', wl('annulus'), 'w'], ['Gas-lift valve', wl('glv'), 'wb'], ['Packer', wl('packer'), 'b'],
+  ['Reservoir ≈ 2 km down', wl('res'), 'wb'], ['Bottom-hole pressure', wl('gauge'), 'wb'],
+].map(([text, at, views]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at, views }; });
 
 // dock
 const ui = document.getElementById('ui'), note = document.getElementById('note');
@@ -125,26 +160,22 @@ function row(label, items) {
   }
   ui.append(r);
 }
-row('Layout', [
-  ['A · One well', () => state.layout === 'single', () => { state.layout = 'single'; frame(); }],
-  ['B · Twins', () => state.layout === 'twins', () => { state.layout = 'twins'; frame(); }],
-  ['Labels', () => state.labels, () => { state.labels = !state.labels; }],
-]);
 row('Control', [
-  ['Off', () => !state.auto && state.layout === 'single', () => { state.auto = false; state.u = sims[0].uOut; }],
-  ['On · hold BHP', () => state.auto && state.layout === 'single', () => { state.auto = true; }],
+  ['Off', () => !state.auto, () => { state.auto = false; state.u = Math.round(sim.uOut * 10) / 10; }],
+  ['On · hold BHP', () => state.auto, () => { state.auto = true; }],
   ...[30, 50, 70, 100].map((p) => [`${p} %`, () => !state.auto && Math.abs(state.u - p / 100) < 1e-3, () => { state.auto = false; state.u = p / 100; }]),
 ]);
 row('Setpoint', [105, 110, 120].map((p) => [`${p} bar`, () => state.sp === p, () => { state.sp = p; }]));
 row('View', [
   ...Object.keys(VIEWS).map((k) => [k[0].toUpperCase() + k.slice(1), () => state.view === k, () => { state.view = k; frame(); }]),
-  ...[60, 120, 240].map((x) => [`×${x}`, () => state.speed === x, () => { state.speed = x; }]),
+  ['Labels', () => state.labels, () => { state.labels = !state.labels; }],
 ]);
+row('Speed', [60, 120, 240].map((x) => [`×${x}`, () => state.speed === x, () => { state.speed = x; }]));
 function refresh() {
   for (const b of ui.querySelectorAll('button')) b.classList.toggle('on', b._on());
   applyModes();
   const u = new URL(location.href);
-  for (const [k, v] of Object.entries({ layout: state.layout, auto: state.auto ? 1 : 0, view: state.view, speed: state.speed })) u.searchParams.set(k, v);
+  for (const [k, v] of Object.entries({ auto: state.auto ? 1 : 0, view: state.view, speed: state.speed })) u.searchParams.set(k, v);
   history.replaceState(null, '', u);
 }
 refresh();
@@ -159,41 +190,38 @@ function drawTrend() {
   const g = tc.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
   const L = 30, R = W - 30, T = 14, B = H - 4, P0 = 80, P1 = 170;
   const x = (i) => L + ((R - L) * i) / (KEEP - 1), yp = (p) => B - ((p - P0) / (P1 - P0)) * (B - T), yu = (u) => B - u * (B - T);
-  const twins = state.layout === 'twins', main = twins ? 1 : 0, hm = hist[main];
-  // controller-on spans of the main well
-  g.fillStyle = C.on;
+  const hm = hist[0], ghostOn = hm.some((s) => s.auto);
+  g.fillStyle = C.on; // controller-on spans
   for (let i = 0; i < hm.length; i++) if (hm[i].auto) g.fillRect(x(i + KEEP - hm.length) - 0.5, T, (R - L) / (KEEP - 1) + 1, B - T);
   g.strokeStyle = C.grid; g.lineWidth = 1; g.font = '500 9.5px "JetBrains Mono", monospace'; g.fillStyle = C.text;
   for (const p of [100, 125, 150]) { g.beginPath(); g.moveTo(L, yp(p)); g.lineTo(R, yp(p)); g.stroke(); g.textAlign = 'right'; g.fillText(p, L - 4, yp(p) + 3); }
   g.textAlign = 'left'; for (const u of [0, 0.5, 1]) g.fillText(`${u * 100}%`, R + 4, yu(u) + 3);
-  g.setLineDash([4, 4]); g.strokeStyle = C.sp; g.globalAlpha = 0.5; g.beginPath(); g.moveTo(L, yp(state.sp)); g.lineTo(R, yp(state.sp)); g.stroke(); g.globalAlpha = 1; g.setLineDash([]);
-  const line = (h, key, col, y, w = 1.6) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); h.forEach((s, i) => { const xx = x(i + KEEP - h.length), yy = y(s[key]); i ? g.lineTo(xx, yy) : g.moveTo(xx, yy); }); g.stroke(); };
-  if (twins) { line(hist[0], 'u', C.u2, yu, 1); line(hist[0], 'p', C.p2, yp, 1); }
+  if (state.auto) { g.setLineDash([4, 4]); g.strokeStyle = C.sp; g.globalAlpha = 0.5; g.beginPath(); g.moveTo(L, yp(state.sp)); g.lineTo(R, yp(state.sp)); g.stroke(); g.globalAlpha = 1; g.setLineDash([]); }
+  const line = (h, key, col, y, w = 1.6, from = 0) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); let started = false; h.forEach((s, i) => { if (i < from) return; const xx = x(i + KEEP - h.length), yy = y(s[key]); started ? g.lineTo(xx, yy) : g.moveTo(xx, yy); started = true; }); g.stroke(); };
+  if (ghostOn) { const from = hm.findIndex((s) => s.auto); g.globalAlpha = 0.45; line(hist[1], 'p', C.p2, yp, 1.2, from); g.globalAlpha = 1; }
   line(hm, 'u', C.u, yu); line(hm, 'p', C.p, yp, 2);
   g.textAlign = 'left'; g.font = '600 10px "Instrument Sans", system-ui, sans-serif';
   g.fillStyle = C.p; g.fillText('Bottom-hole pressure (bar)', L, 10);
   g.fillStyle = C.u; g.fillText('Choke opening', L + 150, 10);
-  if (twins) { g.fillStyle = C.text; g.fillText('faint = without', L + 240, 10); }
+  if (ghostOn) { g.fillStyle = C.p2; g.fillText('faint: without', L + 240, 10); }
 }
 const avg = (h, k) => { const s = h.slice(-AVG); return s.reduce((a, b) => a + b[k], 0) / s.length; };
 const span = (h, k) => { const s = h.slice(-AVG).map((v) => v[k]); return [Math.min(...s), Math.max(...s)]; };
 const m3d = (kgs) => Math.round((kgs / 760) * 86400 / 10) * 10;
-function statLine(h, label) {
-  const oil = avg(h, 'oil'), [lo, hi] = span(h, 'p'), gain = (oil / REF.oil - 1) * 100, full = REF.oil * 1.6;
-  const catching = h.at(-1).auto && hi - lo >= 3 ? ' · <b>catching the slug…</b>' : '';
-  return `<div><b>${label}</b>${catching} choke ${Math.round(avg(h, 'u') * 100)} % avg · BHP ${hi - lo < 3 ? `${avg(h, 'p').toFixed(0)} steady` : `${lo.toFixed(0)}–${hi.toFixed(0)} swinging`} · oil <b>${m3d(oil)} m³/d</b> (${gain >= 0 ? '+' : ''}${gain.toFixed(0)} %)</div>
+const lvl = []; // separator liquid level, last 30 s of screen time
+function drawStats() {
+  const h = hist[0], oil = avg(h, 'oil'), [lo, hi] = span(h, 'p'), gain = (oil / REF.oil - 1) * 100, full = REF.oil * 1.6;
+  const catching = sim.auto && hi - lo >= 3 ? ' · <b>catching the slug…</b>' : '';
+  const sw = lvl.length ? (Math.max(...lvl) - Math.min(...lvl)) * 100 : 0;
+  stats.innerHTML = `<div><b>${sim.auto ? 'Controller on' : 'Controller off'}</b>${catching} · choke ${Math.round(avg(h, 'u') * 100)} % avg · BHP ${hi - lo < 3 ? `${avg(h, 'p').toFixed(0)} steady` : `${lo.toFixed(0)}–${hi.toFixed(0)} swinging`} · separator level ${sw < 6 ? 'steady' : `swings ${sw.toFixed(0)} cm`}</div>
+    <div>Oil <b>${m3d(oil)} m³/d</b> (${gain >= 0 ? '+' : ''}${gain.toFixed(0)} % vs safe fixed choke at ${SAFE_U * 100} %, the line on the bar)</div>
     <div class="bar"><i style="width:${(100 * oil) / full}%;background:${gain > 5 ? '#f2b544' : '#9fb3ba'}"></i><u style="left:${(100 * REF.oil) / full}%"></u></div>`;
 }
-function drawStats() {
-  const twins = state.layout === 'twins';
-  stats.innerHTML = (twins ? statLine(hist[0], 'Without') + statLine(hist[1], 'With controller') : statLine(hist[0], sims[0].auto ? 'Controller on' : 'Controller off'))
-    + `<div>Line on the bar = safe fixed choke at ${SAFE_U * 100} % (${m3d(REF.oil)} m³/d, BHP ${REF.pbh.toFixed(0)}). Averages over the last 50 min of well time.</div>`;
-}
-note.innerHTML = 'PROTOTYPE · not to scale. Gas-lifted well: lift gas fills the annulus, pushes through the gas-lift valve, the column lightens and blows out, then fills up again. The controller reads bottom-hole pressure and moves the choke a little, fast.';
-
+note.innerHTML = 'PROTOTYPE · not to scale. Gas-lifted well: lift gas fills the annulus, pushes through the gas-lift valve, the column lightens and blows out, then fills up again. The controller reads bottom-hole pressure and moves the choke a little, fast. Averages over the last 50 min of well time.';
 drawStats(); frame();
+
 const clock = new THREE.Clock(), v3 = new THREE.Vector3();
-let statT = 0;
+let statT = 0, lvlT = 0, lastFeed = 1, waveCool = 0;
 function place(el, p, show) {
   v3.copy(p).project(camera);
   const y = ((1 - v3.y) / 2) * innerHeight; // hide behind the HUD and the dock
@@ -202,18 +230,23 @@ function place(el, p, show) {
 }
 function tick() {
   const dt = Math.min(clock.getDelta(), 0.05), simDt = dt * state.speed;
-  for (const s of sims) s.step(simDt);
+  sim.step(simDt); ghost.step(simDt);
   acc += simDt; while (acc >= DT_S) { acc -= DT_S; sample(); }
-  wells[0].update(dt, sims[0]);
-  if (wells[1].group.visible) wells[1].update(dt, sims[1]);
+  well.update(dt, sim);
+  flowUpdate(run.contents.material.uniforms, dt, sim);
+  // the well stream into the separator; a sharp rise starts a wave down the vessel
+  const f = Math.max(0.1, 1 + (sim.wOil / NOMINAL - 1) * SURGE);
+  feed.t0 = sepSim.t - 3; feed.size = (f - 1) / 9;
+  if ((waveCool -= dt) < 0 && (f - lastFeed) / Math.max(dt, 1e-3) > 1.5) { sepSim.packets.push({ x: sepSim.source, v: 3.2, a: 0.12 }); waveCool = 2.5; }
+  lastFeed = f;
+  sepSim.step(dt); sepSim.apply(sep); sep.update(dt, sepSim.stir);
+  if ((lvlT -= dt) < 0) { lvlT = 0.25; lvl.push(sepSim.hL); if (lvl.length > 120) lvl.shift(); }
   controls.update();
   renderer.render(scene, camera);
   drawTrend();
   if ((statT -= dt) < 0) { statT = 0.5; drawStats(); }
-  const twins = state.layout === 'twins';
-  for (const l of LABELS) place(l.el, wells[0].group.localToWorld(v3.copy(wells[0].anchors[l.key])).clone(), state.labels && !twins && l.views.includes(state.view[0]));
-  titles.forEach((el, i) => place(el, wells[i].group.localToWorld(new THREE.Vector3(0, 3.6, 0)), twins));
+  for (const l of LABELS) place(l.el, l.at(), state.labels && l.views.includes(state.view[0]));
   requestAnimationFrame(tick);
 }
-window.proto = { sims, wells, state, refresh, advance, frame };
+window.proto = { sim, ghost, sepSim, well, sep, state, refresh, advance, frame };
 requestAnimationFrame(tick);

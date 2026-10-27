@@ -18,7 +18,7 @@ export const WELL_DIM = {
   top: 0, inj: -9, packer: -9.45, bot: -12.2, res: [-13.6, -11.6], // depths (scene m)
   rc: 0.62, rt: 0.3, // casing and tubing radius
   tree: 1.6, wing: 1.05, // christmas tree height, wing outlet height
-  chokeX: 1.15, flowY: 0.45, flowEnd: 2.6, gasX: -1.7, gasY: 0.55,
+  chokeX: 1.15, flowY: 0.45, flowEnd: 2.6, gasX: -1.7, gasY: -0.2,
   gauge: new THREE.Vector3(-1.35, -10.9, 0.25),
 };
 const D = WELL_DIM;
@@ -41,7 +41,7 @@ const NOISE = /* glsl */`
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float noise(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
     return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y); }`;
-function contentsMaterial({ liq = 0x9a6424, gas = 0xbcd3dc, len = 12, inj = 0, wrap = 6 } = {}) {
+export function contentsMaterial({ liq = 0x9a6424, gas = 0xbcd3dc, len = 12, inj = 0, wrap = 6 } = {}) {
   return new THREE.ShaderMaterial({
     uniforms: { uHold: { value: 0.5 }, uMix: { value: 0 }, uScroll: { value: 0 }, uInj: { value: inj }, uLen: { value: len }, uWrap: { value: wrap },
       uLiq: { value: new THREE.Color(liq) }, uGas: { value: new THREE.Color(gas) } },
@@ -95,7 +95,7 @@ function annulusMaterial(packerV) {
 }
 
 export class SlugWell {
-  constructor({ name = 'well', actuator = 'box', glass = true } = {}) {
+  constructor({ name = 'well', actuator = 'box', glass = true, flowline = true } = {}) {
     this.group = new THREE.Group(); this.group.name = name;
     const steel = new THREE.MeshStandardMaterial({ color: 0x7b858b, metalness: 0.45, roughness: 0.5, side: THREE.DoubleSide });
     const paint = new THREE.MeshStandardMaterial({ color: 0xb02a22, metalness: 0.2, roughness: 0.55 });
@@ -103,19 +103,40 @@ export class SlugWell {
     this.mats = { steel, paint, rubber };
 
     // steel: casing and tubing back halves, gas line, flowline back half, separator stub
-    const sg = [backTube(D.rc, D.bot - 0.4, D.top + 0.6), backTube(D.rt, D.bot, D.top), backTube(D.rc + 0.06, D.top - 0.2, D.top + 0.6, 14)];
+    const sg = [backTube(D.rc, D.bot - 0.4, D.top - 0.4), backTube(D.rt, D.bot, D.top), backTube(D.rc + 0.06, D.top - 0.4, D.top, 14)]; // casing, tubing, casing head
     sg.push(hTube(0.09, D.gasX, -D.rc, D.gasY, 8)); // lift gas into the casing head
-    sg.push(hTube(0.17, D.chokeX + 0.05, D.flowEnd, D.flowY, 10, true)); // flowline (back half)
-    { const end = new THREE.SphereGeometry(0.5, 12, 8, Math.PI, Math.PI, 0, Math.PI); end.scale(0.5, 1, 1); end.translate(D.flowEnd + 0.05, D.flowY + 0.1, 0); sg.push(end); }
+    if (flowline) { // a short flowline to a stub (scenes with a separator lay their own with pipeRun)
+      sg.push(hTube(0.17, D.chokeX + 0.05, D.flowEnd, D.flowY, 10, true));
+      const end = new THREE.SphereGeometry(0.5, 12, 8, Math.PI, Math.PI, 0, Math.PI); end.scale(0.5, 1, 1); end.translate(D.flowEnd + 0.05, D.flowY + 0.1, 0); sg.push(end);
+    }
     // perforations: short stubs through the casing into the reservoir
     for (let i = 0; i < 5; i++) for (const sx of [-1, 1]) { const p = hTube(0.035, 0, 0.45, 0, 5); p.translate(sx > 0 ? D.rc : -D.rc - 0.45, -11.95 - i * 0.22, -0.05); sg.push(p); }
     this.group.add(new THREE.Mesh(merge(sg), steel));
 
-    // christmas tree: master valves, cross, swab cap, wing to the choke (paint)
-    const tg = [tube(0.36, 0.0, 0.5, 10, false), tube(0.36, 0.62, 1.3, 10, false), tube(0.26, 1.3, D.tree, 10, false)];
-    { const w = new THREE.CylinderGeometry(0.13, 0.13, D.chokeX - 0.4, 8); w.rotateZ(Math.PI / 2); w.translate((D.chokeX - 0.4) / 2, D.wing, 0); tg.push(w); }
-    for (const y of [0.25, 0.95]) { const hw = new THREE.CylinderGeometry(0.16, 0.16, 0.12, 8); hw.rotateX(Math.PI / 2); hw.translate(0, y, 0.42); tg.push(hw); }
-    this.group.add(new THREE.Mesh(merge(tg), paint));
+    // christmas tree, bottom up: wellhead spool, lower and upper master
+    // valves, the cross with the wing valve toward the choke, swab valve and
+    // tree cap. Gate valves are blocks with a bonnet and a handwheel facing
+    // the viewer; flanges as thin discs (paint, one mesh; wheels in steel)
+    const tg = [], wheels = [];
+    const flange = (y, r = 0.3) => tg.push(tube(r, y - 0.035, y + 0.035, 12, false));
+    const gate = (y, h = 0.34) => {
+      const b = new THREE.BoxGeometry(0.4, h, 0.36); b.translate(0, y, 0); tg.push(b);
+      const bon = new THREE.CylinderGeometry(0.07, 0.09, 0.22, 8); bon.rotateX(Math.PI / 2); bon.translate(0, y, 0.28); tg.push(bon);
+      const w = new THREE.TorusGeometry(0.15, 0.022, 4, 12); w.translate(0, y, 0.42); wheels.push(w);
+      const sp = new THREE.CylinderGeometry(0.012, 0.012, 0.28, 4); sp.rotateZ(Math.PI / 2); sp.translate(0, y, 0.42); wheels.push(sp);
+    };
+    tg.push(tube(0.42, D.top, 0.22, 12, false)); flange(0.22, 0.46); // wellhead spool on the casing head
+    tg.push(tube(0.17, 0.22, 1.62, 10, true)); // through-bore between the valves
+    flange(0.27); gate(0.46); flange(0.65); gate(0.84); flange(1.03, 0.28);
+    { const x = new THREE.BoxGeometry(0.36, 0.3, 0.36); x.translate(0, D.wing, 0); tg.push(x); } // cross
+    flange(1.22, 0.28); gate(1.4, 0.3); flange(1.58, 0.26);
+    tg.push(tube(0.2, 1.58, D.tree, 10, false)); // tree cap
+    // wing: flange, gate valve on its side, spool to the choke inlet
+    { const w = new THREE.CylinderGeometry(0.11, 0.11, D.chokeX - 0.42, 8); w.rotateZ(Math.PI / 2); w.translate((D.chokeX - 0.42) / 2, D.wing, 0); tg.push(w); }
+    { const b = new THREE.BoxGeometry(0.3, 0.32, 0.32); b.translate(0.42, D.wing, 0); tg.push(b);
+      const bon = new THREE.CylinderGeometry(0.06, 0.08, 0.2, 8); bon.translate(0.42, D.wing + 0.26, 0); tg.push(bon);
+      const w = new THREE.TorusGeometry(0.13, 0.02, 4, 12); w.rotateX(Math.PI / 2); w.translate(0.42, D.wing + 0.38, 0); wheels.push(w); }
+    this.group.add(new THREE.Mesh(merge(tg), paint), new THREE.Mesh(merge(wheels), steel));
     // packer between tubing and casing, gas-lift valve on the tubing
     const pk = new THREE.CylinderGeometry(D.rc - 0.02, D.rc - 0.02, 0.28, 14, 1, false, Math.PI / 2, Math.PI); pk.translate(0, D.packer, 0);
     const glv = new THREE.CylinderGeometry(0.07, 0.07, 0.5, 6); glv.translate(D.rt + 0.07, D.inj + 0.1, 0);
@@ -125,16 +146,16 @@ export class SlugWell {
     const len = D.top - D.bot;
     this.tubing = new THREE.Mesh(tube(D.rt - 0.02, D.bot, D.top, 14), contentsMaterial({ len, inj: (D.inj - D.bot) / len, wrap: 6 }));
     this.annulus = new THREE.Mesh(backTube(D.rc - 0.03, D.bot - 0.4, D.top, 14), annulusMaterial((D.packer - (D.bot - 0.4)) / (D.top - D.bot + 0.4)));
-    const fl = new THREE.CylinderGeometry(0.15, 0.15, D.flowEnd - D.chokeX, 10, 1, true); fl.rotateZ(Math.PI / 2); fl.translate((D.chokeX + D.flowEnd) / 2, D.flowY, 0);
-    this.flowline = new THREE.Mesh(fl, contentsMaterial({ len: D.flowEnd - D.chokeX, inj: -0.001, wrap: 5 }));
-    // uv.y on the rotated cylinder runs from +x to -x: flip so it scrolls downstream
-    this.flowline.material.uniforms.uLen.value *= -1;
-    this.group.add(this.tubing, this.annulus, this.flowline);
+    this.group.add(this.tubing, this.annulus);
+    if (flowline) {
+      this.flowline = pipeRun([new THREE.Vector3(D.chokeX, D.flowY, 0), new THREE.Vector3(D.flowEnd, D.flowY, 0)], 0.15).contents;
+      this.group.add(this.flowline);
+    }
 
     if (glass) { // faint near half of the casing
       const gm = new THREE.MeshStandardMaterial({ color: 0xcfe6ee, transparent: true, opacity: 0.1, roughness: 0.1, depthWrite: false });
-      const front = new THREE.CylinderGeometry(D.rc + 0.01, D.rc + 0.01, D.top + 0.6 - D.bot + 0.4, 14, 1, true, -Math.PI / 2, Math.PI);
-      front.translate(0, (D.top + 0.6 + D.bot - 0.4) / 2, 0);
+      const front = new THREE.CylinderGeometry(D.rc + 0.01, D.rc + 0.01, D.top - D.bot + 0.4, 14, 1, true, -Math.PI / 2, Math.PI);
+      front.translate(0, (D.top + D.bot - 0.4) / 2, 0);
       const g = new THREE.Mesh(front, gm); g.renderOrder = 2; this.group.add(g);
     }
 
@@ -189,16 +210,14 @@ export class SlugWell {
 
   update(dt, sim) {
     this.t += dt;
-    const tu = this.tubing.material.uniforms, fu = this.flowline.material.uniforms, au = this.annulus.material.uniforms;
+    const tu = this.tubing.material.uniforms, fu = this.flowline?.material.uniforms, au = this.annulus.material.uniforms;
     // gas into the tubing breaks the column up; blocked, the liquid settles
     const mixTarget = THREE.MathUtils.smoothstep(sim.wiv, 0.02, 0.25);
     tu.uMix.value += (mixTarget - tu.uMix.value) * Math.min(1, dt * 3);
     tu.uHold.value = THREE.MathUtils.clamp(sim.holdup, 0.02, 0.98);
     const v = 0.15 + 0.12 * sim.wpc; // visual speed of the mixture (scene m/s)
     tu.uScroll.value += dt * v * (0.4 + 2.2 * tu.uMix.value);
-    const fl = sim.wpc > 1e-3 ? sim.wOil / sim.wpc : 1;
-    fu.uHold.value = THREE.MathUtils.clamp(fl, 0.05, 0.95); fu.uMix.value = 1;
-    fu.uScroll.value += dt * (0.2 + 0.15 * sim.wpc);
+    if (fu) flowUpdate(fu, dt, sim);
     au.uP.value = THREE.MathUtils.clamp((sim.pab - 90) / 80, 0, 1);
     au.uFlow.value = THREE.MathUtils.smoothstep(sim.wiv, 0, 0.6);
     au.uScroll.value += dt * (0.1 + 3 * au.uFlow.value);
@@ -209,4 +228,42 @@ export class SlugWell {
     this.signalMat.uniforms.uT.value = this.t;
     this.picMat.emissiveIntensity = 0.6 * this.signalMat.uniforms.uOn.value;
   }
+}
+
+/** Animate a flowline's contents from the well sim: liquid share and speed. */
+export function flowUpdate(fu, dt, sim) {
+  const fl = sim.wpc > 1e-3 ? sim.wOil / sim.wpc : 1;
+  // the stream is mostly liquid by mass but mostly gas by volume: show ~half
+  fu.uHold.value = THREE.MathUtils.clamp(0.25 + 0.35 * fl * Math.min(1, sim.wpc / 15), 0.08, 0.9); fu.uMix.value = 1;
+  fu.uScroll.value += dt * (0.3 + 0.25 * sim.wpc);
+}
+
+/**
+ * Contents of a pipe along a polyline (each bend a hard corner), with the
+ * pattern running continuously from the first point to the last. Returns the
+ * contents mesh and a faint glass sleeve around it (two draws).
+ */
+export function pipeRun(points, r, { seg = 10 } = {}) {
+  const parts = [], sleeves = [];
+  let total = 0; const lens = [];
+  for (let i = 0; i < points.length - 1; i++) { lens.push(points[i].distanceTo(points[i + 1])); total += lens[i]; }
+  let s0 = 0;
+  const up = new THREE.Vector3(0, 1, 0), q = new THREE.Quaternion(), dir = new THREE.Vector3();
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i], b = points[i + 1], len = lens[i];
+    for (const [list, rr] of [[parts, r], [sleeves, r * 1.12]]) {
+      const g = new THREE.CylinderGeometry(rr, rr, len + (list === parts ? rr * 0.9 : rr * 2), seg, 1, true).toNonIndexed();
+      // cylinder uv.y: 1 at +y; map it to the distance along the whole run
+      const uv = g.attributes.uv, pos = g.attributes.position;
+      for (let k = 0; k < uv.count; k++) uv.setY(k, (s0 + len / 2 + pos.getY(k)) / total);
+      q.setFromUnitVectors(up, dir.subVectors(b, a).normalize());
+      g.applyQuaternion(q); g.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+      list.push(g);
+    }
+    s0 += len;
+  }
+  const contents = new THREE.Mesh(merge(parts), contentsMaterial({ len: total, inj: -0.001, wrap: 5 }));
+  const sleeve = new THREE.Mesh(merge(sleeves), new THREE.MeshStandardMaterial({ color: 0xcfe6ee, transparent: true, opacity: 0.12, roughness: 0.1, depthWrite: false }));
+  sleeve.renderOrder = 2;
+  return { contents, sleeve, length: total };
 }
