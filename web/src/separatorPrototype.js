@@ -9,6 +9,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Separator, SeparatorSim, DIM } from './separator.js';
 import { Gauge } from './gauge.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+// Adriaen (the bearded_operator cast model, deck PPE) for scale; inlined so
+// the one-file preview page needs no fetch
+import adriaenGlb from '../../characters/bearded_operator/bearded_operator_ppe_deck.glb?inline';
 
 const q = new URLSearchParams(location.search);
 const VARIANTS = {
@@ -57,6 +61,23 @@ for (const [k, g] of Object.entries(gauges)) {
   scene.add(stem, g.group);
 }
 
+// Adriaen beside the inlet head, for scale (1.75 m against the 3 m vessel)
+let mixer = null;
+{
+  const bin = Uint8Array.from(atob(adriaenGlb.split(',')[1]), (ch) => ch.charCodeAt(0));
+  new GLTFLoader().parse(bin.buffer, '', (gltf) => {
+    const p = gltf.scene;
+    p.position.set(-7.7, DIM.ground, 0.7); p.rotation.y = 0.6;
+    p.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+    scene.add(p);
+    mixer = new THREE.AnimationMixer(p);
+    const idle = gltf.animations.find((a) => a.name === 'idle');
+    if (idle) mixer.clipAction(idle).play();
+    const blink = gltf.animations.find((a) => a.name === 'blink');
+    if (blink) mixer.clipAction(blink).play();
+  });
+}
+
 // labels
 const LABELS = [
   ['Gas', () => new THREE.Vector3(-1.5, 0.85, sep.c)],
@@ -81,13 +102,13 @@ const state = {
 const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
-controls.target.set(0, -0.3, 0);
+controls.target.set(-0.5, -0.5, 0);
 controls.maxPolarAngle = Math.PI * 0.55;
 function frame() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false); camera.aspect = w / h;
   // fit the vessel's length (plus pipes) across the width
-  const halfW = 8.6, halfH = 4.6, t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const halfW = 9.4, halfH = 4.6, t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   const dist = Math.max(halfH / t, halfW / (t * camera.aspect)) + 2;
   camera.position.set(1.2, 2.4, dist).add(controls.target);
   camera.updateProjectionMatrix();
@@ -142,6 +163,7 @@ function tick() {
   sep.update(dt, state.look ? sim.stir : 0);
   gauges.inlet.set(sim.Tin); gauges.gas.set(sim.P); gauges.water.set(m3h(sim.qWout)); gauges.oil.set(m3h(sim.qOout));
   for (const g of Object.values(gauges)) g.update(dt);
+  mixer?.update(dt);
   controls.update();
   renderer.render(scene, camera);
   const show = state.labels && state.amount > 0.85;
