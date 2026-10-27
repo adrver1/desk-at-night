@@ -11,6 +11,7 @@
 // simple slug + level-control model.
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { Valve } from './valve.js';
 
 // Layout follows a typical offshore inlet separator (3 m ID, 8 m T/T); the
 // numbers are rounded and generic.
@@ -138,7 +139,7 @@ function pipeAlong(points, radius, mat) {
 }
 
 export class Separator {
-  constructor({ inlet = 'vane', gas = 'cyclones' } = {}) {
+  constructor({ inlet = 'vane', gas = 'cyclones', actuators = {} } = {}) {
     this.group = new THREE.Group();
     this.group.name = 'separator 20-VA-001';
     this.cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), BIG); // keeps z <= constant
@@ -213,16 +214,35 @@ export class Separator {
     nozzle(DIM.waterX, false, DIM.liquidR); nozzle(DIM.oilX, false, DIM.liquidR);
     const V = (x, y, z) => new THREE.Vector3(x, y, z), top = R + 1.7, low = DIM.ground + 0.5;
     const pr = DIM.liquidR * 0.85, gr = DIM.gasR * 0.85;
-    for (const pts of [
-      [V(DIM.inletX, top, -4), V(DIM.inletX, top, 0), V(DIM.inletX, R + 0.38, 0)],
-      [V(DIM.gasX, R + 0.38, 0), V(DIM.gasX, top, 0), V(DIM.gasX, top, -4)],
-      [V(DIM.waterX, -R - 0.38, 0), V(DIM.waterX, low, 0), V(DIM.waterX, low, -4)],
-      [V(DIM.oilX, -R - 0.38, 0), V(DIM.oilX, low, 0), V(DIM.oilX, low, -4)],
-    ]) { const g = pipeAlong(pts, pts[0].y > 0 ? gr : pr, m.pipe).geometry; pipework.push(g.index ? g.toNonIndexed() : g); }
+    // valves (cut open with the vessel): inlet choke on the corner above the
+    // inlet nozzle, level valves on the water and oil lines, pressure valve on
+    // the gas line. Pipes stop at their flanges (gap = 3.4 bore radii each side).
+    const zv = -2.2, act = { choke: 'box', gas: 'linear', water: 'multiturn', oil: 'multiturn', ...actuators };
+    this.valves = {
+      choke: new Valve({ body: 'angle', actuator: act.choke, r: gr * 0.8, fluid: 'well', name: 'inlet choke' }),
+      gas: new Valve({ body: 'globe', actuator: act.gas, r: gr, fluid: 'gas', name: 'PV gas' }),
+      water: new Valve({ body: 'globe', actuator: act.water, r: pr, fluid: 'water', name: 'LV water', side: -1 }), // opens away from the oil valve
+      oil: new Valve({ body: 'globe', actuator: act.oil, r: pr, fluid: 'oil', name: 'LV oil' }),
+    };
+    const place = (v, x, y, z, rotY) => { v.group.position.set(x, y, z); v.group.rotation.y = rotY; this.group.add(v.group); };
+    place(this.valves.choke, DIM.inletX, top, 0, -Math.PI / 2); // in from -z, out downwards
+    place(this.valves.gas, DIM.gasX, top, zv, Math.PI / 2); // flow towards -z
+    place(this.valves.water, DIM.waterX, low, zv, Math.PI / 2);
+    place(this.valves.oil, DIM.oilX, low, zv, Math.PI / 2);
+    const gg = 3.4 * gr, gc = 3.4 * gr * 0.8, gp = 3.4 * pr;
+    for (const [pts, rad] of [
+      [[V(DIM.inletX, top, -4), V(DIM.inletX, top, -gc)], gr],
+      [[V(DIM.inletX, top - gc, 0), V(DIM.inletX, R + 0.38, 0)], gr],
+      [[V(DIM.gasX, R + 0.38, 0), V(DIM.gasX, top, 0), V(DIM.gasX, top, zv + gg)], gr],
+      [[V(DIM.gasX, top, zv - gg), V(DIM.gasX, top, -4)], gr],
+      ...[DIM.waterX, DIM.oilX].flatMap((x) => [
+        [[V(x, -R - 0.38, 0), V(x, low, 0), V(x, low, zv + gp)], pr],
+        [[V(x, low, zv - gp), V(x, low, -4)], pr]]),
+    ]) { const g = pipeAlong(pts, rad, m.pipe).geometry; pipework.push(g.index ? g.toNonIndexed() : g); }
     this.pipework = new THREE.Mesh(mergeGeometries(pipework.map(onlyPosNormUv)), m.pipe);
     this.pipework.castShadow = true; this.pipework.name = 'nozzles and pipes';
     this.group.add(this.pipework);
-    this.anchors.gaugeInlet = V(DIM.inletX, (top + R) / 2 + 0.05, gr);
+    this.anchors.gaugeInlet = V(DIM.inletX, R + 0.75, gr); // below the choke
     this.anchors.gaugeGas = V(DIM.gasX, (top + R) / 2 + 0.05, gr);
     this.anchors.gaugeWater = V(DIM.waterX, low + 0.18, pr); // below the skid beam
     this.anchors.gaugeOil = V(DIM.oilX, low + 0.18, pr);
@@ -303,6 +323,7 @@ export class Separator {
     if (glass) for (const mat of this.front.userData.mats) mat.opacity = 1 - 0.88 * e;
     this.matKey = key;
     this.glass = glass && amount > 0;
+    for (const v of Object.values(this.valves)) v.setCut({ style, amount });
   }
 
   update(dt = 0, stir = 0) {
@@ -315,6 +336,7 @@ export class Separator {
       this.sweepCap.geometry = capGeometry(this.c) ?? new THREE.BufferGeometry();
       this.capC = this.c;
     }
+    for (const v of Object.values(this.valves)) v.update(dt);
     this.buildLiquids();
   }
 
@@ -777,9 +799,10 @@ export class SeparatorSim {
     // outlet valves: the controllers output an opening 0..1 (calibrated as if
     // the valve were linear); the valve's characteristic turns it into flow
     this.valve = 'linear'; // or 'eqp' (equal percentage, rangeability 30)
-    this.qmax = { water: 0.8, oil: 1.2 }; // m3/s fully open
-    this.u = { water: this.base.water / 0.8, oil: this.base.oil / 1.2 };
+    this.qmax = { water: 0.25, oil: 0.35 }; // m3/s fully open: normal flow sits near 25 % open, a big slug saturates them
+    this.u = { water: this.base.water / this.qmax.water, oil: this.base.oil / this.qmax.oil };
     this.manualOut = { water: null, oil: null };
+    this.choke = 0.6; // inlet choke opening; the well stream scales with it (0.6 = normal)
   }
   slug(size = 1) { this.slugs.push({ t0: this.t, size, waved: false }); }
   /** Loop 'water' (interface) or 'oil' (oil compartment) to manual, valve held at `opening` (0..1): for step tests. */
@@ -810,8 +833,9 @@ export class SeparatorSim {
       if (!s.waved && u > 1.8) { s.waved = true; this.packets.push({ x: this.source, v: 3.2, a: 0.22 * s.size }); }
     }
     this.slugs = this.slugs.filter((s) => this.t - s.t0 < 20);
-    const qWin = this.base.water * (1 + liq), qOin = this.base.oil * (1 + liq);
-    this.inflow = 1 + liq; // well stream relative to normal
+    const well = this.choke / 0.6; // linear choke around the normal opening
+    const qWin = this.base.water * (1 + liq) * well, qOin = this.base.oil * (1 + liq) * well;
+    this.inflow = (1 + liq) * well; // well stream relative to normal
     // weir overflow from the surface just upstream of the weir
     const head = this.hL + this.waves(DIM.weirX - 0.15) - DIM.crest;
     this.head = Math.max(0, head);
@@ -853,5 +877,8 @@ export class SeparatorSim {
   apply(sep) {
     sep.levels.interface = this.hW; sep.levels.surface = this.hL; sep.levels.bucket = this.hO; sep.levels.emulsion = this.emulsion;
     sep.waves = (x) => this.waves(x); sep.ripple = (x) => this.ripple(x); sep.overflow = this.head; sep.gasFlow = this.qGas; this.source = (sep.U.uIn.value.x + sep.U.uIn.value.y) / 2; sep.U.uFlow.value = this.inflow ?? 1;
+    const v = sep.valves;
+    v.water.set(this.u.water); v.oil.set(this.u.oil); v.choke.set(this.choke);
+    v.gas.set(THREE.MathUtils.clamp(0.35 + (this.P - 8) * 0.12, 0, 1)); // pressure controller: opens as the pressure rises
   }
 }

@@ -10,6 +10,7 @@
 // Local frame: flow along +x through the body centre at the origin, stem and
 // actuator up +y. An 'angle' body (a choke) takes the flow in from -x and
 // lets it out downwards (-y). Sizes scale with the pipe bore radius r.
+// side = -1 opens the cut towards local -z instead (view it from that side).
 // Cage-guided plug trim: the plug lifts inside a cage of holes, so the share
 // of holes it uncovers is the opening.
 import * as THREE from 'three';
@@ -40,11 +41,11 @@ function cageTexture() {
 }
 
 export class Valve {
-  constructor({ body = 'globe', actuator = 'box', r = 0.13, fluid = 'water', name = 'valve', speed = 0.25 } = {}) {
-    this.body = body; this.r = r; this.speed = speed; // speed: stroke fraction per second (electric actuators are slow)
+  constructor({ body = 'globe', actuator = 'box', r = 0.13, fluid = 'water', name = 'valve', speed = 0.25, side = 1 } = {}) {
+    this.body = body; this.r = r; this.side = side; this.speed = speed; // speed: stroke fraction per second (electric actuators are slow)
     this.target = 0.5; this.opening = 0.5; this.flowing = 1; this.time = 0;
     this.group = new THREE.Group(); this.group.name = name;
-    this.localPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), BIG);
+    this.localPlane = new THREE.Plane(new THREE.Vector3(0, 0, -side), BIG); // side: which way the cut opens (+1 = local +z)
     this.cutPlane = new THREE.Plane(); this.clip = [this.cutPlane];
     this.cut = { style: 'glass', amount: 0 }; this.matKey = null;
 
@@ -60,8 +61,8 @@ export class Valve {
 
     // body + bonnet, in halves so the near one can fade or be cut
     const R = r, bonnetTop = 3.25 * R, steel = { back: [], front: [] }, fluidGeo = [];
-    for (const front of [false, true]) {
-      const list = front ? steel.front : steel.back;
+    for (const near of [false, true]) {
+      const list = near ? steel.front : steel.back, front = side > 0 ? near : !near;
       if (body === 'angle') {
         list.push(halfLathe([[-3.4, 1], [-2.6, 1], [-2.6, 1.7], [-2.35, 1.7], [-2.35, 1.1], [-1.5, 1.5], [-0.6, 1.9], [0.6, 1.9], [1.2, 1.6], [1.6, 1.25]].map(([a, b]) => [a * R, b * R]), front, 'y', 5));
         list.push(halfLathe([[-3.4, 1], [-2.6, 1], [-2.6, 1.7], [-2.35, 1.7], [-2.35, 1.1], [-1.5, 1.2]].map(([a, b]) => [a * R, b * R]), front, 'x', 5));
@@ -223,6 +224,7 @@ export class Valve {
     if (key !== this.matKey) { m.transparent = glass && amount > 0; m.depthWrite = !(glass && amount > 0.5); m.needsUpdate = true; }
     m.opacity = glass ? 1 - 0.85 * e : 1;
     this.matKey = key;
+    this.cageMesh.visible = this.fluid.visible = amount > 0; // nothing to see inside a closed valve: skip the draws
   }
 
   update(dt) {

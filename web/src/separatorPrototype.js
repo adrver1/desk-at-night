@@ -129,12 +129,13 @@ const LABELS = [
   ['Inclined plate', () => new THREE.Vector3(-2.6, 0.45, sep.c)],
   ['Perforated baffle', () => new THREE.Vector3(DIM.baffleX, 0.75, sep.c)],
   ['Cyclone box', () => new THREE.Vector3(DIM.deckX + 0.4, 0.55, sep.c)],
+  ...[['Choke', 'choke'], ['PV gas', 'gas'], ['LV water', 'water'], ['LV oil', 'oil']].map(([t, k]) => [t, () => sep.valves[k].group.position.clone().add(new THREE.Vector3(0, -5 * sep.valves[k].r, 0))]),
 ].map(([text, at]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at }; });
 
 const state = {
   variant: VARIANTS[q.get('variant')] ? q.get('variant') : 'c',
   open: q.get('open') === '1', amount: q.get('open') === '1' ? 1 : 0,
-  look: q.get('look') !== '0', labels: q.get('labels') !== '0', slugging: q.get('slugging') === '1', nextSlug: 3,
+  view: 'overview', look: q.get('look') !== '0', labels: q.get('labels') !== '0', slugging: q.get('slugging') === '1', nextSlug: 3,
 };
 
 // ---------------------------------------------------------------- camera
@@ -142,18 +143,37 @@ const state = {
 const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
-controls.target.set(-0.5, -0.1, 0);
+controls.target.set(-0.5, 0.5, 0);
 controls.maxPolarAngle = Math.PI * 0.55;
 function frame() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false); camera.aspect = w / h;
   // fit the vessel's length (plus pipes) across the width
-  const halfW = 6.4, halfH = 3.6, t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const halfW = 6.4, halfH = 4.1, t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)); // halfH: up to the choke's actuator
   const dist = Math.max(halfH / t, halfW / (t * camera.aspect)) + 2;
   camera.position.set(1.2, 2.4, dist).add(controls.target);
   camera.updateProjectionMatrix();
 }
-addEventListener('resize', frame); frame();
+addEventListener('resize', () => { frame(); if (state.view !== 'overview') fly(state.view, 0); }); frame();
+// close-ups: fly to a valve, looking at its cut side (local +z)
+const fl = { t: 1, dur: 1, p0: new THREE.Vector3(), t0: new THREE.Vector3(), p1: new THREE.Vector3(), t1: new THREE.Vector3() };
+function fly(view, dur = 1.2) {
+  state.view = view;
+  fl.p0.copy(camera.position); fl.t0.copy(controls.target);
+  if (view === 'overview') { const c = camera.position.clone(), t = controls.target.clone(); controls.target.set(-0.5, 0.5, 0); frame(); fl.p1.copy(camera.position); fl.t1.copy(controls.target); camera.position.copy(c); controls.target.copy(t); }
+  else {
+    const va = sep.valves[view], g = va.group, side = new THREE.Vector3(0, 0, va.side).applyQuaternion(g.quaternion), dist = (view === 'choke' ? 13 : 10) * va.r + 1.2;
+    fl.t1.copy(g.position).add(new THREE.Vector3(0, (view === 'choke' ? 1.6 : 0.6) * va.r, 0)); // below the middle: keeps the valve clear of the dock
+    fl.p1.copy(fl.t1).addScaledVector(side, dist).add(new THREE.Vector3(0, 0.35 * dist, 0)).addScaledVector(new THREE.Vector3(0, 1, 0).cross(side), 0.25 * dist);
+  }
+  fl.t = 0; fl.dur = Math.max(dur, 1e-3);
+}
+function flyStep(dt) {
+  if (fl.t >= 1) return;
+  fl.t = Math.min(1, fl.t + dt / fl.dur);
+  const e = fl.t * fl.t * (3 - 2 * fl.t);
+  camera.position.lerpVectors(fl.p0, fl.p1, e); controls.target.lerpVectors(fl.t0, fl.t1, e);
+}
 
 // ---------------------------------------------------------------- UI
 
@@ -179,13 +199,22 @@ row('Show', [
   ['Liquid look', () => state.look, () => { state.look = !state.look; }],
   ['Labels', () => state.labels, () => { state.labels = !state.labels; }],
 ]);
+const VIEWS = { overview: 'Overview', choke: 'Choke', gas: 'PV gas', water: 'LV water', oil: 'LV oil' };
+row('Valves', [...Object.entries(VIEWS).map(([k, t]) => [t, () => state.view === k, () => fly(k)]),
+  ...[0.3, 0.6, 1].map((u) => [`Choke ${u * 100}%`, () => sim.choke === u, () => { sim.choke = u; }])]);
+const LOOKS = { mixed: { choke: 'box', gas: 'linear', water: 'multiturn', oil: 'multiturn' }, box: 'box', multiturn: 'multiturn', linear: 'linear' };
+const lookOf = (k) => (typeof LOOKS[k] === 'string' ? { choke: k, gas: k, water: k, oil: k } : LOOKS[k]);
+state.looks = LOOKS[q.get('looks')] ? q.get('looks') : 'mixed';
+const setLooks = (k) => { state.looks = k; for (const [vk, a] of Object.entries(lookOf(k))) sep.valves[vk].setActuator(a); };
+setLooks(state.looks);
+row('Actuator', [['Mixed', 'mixed'], ['A · box', 'box'], ['B · multi-turn', 'multiturn'], ['C · linear', 'linear']].map(([t, k]) => [t, () => state.looks === k, () => setLooks(k)]));
 function refresh() {
   for (const b of ui.querySelectorAll('button')) b.classList.toggle('on', b._on());
   sep.U.uLook.value = state.look ? 1 : 0;
   tag.textContent = `PROTOTYPE · ${VARIANTS[state.variant].name}`;
   const u = new URL(location.href);
   u.searchParams.set('variant', state.variant); u.searchParams.set('open', state.open ? 1 : 0);
-  u.searchParams.set('look', state.look ? 1 : 0); u.searchParams.set('inlet', sep.inlet); u.searchParams.set('gas', sep.gasKind); u.searchParams.set('slugging', state.slugging ? 1 : 0);
+  u.searchParams.set('look', state.look ? 1 : 0); u.searchParams.set('inlet', sep.inlet); u.searchParams.set('gas', sep.gasKind); u.searchParams.set('slugging', state.slugging ? 1 : 0); u.searchParams.set('looks', state.looks);
   history.replaceState(null, '', u);
 }
 refresh();
@@ -198,7 +227,7 @@ const m3h = (q) => q * 3600;
 let lastStyle = null;
 function tick(now) {
   adaptResolution(now);
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const raw = clock.getDelta(), dt = Math.min(raw, 0.05);
   if (state.slugging && sim.t > state.nextSlug) { sim.slug(0.7 + 0.6 * Math.random()); state.nextSlug = sim.t + 14 + 8 * Math.random(); }
   sim.step(dt); sim.apply(sep);
   state.amount = THREE.MathUtils.clamp(state.amount + (state.open ? dt : -dt) / 2.2, 0, 1);
@@ -210,9 +239,10 @@ function tick(now) {
   gauges.inlet.set(sim.Tin); gauges.gas.set(sim.P); gauges.water.set(m3h(sim.qWout)); gauges.oil.set(m3h(sim.qOout));
   for (const g of Object.values(gauges)) g.update(dt);
   mixer?.update(dt);
+  flyStep(Math.min(raw, 0.25)); // camera moves on wall time, even on slow frames
   controls.update();
   renderer.render(scene, camera);
-  const show = state.labels && state.amount > 0.85;
+  const show = state.labels && state.amount > 0.85 && state.view === 'overview';
   for (const l of LABELS) {
     const p = l.at(); if (p.z > 10) p.z = state.variant === 'c' ? 1.2 : 0;
     v.copy(p).project(camera);
