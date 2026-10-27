@@ -139,7 +139,7 @@ function pipeAlong(points, radius, mat) {
 }
 
 export class Separator {
-  constructor({ inlet = 'vane', gas = 'cyclones', actuators = {} } = {}) {
+  constructor({ inlet = 'vane', gas = 'cyclones', actuators = {}, inletChoke = true } = {}) {
     this.group = new THREE.Group();
     this.group.name = 'separator 20-VA-001';
     this.cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), BIG); // keeps z <= constant
@@ -219,20 +219,20 @@ export class Separator {
     // the gas line. Pipes stop at their flanges (gap = 3.4 bore radii each side).
     const zv = -2.2, act = { choke: 'box', gas: 'linear', water: 'multiturn', oil: 'multiturn', ...actuators };
     this.valves = {
-      choke: new Valve({ body: 'angle', actuator: act.choke, r: gr * 0.8, fluid: 'well', name: 'inlet choke' }),
+      ...(inletChoke && { choke: new Valve({ body: 'angle', actuator: act.choke, r: gr * 0.8, fluid: 'well', name: 'inlet choke' }) }),
       gas: new Valve({ body: 'globe', actuator: act.gas, r: gr, fluid: 'gas', name: 'PV gas' }),
       water: new Valve({ body: 'globe', actuator: act.water, r: pr, fluid: 'water', name: 'LV water', side: -1 }), // opens away from the oil valve
       oil: new Valve({ body: 'globe', actuator: act.oil, r: pr, fluid: 'oil', name: 'LV oil' }),
     };
     const place = (v, x, y, z, rotY) => { v.group.position.set(x, y, z); v.group.rotation.y = rotY; this.group.add(v.group); };
-    place(this.valves.choke, DIM.inletX, top, 0, -Math.PI / 2); // in from -z, out downwards
+    if (inletChoke) place(this.valves.choke, DIM.inletX, top, 0, -Math.PI / 2); // in from -z, out downwards
     place(this.valves.gas, DIM.gasX, top, zv, Math.PI / 2); // flow towards -z
     place(this.valves.water, DIM.waterX, low, zv, Math.PI / 2);
     place(this.valves.oil, DIM.oilX, low, zv, Math.PI / 2);
     const gg = 3.4 * gr, gc = 3.4 * gr * 0.8, gp = 3.4 * pr;
     for (const [pts, rad] of [
-      [[V(DIM.inletX, top, -4), V(DIM.inletX, top, -gc)], gr],
-      [[V(DIM.inletX, top - gc, 0), V(DIM.inletX, R + 0.38, 0)], gr],
+      ...(inletChoke ? [[[V(DIM.inletX, top, -4), V(DIM.inletX, top, -gc)], gr], [[V(DIM.inletX, top - gc, 0), V(DIM.inletX, R + 0.38, 0)], gr]]
+        : [[[V(DIM.inletX, top, -4), V(DIM.inletX, top, 0), V(DIM.inletX, R + 0.38, 0)], gr]]), // without the choke: a plain elbow
       [[V(DIM.gasX, R + 0.38, 0), V(DIM.gasX, top, 0), V(DIM.gasX, top, zv + gg)], gr],
       [[V(DIM.gasX, top, zv - gg), V(DIM.gasX, top, -4)], gr],
       ...[DIM.waterX, DIM.oilX].flatMap((x) => [
@@ -803,6 +803,7 @@ export class SeparatorSim {
     this.u = { water: this.base.water / this.qmax.water, oil: this.base.oil / this.qmax.oil };
     this.manualOut = { water: null, oil: null };
     this.choke = 0.6; // inlet choke opening; the well stream scales with it (0.6 = normal)
+    this.feed = 1; // extra well stream multiplier for scenes that drive the inflow themselves
   }
   slug(size = 1) { this.slugs.push({ t0: this.t, size, waved: false }); }
   /** Loop 'water' (interface) or 'oil' (oil compartment) to manual, valve held at `opening` (0..1): for step tests. */
@@ -833,7 +834,7 @@ export class SeparatorSim {
       if (!s.waved && u > 1.8) { s.waved = true; this.packets.push({ x: this.source, v: 3.2, a: 0.22 * s.size }); }
     }
     this.slugs = this.slugs.filter((s) => this.t - s.t0 < 20);
-    const well = this.choke / 0.6; // linear choke around the normal opening
+    const well = (this.choke / 0.6) * this.feed; // linear choke around the normal opening
     const qWin = this.base.water * (1 + liq) * well, qOin = this.base.oil * (1 + liq) * well;
     this.inflow = (1 + liq) * well; // well stream relative to normal
     // weir overflow from the surface just upstream of the weir
@@ -878,7 +879,7 @@ export class SeparatorSim {
     sep.levels.interface = this.hW; sep.levels.surface = this.hL; sep.levels.bucket = this.hO; sep.levels.emulsion = this.emulsion;
     sep.waves = (x) => this.waves(x); sep.ripple = (x) => this.ripple(x); sep.overflow = this.head; sep.gasFlow = this.qGas; this.source = (sep.U.uIn.value.x + sep.U.uIn.value.y) / 2; sep.U.uFlow.value = this.inflow ?? 1;
     const v = sep.valves;
-    v.water.set(this.u.water); v.oil.set(this.u.oil); v.choke.set(this.choke);
+    v.water.set(this.u.water); v.oil.set(this.u.oil); v.choke?.set(this.choke);
     v.gas.set(THREE.MathUtils.clamp(0.35 + (this.P - 8) * 0.12, 0, 1)); // pressure controller: opens as the pressure rises
   }
 }
