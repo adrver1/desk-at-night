@@ -39,7 +39,7 @@ const KNEE = 0.35 / DUCK_DOOR;
 // the heads in the door shot (b), or a roll call that builds up (c)
 const TAGS = new URLSearchParams(location.search).get('tags') ?? 'a';
 const TAG_FROM = 14;   // s, the door shot
-const TAG_HOLD = 2.6;  // s a lower third stays (a)
+const TAG_HOLD = 2;    // s a lower third stays (a)
 
 // Shots: [from, to] for the camera and what it looks at, over [t0, t1]
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -454,7 +454,7 @@ export class Sola {
 
   tagsAt(t) {
     if (!this.tags) return;
-    this.tags.classList.toggle('out', t > LENGTH - 1.6);
+    this.tags.classList.toggle('out', t > LENGTH - 1.2);   // with the fade to black
     if (TAGS === 'a' && this.lower && t > this.lowerUntil) this.lower.classList.remove('on');
     if (TAGS !== 'b') return;
     // Over each head while they walk up and step in, gone once inside
