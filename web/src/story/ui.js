@@ -57,7 +57,7 @@ export class StoryUI {
   credit(c) {
     const e = this.el.credit;
     if (!c) { e.classList.remove('on'); return; }
-    e.innerHTML = `<small>${esc(c[0])}</small><b>${esc(c[1])}</b>`;
+    e.innerHTML = `<small>${esc(c[0])}</small><b>${esc(c[1])}</b>${c[2] ? `<small class="bu">${esc(c[2])}</small>` : ''}`;   // [role, name, business unit?]
     fadeIn(e);
   }
 

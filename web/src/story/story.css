@@ -64,6 +64,7 @@
 .credit.on { opacity: 1; }
 .credit small { font: 500 calc(1.2 * var(--u))/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase; color: #dcd6c8; }
 .credit b { font: 600 calc(3.4 * var(--u))/1.1 var(--display); }
+.credit small.bu { color: var(--tungsten); margin-top: calc(0.3 * var(--u)); }   /* the name's business unit, like the Sola boarding names */
 
 /* ------------------------------------------------------------- subtitles */
 .subs { position: absolute; left: 50%; bottom: calc(5 * var(--u)); transform: translateX(-50%); width: min(92vw, 72ch); text-align: center; z-index: 9;
