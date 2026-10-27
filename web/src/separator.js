@@ -595,7 +595,7 @@ function makeVaneInlet(U, clip, mat) {
   const g = new THREE.Group(); g.name = 'inlet device (vane)';
   const xn = DIM.inletX, rN = DIM.inletR, yT = RI - 0.12, w = 0.45, rB = 0.6;
   const xb = xn - rN, xe = -L / 2 + 0.25; // elbow/duct joint, duct end near the head
-  const yb0 = yT - rB, yb1 = yT - 0.3; // duct bottom: deep at the box, shallow at the end
+  const yb0 = 0.64, yb1 = 0.55; // duct bottom: the support plates slope down toward the head
   const parts = [];
   // inlet box sides: quarter-circle outline (the curved back at +x)
   const side = new THREE.Shape();
@@ -614,6 +614,11 @@ function makeVaneInlet(U, clip, mat) {
   const roof = new THREE.BoxGeometry(xn + rN - xe, 0.02, 2 * w + 0.04); roof.translate((xn + rN + xe) / 2, yT + 0.01, 0); parts.push(roof);
   const end = new THREE.BoxGeometry(0.02, yT - yb1, 2 * w); end.translate(xe, (yT + yb1) / 2, 0); parts.push(end);
   // vanes down both sides, following the tapering duct bottom
+  // support plates: two narrow strips along the bottom edges, carrying the vanes
+  for (const sd of [-1, 1]) {
+    const len = Math.hypot(xb - xe, yb0 - yb1), sp = new THREE.BoxGeometry(len, 0.015, 0.18);
+    sp.rotateZ(Math.atan2(yb0 - yb1, xb - xe)); sp.translate((xb + xe) / 2, (yb0 + yb1) / 2, sd * (w - 0.08)); parts.push(sp);
+  }
   const n = 10;
   for (let i = 0; i < n; i++) {
     const x = xb - 0.12 - ((xb - 0.12 - xe - 0.12) * i) / (n - 1);
