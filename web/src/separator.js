@@ -227,9 +227,11 @@ export class Separator {
     // liquids: one rebuilt mesh per phase, plus GPU particles (droplets, bubbles, spray)
     this.U = {
       uTime: { value: 0 }, uLook: { value: 1 }, uStir: { value: 0 }, uCut: { value: BIG }, uGlass: { value: 0 },
-      uIface: { value: 0 }, uSurf: { value: 0 }, uBucket: { value: 0 }, uEmul: { value: 0.1 }, uSize: { value: 1 },
+      uIface: { value: 0 }, uSurf: { value: 0 }, uBucket: { value: 0 }, uEmul: { value: 0.1 }, uSize: { value: 1 }, uFlow: { value: 1 },
     };
     this.particles = makeParticles(this.U);
+    this.stream = makeInletStream(this.U, clip);
+    this.group.add(this.stream);
     this.group.add(this.particles);
     this.liquids = {};
     for (const [k, col] of Object.entries(LIQUID)) {
@@ -525,6 +527,39 @@ void main() {
   return pts;
 }
 
+// The well stream: down the inlet nozzle, round the inside of the half-pipe
+// inlet device, out under its lip toward the inlet head and down into the
+// liquid. One tube; the shader scrolls streaks along it and breaks it into
+// gulps at normal flow, a solid gush during a slug (uFlow = inflow / normal).
+function makeInletStream(U, clip) {
+  const cx = DIM.inletX + 0.05, cy = R - 0.75, rr = 0.33;
+  const pts = [new THREE.Vector3(DIM.inletX, R + 0.35, 0), new THREE.Vector3(DIM.inletX, cy + rr + 0.1, 0)];
+  for (let i = 0; i <= 12; i++) { const a = Math.PI / 2 - (i / 12) * Math.PI; pts.push(new THREE.Vector3(cx + rr * Math.cos(a), cy + rr * Math.sin(a), 0)); }
+  // free fall from the lip, thrown toward the inlet head
+  for (let i = 1; i <= 10; i++) { const t = i * 0.05; pts.push(new THREE.Vector3(cx - 2.6 * t, cy - rr - 0.5 * 9.81 * t * t, 0)); }
+  const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), 90, 0.11, 10, false);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x9a6a2c, roughness: 0.3, side: THREE.DoubleSide, clippingPlanes: clip });
+  mat.customProgramCacheKey = () => 'inlet-stream';
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, U);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vUv2; uniform float uFlow;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvUv2 = uv;\ntransformed += normal * 0.07 * clamp((uFlow - 1.) / 4., 0., 1.);'); // a slug fattens the stream
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+varying vec2 vUv2; uniform float uTime, uFlow, uLook;
+${GLSL}`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+float along = vUv2.x * 14. - uTime * (3. + 1.5 * min(uFlow, 4.));
+float gulp = vnoise(vec2(along * 0.6, vUv2.y * 2.));
+float solid = clamp((uFlow - 1.) / 2., 0., 1.);
+if (gulp < 0.45 - 0.45 * solid && vUv2.x > 0.12) discard;
+float streak = vnoise(vec2(along * 2.5, vUv2.y * 12.));
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.88, 0.76), smoothstep(0.6, 0.85, streak) * 0.6 * uLook); // entrained gas
+`);
+  };
+  const m = new THREE.Mesh(geo, mat);
+  m.name = 'inlet stream';
+  return m;
+}
+
 // ---------------------------------------------------------------- simulation
 
 // A toy process model, good enough to show slugs and level control:
@@ -563,6 +598,7 @@ export class SeparatorSim {
     }
     this.slugs = this.slugs.filter((s) => this.t - s.t0 < 20);
     const qWin = this.base.water * (1 + liq), qOin = this.base.oil * (1 + liq);
+    this.inflow = 1 + liq; // well stream relative to normal
     // weir overflow from the surface just upstream of the weir
     const head = this.hL + this.waves(DIM.weirX - 0.15) - DIM.crest;
     this.head = Math.max(0, head);
@@ -600,6 +636,6 @@ export class SeparatorSim {
   }
   apply(sep) {
     sep.levels.interface = this.hW; sep.levels.surface = this.hL; sep.levels.bucket = this.hO; sep.levels.emulsion = this.emulsion;
-    sep.waves = (x) => this.waves(x); sep.ripple = (x) => this.ripple(x); sep.overflow = this.head;
+    sep.waves = (x) => this.waves(x); sep.ripple = (x) => this.ripple(x); sep.overflow = this.head; sep.U.uFlow.value = this.inflow ?? 1;
   }
 }
