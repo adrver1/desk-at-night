@@ -60,8 +60,10 @@ const IN = { ceo: [CEO.path.at(-1), V(-42.6, 38.4, 0), V(-43.6, 38.4, 0), DOOR],
 // door; ?ceo=1 brings back the CEO, the welcome and the handshake
 export const CEO_MEET = new URLSearchParams(location.search).get('ceo') === '1';
 // He walks the whole glide: in from the south-east of the square, past the
-// fountain and up the steps, in shot all the way down (Adriaen, 2026-10-27)
-const SOLO = [V(-26, 21, 0), ...WALK.path, ...IN.me.slice(1)];
+// fountain and up the steps, in shot all the way down (Adriaen, 2026-10-27).
+// He comes through the gap between the planters at (-29, 18) and (-29, 27)
+// (trondheim_surroundings.py PLANTER_SPOTS), not through their trees
+const SOLO = [V(-26.5, 22.5, 0), V(-31, 23, 0), ...WALK.path, ...IN.me.slice(1)];
 const pathLength = (pts) => pts.slice(1).reduce((n, q, i) => n + q.distanceTo(pts[i]), 0);
 const CUES = { meet: MEET, shake: SHAKE.at + SHAKE.len, door: pathLength(SOLO) / WALK.speed };
 // Where someone is d metres along a path: the point, the way they face, still walking or not
