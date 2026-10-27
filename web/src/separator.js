@@ -78,20 +78,20 @@ function meshTexture() {
 }
 
 // Lathe profile (radius, axial) from the left apex to the right apex
-function profile(r, a, n = 18) {
+function profile(r, a, n = 6) {
   const p = [];
   for (let i = 0; i <= n; i++) { const t = (i / n) * Math.PI / 2; p.push(new THREE.Vector2(r * Math.sin(t), X0 - a * Math.cos(t))); }
-  for (let i = 1; i <= n; i++) { const t = (i / n) * Math.PI / 2; p.push(new THREE.Vector2(r * Math.cos(t), X1 + a * Math.sin(t))); }
+  for (let i = 0; i <= n; i++) { const t = (i / n) * Math.PI / 2; p.push(new THREE.Vector2(r * Math.cos(t), X1 + a * Math.sin(t))); }
   return p;
 }
 // Half shell: front = z > 0, back = z < 0
 function halfShell(r, a, front) {
-  const g = new THREE.LatheGeometry(profile(r, a), 32, front ? -Math.PI / 2 : Math.PI / 2, Math.PI);
+  const g = new THREE.LatheGeometry(profile(r, a), 12, front ? -Math.PI / 2 : Math.PI / 2, Math.PI);
   g.rotateZ(-Math.PI / 2); // lathe axis y -> x
   return g;
 }
 // Outline (x, y) of the ellipsoid-headed cylinder r, a cut by the plane z = c
-function sectionOutline(r, a, c, n = 28) {
+function sectionOutline(r, a, c, n = 12) {
   if (Math.abs(c) >= r) return null;
   const Y = Math.sqrt(r * r - c * c), pts = [];
   const head = (y) => a * Math.sqrt(Math.max(0, 1 - (y * y + c * c) / (r * r)));
@@ -110,7 +110,7 @@ function capGeometry(c) {
   return g;
 }
 // Circle segment of radius r below height top, in the (z, y) plane, placed at x
-function segmentShape(r, top, n = 32) {
+function segmentShape(r, top, n = 12) {
   const pm = Math.acos(THREE.MathUtils.clamp(-top / r, -1, 1)), s = new THREE.Shape();
   for (let i = 0; i <= n; i++) { const p = -pm + (2 * pm * i) / n; const v = [r * Math.sin(p), -r * Math.cos(p)]; i ? s.lineTo(...v) : s.moveTo(...v); }
   s.closePath();
@@ -131,7 +131,9 @@ function pipeAlong(points, radius, mat) {
     path.add(new THREE.QuadraticBezierCurve3(p0, p.clone(), p1));
     prev = p1;
   }
-  return new THREE.Mesh(new THREE.TubeGeometry(path, points.length * 12, radius, 14, false), mat);
+  // one ring per straight run, four per bend, eight sides: a low-poly pipe
+  const parts = path.curves.map((c) => new THREE.TubeGeometry(c, c.isLineCurve3 ? 1 : 4, radius, 8, false));
+  return new THREE.Mesh(mergeGeometries(parts), mat);
 }
 
 export class Separator {
@@ -199,9 +201,9 @@ export class Separator {
     // nozzles, flanges, pipes, saddles (never clipped)
     const nozzle = (x, up, r) => {
       const g = new THREE.Group();
-      const n = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.5, 18, 1, true), m.pipe);
+      const n = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.5, 10, 1, true), m.pipe);
       n.material.side = THREE.DoubleSide;
-      const f = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.6, r * 1.6, 0.06, 20), m.pipe);
+      const f = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.6, r * 1.6, 0.06, 10), m.pipe);
       n.position.y = up ? R + 0.1 : -R - 0.1; f.position.y = up ? R + 0.35 : -R - 0.35;
       g.add(n, f); g.position.x = x; return g;
     };
@@ -319,9 +321,9 @@ export class Separator {
     const out = this.soups ??= { water: new Soup(this.liquids.water), emulsion: new Soup(this.liquids.emulsion), oil: new Soup(this.liquids.oil) };
     for (const soup of Object.values(out)) soup.n = 0;
     const layer = (arr, x0, x1, n, lo, hi, top) => buildLayer(arr, x0, x1, n, lo, hi, top, c, front);
-    layer(out.water, sepA, sepB, 170, bottom, (x) => iface(x) - e2, false);
-    layer(out.emulsion, sepA, sepB, 170, (x) => iface(x) - e2, (x) => iface(x) + e2, false);
-    layer(out.oil, sepA, sepB, 170, (x) => iface(x) + e2, surf, true);
+    layer(out.water, sepA, sepB, 90, bottom, (x) => iface(x) - e2, false);
+    layer(out.emulsion, sepA, sepB, 90, (x) => iface(x) - e2, (x) => iface(x) + e2, false);
+    layer(out.oil, sepA, sepB, 90, (x) => iface(x) + e2, surf, true);
     layer(out.oil, oilA, oilB, 50, bottom, (x) => lv.bucket + rip(x), true);
     if (this.overflow > 0.003) overflowSheet(out.oil, this.overflow, lv.bucket, c);
     for (const soup of Object.values(out)) soup.upload();
@@ -389,7 +391,7 @@ function buildLayer(arr, x0, x1, n, lo, hi, top, c, front) {
     }
     if (front) {
       // curved wall behind the glass front half
-      const K = 8;
+      const K = 4;
       for (let k = 0; k < K; k++) {
         const ya0 = A.y0 + ((A.y1 - A.y0) * k) / K, ya1 = A.y0 + ((A.y1 - A.y0) * (k + 1)) / K;
         const yb0 = B.y0 + ((B.y1 - B.y0) * k) / K, yb1 = B.y0 + ((B.y1 - B.y0) * (k + 1)) / K;
@@ -581,7 +583,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.88, 0.76), smoothstep(0.6,
   return mat;
 }
 function streamDown(U, clip, x, y0, y1, r, key) {
-  const g = new THREE.CylinderGeometry(r, r, y0 - y1, 12, 6, true);
+  const g = new THREE.CylinderGeometry(r, r, y0 - y1, 8, 3, true);
   g.translate(x, (y0 + y1) / 2, 0);
   return new THREE.Mesh(g, fallMaterial(U, clip, key));
 }
@@ -600,11 +602,11 @@ function makeVaneInlet(U, clip, mat) {
   // inlet box sides: quarter-circle outline (the curved back at +x)
   const side = new THREE.Shape();
   side.moveTo(xn + rN, yT);
-  for (let i = 1; i <= 10; i++) { const a = -(i / 10) * Math.PI / 2; side.lineTo(xb + rB * Math.cos(a), yT + rB * Math.sin(a)); }
+  for (let i = 1; i <= 5; i++) { const a = -(i / 5) * Math.PI / 2; side.lineTo(xb + rB * Math.cos(a), yT + rB * Math.sin(a)); }
   side.lineTo(xb, yT); side.closePath();
   for (const z of [-w, w]) { const s = new THREE.ShapeGeometry(side); s.translate(0, 0, z); parts.push(s); }
   // curved back plate
-  const back = new THREE.PlaneGeometry(2 * w, 1, 1, 10), pb = back.attributes.position;
+  const back = new THREE.PlaneGeometry(2 * w, 1, 1, 5), pb = back.attributes.position;
   for (let i = 0; i < pb.count; i++) {
     const a = -(pb.getY(i) + 0.5) * Math.PI / 2, z = pb.getX(i);
     pb.setXYZ(i, xb + rB * Math.cos(a), yT + rB * Math.sin(a), z);
@@ -634,7 +636,7 @@ function makeVaneInlet(U, clip, mat) {
   // falling sheets: out of the vane gaps on both sides and the open bottom
   const sheets = [];
   for (const z of [-w - 0.08, 0, w + 0.08]) {
-    const p = new THREE.PlaneGeometry(xb - xe - 0.1, 1, 14, 6), pp = p.attributes.position;
+    const p = new THREE.PlaneGeometry(xb - xe - 0.1, 1, 6, 3), pp = p.attributes.position;
     for (let i = 0; i < pp.count; i++) {
       const x = (xb + xe) / 2 + pp.getX(i), t = pp.getY(i) + 0.5;
       const top = THREE.MathUtils.lerp(yb0, yb1, (xb - x) / (xb - xe)) + (z ? 0.15 : 0);
@@ -655,13 +657,13 @@ const onlyPosNormUv = (geo) => { for (const k of Object.keys(geo.attributes)) if
 function makeDiverterInlet(U, clip, mat) {
   const g = new THREE.Group(); g.name = 'inlet device (diverter plate)';
   const y = RI - 0.75, r = 0.5;
-  const plate = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 6, 0, Math.PI * 2, Math.PI - Math.asin(r / 1.2), Math.asin(r / 1.2)), mat);
+  const plate = new THREE.Mesh(new THREE.SphereGeometry(1.2, 12, 2, 0, Math.PI * 2, Math.PI - Math.asin(r / 1.2), Math.asin(r / 1.2)), mat);
   plate.position.set(DIM.inletX, y + 1.2 * Math.cos(Math.asin(r / 1.2)), 0);
   const rod = new THREE.Mesh(new THREE.BoxGeometry(0.03, R - y, 0.03), mat);
   rod.position.set(DIM.inletX + r * 0.9, (R + y) / 2, 0);
   g.add(plate, rod);
   g.add(streamDown(U, clip, DIM.inletX, R + 0.35, y, DIM.inletR * 0.75, 'inlet-stream'));
-  const ring = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.05, r + 0.18, y + 1.0, 32, 8, true), fallMaterial(U, clip, 'inlet-sheet'));
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.05, r + 0.18, y + 1.0, 12, 4, true), fallMaterial(U, clip, 'inlet-sheet'));
   ring.position.set(DIM.inletX, (y - 1.0) / 2, 0);
   g.add(ring);
   g.userData.spray = new THREE.Vector3(DIM.inletX - r - 0.1, DIM.inletX + r + 0.1, y);

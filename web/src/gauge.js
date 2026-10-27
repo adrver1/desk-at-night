@@ -21,21 +21,21 @@ export class Gauge {
     this.group.name = `gauge ${tag}`;
 
     const steel = new THREE.MeshStandardMaterial({ color: 0x2a2f33, metalness: 0.7, roughness: 0.35 });
-    const bezel = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.12, r * 1.12, r * 0.32, 40), steel);
+    const bezel = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.12, r * 1.12, r * 0.32, 16), steel);
     bezel.rotation.x = Math.PI / 2; bezel.position.z = -r * 0.16;
     this.texture = new THREE.CanvasTexture(this.drawFace());
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.anisotropy = 4;
-    const face = new THREE.Mesh(new THREE.CircleGeometry(r, 48), new THREE.MeshStandardMaterial({ map: this.texture, roughness: 0.6 }));
+    const face = new THREE.Mesh(new THREE.CircleGeometry(r, 20), new THREE.MeshStandardMaterial({ map: this.texture, roughness: 0.6 }));
     face.position.z = 0.002;
     // needle: a long thin triangle with a short tail, pointing +y at angle 0
     const s = new THREE.Shape();
     s.moveTo(-r * 0.035, -r * 0.18); s.lineTo(0, r * 0.84); s.lineTo(r * 0.035, -r * 0.18); s.closePath();
     this.needle = new THREE.Mesh(new THREE.ShapeGeometry(s), new THREE.MeshStandardMaterial({ color: 0xc8261e, roughness: 0.5 }));
     this.needle.position.z = 0.012;
-    const hub = new THREE.Mesh(new THREE.CircleGeometry(r * 0.07, 20), steel);
+    const hub = new THREE.Mesh(new THREE.CircleGeometry(r * 0.07, 6), steel);
     hub.position.z = 0.016;
-    const glass = new THREE.Mesh(new THREE.CircleGeometry(r * 1.02, 40),
+    const glass = new THREE.Mesh(new THREE.CircleGeometry(r * 1.02, 20),
       new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.08, roughness: 0.05, metalness: 0, depthWrite: false }));
     glass.position.z = 0.03;
     this.group.add(bezel, face, this.needle, hub, glass);
