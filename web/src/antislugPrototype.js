@@ -100,6 +100,8 @@ const hist = [[], []];
 let acc = 0;
 function sample() {
   [sim, ghost].forEach((s, i) => { hist[i].push({ p: s.pbh, u: s.uOut, oil: s.wro, auto: s.auto }); if (hist[i].length > KEEP) hist[i].shift(); });
+  // separator levels alongside (it runs in screen time, so these are its last ~30 s)
+  hist[0].at(-1).lv = { L: sepSim.hL, W: sepSim.hW, O: sepSim.hO };
 }
 function applyModes() {
   sim.auto = state.auto; sim.u = state.u; sim.sp = state.sp;
@@ -201,6 +203,33 @@ function drawTrend() {
   g.fillStyle = C.u; g.fillText('Choke opening', L + 150, 10);
   if (ghostOn) { g.fillStyle = C.p2; g.fillText('faint: without', L + 240, 10); }
 }
+// separator levels (m above the vessel bottom): liquid surface, oil-water
+// interface, oil compartment behind the weir, with the weir crest and setpoints
+const lc = document.getElementById('levels');
+const LC = { L: '#e8a33d', W: '#5aa9e6', O: '#c98be0' };
+const bottomOf = SDIM.R - SDIM.T; // interior radius: level 0 is the vessel bottom
+function drawLevels() {
+  const dpr = Math.min(devicePixelRatio, 2), W = lc.clientWidth, H = lc.clientHeight;
+  if (lc.width !== Math.round(W * dpr)) { lc.width = Math.round(W * dpr); lc.height = Math.round(H * dpr); }
+  const g = lc.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const L = 30, R = W - 30, T = 14, B = H - 3, Y0 = 0.4, Y1 = 1.3;
+  const x = (i) => L + ((R - L) * i) / (KEEP - 1), y = (h) => B - ((h + bottomOf - Y0) / (Y1 - Y0)) * (B - T);
+  const hm = hist[0];
+  g.fillStyle = C.on;
+  for (let i = 0; i < hm.length; i++) if (hm[i].auto) g.fillRect(x(i + KEEP - hm.length) - 0.5, T, (R - L) / (KEEP - 1) + 1, B - T);
+  g.strokeStyle = C.grid; g.lineWidth = 1; g.font = '500 9.5px "JetBrains Mono", monospace'; g.fillStyle = C.text; g.textAlign = 'right';
+  for (const m of [0.6, 1.0]) { const yy = B - ((m - Y0) / (Y1 - Y0)) * (B - T); g.beginPath(); g.moveTo(L, yy); g.lineTo(R, yy); g.stroke(); g.fillText(m.toFixed(1), L - 4, yy + 3); }
+  g.setLineDash([3, 4]); g.globalAlpha = 0.6;
+  for (const [h, col] of [[SDIM.crest, C.sp], [sepSim.sp.interface, LC.W], [sepSim.sp.bucket, LC.O]]) { g.strokeStyle = col; g.beginPath(); g.moveTo(L, y(h)); g.lineTo(R, y(h)); g.stroke(); }
+  g.setLineDash([]); g.globalAlpha = 1;
+  for (const k of ['W', 'O', 'L']) {
+    g.strokeStyle = LC[k]; g.lineWidth = 1.6; g.beginPath(); let on = false;
+    hm.forEach((s, i) => { if (!s.lv) return; const xx = x(i + KEEP - hm.length), yy = y(s.lv[k]); on ? g.lineTo(xx, yy) : g.moveTo(xx, yy); on = true; });
+    g.stroke();
+  }
+  g.textAlign = 'left'; g.font = '600 10px "Instrument Sans", system-ui, sans-serif';
+  [['Liquid level', 'L', 0], ['Interface', 'W', 78], ['Oil compartment', 'O', 140], ['(m) dashed: weir, SP', null, 236]].forEach(([t, k, dx]) => { g.fillStyle = k ? LC[k] : C.text; g.fillText(t, L + dx, 10); });
+}
 const avg = (h, k) => { const s = h.slice(-AVG); return s.reduce((a, b) => a + b[k], 0) / s.length; };
 const span = (h, k) => { const s = h.slice(-AVG).map((v) => v[k]); return [Math.min(...s), Math.max(...s)]; };
 const m3d = (kgs) => Math.round((kgs / 760) * 86400 / 10) * 10;
@@ -225,7 +254,18 @@ function place(el, p, show) {
   el.style.left = `${((v3.x + 1) / 2) * innerWidth}px`; el.style.top = `${((1 - v3.y) / 2) * innerHeight}px`;
 }
 function tick() {
-  const dt = Math.min(clock.getDelta(), 0.05), simDt = dt * state.speed;
+  const dt = Math.min(clock.getDelta(), 0.05);
+  stepWorld(dt);
+  controls.update();
+  renderer.render(scene, camera);
+  drawTrend(); drawLevels();
+  if ((statT -= dt) < 0) { statT = 0.5; drawStats(); }
+  for (const l of LABELS) place(l.el, l.at(), state.labels && l.views.includes(state.view[0]));
+  requestAnimationFrame(tick);
+}
+/** Everything that moves, for one frame of dt seconds (also used by QA to fast-forward). */
+function stepWorld(dt) {
+  const simDt = dt * state.speed;
   sim.step(simDt); ghost.step(simDt);
   acc += simDt; while (acc >= DT_S) { acc -= DT_S; sample(); }
   well.update(dt, sim);
@@ -237,12 +277,6 @@ function tick() {
   lastFeed = f;
   sepSim.step(dt); sepSim.apply(sep); sep.update(dt, sepSim.stir);
   if ((lvlT -= dt) < 0) { lvlT = 0.25; lvl.push(sepSim.hL); if (lvl.length > 120) lvl.shift(); }
-  controls.update();
-  renderer.render(scene, camera);
-  drawTrend();
-  if ((statT -= dt) < 0) { statT = 0.5; drawStats(); }
-  for (const l of LABELS) place(l.el, l.at(), state.labels && l.views.includes(state.view[0]));
-  requestAnimationFrame(tick);
 }
-window.proto = { sim, ghost, sepSim, well, sep, state, refresh, advance, frame };
+window.proto = { sim, ghost, sepSim, well, sep, state, refresh, advance, frame, run: (sec) => { for (let t = 0; t < sec; t += 1 / 60) stepWorld(1 / 60); } };
 requestAnimationFrame(tick);

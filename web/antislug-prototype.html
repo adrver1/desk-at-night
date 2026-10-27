@@ -29,7 +29,8 @@
   .lbl { position: fixed; left: 0; top: 0; font: 500 11px/1.2 var(--sans); color: var(--ink); background: rgba(6,14,18,0.6); padding: 3px 6px; border-radius: 4px; pointer-events: none; white-space: nowrap; transform: translate(-50%, -50%); transition: opacity .3s; }
   #hud { position: fixed; left: 0; right: 0; top: 0; background: var(--panel); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
     padding: max(6px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) 6px max(12px, env(safe-area-inset-left, 0px)); pointer-events: none; }
-  #trend { width: 100%; height: 118px; display: block; }
+  #trend { width: 100%; height: 104px; display: block; }
+  #levels { width: 100%; height: 78px; display: block; margin-top: 2px; }
   #stats { font: 400 11px/1.35 var(--mono); color: var(--dim); display: grid; gap: 3px; margin-top: 4px; }
   #stats b { color: var(--ink); font-weight: 500; }
   .bar { position: relative; height: 8px; border-radius: 4px; background: rgba(238,243,244,0.12); overflow: hidden; }
@@ -41,7 +42,7 @@
 </head>
 <body>
 <canvas id="view"></canvas>
-<div id="hud"><canvas id="trend"></canvas><div id="stats"></div></div>
+<div id="hud"><canvas id="trend"></canvas><canvas id="levels"></canvas><div id="stats"></div></div>
 <div id="tag"></div>
 <div id="status">Loading…</div>
 <div id="dock">
