@@ -579,7 +579,7 @@ varying vec3 vP; uniform float uTime, uFlow, uLook, uSurf;
 ${GLSL}`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 if (vP.y < uSurf - 0.02) discard; // only above the liquid
 float solid = clamp((uFlow - 1.) / 2., 0., 1.);
-${mode === 'film' ? `float down = -vP.x * 2. + uTime * (1.5 + 0.8 * min(uFlow, 4.));
+${mode === 'film' ? `float down = vP.x * 2. + uTime * (1.5 + 0.8 * min(uFlow, 4.));
 float across = vP.z * 6.;` : `float down = vP.y * 3. + uTime * (3.5 + 1.2 * min(uFlow, 4.));
 float across = (vP.x + vP.z) * 14.;`}
 // long falling strands that break into drops; more and wider strands as the flow rises
