@@ -25,11 +25,12 @@ const VARIANTS = {
 const canvas = document.querySelector('canvas');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: q.has('shot') });
 perfWatch(renderer);
-renderer.setPixelRatio(Math.min(devicePixelRatio, matchMedia('(pointer: coarse)').matches ? 1.5 : 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, matchMedia('(pointer: coarse)').matches ? 1.25 : 2));
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.localClippingEnabled = true;
 renderer.shadowMap.enabled = true;
+renderer.shadowMap.autoUpdate = false; // the scene is static apart from the cut: redraw shadows only when it moves
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x1a2329);
@@ -38,7 +39,7 @@ scene.environmentIntensity = 0.55;
 const sun = new THREE.DirectionalLight(0xffffff, 2.2);
 sun.position.set(-6, 12, 9); sun.castShadow = true;
 sun.shadow.mapSize.set(1024, 1024);
-Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 8, bottom: -8, near: 1, far: 40 });
+Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 6, bottom: -6, near: 1, far: 40 });
 scene.add(sun, new THREE.HemisphereLight(0xcfe3ff, 0x30302c, 0.6));
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 40), new THREE.MeshStandardMaterial({ color: 0x3a4246, roughness: 0.9 }));
 floor.rotation.x = -Math.PI / 2; floor.position.y = DIM.ground; floor.receiveShadow = true;
@@ -69,10 +70,10 @@ let mixer = null;
   const bin = Uint8Array.from(atob(adriaenGlb.split(',')[1]), (ch) => ch.charCodeAt(0));
   new GLTFLoader().parse(bin.buffer, '', (gltf) => {
     const p = gltf.scene;
-    p.position.set(-7.7, DIM.ground, 0.7); p.rotation.y = 0.6;
+    p.position.set(-5.5, DIM.ground, 0.9); p.rotation.y = 0.6;
     p.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
     scene.add(p);
-    mixer = new THREE.AnimationMixer(p);
+    mixer = new THREE.AnimationMixer(p); renderer.shadowMap.needsUpdate = true;
     const idle = gltf.animations.find((a) => a.name === 'idle');
     if (idle) mixer.clipAction(idle).play();
     const blink = gltf.animations.find((a) => a.name === 'blink');
@@ -82,15 +83,14 @@ let mixer = null;
 
 // labels
 const LABELS = [
-  ['Gas', () => new THREE.Vector3(-1.5, 0.85, sep.c)],
-  ['Oil', () => new THREE.Vector3(-1.5, (sep.levels.surface + sep.levels.interface) / 2 + 0.05, sep.c)],
-  ['Emulsion', () => new THREE.Vector3(1.4, sep.levels.interface, sep.c)],
-  ['Water', () => new THREE.Vector3(-1.5, (sep.levels.interface - 1.45) / 2, sep.c)],
+  ['Gas', () => new THREE.Vector3(0.2, 0.5, sep.c)],
+  ['Oil', () => new THREE.Vector3(-0.8, (sep.levels.surface + sep.levels.interface) / 2 + 0.05, sep.c)],
+  ['Emulsion', () => new THREE.Vector3(0.2, sep.levels.interface, sep.c)],
+  ['Water', () => new THREE.Vector3(-0.8, (sep.levels.interface - 1.5) / 2, sep.c)],
   ['Weir', () => new THREE.Vector3(DIM.weirX, DIM.crest + 0.32, sep.c)],
   ['Oil compartment', () => new THREE.Vector3(DIM.weirX + 1.2, sep.levels.bucket - 0.3, sep.c)],
-  ['Inlet device', () => new THREE.Vector3(DIM.inletX - 0.25, 1.32, sep.c)],
-  ['Calming baffle', () => new THREE.Vector3(DIM.baffleX, -0.95, sep.c)],
-  ['Mist extractor', () => new THREE.Vector3(DIM.gasX - 0.2, 0.62, sep.c)],
+  ['Inlet device', () => new THREE.Vector3(-2.9, 1.25, sep.c)],
+  ['Mist extractor', () => new THREE.Vector3((DIM.mistX[0] + DIM.mistX[1]) / 2, 0.55, sep.c)],
 ].map(([text, at]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at }; });
 
 const state = {
@@ -104,13 +104,13 @@ const state = {
 const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 200);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
-controls.target.set(-0.5, -0.5, 0);
+controls.target.set(-0.5, -0.1, 0);
 controls.maxPolarAngle = Math.PI * 0.55;
 function frame() {
   const w = innerWidth, h = innerHeight;
   renderer.setSize(w, h, false); camera.aspect = w / h;
   // fit the vessel's length (plus pipes) across the width
-  const halfW = 9.4, halfH = 4.6, t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const halfW = 6.4, halfH = 3.6, t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   const dist = Math.max(halfH / t, halfW / (t * camera.aspect)) + 2;
   camera.position.set(1.2, 2.4, dist).add(controls.target);
   camera.updateProjectionMatrix();
@@ -163,6 +163,7 @@ function tick() {
   state.amount = THREE.MathUtils.clamp(state.amount + (state.open ? dt : -dt) / 2.2, 0, 1);
   const style = VARIANTS[state.variant].style;
   if (style !== lastStyle) { lastStyle = style; }
+  if (sep.cut.style !== style || sep.cut.amount !== state.amount) renderer.shadowMap.needsUpdate = true;
   sep.setCut({ style, amount: state.amount });
   sep.update(dt, state.look ? sim.stir : 0);
   gauges.inlet.set(sim.Tin); gauges.gas.set(sim.P); gauges.water.set(m3h(sim.qWout)); gauges.oil.set(m3h(sim.qOout));
@@ -177,7 +178,7 @@ function tick() {
     l.el.style.opacity = show ? 1 : 0;
     l.el.style.left = `${((v.x + 1) / 2) * innerWidth}px`; l.el.style.top = `${((1 - v.y) / 2) * innerHeight}px`;
   }
-  const lvl = (h) => (h + 1.45).toFixed(2);
+  const lvl = (h) => (h + 1.5).toFixed(2); // above the bottom
   note.innerHTML = `${VARIANTS[state.variant].text}<br><b>Interface</b> ${lvl(sim.hW)} m · <b>Oil</b> ${lvl(sim.hL)} m · <b>Oil comp.</b> ${lvl(sim.hO)} m · ` +
     `<b>Over weir</b> ${m3h(sim.qOver).toFixed(0)} m³/h · <b>Water out</b> ${m3h(sim.qWout).toFixed(0)} · <b>Oil out</b> ${m3h(sim.qOout).toFixed(0)} · <b>P</b> ${sim.P.toFixed(1)} barg`;
   requestAnimationFrame(tick);
