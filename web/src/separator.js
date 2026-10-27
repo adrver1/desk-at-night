@@ -1,7 +1,7 @@
 // Weir-type three-phase inlet separator that can be cut open along its axis.
 //
 //   const sep = new Separator();  scene.add(sep.group);
-//   sep.setCut({ style: 'section' | 'lift' | 'glass', amount: 0..1 });
+//   sep.setCut({ style: 'section' | 'glass', amount: 0..1 });
 //   sep.levels = { interface, surface, bucket, emulsion }   (metres, y = 0 on the axis)
 //   sep.update(dt, time)  rebuilds the liquids and caps
 //
@@ -14,7 +14,7 @@ import * as THREE from 'three';
 export const DIM = {
   R: 1.5, T: 0.05, L: 12, // outer radius, wall, tangent to tangent
   weirX: 3.4, weirT: 0.04, crest: 0.15,
-  baffleX: -3.8, baffleTop: 0.55,
+  baffleX: -3.0, baffleTop: 0.55,
   inletX: -5.1, gasX: 5.1, waterX: 2.6, oilX: 4.4,
   saddleX: [-3.9, 3.9], ground: -3.2,
 };
@@ -130,7 +130,7 @@ function pipeAlong(points, radius, mat) {
 }
 
 export class Separator {
-  constructor() {
+  constructor({ inlet = 'vane' } = {}) {
     this.group = new THREE.Group();
     this.group.name = 'separator 20-VA-001';
     this.cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), BIG); // keeps z <= constant
@@ -159,15 +159,12 @@ export class Separator {
     }
     this.group.add(this.back, this.front);
 
-    // section caps: one live cap for the sweeping plane, two fixed ones at z = 0
+    // section cap for the sweeping plane
     this.capMat = new THREE.MeshStandardMaterial({ map: hatchTexture(), roughness: 0.7, side: THREE.DoubleSide,
       polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
     this.sweepCap = new THREE.Mesh(new THREE.BufferGeometry(), this.capMat);
-    this.backCap = new THREE.Mesh(capGeometry(0), this.capMat);
-    this.frontCap = new THREE.Mesh(capGeometry(0), this.capMat);
     this.capC = null;
-    this.group.add(this.sweepCap, this.backCap);
-    this.front.add(this.frontCap);
+    this.group.add(this.sweepCap);
 
     // internals (clipped with the cut)
     const int = new THREE.Group(); int.name = 'internals';
@@ -176,12 +173,10 @@ export class Separator {
     const baffleMat = m.int.clone(); baffleMat.alphaMap = holesTexture(); baffleMat.alphaTest = 0.5; baffleMat.clippingPlanes = clip;
     const baffle = new THREE.Mesh(atX(new THREE.ShapeGeometry(segmentShape(RI - 0.005, DIM.baffleTop)), DIM.baffleX), baffleMat);
     baffle.name = 'calming baffle';
-    const inlet = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 1.5, 18, 1, true, 0, Math.PI), m.int);
-    inlet.geometry.rotateX(Math.PI / 2); inlet.position.set(DIM.inletX + 0.05, R - 0.75, 0); inlet.name = 'inlet device';
     const padMat = m.int.clone(); padMat.map = meshTexture(); padMat.clippingPlanes = clip;
     const pad = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.18, 1.9), padMat);
     pad.position.set(DIM.gasX, R - 0.58, 0); pad.name = 'mist extractor';
-    int.add(weir, baffle, inlet, pad);
+    int.add(weir, baffle, pad);
     for (const x of [DIM.waterX, DIM.oilX]) {
       for (const rot of [0, Math.PI / 2]) {
         const vb = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.025), m.int);
@@ -227,11 +222,13 @@ export class Separator {
     // liquids: one rebuilt mesh per phase, plus GPU particles (droplets, bubbles, spray)
     this.U = {
       uTime: { value: 0 }, uLook: { value: 1 }, uStir: { value: 0 }, uCut: { value: BIG }, uGlass: { value: 0 },
-      uIface: { value: 0 }, uSurf: { value: 0 }, uBucket: { value: 0 }, uEmul: { value: 0.1 }, uSize: { value: 1 }, uFlow: { value: 1 },
+      uIface: { value: 0 }, uSurf: { value: 0 }, uBucket: { value: 0 }, uEmul: { value: 0.1 }, uSize: { value: 1 }, uFlow: { value: 1 }, uIn: { value: new THREE.Vector3() },
     };
     this.particles = makeParticles(this.U);
-    this.stream = makeInletStream(this.U, clip);
-    this.group.add(this.stream);
+    // inlet devices (asset variants; setInlet picks the live one)
+    this.inlets = { vane: makeVaneInlet(this.U, clip, m.int), diverter: makeDiverterInlet(this.U, clip, m.int) };
+    for (const g of Object.values(this.inlets)) this.group.add(g);
+    this.setInlet(inlet);
     this.group.add(this.particles);
     this.liquids = {};
     for (const [k, col] of Object.entries(LIQUID)) {
@@ -246,23 +243,25 @@ export class Separator {
     this.setCut({ style: 'section', amount: 0 });
   }
 
+  setInlet(kind) {
+    this.inlet = this.inlets[kind] ? kind : 'vane';
+    for (const [k, g] of Object.entries(this.inlets)) g.visible = k === this.inlet;
+    this.U.uIn.value.copy(this.inlets[this.inlet].userData.spray);
+  }
+
   setCut({ style = this.cut.style, amount = this.cut.amount } = {}) {
     this.cut = { style, amount };
     const e = amount * amount * (3 - 2 * amount);
-    const sec = style === 'section', lift = style === 'lift', glass = style === 'glass';
+    const sec = style === 'section', glass = style === 'glass';
     // where the solid is cut (z); BIG = not cut
-    this.c = sec ? (R + 0.05) * (1 - e) : lift && amount > 0.001 ? 0 : BIG;
+    this.c = sec ? (R + 0.05) * (1 - e) : BIG;
     this.cutPlane.constant = this.c;
-    // rises, turns its inside to the viewer and settles behind and above
-    this.front.position.set(0, lift ? 3.4 * e : 0, lift ? -2.2 * e : 0);
-    this.front.rotation.set(lift ? 0.35 * e : 0, lift ? Math.PI * e : 0, 0);
-    this.backCap.visible = this.frontCap.visible = lift && amount > 0.001;
     this.sweepCap.visible = sec && this.c < R;
     for (const mat of this.front.userData.mats) {
       mat.transparent = glass && amount > 0;
       mat.opacity = glass ? 1 - 0.88 * e : 1;
       mat.depthWrite = !(glass && amount > 0.5);
-      mat.clippingPlanes = lift || glass ? [] : [this.cutPlane];
+      mat.clippingPlanes = glass ? [] : [this.cutPlane];
       mat.needsUpdate = true;
     }
     this.glass = glass && amount > 0;
@@ -470,7 +469,7 @@ function makeParticles(U, n = 1800) {
     uniforms: U, transparent: true, depthWrite: false,
     vertexShader: /* glsl */ `
 attribute vec4 seed; attribute float kind;
-uniform float uTime, uStir, uCut, uGlass, uIface, uSurf, uEmul, uSize;
+uniform float uTime, uStir, uCut, uGlass, uIface, uSurf, uEmul, uSize; uniform vec3 uIn;
 varying vec3 vCol; varying float vA;
 ${GLSL}
 void main() {
@@ -497,10 +496,10 @@ void main() {
     y = mix(floor0, uSurf + 0.01, p); x += 0.05 * sin(t * 6. + d * 40.);
     vCol = vec3(1.); size = 0.6 + 1.1 * c * (0.3 + p);
     alpha = 0.75 * smoothstep(0., 0.15, p) * step(p, 0.985);
-  } else { // spray off the inlet device, falling toward the inlet head
-    float p = fract(b + t * (0.7 + 0.6 * c));
-    x = ${(DIM.inletX - 0.4).toFixed(2)} - p * (0.6 + 1.6 * a) * (0.6 + uStir);
-    y = ${(R - 1.1).toFixed(2)} - 2.4 * p * p + 0.4 * p * (d - 0.3);
+  } else { // droplets raining down from the inlet device to the liquid
+    float p = fract(b + t * (0.9 + 0.6 * c));
+    x = mix(uIn.x, uIn.y, a) + 0.08 * (d - 0.5);
+    y = mix(uIn.z, uSurf, p * p);
     vCol = vec3(0.95, 0.93, 0.85); size = 0.5 + 0.7 * c;
     alpha = step(uSurf, y) * smoothstep(1., 0.7, p);
   }
@@ -527,37 +526,87 @@ void main() {
   return pts;
 }
 
-// The well stream: down the inlet nozzle, round the inside of the half-pipe
-// inlet device, out under its lip toward the inlet head and down into the
-// liquid. One tube; the shader scrolls streaks along it and breaks it into
-// gulps at normal flow, a solid gush during a slug (uFlow = inflow / normal).
-function makeInletStream(U, clip) {
-  const cx = DIM.inletX + 0.05, cy = R - 0.75, rr = 0.33;
-  const pts = [new THREE.Vector3(DIM.inletX, R + 0.35, 0), new THREE.Vector3(DIM.inletX, cy + rr + 0.1, 0)];
-  for (let i = 0; i <= 12; i++) { const a = Math.PI / 2 - (i / 12) * Math.PI; pts.push(new THREE.Vector3(cx + rr * Math.cos(a), cy + rr * Math.sin(a), 0)); }
-  // free fall from the lip, thrown toward the inlet head
-  for (let i = 1; i <= 10; i++) { const t = i * 0.05; pts.push(new THREE.Vector3(cx - 2.6 * t, cy - rr - 0.5 * 9.81 * t * t, 0)); }
-  const geo = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, false, 'centripetal'), 90, 0.11, 10, false);
-  const mat = new THREE.MeshStandardMaterial({ color: 0x9a6a2c, roughness: 0.3, side: THREE.DoubleSide, clippingPlanes: clip });
-  mat.customProgramCacheKey = () => 'inlet-stream';
+// Inlet devices and the well stream through them. The stream runs down the
+// inlet nozzle into the device; the liquid leaves it as falling sheets
+// (streaks scroll down, broken into gulps at normal flow, a solid gush during
+// a slug: uFlow = inflow / normal). Both are asset variants.
+function fallMaterial(U, clip, key, color = 0x9a6a2c) {
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.3, side: THREE.DoubleSide, clippingPlanes: clip, transparent: true });
+  mat.customProgramCacheKey = () => key;
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, U);
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vUv2; uniform float uFlow;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvUv2 = uv;\ntransformed += normal * 0.07 * clamp((uFlow - 1.) / 4., 0., 1.);'); // a slug fattens the stream
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vP;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvP = position;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-varying vec2 vUv2; uniform float uTime, uFlow, uLook;
+varying vec3 vP; uniform float uTime, uFlow, uLook, uSurf;
 ${GLSL}`).replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-float along = vUv2.x * 14. - uTime * (3. + 1.5 * min(uFlow, 4.));
-float gulp = vnoise(vec2(along * 0.6, vUv2.y * 2.));
+if (vP.y < uSurf - 0.02) discard; // only above the liquid
 float solid = clamp((uFlow - 1.) / 2., 0., 1.);
-if (gulp < 0.45 - 0.45 * solid && vUv2.x > 0.12) discard;
-float streak = vnoise(vec2(along * 2.5, vUv2.y * 12.));
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.88, 0.76), smoothstep(0.6, 0.85, streak) * 0.6 * uLook); // entrained gas
+float down = vP.y * 3. + uTime * (3.5 + 1.2 * min(uFlow, 4.));
+float across = (vP.x + vP.z) * 9.;
+float gulp = vnoise(vec2(across, down * 0.7)) * 0.7 + vnoise(vec2(across * 3., down * 2.)) * 0.3;
+if (gulp < 0.5 - 0.42 * solid) discard;
+diffuseColor.a = 0.92;
+float streak = vnoise(vec2(across * 2.5, down * 3.));
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.88, 0.76), smoothstep(0.6, 0.85, streak) * 0.55 * uLook); // entrained gas
 `);
   };
-  const m = new THREE.Mesh(geo, mat);
-  m.name = 'inlet stream';
-  return m;
+  return mat;
+}
+function streamDown(U, clip, x, y0, y1, r, key) {
+  const g = new THREE.CylinderGeometry(r, r, y0 - y1, 12, 6, true);
+  g.translate(x, (y0 + y1) / 2, 0);
+  return new THREE.Mesh(g, fallMaterial(U, clip, key));
+}
+
+// Vane type (Schoepentoeter): a box under the nozzle running along the vessel,
+// its sides two rows of angled vanes that slice the feed into flat sheets; the
+// liquid rains down out of the open bottom and between the vanes.
+function makeVaneInlet(U, clip, mat) {
+  const g = new THREE.Group(); g.name = 'inlet device (vane)';
+  const x0 = DIM.inletX - 0.35, x1 = DIM.inletX + 1.5, top = R - 0.32, w = 0.42, n = 9;
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, 0.025, 2 * w + 0.1), mat);
+  roof.position.set((x0 + x1) / 2, top, 0);
+  const end = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.7, 2 * w), mat);
+  end.position.set(x1, top - 0.35, 0);
+  g.add(roof, end);
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1), x = x0 + 0.15 + (x1 - x0 - 0.3) * t, h = 0.75 - 0.35 * t; // vanes get shorter toward the far end
+    for (const side of [-1, 1]) {
+      const v = new THREE.Mesh(new THREE.BoxGeometry(0.32, h, 0.02), mat);
+      v.position.set(x, top - h / 2, side * w); v.rotation.y = side * 0.6;
+      g.add(v);
+    }
+  }
+  const yb = top - 0.75;
+  g.add(streamDown(U, clip, DIM.inletX, R + 0.35, top, 0.13, 'inlet-stream'));
+  // falling sheets out of the bottom and the vane gaps, both sides and the middle
+  const sheetMat = fallMaterial(U, clip, 'inlet-sheet');
+  for (const z of [-w - 0.06, 0, w + 0.06]) {
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0 - 0.2, yb + 1.0, 12, 8), sheetMat);
+    s.position.set((x0 + x1) / 2, (yb - 1.0) / 2, z);
+    g.add(s);
+  }
+  g.userData.spray = new THREE.Vector3(x0 + 0.1, x1 - 0.1, yb);
+  return g;
+}
+
+// Diverter plate (the textbook version): a dished plate just under the
+// nozzle; the stream hits it and the liquid spills off its rim as a ring.
+function makeDiverterInlet(U, clip, mat) {
+  const g = new THREE.Group(); g.name = 'inlet device (diverter plate)';
+  const y = R - 0.75, r = 0.45;
+  const plate = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 6, 0, Math.PI * 2, Math.PI - Math.asin(r / 1.2), Math.asin(r / 1.2)), mat);
+  plate.position.set(DIM.inletX, y + 1.2 * Math.cos(Math.asin(r / 1.2)), 0);
+  const rod = new THREE.Mesh(new THREE.BoxGeometry(0.03, R - y, 0.03), mat);
+  rod.position.set(DIM.inletX + r * 0.9, (R + y) / 2, 0);
+  g.add(plate, rod);
+  g.add(streamDown(U, clip, DIM.inletX, R + 0.35, y, 0.13, 'inlet-stream'));
+  const ring = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.05, r + 0.18, y + 1.0, 32, 8, true), fallMaterial(U, clip, 'inlet-sheet'));
+  ring.position.set(DIM.inletX, (y - 1.0) / 2, 0);
+  g.add(ring);
+  g.userData.spray = new THREE.Vector3(DIM.inletX - r - 0.1, DIM.inletX + r + 0.1, y);
+  return g;
 }
 
 // ---------------------------------------------------------------- simulation

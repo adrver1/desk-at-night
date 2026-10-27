@@ -1,7 +1,6 @@
 // PROTOTYPE (throwaway): how should the cut-open inlet separator open up,
 // and do the liquids read as liquid? Three cut styles for the same model:
 //   a  section: a cut plane sweeps in, cut faces hatched like a drawing
-//   b  lift-off: the near half lifts away like a lid
 //   c  glass: the near half turns to glass, the liquids stay whole
 // URL: separator-prototype.html?variant=a&open=1&look=1&slugging=1
 import * as THREE from 'three';
@@ -20,7 +19,6 @@ perfPanel();
 const q = new URLSearchParams(location.search);
 const VARIANTS = {
   a: { style: 'section', name: 'A · Section', text: 'A cut plane sweeps in from the front. Cut steel is hatched like an engineering drawing; the liquids show their section on the same plane.' },
-  b: { style: 'lift', name: 'B · Lift-off', text: 'The near half lifts away like a lid, so you see both halves and their cut edges. Liquids show their section where the halves met.' },
   c: { style: 'glass', name: 'C · Glass', text: 'The near half turns to glass. Nothing is cut: the liquids stay whole and you look through the shell at them.' },
 };
 
@@ -47,7 +45,7 @@ floor.rotation.x = -Math.PI / 2; floor.position.y = DIM.ground; floor.receiveSha
 const grid = new THREE.GridHelper(60, 60, 0x55626a, 0x465157); grid.position.y = DIM.ground + 0.005;
 scene.add(floor, grid);
 
-const sep = new Separator();
+const sep = new Separator({ inlet: q.get('inlet') ?? 'vane' });
 scene.add(sep.group);
 const sim = new SeparatorSim();
 
@@ -90,7 +88,7 @@ const LABELS = [
   ['Water', () => new THREE.Vector3(-1.5, (sep.levels.interface - 1.45) / 2, sep.c)],
   ['Weir', () => new THREE.Vector3(DIM.weirX, DIM.crest + 0.32, sep.c)],
   ['Oil compartment', () => new THREE.Vector3(DIM.weirX + 1.2, sep.levels.bucket - 0.3, sep.c)],
-  ['Inlet device', () => new THREE.Vector3(DIM.inletX + 0.6, 1.05, sep.c)],
+  ['Inlet device', () => new THREE.Vector3(DIM.inletX - 0.25, 1.32, sep.c)],
   ['Calming baffle', () => new THREE.Vector3(DIM.baffleX, -0.95, sep.c)],
   ['Mist extractor', () => new THREE.Vector3(DIM.gasX - 0.2, 0.62, sep.c)],
 ].map(([text, at]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at }; });
@@ -136,6 +134,8 @@ row('Show', [
   ['Open', () => state.open, () => { state.open = !state.open; }],
   ['Slug', () => false, () => { sim.slug(1); }],
   ['Slugging well', () => state.slugging, () => { state.slugging = !state.slugging; state.nextSlug = sim.t + 1; }],
+  ['Inlet: vane', () => sep.inlet === 'vane', () => { sep.setInlet('vane'); }],
+  ['Inlet: plate', () => sep.inlet === 'diverter', () => { sep.setInlet('diverter'); }],
   ['Liquid look', () => state.look, () => { state.look = !state.look; }],
   ['Labels', () => state.labels, () => { state.labels = !state.labels; }],
 ]);
@@ -145,7 +145,7 @@ function refresh() {
   tag.textContent = `PROTOTYPE · ${VARIANTS[state.variant].name}`;
   const u = new URL(location.href);
   u.searchParams.set('variant', state.variant); u.searchParams.set('open', state.open ? 1 : 0);
-  u.searchParams.set('look', state.look ? 1 : 0); u.searchParams.set('slugging', state.slugging ? 1 : 0);
+  u.searchParams.set('look', state.look ? 1 : 0); u.searchParams.set('inlet', sep.inlet); u.searchParams.set('slugging', state.slugging ? 1 : 0);
   history.replaceState(null, '', u);
 }
 refresh();
