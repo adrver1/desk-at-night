@@ -21,7 +21,8 @@ export const DIM = {
   inletX: -1.9, gasX: 3.5, waterX: 1.0, oilX: 2.6,
   inletR: 0.3, gasR: 0.3, liquidR: 0.15, // nozzle bores
   saddleX: [-2.0, 2.0], deck: -1.85, ground: -3.1, // saddles stand on a skid frame above the deck
-  mistX: [1.75, 2.7],
+  mistX: [1.75, 2.7], // mesh-pad box (variant)
+  deckX: 2.25, deckY: 0.86, // cyclone deck: vertical plate above deckY, sealed floor to the outlet head
 };
 const { R, T, L } = DIM;
 const A = R / 2, RI = R - T, AI = A - T; // 2:1 elliptical heads
@@ -137,7 +138,7 @@ function pipeAlong(points, radius, mat) {
 }
 
 export class Separator {
-  constructor({ inlet = 'vane' } = {}) {
+  constructor({ inlet = 'vane', gas = 'cyclones' } = {}) {
     this.group = new THREE.Group();
     this.group.name = 'separator 20-VA-001';
     this.cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), BIG); // keeps z <= constant
@@ -183,12 +184,14 @@ export class Separator {
       const baffle = new THREE.Mesh(atX(new THREE.ShapeGeometry(segmentShape(RI - 0.005, DIM.baffleTop)), DIM.baffleX), baffleMat);
       baffle.name = 'calming baffle'; int.add(baffle);
     }
-    // mist extractor: a vane/mesh box hanging from the roof upstream of the gas outlet
+    // gas-side internals (asset variants; setGasInternals picks the live one):
+    // cyclone deck (default) or a mesh-pad box hanging from the roof
     const padMat = m.int.clone(); padMat.map = meshTexture(); padMat.clippingPlanes = clip;
     const [m0, m1] = DIM.mistX;
     const pad = new THREE.Mesh(new THREE.BoxGeometry(m1 - m0, 0.5, 1.6), padMat);
-    pad.position.set((m0 + m1) / 2, RI - 0.55, 0); pad.name = 'mist extractor';
-    int.add(pad);
+    pad.position.set((m0 + m1) / 2, RI - 0.55, 0); pad.name = 'mist extractor (mesh pad)';
+    this.gasInternals = { cyclones: makeCycloneDeck(m.int, clip), meshpad: pad };
+    for (const o of Object.values(this.gasInternals)) int.add(o);
     for (const x of [DIM.waterX, DIM.oilX]) {
       for (const rot of [0, Math.PI / 2]) {
         const vb = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.22, 0.025), m.int);
@@ -266,7 +269,13 @@ export class Separator {
       const mesh = new THREE.Mesh(geo, mat); mesh.name = k; mesh.frustumCulled = false;
       this.liquids[k] = mesh; this.group.add(mesh);
     }
+    this.setGasInternals(gas);
     this.setCut({ style: 'section', amount: 0 });
+  }
+
+  setGasInternals(kind) {
+    this.gasKind = this.gasInternals[kind] ? kind : 'cyclones';
+    for (const [k, o] of Object.entries(this.gasInternals)) o.visible = k === this.gasKind;
   }
 
   setInlet(kind) {
@@ -298,7 +307,7 @@ export class Separator {
 
   update(dt = 0, stir = 0) {
     const U = this.U, lv = this.levels;
-    U.uTime.value += dt; U.uStir.value = stir; U.uCut.value = this.c; U.uGlass.value = this.glass ? 1 : 0;
+    U.uTime.value += dt; swirlTime.value = U.uTime.value; swirlGas.value = this.gasFlow ?? 1; U.uStir.value = stir; U.uCut.value = this.c; U.uGlass.value = this.glass ? 1 : 0;
     U.uIface.value = lv.interface; U.uSurf.value = lv.surface; U.uBucket.value = lv.bucket; U.uEmul.value = lv.emulsion;
     this.particles.visible = U.uLook.value > 0.5 && (this.glass || this.c < R);
     if (this.sweepCap.visible && this.capC !== this.c) {
@@ -670,6 +679,58 @@ function makeVaneInlet(U, clip, mat) {
   g.userData.spray = new THREE.Vector3(plate.x0 - 0.2, plate.x0 + 0.05, plate.y0);
   return g;
 }
+// Cyclone deck: a vertical plate closing the top of the vessel ahead of the gas
+// outlet, carrying two rows of small axial cyclones, with a sealed floor
+// behind it. All gas has to pass through the cyclones; the liquid they spin
+// out drains into a header under the deck and down a downcomer into the oil
+// compartment. The cyclone mouths swirl faster with more gas (uGas).
+function makeCycloneDeck(mat, clip) {
+  const g = new THREE.Group(); g.name = 'cyclone deck';
+  const x = DIM.deckX, y0 = DIM.deckY, r = RI - 0.01;
+  const parts = [];
+  // deck plate: the circle segment above y0, in the (z, y) plane
+  const pm = Math.acos(y0 / r), seg = new THREE.Shape();
+  for (let i = 0; i <= 10; i++) { const a = -pm + (2 * pm * i) / 10; const v = [r * Math.sin(a), r * Math.cos(a)]; i ? seg.lineTo(...v) : seg.moveTo(...v); }
+  seg.closePath();
+  parts.push(atX(new THREE.ShapeGeometry(seg), x));
+  // cyclone boxes behind the deck, and the sealed floor to the head
+  const w = Math.sqrt(r * r - y0 * y0) - 0.02;
+  const box = new THREE.BoxGeometry(0.55, 0.3, 2 * w - 0.3); box.translate(x + 0.28, y0 + 0.16, 0); parts.push(box);
+  const floor = new THREE.BoxGeometry(L / 2 - x, 0.015, 2 * w); floor.translate((x + L / 2) / 2, y0, 0); parts.push(floor);
+  // drain header under the deck and the downcomer into the oil compartment
+  const hdr = new THREE.BoxGeometry(0.1, 0.1, 2 * w - 0.4); hdr.translate(x + 0.1, y0 - 0.12, 0); parts.push(hdr);
+  const dc = [[x + 0.1, y0 - 0.15], [x + 0.1, 0.2], [x + 0.5, -0.05], [x + 0.5, -0.7]];
+  for (let i = 0; i < dc.length - 1; i++) {
+    const [ax, ay] = dc[i], [bx, by] = dc[i + 1], len = Math.hypot(bx - ax, by - ay);
+    const c = new THREE.CylinderGeometry(0.04, 0.04, len, 6, 1, true);
+    c.rotateZ(-Math.atan2(bx - ax, by - ay)); c.translate((ax + bx) / 2, (ay + by) / 2, 0); parts.push(c);
+  }
+  const steel = new THREE.Mesh(mergeGeometries(parts.map((p) => (p.index ? p.toNonIndexed() : p)).map(onlyPosNormUv)), mat);
+  steel.name = 'deck, cyclone boxes, header and downcomer';
+  // cyclone mouths on the upstream face: two rows, swirling
+  const mouths = [], n = 12, rc = 0.055;
+  for (const [row, yy] of [[0, y0 + 0.1], [1, y0 + 0.24]]) {
+    for (let i = 0; i < n; i++) {
+      const z = (i - (n - 1) / 2) * ((2 * w - 0.5) / (n - 1)) + (row ? 0.04 : 0);
+      if (yy + rc > Math.sqrt(Math.max(0, r * r - z * z)) - 0.02) continue;
+      const c = new THREE.CircleGeometry(rc, 10); c.rotateY(-Math.PI / 2); c.translate(x - 0.005, yy, z); mouths.push(c);
+    }
+  }
+  const swirl = new THREE.MeshBasicMaterial({ color: 0xffffff, clippingPlanes: clip, side: THREE.DoubleSide });
+  swirl.customProgramCacheKey = () => 'cyclone-swirl';
+  swirl.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = swirlTime; sh.uniforms.uGas = swirlGas;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vUv2;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvUv2 = uv;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vUv2; uniform float uTime, uGas;')
+      .replace('vec4 diffuseColor = vec4( diffuse, opacity );', `vec2 q = vUv2 * 2. - 1.; float rr = length(q), an = atan(q.y, q.x);
+float arms = sin(4. * an + 9. * rr - uTime * (6. + 10. * uGas));
+vec4 diffuseColor = vec4(mix(vec3(0.08, 0.09, 0.1), vec3(0.75, 0.8, 0.82), smoothstep(0.3, 0.9, arms) * (1. - rr * 0.6)), 1.);`);
+  };
+  g.add(steel, new THREE.Mesh(mergeGeometries(mouths), swirl));
+  return g;
+}
+const swirlTime = { value: 0 }, swirlGas = { value: 1 };
+
 const onlyPosNormUv = (geo) => { for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k); return geo; };
 
 // Diverter plate (the textbook version): a dished plate just under the
@@ -766,6 +827,6 @@ export class SeparatorSim {
   }
   apply(sep) {
     sep.levels.interface = this.hW; sep.levels.surface = this.hL; sep.levels.bucket = this.hO; sep.levels.emulsion = this.emulsion;
-    sep.waves = (x) => this.waves(x); sep.ripple = (x) => this.ripple(x); sep.overflow = this.head; this.source = (sep.U.uIn.value.x + sep.U.uIn.value.y) / 2; sep.U.uFlow.value = this.inflow ?? 1;
+    sep.waves = (x) => this.waves(x); sep.ripple = (x) => this.ripple(x); sep.overflow = this.head; sep.gasFlow = this.qGas; this.source = (sep.U.uIn.value.x + sep.U.uIn.value.y) / 2; sep.U.uFlow.value = this.inflow ?? 1;
   }
 }

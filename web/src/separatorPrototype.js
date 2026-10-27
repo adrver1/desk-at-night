@@ -46,7 +46,7 @@ floor.rotation.x = -Math.PI / 2; floor.position.y = DIM.ground; floor.receiveSha
 const grid = new THREE.GridHelper(60, 60, 0x55626a, 0x465157); grid.position.y = DIM.ground + 0.005;
 scene.add(floor, grid);
 
-const sep = new Separator({ inlet: q.get('inlet') ?? 'vane' });
+const sep = new Separator({ inlet: q.get('inlet') ?? 'vane', gas: q.get('gas') ?? 'cyclones' });
 scene.add(sep.group);
 const sim = new SeparatorSim();
 
@@ -92,7 +92,7 @@ const LABELS = [
   ['Vane inlet', () => new THREE.Vector3(-2.9, 1.42, sep.c)],
   ['Inclined plate', () => new THREE.Vector3(-2.6, 0.45, sep.c)],
   ['Perforated baffle', () => new THREE.Vector3(DIM.baffleX, 0.75, sep.c)],
-  ['Mist extractor', () => new THREE.Vector3((DIM.mistX[0] + DIM.mistX[1]) / 2, 0.55, sep.c)],
+  ['Cyclone deck', () => new THREE.Vector3(DIM.deckX + 1.0, 0.62, sep.c)],
 ].map(([text, at]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at }; });
 
 const state = {
@@ -138,6 +138,8 @@ row('Show', [
   ['Slugging well', () => state.slugging, () => { state.slugging = !state.slugging; state.nextSlug = sim.t + 1; }],
   ['Inlet: vane', () => sep.inlet === 'vane', () => { sep.setInlet('vane'); }],
   ['Inlet: plate', () => sep.inlet === 'diverter', () => { sep.setInlet('diverter'); }],
+  ['Gas: cyclones', () => sep.gasKind === 'cyclones', () => { sep.setGasInternals('cyclones'); }],
+  ['Gas: mesh pad', () => sep.gasKind === 'meshpad', () => { sep.setGasInternals('meshpad'); }],
   ['Liquid look', () => state.look, () => { state.look = !state.look; }],
   ['Labels', () => state.labels, () => { state.labels = !state.labels; }],
 ]);
@@ -147,7 +149,7 @@ function refresh() {
   tag.textContent = `PROTOTYPE · ${VARIANTS[state.variant].name}`;
   const u = new URL(location.href);
   u.searchParams.set('variant', state.variant); u.searchParams.set('open', state.open ? 1 : 0);
-  u.searchParams.set('look', state.look ? 1 : 0); u.searchParams.set('inlet', sep.inlet); u.searchParams.set('slugging', state.slugging ? 1 : 0);
+  u.searchParams.set('look', state.look ? 1 : 0); u.searchParams.set('inlet', sep.inlet); u.searchParams.set('gas', sep.gasKind); u.searchParams.set('slugging', state.slugging ? 1 : 0);
   history.replaceState(null, '', u);
 }
 refresh();
