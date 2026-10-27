@@ -44,7 +44,7 @@ function adaptResolution(now) {
   let next = res.dpr;
   if (fps < 50 && res.dpr > res.min) { next = res.dpr - 0.25; res.hold = 10; res.good = 0; }
   else if (fps > 58 && --res.hold < 0 && ++res.good >= 3 && res.dpr < res.max) { next = Math.min(res.max, res.dpr + 0.25); res.good = 0; }
-  if (next !== res.dpr) { res.dpr = next; renderer.setPixelRatio(next); frame(); }
+  if (next !== res.dpr) { res.dpr = next; renderer.setPixelRatio(next); } // keeps the canvas size and the camera as they are
 }
 perfRow('resolution', () => `${res.dpr.toFixed(2)}x${q.get('dpr') ? ' pinned' : res.armed ? ' auto' : ' (auto after first touch)'}`);
 renderer.toneMapping = THREE.AgXToneMapping;
