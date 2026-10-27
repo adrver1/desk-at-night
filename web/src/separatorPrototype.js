@@ -2,7 +2,7 @@
 // and do the liquids read as liquid? Three cut styles for the same model:
 //   a  section: a cut plane sweeps in, cut faces hatched like a drawing
 //   c  glass: the near half turns to glass, the liquids stay whole
-// URL: separator-prototype.html?variant=a&open=1&look=1&slugging=1
+// URL: separator-prototype.html?variant=c&open=1&look=1&slugging=1
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -18,8 +18,8 @@ perfPanel();
 
 const q = new URLSearchParams(location.search);
 const VARIANTS = {
-  a: { style: 'section', name: 'A · Section', text: 'A cut plane sweeps in from the front. Cut steel is hatched like an engineering drawing; the liquids show their section on the same plane.' },
   c: { style: 'glass', name: 'C · Glass', text: 'The near half turns to glass. Nothing is cut: the liquids stay whole and you look through the shell at them.' },
+  a: { style: 'section', name: 'A · Section', text: 'A cut plane sweeps in from the front. Cut steel is hatched like an engineering drawing; the liquids show their section on the same plane.' },
 };
 
 const canvas = document.querySelector('canvas');
@@ -92,11 +92,11 @@ const LABELS = [
   ['Vane inlet', () => new THREE.Vector3(-2.9, 1.42, sep.c)],
   ['Inclined plate', () => new THREE.Vector3(-2.6, 0.45, sep.c)],
   ['Perforated baffle', () => new THREE.Vector3(DIM.baffleX, 0.75, sep.c)],
-  ['Cyclone box', () => new THREE.Vector3(DIM.gasX - 0.2, 0.5, sep.c)],
+  ['Cyclone deck + gas box', () => new THREE.Vector3(DIM.deckX + 0.4, 0.55, sep.c)],
 ].map(([text, at]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at }; });
 
 const state = {
-  variant: VARIANTS[q.get('variant')] ? q.get('variant') : 'a',
+  variant: VARIANTS[q.get('variant')] ? q.get('variant') : 'c',
   open: q.get('open') === '1', amount: q.get('open') === '1' ? 1 : 0,
   look: q.get('look') !== '0', labels: q.get('labels') !== '0', slugging: q.get('slugging') === '1', nextSlug: 3,
 };
