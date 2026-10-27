@@ -22,7 +22,6 @@ export const DIM = {
   inletR: 0.3, gasR: 0.3, liquidR: 0.15, // nozzle bores
   saddleX: [-2.0, 2.0], deck: -1.85, ground: -3.1, // saddles stand on a skid frame above the deck
   mistX: [1.75, 2.7], // mesh-pad box (variant)
-  deckX: 2.25, deckY: 0.86, // cyclone deck: vertical plate above deckY, sealed floor to the outlet head
 };
 const { R, T, L } = DIM;
 const A = R / 2, RI = R - T, AI = A - T; // 2:1 elliptical heads
@@ -679,36 +678,34 @@ function makeVaneInlet(U, clip, mat) {
   g.userData.spray = new THREE.Vector3(plate.x0 - 0.2, plate.x0 + 0.05, plate.y0);
   return g;
 }
-// Cyclone deck (axial demisting cyclones): a vertical plate closing the top of
-// the vessel ahead of the gas outlet, with a sealed floor behind it, so all gas
-// passes through the cyclone tubes in the deck. Their swirl elements are static
-// vanes inside the tubes: nothing moves. Kept as blocks: the deck face carries
-// a texture of tube mouths, the tubes are one box behind it. Liquid spun out
-// drains into a header under the deck and down a downcomer into the oil
-// compartment.
+// Cyclone box (axial demisting cyclones): a box hanging under the gas outlet
+// nozzle with a hood up into it, so all gas leaves through the cyclone tubes
+// in its faces. Their swirl elements are static vanes: nothing moves. Kept as
+// blocks with a texture of tube mouths. Liquid spun out drains down a pipe
+// into the oil compartment.
 function makeCycloneDeck(mat, clip) {
-  const g = new THREE.Group(); g.name = 'cyclone deck';
-  const x = DIM.deckX, y0 = DIM.deckY, r = RI - 0.01;
-  const parts = [];
-  const pm = Math.acos(y0 / r), seg = new THREE.Shape();
-  for (let i = 0; i <= 10; i++) { const a = -pm + (2 * pm * i) / 10; const v = [r * Math.sin(a), r * Math.cos(a)]; i ? seg.lineTo(...v) : seg.moveTo(...v); }
-  seg.closePath();
-  const face = atX(new THREE.ShapeGeometry(seg), x - 0.005);
-  const w = Math.sqrt(r * r - y0 * y0) - 0.02;
-  const box = new THREE.BoxGeometry(0.55, 0.36, 2 * w - 0.3); box.translate(x + 0.28, y0 + 0.19, 0); parts.push(box);
-  const floor = new THREE.BoxGeometry(L / 2 - x, 0.015, 2 * w); floor.translate((x + L / 2) / 2, y0, 0); parts.push(floor);
-  const hdr = new THREE.BoxGeometry(0.1, 0.1, 2 * w - 0.4); hdr.translate(x + 0.1, y0 - 0.12, 0); parts.push(hdr);
-  const dc = [[x + 0.1, y0 - 0.15], [x + 0.1, 0.2], [x + 0.5, -0.05], [x + 0.5, -0.7]];
-  for (let i = 0; i < dc.length - 1; i++) {
-    const [ax, ay] = dc[i], [bx, by] = dc[i + 1], len = Math.hypot(bx - ax, by - ay);
-    const c = new THREE.CylinderGeometry(0.04, 0.04, len, 6, 1, true);
-    c.rotateZ(-Math.atan2(bx - ax, by - ay)); c.translate((ax + bx) / 2, (ay + by) / 2, 0); parts.push(c);
+  const g = new THREE.Group(); g.name = 'cyclone box';
+  const xc = DIM.gasX - 0.2, hx = 0.5, hz = 0.8, y0 = 0.72, y1 = 1.02, top = R - 0.05, tn = DIM.gasR * 0.95;
+  const faceMat = mat.clone(); faceMat.map = mouthsTexture(); faceMat.map.repeat.set(6, 2); faceMat.clippingPlanes = clip;
+  const box = new THREE.Mesh(new THREE.BoxGeometry(2 * hx, y1 - y0, 2 * hz), faceMat);
+  box.position.set(xc, (y0 + y1) / 2, 0); box.name = 'cyclone tubes';
+  // hood: a frustum from the box top up into the nozzle
+  const xn = DIM.gasX, P = [];
+  const b = [[xc - hx, -hz], [xc + hx, -hz], [xc + hx, hz], [xc - hx, hz]], t = [[xn - tn, -tn], [xn + tn, -tn], [xn + tn, tn], [xn - tn, tn]];
+  for (let i = 0; i < 4; i++) {
+    const j = (i + 1) % 4;
+    P.push(b[i][0], y1, b[i][1], b[j][0], y1, b[j][1], t[j][0], top, t[j][1], b[i][0], y1, b[i][1], t[j][0], top, t[j][1], t[i][0], top, t[i][1]);
   }
+  const hood = new THREE.BufferGeometry();
+  hood.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+  hood.setAttribute('uv', new THREE.Float32BufferAttribute(new Array((P.length / 3) * 2).fill(0), 2));
+  hood.computeVertexNormals();
+  const parts = [hood];
+  const dc = [[xc - 0.3, y0], [xc - 0.3, -1.1]];
+  const c = new THREE.CylinderGeometry(0.04, 0.04, dc[0][1] - dc[1][1], 6, 1, true); c.translate(dc[0][0], (dc[0][1] + dc[1][1]) / 2, 0.3); parts.push(c);
   const steel = new THREE.Mesh(mergeGeometries(parts.map((p) => (p.index ? p.toNonIndexed() : p)).map(onlyPosNormUv)), mat);
-  steel.name = 'cyclone boxes, floor, header and downcomer';
-  const faceMat = mat.clone(); faceMat.map = mouthsTexture(); faceMat.clippingPlanes = clip;
-  const deck = new THREE.Mesh(face, faceMat); deck.name = 'deck plate';
-  g.add(steel, deck);
+  steel.name = 'hood and drain';
+  g.add(box, steel);
   return g;
 }
 // tube mouths on the deck face: dark circles on a 0.16 m pitch (UVs are metres)

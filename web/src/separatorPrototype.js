@@ -92,7 +92,7 @@ const LABELS = [
   ['Vane inlet', () => new THREE.Vector3(-2.9, 1.42, sep.c)],
   ['Inclined plate', () => new THREE.Vector3(-2.6, 0.45, sep.c)],
   ['Perforated baffle', () => new THREE.Vector3(DIM.baffleX, 0.75, sep.c)],
-  ['Cyclone deck', () => new THREE.Vector3(DIM.deckX + 1.0, 0.62, sep.c)],
+  ['Cyclone box', () => new THREE.Vector3(DIM.gasX - 0.2, 0.5, sep.c)],
 ].map(([text, at]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at }; });
 
 const state = {
