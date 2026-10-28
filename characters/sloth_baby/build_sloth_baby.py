@@ -11,7 +11,7 @@ Two looks, both kept (STYLE picks the live one, sloth_baby.glb):
              cream claws, shaggy tufts on the back
 
 Every look has a cute three-toed sloth's face: a pale mask with a fur
-fringe, tan teardrop patches round big shiny eyes, a dark nose bump and a
+fringe, dark teardrop patches round big shiny eyes, a dark nose bump and a
 little smile.
 
     python characters/sloth_baby/build_sloth_baby.py [--style plush|baby|all]
@@ -58,14 +58,22 @@ def on_head(rings, x, z, offset):
     return head_point(rings, a, z, offset)
 
 
-def patch(m, rings, outline, centre, offset, swatch, region):
-    """A flat-coloured piece on the head: a fan from `centre` to an outline
-    of (x, z) points, every corner lifted onto the head so a piece of any
-    size hugs the curve instead of sinking under it."""
-    c = on_head(rings, *centre, offset)
-    pts = [on_head(rings, x, z, offset) for x, z in outline]
-    for i in range(len(pts)):   # wound to face out: x runs to the viewer's left
-        m.face([c, pts[(i + 1) % len(pts)], pts[i]], swatch, region)
+def patch(m, rings, outline, centre, offset, swatch, region, steps=1):
+    """A flat-coloured piece on the head: rings of the outline shrunk towards
+    `centre` (steps of them) closed with a fan, every corner lifted onto the
+    head, so a piece hugs the curve instead of sinking under it. A big piece
+    needs a few steps: one long fan triangle cuts under the head's facet
+    edges and the fur shows through."""
+    cx, cz = centre
+    c = on_head(rings, cx, cz, offset)
+    loops = [[on_head(rings, cx + (x - cx) * f, cz + (z - cz) * f, offset) for x, z in outline]
+             for f in [(i + 1) / steps for i in range(steps)]]
+    n = len(outline)
+    for i in range(n):   # wound to face out: x runs to the viewer's left
+        j = (i + 1) % n
+        m.face([c, loops[0][j], loops[0][i]], swatch, region)
+        for a, b in zip(loops, loops[1:]):
+            m.face([a[i], a[j], b[j], b[i]], swatch, region)
 
 
 def ellipse(cx, cz, a, b, tilt=0.0, n=10, bulge=0.0):
@@ -83,12 +91,14 @@ def ellipse(cx, cz, a, b, tilt=0.0, n=10, bulge=0.0):
 # Face layout in head units (times the head scale k), from the eye line:
 # eye patch centre, half axes, droop (degrees, outer end down), eye size
 EYES = dict(x=0.027, z=-0.002, a=0.020, b=0.0125, droop=22, eye=0.0085)
+# Teardrop patch round each eye: MASK (live, dark brown), TAN or None
+EYE_PATCH = MASK
 
 
 def face(m, rings, zc, k):
     """The three-toed sloth's face, drawn cute: a cream mask with a fringe of
-    fur dipping into it at the top, tan drooping teardrop patches round big
-    shiny eyes, a round dark nose and a little smile."""
+    fur dipping into it at the top, big shiny eyes in drooping teardrop
+    patches (EYE_PATCH), a round dark nose and a little smile."""
     # cream mask: one piece over the whole front, its top edge dipping in a
     # point at the middle where the head fur comes down (the fringe)
     mask = []
@@ -98,12 +108,13 @@ def face(m, rings, zc, k):
         if z > 0:
             z -= 0.012 * max(0.0, 1 - abs(x) / 0.025)   # fringe point
         mask.append((x * k, zc + (z - 0.008) * k))
-    patch(m, rings, mask, (0, zc - 0.008 * k), 0.0015, FACE, "face")
+    patch(m, rings, mask, (0, zc - 0.008 * k), 0.002, FACE, "face", steps=3)
     e = EYES
     for s in (1, -1):
         cx, cz = s * e["x"] * k, zc + e["z"] * k
-        patch(m, rings, ellipse(cx, cz, e["a"] * k, e["b"] * k, -s * e["droop"] if s > 0 else 180 + e["droop"],
-                                n=12, bulge=0.25), (cx, cz), 0.003, TAN, "patch")
+        if EYE_PATCH:
+            patch(m, rings, ellipse(cx, cz, e["a"] * k, e["b"] * k, -s * e["droop"] if s > 0 else 180 + e["droop"],
+                                    n=12, bulge=0.25), (cx, cz), 0.0035, EYE_PATCH, "patch", steps=2)
         # the eye sits towards the inner, upper end of its patch
         ex, ez = cx - s * 0.004 * k, cz + 0.002 * k
         patch(m, rings, ellipse(ex, ez, e["eye"] * k, e["eye"] * k * 1.1, n=10), (ex, ez), 0.0045, "eye", "eye")
