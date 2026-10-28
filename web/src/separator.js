@@ -141,7 +141,7 @@ function pipeAlong(points, radius, mat) {
 export class Separator {
   constructor({ inlet = 'vane', gas = 'cyclones', actuators = {}, inletChoke = true } = {}) {
     this.group = new THREE.Group();
-    this.group.name = 'separator 20-VA-001';
+    this.group.name = 'separator';
     this.cutPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), BIG); // keeps z <= constant
     this.cut = { style: 'section', amount: 0 };
     this.levels = { interface: -0.7, surface: DIM.crest + 0.066, bucket: -0.9, emulsion: 0.12 };

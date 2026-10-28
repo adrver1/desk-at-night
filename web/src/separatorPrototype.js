@@ -11,9 +11,9 @@ import { Gauge } from './gauge.js';
 import { perfPanel, perfWatch, perfRow } from './perf.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-// Adriaen (the bearded_operator cast model, deck PPE) for scale; inlined so
+// an operator (the bearded_operator cast model, deck PPE) for scale; inlined so
 // the one-file preview page needs no fetch
-import adriaenGlb from '../../characters/bearded_operator/bearded_operator_ppe_deck.glb?inline';
+import operatorGlb from '../../characters/bearded_operator/bearded_operator_ppe_deck.glb?inline';
 
 perfPanel();
 
@@ -63,13 +63,13 @@ sun.shadow.mapSize.set(1024, 1024);
 Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 6, bottom: -6, near: 1, far: 40 });
 scene.add(sun, new THREE.HemisphereLight(0xcfe3ff, 0x30302c, 0.6));
 // matte floor without shadow lookups (it fills half the screen); soft blob
-// shadows under the skid and Adriaen ground the scene instead
+// shadows under the skid and the operator ground the scene instead
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 40), new THREE.MeshLambertMaterial({ color: 0x3a4246 }));
 floor.rotation.x = -Math.PI / 2; floor.position.y = DIM.ground;
 const blobMat = new THREE.MeshBasicMaterial({ color: 0x000000, alphaMap: blobTexture(), transparent: true, opacity: 0.55, depthWrite: false });
 const blob = (w, d, x, z) => { const b = new THREE.Mesh(new THREE.PlaneGeometry(w, d), blobMat); b.rotation.x = -Math.PI / 2; b.position.set(x, DIM.ground + 0.002, z); scene.add(b); return b; };
 blob(DIM.L + 1.4, 3.4, 0.6, -0.5); // skid + vessel, nudged away from the sun
-blob(1.1, 0.9, -5.5, 0.6); // Adriaen
+blob(1.1, 0.9, -5.5, 0.6); // operator
 function blobTexture() {
   const c = document.createElement('canvas'); c.width = c.height = 64;
   const g = c.getContext('2d'), grd = g.createRadialGradient(32, 32, 4, 32, 32, 32);
@@ -100,10 +100,10 @@ for (const [k, g] of Object.entries(gauges)) {
 }
 scene.add(new THREE.Mesh(mergeGeometries(stems), sep.mats.pipe)); // one draw for all gauge stems
 
-// Adriaen beside the inlet head, for scale (1.75 m against the 3 m vessel)
+// the operator beside the inlet head, for scale (1.75 m against the 3 m vessel)
 let mixer = null;
 {
-  const bin = Uint8Array.from(atob(adriaenGlb.split(',')[1]), (ch) => ch.charCodeAt(0));
+  const bin = Uint8Array.from(atob(operatorGlb.split(',')[1]), (ch) => ch.charCodeAt(0));
   new GLTFLoader().parse(bin.buffer, '', (gltf) => {
     const p = gltf.scene;
     p.position.set(-5.5, DIM.ground, 0.9); p.rotation.y = 0.6;
