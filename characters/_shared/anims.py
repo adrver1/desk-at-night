@@ -17,10 +17,15 @@ into every character's .glb as named glTF animations:
                  so move the root there when it finishes      (1.75 s)
     fart         standing: a sneaky glance round, leans forward with
                  the right knee lifted and the hip popped, a little
-                 shudder, then straightens up relieved; the puff is
+                 shudder, then straightens up (neutral face); the puff is
                  from 0.75 to 1.25 s (FART_PUFF)              (2.5 s)
     fart_seated  the same on a 0.45 m seat: rolls onto the left cheek,
                  shudder, settles back                        (2.5 s)
+    hug          cuddles a baby sloth (or any small bundle) at the
+                 chest: right forearm under its bottom, left arm
+                 round its tummy, rocking side to side with the
+                 cheek tilted down to it; parent the prop to the
+                 chest bone at HUG_HOLD                       (loop, 4 s)
 
 Face clips move only the eye and brow bones, so they play on top of any
 body clip (body clips never touch the face bones):
@@ -258,6 +263,33 @@ def fart_keys(pose):
             (30, pose(1)), (40, pose(0.2, relief=1)), (52, pose(0, relief=0.8)), (60, pose(0))]
 
 
+# Where a hugged prop sits in the rest pose, character space (metres, +Y
+# ahead): parent it to the chest bone there and it follows the hug clip
+HUG_HOLD = (0.0, 0.20, 1.12)
+
+
+def hugging(rock=0.0, nuzzle=0.0):
+    """Standing, cradling something about 0.3 m tall against the chest:
+    rock (-1..1) sways the body from side to side, nuzzle tilts the head
+    down and over to it."""
+    r = standing()
+    lean = 4 + 2 * abs(rock)
+    r["hips"] = (Z, 6 * rock)
+    r["spine"] = [(X, -lean), (Y, 3 * rock)]
+    r["chest"] = [(Y, 4 * rock), (Z, 3 * rock)]
+    r["neck"] = (X, -8 - 4 * nuzzle)
+    r["head"] = [(X, -12 - 6 * nuzzle), (Y, -8 * nuzzle - 4 * rock)]
+    world = Matrix.Rotation(math.radians(-lean), 3, X)
+    # right forearm flat across under its bottom, left arm round its tummy
+    aim(r, [("upper_arm.R", _arm(1), (0.12, 0.14, -1.0)),
+            ("forearm.R", _arm(1), (-0.80, 0.58, 0.02), ((-0.707, 0, -0.707), (0, 0, -1.0))),
+            ("hand.R", _arm(1), (-0.85, 0.30, 0.25))], world)
+    aim(r, [("upper_arm.L", _arm(-1), (-0.10, 0.45, -1.0)),
+            ("forearm.L", _arm(-1), (0.45, 0.89, 0.02), ((0.707, 0, -0.707), (0, -1.0, 0))),
+            ("hand.L", _arm(-1), (0.95, 0.20, 0.0))], world)
+    return r
+
+
 def clips():
     """{name: [(frame, pose)]}."""
     c = {}
@@ -283,6 +315,8 @@ def clips():
     c["step_down"] = stepping_down()
     c["fart"] = fart_keys(farting)
     c["fart_seated"] = fart_keys(farting_seated)
+    c["hug"] = [(0, hugging(0, 1)), (24, hugging(1, 0.4)), (48, hugging(0, 1)), (72, hugging(-1, 0.4)),
+                (96, hugging(0, 1))]
     return c
 
 
@@ -326,8 +360,7 @@ EXPRESSIONS = {"happy": (0.003, -4, 0.7, 0.003, 0.008, 0.005),
                "sad": (0.001, -16, 0.85, 0.0, -0.007, -0.002),
                "surprised": (0.011, 0, 1.3, 0.013, 0.0, -0.008),
                "angry": (-0.006, 18, 0.7, 0.001, -0.004, 0.004),
-               "worried": (0.005, -14, 1.05, 0.002, -0.003, -0.004),
-               "relieved": (0.006, -8, 0.3, 0.002, 0.006, 0.004)}
+               "worried": (0.005, -14, 1.05, 0.002, -0.003, -0.004)}
 EYES, BROWS = {"eye.R", "eye.L"}, {"brow.R", "brow.L"}
 MOUTH = {"mouth.R", "mouth.L"}
 

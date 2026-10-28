@@ -393,5 +393,30 @@
   "row": 7,
   "col": 2,
   "hex": "#2e9a52"
+ },
+ "sloth_fur": {
+  "row": 8,
+  "col": 0,
+  "hex": "#8f7c62"
+ },
+ "sloth_fur_dark": {
+  "row": 8,
+  "col": 1,
+  "hex": "#6a5844"
+ },
+ "sloth_face": {
+  "row": 8,
+  "col": 2,
+  "hex": "#e4d6bc"
+ },
+ "sloth_mask": {
+  "row": 8,
+  "col": 3,
+  "hex": "#3a2a1f"
+ },
+ "claw": {
+  "row": 8,
+  "col": 4,
+  "hex": "#d8cbb0"
  }
 }
