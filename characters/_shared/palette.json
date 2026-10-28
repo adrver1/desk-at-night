@@ -418,5 +418,10 @@
   "row": 8,
   "col": 4,
   "hex": "#d8cbb0"
+ },
+ "sloth_tan": {
+  "row": 8,
+  "col": 5,
+  "hex": "#b49670"
  }
 }

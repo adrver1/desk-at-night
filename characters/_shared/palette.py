@@ -53,7 +53,7 @@ ROWS = [
     [("logo_magenta", "#c42a72"), ("logo_orange", "#ec8a3c"), ("logo_green", "#2e9a52")],
     # 8 animals and soft toys
     [("sloth_fur", "#8f7c62"), ("sloth_fur_dark", "#6a5844"), ("sloth_face", "#e4d6bc"),
-     ("sloth_mask", "#3a2a1f"), ("claw", "#d8cbb0")],
+     ("sloth_mask", "#3a2a1f"), ("claw", "#d8cbb0"), ("sloth_tan", "#b49670")],
 ]
 
 SWATCHES = {}

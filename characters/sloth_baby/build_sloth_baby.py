@@ -10,8 +10,9 @@ Two looks, both kept (STYLE picks the live one, sloth_baby.glb):
     baby     a real baby sloth: smaller head, long arms with three
              cream claws, shaggy tufts on the back
 
-Every look has the three-toed sloth's face: a pale mask, dark stripes
-running back from the eyes, a dark nose and a little smile.
+Every look has a cute three-toed sloth's face: a pale mask with a fur
+fringe, tan teardrop patches round big shiny eyes, a dark nose bump and a
+little smile.
 
     python characters/sloth_baby/build_sloth_baby.py [--style plush|baby|all]
 
@@ -29,7 +30,7 @@ import base_body as base  # noqa: E402  (imports bpy)
 import bpy  # noqa: E402
 
 Vector, X, Y, Z = base.Vector, base.X, base.Y, base.Z
-FUR, DARK, FACE, MASK, CLAW = "sloth_fur", "sloth_fur_dark", "sloth_face", "sloth_mask", "claw"
+FUR, DARK, FACE, MASK, CLAW, TAN = "sloth_fur", "sloth_fur_dark", "sloth_face", "sloth_mask", "claw", "sloth_tan"
 STYLE = "plush"
 
 STYLES = {
@@ -86,8 +87,8 @@ EYES = dict(x=0.027, z=-0.002, a=0.020, b=0.0125, droop=22, eye=0.0085)
 
 def face(m, rings, zc, k):
     """The three-toed sloth's face, drawn cute: a cream mask with a fringe of
-    fur dipping into it at the top, dark drooping teardrop patches round big
-    shiny eyes, a round dark nose and a little smile, pink cheeks."""
+    fur dipping into it at the top, tan drooping teardrop patches round big
+    shiny eyes, a round dark nose and a little smile."""
     # cream mask: one piece over the whole front, its top edge dipping in a
     # point at the middle where the head fur comes down (the fringe)
     mask = []
@@ -102,14 +103,12 @@ def face(m, rings, zc, k):
     for s in (1, -1):
         cx, cz = s * e["x"] * k, zc + e["z"] * k
         patch(m, rings, ellipse(cx, cz, e["a"] * k, e["b"] * k, -s * e["droop"] if s > 0 else 180 + e["droop"],
-                                n=12, bulge=0.25), (cx, cz), 0.003, MASK, "mask")
+                                n=12, bulge=0.25), (cx, cz), 0.003, TAN, "patch")
         # the eye sits towards the inner, upper end of its patch
         ex, ez = cx - s * 0.004 * k, cz + 0.002 * k
         patch(m, rings, ellipse(ex, ez, e["eye"] * k, e["eye"] * k * 1.1, n=10), (ex, ez), 0.0045, "eye", "eye")
         gx, gz = ex - s * 0.0025 * k, ez + 0.003 * k
         patch(m, rings, ellipse(gx, gz, 0.0028 * k, 0.0028 * k, n=6), (gx, gz), 0.006, "white", "glint")
-        bx, bz = s * 0.042 * k, zc - 0.024 * k
-        patch(m, rings, ellipse(bx, bz, 0.009 * k, 0.005 * k, n=8), (bx, bz), 0.0025, "blush", "blush")
     # nose: a small rounded bump, wider than tall
     n0 = on_head(rings, 0, zc - 0.016 * k, 0.0)
     nose = [n0 + Vector((dx * k, dy * k, dz * k)) for dx, dy, dz in
