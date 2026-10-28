@@ -11,7 +11,7 @@
 // ?story=full (the three-act version), ?lang=en|no (on-screen language).
 import * as THREE from 'three';
 import '../play.js';
-import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CREW_NAMES } from './content.js';
+import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN, CREW_NAMES } from './content.js';
 import { FULL, LANG, T } from './lang.js';
 import lines from './lines.json';
 import { StoryUI } from './ui.js';
@@ -36,7 +36,7 @@ const GRADES = q.get('grade') === '1';
 addStoryScreens();
 
 const host = document.getElementById('game');
-const ui = new StoryUI(host, { privateBase: PRIVATE });
+const ui = new StoryUI(host, { privateBase: PRIVATE, publicBase: 'story/' });
 // The chapter navigator along the bottom (?nav=a|b|c, off with ?nav=0); see ui.nav
 const NAV = new URLSearchParams(location.search).get('nav') ?? 'b';
 if (NAV !== '0') ui.nav(CHAPTERS, NAV, (c, i) => { sound.wake(); return c === 'next' ? next() : c === 'back' ? back() : enter(c, i, { instant: true }); });
@@ -57,14 +57,23 @@ const PRIVATE_ON = q.get('private') === '1';
 if (PRIVATE_ON) fetch(`${PRIVATE}overrides.json`).then((r) => (r.ok ? r.json() : null)).then((o) => { if (o) applyOverrides(o); }).catch(() => {});
 if (q.get('fps') === '1' || q.has('perf')) document.documentElement.classList.add('show-fps');   // the panel sits on <body>, outside the game
 function applyOverrides(o) {
-  // { lines: { id: text }, cards: { id: { initiative, status } }, slides: { id: {...} } }
-  for (const [id, text] of Object.entries(o.lines ?? {})) if (lines[id]) lines[id].text = text;
-  import('./content.js').then((c) => {
+  // { lines: { id: text | { text, no } }, cards: { id: { initiative, status } }, slides: { id: {...} | { no, en } },
+  //   chats: { id: {...} }, chatText: { id: { index: { no, en } } }, beats: { id: { notes, callouts } } }
+  //   (the last two from the story editor's live stage)
+  for (const [id, v] of Object.entries(o.lines ?? {})) if (lines[id]) Object.assign(lines[id], typeof v === 'string' ? { text: v } : v);
+  const tx = (v) => (v && typeof v === 'object' ? T(v.no ?? v.en, v.en ?? v.no) : v ?? '');
+  for (const [id, v] of Object.entries(o.beats ?? {})) for (const ch of CHAPTERS) for (const b of ch.beats) if (b.id === id) {
+    if ('notes' in v) b.notes = v.notes;
+    if ('callouts' in v) b.callouts = v.callouts?.map((c) => ({ ...c, label: tx(c.label), text: tx(c.text) }));
+  }
+  return import('./content.js').then((c) => {
     for (const [id, v] of Object.entries(o.cards ?? {})) Object.assign(c.CARDS[id] ?? {}, v);
-    for (const [id, v] of Object.entries(o.slides ?? {})) c.SLIDES[id] = { ...c.SLIDES[id], ...v };
+    for (const [id, v] of Object.entries(o.slides ?? {})) c.SLIDES[id] = { ...c.SLIDES[id], ...(v.no || v.en ? T(v.no ?? v.en, v.en ?? v.no) : v) };
+    for (const [id, v] of Object.entries(o.chats ?? {})) c.setChat(id, v);
+    for (const [id, v] of Object.entries(o.chatText ?? {})) c.setChatText(id, v);
   });
 }
-if (PRIVATE_ON) ui.findSlides();
+ui.findSlides(PRIVATE_ON);
 if (PRIVATE_ON) for (const id of ['stepTest', 'riser', 'antiSlug', 'scd', 'govDocs']) {
   const img = new Image();
   img.onload = () => { S.images[id] = img; };
@@ -94,8 +103,27 @@ const merge = (a, b) => {
 function stateAt(c, i) {
   const ch = CHAPTERS[c];
   let s = merge({ act: 0, graph: 0, alarms: null, overlay: null, boatLabel: null, org: null, tool: null, chats: null, place: null, sound: 'room' }, ch.base);
-  for (let k = 0; k < i; k++) s = merge(merge(s, ch.beats[k].set), ch.beats[k].end);
+  for (let k = 0; k < i; k++) s = chatDone(merge(merge(s, ch.beats[k].set), ch.beats[k].end), ch.beats[k]);
   return merge(s, ch.beats[i].set);
+}
+
+// A chat beat once past: every message shown
+const chatDone = (s, b) => (b.chat ? { ...s, chats: { ...s.chats, [b.chat]: CHATS[b.chat].messages.length } } : s);
+
+// A chat beat's clicks: one message more (or less), the camera on the chat,
+// or on the report beside it when the message hands one over
+function chatStep(dir) {
+  const b = CHAPTERS[chapter]?.beats[beat], id = b?.chat;
+  if (!id || running) return false;
+  const n = (state.chats?.[id] ?? 0) + dir;
+  if (n < 1 || n > CHATS[id].messages.length) return false;
+  chatTo(id, n, dir > 0);
+  return true;
+}
+function chatTo(id, n, typing) {
+  const show = CHATS[id].messages[n - 1][0] === 'show';
+  apply(merge(state, { chats: { ...state.chats, [id]: n }, shot: `monitor:${show ? REPORT_SCREEN : CHAT_SCREEN}` }));
+  if (typing) S.chatAt[id] = S.now;
 }
 
 // ---------------------------------------------------------------- applying state
@@ -157,6 +185,7 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
   call.quiet();
   ui.subs();
   ui.title(null);
+  ui.callouts(null);
   chapter = c; beat = i;
   const ch = CHAPTERS[c], b = ch.beats[i];
   location.hash = `${ch.key}.${i + 1}`;
@@ -174,6 +203,7 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
   clockFace?.show(false);
   showHud();
   ui.notes(b.notes, notesOn);
+  ui.callouts(b.callouts);
   running = true; waiting = false;
   if (!skipDo) {
     for (const step of b.do ?? []) {
@@ -182,6 +212,7 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
       await run(step, my);
     }
   } else if (b.end) apply(merge(state, b.end), { instant: true });
+  if (skipDo && b.chat) chatTo(b.chat, CHATS[b.chat].messages.length, false);   // stepped back into: all of it
   if (my !== token) return;
   running = false; waiting = true;
   showHud();
@@ -310,6 +341,8 @@ function next() {
   if (free) return;
   if (CHAPTERS[chapter].prologue) return prologueNext();
   if (ui.advanceVote()) return;
+  if (!running && ui.stepBuild(1)) return;
+  if (chatStep(1)) return;
   const b = CHAPTERS[chapter].beats[beat];
   if (running && b.skip !== 'next') {
     // Mid-beat: finish it at once (lines stop, its end state shows)
@@ -331,6 +364,10 @@ function next() {
 
 function back() {
   if (free) return;
+  if (ui.stepBuild(-1)) return;
+  if (chatStep(-1)) return;
+  // a slide we step back into shows all its clicks
+  if (beat > 0 || chapter > 0) ui.buildFromEnd = true;
   if (beat > 0) enter(chapter, beat - 1, { instant: true, skipDo: true });
   else if (chapter > 0) enter(chapter - 1, CHAPTERS[chapter - 1].beats.length - 1, { instant: true, skipDo: true });
 }
@@ -570,6 +607,8 @@ function frame(dt, now) {
   }
   cast?.update(dt, game.camera, S.now);
   epilogue?.update(dt);
+  // a report's video plays only while its screen is drawn
+  for (const v of Object.values(S.videos)) if (!v.paused && S.now - v.seen > 0.5) v.pause();
 }
 
 let lastT = performance.now();
@@ -612,6 +651,7 @@ game.ready.then(async () => {
 }).catch((e) => { go.textContent = `Could not load: ${e.message}`; console.error(e); });
 sound.loadIndex();
 
+let wantBeat = null;   // __story.goto before Start
 function start() {
   if (!begin.parentNode) return;
   if (go.disabled && !q.has('chapter')) {
@@ -629,13 +669,25 @@ function start() {
   const fromHash = hc ? CHAPTERS.findIndex((ch) => ch.key === hc) : -1;
   chapter = fromHash >= 0 && !q.has('chapter') ? fromHash : c;
   beat = Math.min(CHAPTERS[chapter].beats.length - 1, fromHash >= 0 && !q.has('chapter') ? Math.max(0, (hb || 1) - 1) : Math.max(0, (qb || 1) - 1));
+  // ?beat=<beat id> (the story script editor's ▶ links): that beat, wherever it is now
+  const want = wantBeat ?? q.get('beat');
+  if (want) CHAPTERS.forEach((ch, ci) => { const bi = ch.beats.findIndex((b) => b.id === want); if (bi >= 0) { chapter = ci; beat = bi; } });
   if (CHAPTERS[chapter].prologue || game.room) enter(chapter, beat, { instant: true });
   if (q.get('mode') === 'free') game.ready.then(() => setTimeout(toggleFree, 300));
 }
 
 // For automated screenshots and checks
 window.__story = {
-  start, next, back, enter: (key, i = 0, o) => enter(CHAPTERS.findIndex((ch) => ch.key === key), i, o),
+  start, next, back, override: applyOverrides,
+  // the story editor's live stage: play a beat by its id, with its moves and lines
+  goto: (id) => {
+    const ci = CHAPTERS.findIndex((ch) => ch.beats.some((b) => b.id === id));
+    if (ci < 0) return false;
+    if (begin.parentNode) { wantBeat = id; return true; }   // Start (a tap in the game, so sound may play) goes there
+    game.ready.then(() => enter(ci, CHAPTERS[ci].beats.findIndex((b) => b.id === id)));
+    return true;
+  },
+  enter: (key, i = 0, o) => enter(CHAPTERS.findIndex((ch) => ch.key === key), i, o),
   get state() { return { chapter: CHAPTERS[chapter].id, beat: CHAPTERS[chapter].beats[beat]?.id, running, waiting, free, s: state }; },
   beats: (key) => CHAPTERS.find((ch) => ch.key === key)?.beats.length ?? 0,
   sola: () => sola, epilogue: () => epilogue, trondheim,

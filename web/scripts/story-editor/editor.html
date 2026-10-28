@@ -1,0 +1,620 @@
+<title>Story Script Editor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: like PowerPoint. The current beat fills the screen (picture left, its script right); a multi-track timeline of the whole run is docked at the bottom. */
+:root {
+  --bg: #edf0f3; --surface: #ffffff; --ink: #17202b; --muted: #5b6878; --line: #d3dae2;
+  --accent: #b86200; --accent-soft: #ffe7c4; --agent: #1f8a6c; --stage: #0d1116;
+  --note: #fff3a8; --note-ink: #4a3d00; --done: #e1f3ea; --done-ink: #18563f; --danger: #b3261e;
+  --t-slide: #2f4b7c; --t-card: #6b5a8e; --t-line: #c9781d; --t-chat: #1f8a6c; --t-cam: #7b8794; --t-move: #8a6d3b; --t-new: #d9480f; --t-auto: #c4ccd6;
+  --display: 'Barlow Condensed', 'Arial Narrow', sans-serif; --body: 'IBM Plex Sans', system-ui, sans-serif; --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --navh: 228px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #11161c; --surface: #19212a; --ink: #e4e9ee; --muted: #93a0ae; --line: #2b3541; --accent: #f0a23a; --accent-soft: #3d2a10; --agent: #5fd0ad; --stage: #06080b; --note: #4a4110; --note-ink: #fff0a0; --done: #173a2d; --done-ink: #a6e8cb; --danger: #ff8a80;
+  --t-slide: #6f93d6; --t-card: #a993d6; --t-line: #f0a23a; --t-chat: #5fd0ad; --t-cam: #93a0ae; --t-move: #c9a465; --t-new: #ff7a45; --t-auto: #34404d; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #11161c; --surface: #19212a; --ink: #e4e9ee; --muted: #93a0ae; --line: #2b3541; --accent: #f0a23a; --accent-soft: #3d2a10; --agent: #5fd0ad; --stage: #06080b; --note: #4a4110; --note-ink: #fff0a0; --done: #173a2d; --done-ink: #a6e8cb; --danger: #ff8a80;
+  --t-slide: #6f93d6; --t-card: #a993d6; --t-line: #f0a23a; --t-chat: #5fd0ad; --t-cam: #93a0ae; --t-move: #c9a465; --t-new: #ff7a45; --t-auto: #34404d; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 15px/1.45 var(--body); padding-bottom: calc(var(--navh) + env(safe-area-inset-bottom, 0px)) }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface) }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1400px; margin: 0 auto }
+header.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line) }
+header.bar .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-block: 8px }
+h1 { margin: 0; font: 600 22px/1 var(--display); letter-spacing: .02em; text-transform: uppercase }
+.spacer { flex: 1 }
+.status { font: 12px var(--mono); color: var(--muted) }
+.status.bad { color: var(--danger) }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden }
+.seg button { font: 500 14px var(--body); background: none; color: var(--ink); border: 0; padding: 6px 11px; cursor: pointer }
+.seg button + button { border-left: 1px solid var(--line) }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface) }
+.btn { font: 500 14px var(--body); border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 6px 11px; cursor: pointer }
+.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink) }
+.btn.note { background: var(--note); color: var(--note-ink); border-color: transparent }
+.btn.danger { color: var(--danger) }
+.btn.add { color: var(--accent); border-style: dashed; border-color: var(--accent); background: none }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+.mono { font-family: var(--mono); font-size: 12px; color: var(--muted) }
+
+/* Notes list */
+.notes { margin: 10px 0 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px }
+.notes h2 { margin: 0; font: 600 18px var(--display); text-transform: uppercase; letter-spacing: .03em }
+.notes .row { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; padding-top: 8px; border-top: 1px solid var(--line) }
+.notes .row button { font: 12px var(--mono); color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline }
+
+/* The current beat */
+.beathead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding-block: 12px 8px }
+.beathead h2 { margin: 0; font: 600 24px/1 var(--display); letter-spacing: .02em }
+.beathead .ch { font: 500 13px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .04em }
+.tag { font: 500 11px var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; white-space: nowrap }
+.tag.new { color: var(--t-new); border-color: var(--t-new) }
+.stagegrid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 16px; align-items: start; padding-bottom: 16px }
+@media (max-width: 860px) { .stagegrid { grid-template-columns: 1fr } }
+.stagecol { display: grid; gap: 8px; min-width: 0; position: sticky; top: 60px }
+@media (max-width: 860px) { .stagecol { position: static } }
+a.btn { text-decoration: none; display: inline-block; margin-right: 8px }
+.navbtns { display: flex; gap: 8px; align-items: center }
+.navbtns .btn { padding: 6px 14px }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 6px; align-content: start; min-width: 0 }
+.panel h3 { margin: 4px 0 0; font: 600 13px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted) }
+.blk { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 1px solid transparent; border-radius: 6px; padding: 5px 8px; cursor: pointer }
+.blk:hover { border-color: var(--line); background: var(--bg) }
+.blk.on { border-color: var(--accent); background: var(--accent-soft) }
+.blk.dir { font-style: italic; color: var(--muted) }
+.blk.dl { padding-left: 12px; border-left: 3px solid var(--t-line) }
+.blk.dl .who { font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .06em }
+.blk.dl .who em { font: 400 11px var(--mono); color: var(--muted); font-style: normal; text-transform: none; letter-spacing: 0 }
+.blk.dl .alt { color: var(--muted); font-size: 13px }
+.blk.dl.chat { border-left-color: var(--t-chat) }
+.blk.dl.chat .who { color: var(--agent) }
+.blk.sl { border: 1px solid var(--line); border-left: 4px solid var(--t-slide); padding: 8px 12px }
+.blk.sl h4 { margin: 2px 0 4px; font: 600 19px/1.15 var(--display) }
+.blk.sl ul { margin: 0; padding-left: 1.2em }
+.blk.sl img { display: block; max-width: 100%; border-radius: 4px; margin-top: 6px }
+.blk.cl { font: 13px var(--mono); color: var(--accent) }
+.blk.cd { font: 600 17px var(--display); text-transform: uppercase; letter-spacing: .03em; border-left: 4px solid var(--t-card) }
+.cue { font: 12px var(--mono); color: var(--muted); padding: 2px 8px; cursor: pointer; background: none; border: 0; text-align: left }
+.cue b { color: var(--ink); font-weight: 500 }
+.cue.on { color: var(--accent) }
+.sticky { background: var(--note); color: var(--note-ink); border-radius: 4px; padding: 6px 10px; font-size: 13px; display: grid; gap: 2px }
+.sticky.done { background: var(--done); color: var(--done-ink) }
+.sticky small { font: 11px var(--mono); opacity: .8 }
+.addrow { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 6px; border-top: 1px solid var(--line) }
+.addrow button { font: 500 13px var(--body); color: var(--accent); background: none; border: 1px dashed var(--accent); border-radius: 999px; padding: 3px 10px; cursor: pointer }
+.empty { padding-block: 40px; color: var(--muted); max-width: 60ch }
+
+/* Frame: what the audience sees */
+.liveslot { position: relative; aspect-ratio: 16 / 9; background: var(--stage); border-radius: 6px; color: #c8d0d8; display: grid; place-items: center; text-align: center; padding: 16px; font: 13px var(--body) }
+#livebox { position: absolute; z-index: 5; border-radius: 6px; overflow: hidden; background: #000 }
+#livebox iframe { width: 100%; height: 100%; border: 0; display: block }
+.btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--ink) }
+.frame { position: relative; aspect-ratio: 16 / 9; max-width: 100%; background: var(--stage); border-radius: 6px; overflow: hidden; container-type: inline-size; color: #fff; touch-action: none }
+.frame img.still { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover }
+.frame .noshot { position: absolute; inset: 0; display: grid; place-items: center; font: 500 4cqw var(--mono); color: #fff8 }
+.frame .shot { position: absolute; left: 1.4cqw; top: 1.4cqw; font: 500 max(9px, 1.5cqw) var(--mono); background: #000a; color: #fffc; padding: .3cqw .8cqw; border-radius: .5cqw }
+.frame .slide { position: absolute; left: 7%; top: 8%; width: 86%; aspect-ratio: 16/9; background: #f7f5f0; color: #18202c; border-radius: 4px; padding: 4% 5%; box-shadow: 0 1cqw 4cqw #000c; display: grid; align-content: start; gap: 3cqw; overflow: hidden }
+.frame .slide img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000 }
+.frame .slide h2 { margin: 0; font: 600 4.6cqw/1.1 var(--display) }
+.frame .slide ul { margin: 0; padding-left: 1.1em; display: grid; gap: 1.4cqw; font-size: 2.4cqw; line-height: 1.3 }
+.frame .slide .cap { position: absolute; left: 0; right: 0; bottom: 0; background: #000b; color: #fff; padding: 1.4cqw 3cqw; font-size: 2.4cqw }
+.frame .card { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 1cqw; font: 600 5cqw/1.15 var(--display); text-shadow: 0 0 2cqw #000; padding: 6% }
+.frame .card.solid { background: #000 }
+.frame .card small { font: 400 2.4cqw var(--body) }
+.frame .subs { position: absolute; left: 8%; right: 8%; bottom: 5%; text-align: center; font-size: max(9px, 2.4cqw); line-height: 1.3 }
+.frame .subs span { background: #000b; padding: .3cqw 1cqw; box-decoration-break: clone; -webkit-box-decoration-break: clone }
+.frame .subs b { color: #ffd78a; font-weight: 600 }
+.frame .chatb { position: absolute; right: 3%; top: 8%; width: 40%; background: #0e1a17ee; border: 1px solid #5fd0ad88; border-radius: 1cqw; padding: 1.2cqw; font-size: max(9px, 1.9cqw); line-height: 1.3 }
+.frame .chatb b { display: block; color: #5fd0ad; font: 500 max(8px, 1.4cqw) var(--mono); margin-bottom: .5cqw }
+.co { position: absolute; transform: translate(-50%, -50%) }
+.co .pin { width: 2.6cqw; height: 2.6cqw; min-width: 10px; min-height: 10px; border-radius: 50%; background: #ffb43a; box-shadow: 0 0 0 .6cqw #ffb43a55, 0 0 2cqw #ffb43a }
+.co .lab { position: absolute; left: 160%; top: 50%; transform: translateY(-50%); white-space: nowrap; background: #11161cee; border: 1px solid #ffb43a; border-radius: .8cqw; padding: .6cqw 1.1cqw; font-size: max(8px, 1.8cqw); line-height: 1.25 }
+.co .lab b { display: block; color: #ffb43a; font: 600 max(10px, 2.1cqw)/1.1 var(--display); letter-spacing: .02em; text-transform: uppercase }
+.co.left .lab { left: auto; right: 160% }
+.co.drag { cursor: grab }
+.co.drag .pin { outline: 2px dashed #fff; outline-offset: 3px }
+
+/* The timeline at the bottom */
+.tlbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; height: calc(var(--navh) + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--line); display: grid; grid-template-rows: auto 1fr; padding-bottom: env(safe-area-inset-bottom, 0px) }
+.tlhead { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; padding: 6px max(12px, env(safe-area-inset-right, 0px)) 4px max(12px, env(safe-area-inset-left, 0px)); font: 11px var(--mono); color: var(--muted) }
+.tlhead .k { display: inline-flex; align-items: center; gap: 5px }
+.tlhead .k i { width: 10px; height: 10px; border-radius: 2px; display: inline-block }
+.tlscroll { overflow-x: auto; overflow-y: hidden; position: relative; scrollbar-width: thin }
+.tl { position: relative; min-height: 100%; padding-left: 74px; width: max-content }
+[hidden] { display: none !important }
+.tl .lab { position: sticky; left: 0; z-index: 2; width: 70px; margin-left: -74px; background: var(--surface); font: 500 10px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; display: flex; align-items: center; padding-left: max(8px, env(safe-area-inset-left, 0px)) }
+.tl .row { position: relative; height: 22px; display: flex; width: max-content }
+.tl .row.tall { height: 30px }
+.tl .track { position: relative; flex: none }
+.seg2 { position: absolute; top: 3px; bottom: 3px; border-radius: 3px; overflow: hidden; white-space: nowrap; font: 500 10px/16px var(--mono); padding: 0 4px; cursor: pointer; border: 0; text-align: left; color: #fff }
+.row.tall .seg2 { line-height: 24px; font-size: 11px }
+.seg2.chap { background: var(--ink); color: var(--surface); font: 600 12px/16px var(--display); text-transform: uppercase; letter-spacing: .04em }
+.seg2.beat { background: var(--bg); color: var(--ink); border: 1px solid var(--line) }
+.seg2.beat.auto { background: repeating-linear-gradient(135deg, var(--t-auto) 0 6px, var(--bg) 6px 12px) }
+.seg2.beat.new { border-color: var(--t-new); color: var(--t-new); border-width: 2px }
+.seg2.beat.hid { opacity: .4 }
+.hidtog { cursor: pointer; gap: 5px } .hidtog input { margin: 0; accent-color: var(--t-new) }
+.seg2.beat.cur { outline: 2px solid var(--accent); outline-offset: 1px }
+.seg2.slide { background: var(--t-slide) }
+.blk.gone { opacity: .45; text-decoration: line-through }
+.blk.gone .mono { text-decoration: none }
+.seg2 .tick { position: absolute; top: 0; bottom: 0; width: 1px; background: #0006 }
+.frame .chatscr { position: absolute; inset: 0; background: #14191f; display: flex; flex-direction: column; justify-content: flex-end; gap: 1.2cqw; padding: 7cqw 3cqw 8cqw; overflow: hidden }
+.frame .chatscr .hd { position: absolute; left: 0; right: 0; top: 0; background: #1c2a27; font: 600 max(9px, 1.9cqw) var(--body); padding: 1.2cqw 2cqw }
+.frame .msg { display: flex; align-items: flex-end; gap: 1.4cqw; max-width: 82% }
+.frame .msg.me { flex-direction: row-reverse; align-self: flex-end }
+.frame .msg .av { flex: none; width: 7cqw; height: 7cqw; border-radius: 50%; background: #2a3a44; border: 1px solid #454b52; object-fit: cover }
+.frame .msg .bub { background: #20342f; border-radius: 1.4cqw; padding: 1.1cqw 1.6cqw; font-size: max(9px, 1.9cqw); line-height: 1.3 }
+.frame .msg.me .bub { background: #2c4a6e }
+.frame .msg .bub b { display: block; color: #5fd0ad; font: 600 max(8px, 1.3cqw) var(--body); margin-bottom: .3cqw }
+.frame .msg.new .bub { outline: 2px solid #ffd78a }
+.frame .report { position: absolute; inset: 0; background: #14191f; display: grid; place-items: center }
+.frame .report img, .frame .report video { max-width: 100%; max-height: 100%; object-fit: contain }
+.frame .report .tag { position: absolute; right: 1.4cqw; top: 1.4cqw; font: 500 max(9px, 1.5cqw) var(--mono); background: #000a; color: #fffc; padding: .3cqw .8cqw; border-radius: .5cqw }
+.frame .chatb img { float: left; width: 4cqw; height: 4cqw; border-radius: 50%; margin: 0 1cqw .4cqw 0; background: #2a3a44 }
+.frame .subs .av { width: 3.4cqw; height: 3.4cqw; border-radius: 50%; vertical-align: middle; margin-right: .6cqw; background: #2a3a44 }
+.blk.dl .av, .blk.dl.chat .av { width: 22px; height: 22px; border-radius: 50%; vertical-align: middle; margin-right: 6px; background: #2a3a44 }
+.frame .clicks { position: absolute; left: 50%; bottom: 1.2cqw; transform: translateX(-50%); display: flex; align-items: center; gap: .6em; background: #000c; color: #fff; border-radius: 99px; padding: .2em .3em; font: 500 max(11px, 1.6cqw) var(--mono); white-space: nowrap }
+.frame .clicks button { all: unset; cursor: pointer; width: 2em; height: 2em; display: grid; place-items: center; border-radius: 50%; font-size: 1.2em }
+.frame .clicks button:hover:not([disabled]) { background: #fff2 }
+.frame .clicks button[disabled] { opacity: .3; cursor: default }
+.seg2.card { background: var(--t-card) }
+.seg2.line { background: var(--t-line) }
+.seg2.chat { background: var(--t-chat) }
+.seg2.move { background: var(--t-move); min-width: 6px }
+.seg2.cam { background: none; color: var(--t-cam); border-left: 2px solid var(--t-cam); border-radius: 0; padding-left: 3px }
+.seg2.co { background: #ffb43a; color: #3a2500 }
+.seg2.on { box-shadow: 0 0 0 2px var(--ink) }
+.seg2.note { background: var(--note); color: var(--note-ink) }
+.playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); z-index: 1; pointer-events: none }
+.secs { position: absolute; bottom: 0; font: 9px var(--mono); color: var(--muted) }
+@media (max-width: 600px) { :root { --navh: 200px } .tl .row { height: 18px } .tl .row.tall { height: 26px } .seg2 { line-height: 12px; font-size: 9px } .row.tall .seg2 { line-height: 20px } .tlhead .k.opt { display: none } }
+/* Sheet */
+.backdrop { position: fixed; inset: 0; background: #0008; z-index: 20 }
+.sheet { position: fixed; z-index: 21; left: 50%; bottom: 0; transform: translateX(-50%); width: min(720px, 100%); max-height: 88%; overflow: auto; background: var(--surface); border-radius: 14px 14px 0 0; border: 1px solid var(--line);
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 12px }
+@media (min-width: 760px) { .sheet { bottom: auto; top: 50%; transform: translate(-50%, -50%); border-radius: 14px } }
+.sheet h3 { margin: 0; font: 600 20px var(--display); text-transform: uppercase; letter-spacing: .03em }
+.sheet .acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end }
+label.f { display: grid; gap: 3px; font-size: 12px; color: var(--muted) }
+input.t, textarea.t, select.t { width: 100%; font: 15px/1.4 var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; resize: vertical }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+@media (max-width: 560px) { .two { grid-template-columns: 1fr } }
+.choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px }
+.choices button { text-align: left; font: 500 15px var(--body); border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 10px; padding: 10px 12px; cursor: pointer }
+.choices button small { display: block; font-weight: 400; font-size: 12px; color: var(--muted) }
+.check { display: flex; gap: 8px; align-items: center; font-size: 14px }
+.empty { padding-block: 40px; color: var(--muted); max-width: 60ch }
+</style>
+
+<header class="bar"><div class="wrap">
+  <h1>Story script</h1>
+  <span class="status" id="status">Connecting…</span>
+  <span class="spacer"></span>
+  <div class="seg" role="group" aria-label="Main language">
+    <button id="lNo" data-l="no">Norsk</button><button id="lEn" data-l="en">English</button>
+  </div>
+  <button class="btn note" id="notesBtn">Notes to Claude</button>
+</div></header>
+
+<div class="wrap">
+  <p class="mono" style="margin:10px 0 0">Tap any text to change it, + to add, "note to Claude" for anything else (camera, people, timing). Edits save at once; say "sync" in the thread to bring them into the game.</p>
+  <section class="notes" id="notes" hidden></section>
+  <main id="app"><p class="empty">Loading the story…</p></main>
+</div>
+<nav class="tlbar" aria-label="Timeline of the whole story">
+  <div class="tlhead">
+    <span class="k"><i style="background:var(--t-slide)"></i>slide</span><span class="k"><i style="background:var(--t-card)"></i>title card</span>
+    <span class="k"><i style="background:var(--t-line)"></i>spoken</span><span class="k"><i style="background:var(--t-chat)"></i>chat</span>
+    <span class="k opt"><i style="background:var(--t-move)"></i>people</span><span class="k opt"><i style="border:2px solid var(--t-new)"></i>new beat</span>
+    <span class="k opt"><i style="background:repeating-linear-gradient(135deg,var(--t-auto) 0 3px,var(--bg) 3px 6px);border:1px solid var(--line)"></i>plays by itself (≈ seconds)</span>
+    <span class="spacer"></span><label class="k hidtog"><input type="checkbox" id="showHid"> show left-out beats</label><span>← → to step through beats</span>
+  </div>
+  <div class="tlscroll" id="tlscroll"><div class="tl" id="tl"></div></div>
+</nav>
+<div id="sheetRoot"></div>
+
+<script>
+const app = document.getElementById('app');
+const statusEl = document.getElementById('status');
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const rid = () => Math.random().toString(36).slice(2, 7);
+let L = 'no', curKey = null, moment = -1;
+try { L = localStorage.getItem('sse.lang') || 'no'; curKey = localStorage.getItem('sse.beat'); } catch {}
+let db = null, beats = [], notes = [], showNotes = false;
+// left-out beats on the timeline and in ← → stepping (the beat on screen always shows)
+// the live game on the stage: the built game, shipped as this page's own files
+// (pack_game.py), playing the beat with its moves and sound
+let live = false, liveBox = null, liveBeat = null, liveLang = null, liveMiss = null;
+try { live = localStorage.getItem('sse.live') === '1'; } catch {}
+let showHid = false;
+try { showHid = localStorage.getItem('sse.hid') === '1'; } catch {}
+const vis = () => (showHid ? beats : beats.filter((b) => !b.hidden || b._key === curKey));
+const SPEAKERS = [['supervisor', 'Brage'], ['operator', 'Adriaen'], ['agent', 'Agent'], ['ceo', 'CEO'], ['pilot', 'Pilot'], ['crew', 'Ground crew'], ['engineer', 'Control engineer'], ['oim', 'OIM']];
+const TARGETS = ['band', 'window', 'clock', 'door', 'coffee', 'meeting table', ...[0, 1, 2, 3, 4, 5].flatMap((i) => [`Desk0Mon${i}Screen`, `Desk1Mon${i}Screen`]), ...[0, 1, 2, 3, 4, 5, 6].map((i) => `Wall${i}Screen`), 'LinkScreen', 'TvScreen'];
+const SHOTS = { wideRoom: 'wide room', band: 'display band', brageBand: 'Brage + band', brage: 'Brage', adriaen: 'Adriaen', adriaenDesk: 'Adriaen at his desk', pair: 'the two of them', pour: 'pouring', desk: 'desk', epilogue: 'fly-out', trondheim: 'Trondheim' };
+const shotName = (s) => (s ? (s.startsWith('monitor:') ? 'screen ' + s.slice(8) : SHOTS[s] || s) : '');
+const other = () => (L === 'no' ? 'en' : 'no');
+const txt = (o) => (typeof o === 'string' ? o : o?.[L] || o?.[other()] || '');
+function setStatus(t, bad) { statusEl.textContent = t; statusEl.classList.toggle('bad', !!bad); }
+const cur = () => beats.find((b) => b._key === curKey) || beats[0];
+// PowerPoint clicks: which picture of a slide's builds shows (-1 = all of them)
+let click = -1;
+const frames = (b) => (b.slide?.frames?.length > 1 ? b.slide.frames : null);
+// portraits by speaker (rendered from the game's character models); a chat
+// message can name its own (face)
+// the live game, for each beat's ▶ link
+const GAME = 'https://adrver1.github.io/desk-at-night/story.html';
+const FACES = { operator: '/_blob/e843ffe77159bdf030d620a084c1a5e1', supervisor: '/_blob/6fc4cbbfffdc804572371e4843791e90', ceo: '/_blob/fca9288847b48a48e6f95d34bdda18b4', agent: '/_blob/c2cd444a4a98dd0189e91fc16f85f1c4' };
+const faceOf = (x) => x.face || (x.kind === 'line' ? FACES[x.role] : x.who === 'me' ? null : FACES.agent);
+// a chat beat's clicks: one message each, like the game
+const chatSteps = (b) => (b.chat ? (b.items || []).filter((x) => x.kind === 'chat') : null);
+const nClicks = (b) => frames(b)?.length || chatSteps(b)?.length || 0;
+const clickAt = (b) => { const n = nClicks(b); return n ? (click < 0 || click >= n ? n - 1 : click) : 0; };
+function go(key, m = -1, c = -1) { curKey = key; moment = m; click = c; try { localStorage.setItem('sse.beat', key); } catch {} render(true); }
+// like the game: → shows a slide's next click first, then the next beat
+function step(d) {
+  const g = game();
+  if (live && g) { d > 0 ? g.next() : g.back(); return; }   // the editor follows the game
+  const b = cur(), nc = nClicks(b);
+  if (nc) { const c = clickAt(b) + d; if (c >= 0 && c < nc) { click = c; render(); return; } }
+  const bs = vis(), i = bs.indexOf(b); const n = bs[Math.min(bs.length - 1, Math.max(0, i + d))];
+  if (n && n !== b) go(n._key, -1, d > 0 ? 0 : -1);
+}
+
+// ------------------------------------------------------------ the live game
+const game = () => { try { return liveBox?.firstChild.contentWindow.__story ?? null; } catch { return null; } };
+// this beat's wording as edited here, for the game (story.json and lines.json
+// change only on a sync; new beats, order and timing need one)
+function overridesFor(b) {
+  const o = { lines: {}, chatText: {}, slides: {}, beats: { [b.id]: { notes: b.notes || '', callouts: b.callouts || [] } } };
+  for (const x of b.items || []) {
+    if (x.kind === 'line' && !x.isNew) o.lines[x.id] = { text: x.en || '', no: x.no || '' };
+    if (x.kind === 'chat' && x.key != null) (o.chatText[x.key] ??= {})[x.idx] = { no: x.no || '', en: x.en || '' };
+  }
+  if (b.slide && !b.slide.image) o.slides[b.slide.id] = { no: b.slide.no || {}, en: b.slide.en || {} };
+  return o;
+}
+function liveShow(b) {
+  const slot = document.getElementById('liveslot');
+  let playable = !b.hidden;
+  if (!liveBox || liveLang !== L) {
+    liveBox?.remove();
+    liveBox = document.createElement('div'); liveBox.id = 'livebox';
+    liveBox.innerHTML = `<iframe src="story.html?nofs&lang=${L}&beat=${encodeURIComponent(b.id)}" allow="autoplay; fullscreen" title="The game at this beat"></iframe>`;
+    document.body.append(liveBox);
+    liveLang = L; liveBeat = null;
+    liveBox.firstChild.addEventListener('load', () => { liveBeat = null; if (live) liveShow(cur()); });
+    requestAnimationFrame(livePlace);
+  }
+  const g = game();
+  if (g && playable && liveBeat !== b.id) {
+    liveBeat = b.id;
+    Promise.resolve(g.override(overridesFor(b))).then(() => { if (!g.goto(b.id)) { liveMiss = b.id; if (cur() === b) liveBox.style.visibility = 'hidden'; } });
+  }
+  liveBox.style.visibility = playable && liveMiss !== b.id ? '' : 'hidden';
+}
+// keep the game over its slot, and the editor on the game's beat
+function livePlace() {
+  if (!liveBox) return;
+  const slot = document.getElementById('liveslot');
+  if (slot) { const r = slot.getBoundingClientRect(); Object.assign(liveBox.style, { left: `${r.left + scrollX}px`, top: `${r.top + scrollY}px`, width: `${r.width}px`, height: `${r.height}px`, display: '' }); }
+  else liveBox.style.display = 'none';
+  requestAnimationFrame(livePlace);
+}
+setInterval(() => {
+  const g = live && game(), id = g?.state?.beat;
+  if (!id || id === liveBeat) return;
+  const b = beats.find((x) => x.id === id);
+  liveBeat = id;
+  if (!b) return;
+  g.override(overridesFor(b));   // a beat the game moved on to by itself
+  if (b !== cur()) { curKey = b._key; moment = -1; click = -1; render(true); }
+}, 400);
+
+// ------------------------------------------------------------ the frame
+function frame(b, opts = {}) {
+  const still = b.still || stillBefore(b);
+  const items = b.items || [];
+  const m = opts.moment ?? -1;
+  // the camera at this moment: the beat's own, or the last cue before the chosen item
+  let shot = b.ctx?.shot || b.ctx?.place || '';
+  if (m >= 0) for (let j = 0; j <= m; j++) if (items[j]?.kind === 'shot') shot = items[j].shot;
+  let h = still ? `<img class="still" src="${still}" alt="">` : `<div class="noshot">${esc(shotName(shot) || b.id)}</div>`;
+  if (shot) h += `<div class="shot">camera: ${esc(shotName(shot))}</div>`;
+  if (b.slide) {
+    const s = b.slide[L] || b.slide.en || {};
+    const f = frames(b), ci = clickAt(b);
+    h += `<div class="slide">${b.slide.image ? `<img src="${esc(f ? f[ci] : b.slide.image)}" alt="">${s.caption ? `<div class="cap">${esc(s.caption)}</div>` : ''}` : `<h2>${esc(s.title)}</h2><ul>${(s.bullets || []).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`}</div>`;
+  }
+  const cs = chatSteps(b);
+  if (cs) {
+    // the chat on Adriaen's monitor; a report it hands over fills the next one
+    let ci = clickAt(b);
+    if (m >= 0 && items[m]?.kind === 'chat') { ci = cs.indexOf(items[m]); }
+    const x = cs[ci];
+    if (x?.who === 'show' && x.media) h += `<div class="report">${x.video ? `<video src="${esc(x.media)}" autoplay muted loop playsinline></video>` : `<img src="${esc(x.media)}" alt="">`}<div class="tag">next screen · ${esc(x[L] || x.en)}</div></div>`;
+    else h += `<div class="chatscr"><div class="hd">${esc(x?.chat || 'Chat')}</div>${cs.slice(0, ci + 1).slice(-5).map((y, j, a) => `<div class="msg${y.who === 'me' ? ' me' : ''}${j === a.length - 1 ? ' new' : ''}">${faceOf(y) ? `<img class="av" src="${esc(faceOf(y))}" alt="">` : '<span class="av"></span>'}<div class="bub">${y.who === 'me' ? '' : `<b>${esc(y.chat)}</b>`}${y.who === 'show' ? '▤ ' : ''}${esc(y[L] || y.en)}</div></div>`).join('')}</div>`;
+    if (opts.drag == null) h += `<div class="clicks"><button data-click="-1" ${ci ? '' : 'disabled'} aria-label="Previous message">‹</button><span>message ${ci + 1} of ${cs.length}</span><button data-click="1" ${ci < cs.length - 1 ? '' : 'disabled'} aria-label="Next message">›</button></div>`;
+  }
+  if (frames(b) && opts.drag == null) { const f = frames(b), ci = clickAt(b); h += `<div class="clicks"><button data-click="-1" ${ci ? '' : 'disabled'} aria-label="Previous click">‹</button><span>${ci ? `click ${ci} of ${f.length - 1}` : `before the first click (${f.length - 1})`}</span><button data-click="1" ${ci < f.length - 1 ? '' : 'disabled'} aria-label="Next click">›</button></div>`; }
+  if (b.card) h += `<div class="card${b.card.solid ? ' solid' : ''}">${esc(b.card.text)}</div>`;
+  const it = m >= 0 ? items[m] : items.find((x) => x.kind === 'line');
+  if (it?.kind === 'line' && !b.slide) h += `<div class="subs"><span>${faceOf(it) ? `<img class="av" src="${esc(faceOf(it))}" alt="">` : ''}<b>${esc(it.who)}:</b> ${esc(L === 'no' ? it.no || it.en : it.en)}</span></div>`;
+  if (it?.kind === 'chat' && !cs) h += `<div class="chatb">${faceOf(it) ? `<img src="${esc(faceOf(it))}" alt="">` : ''}<b>${esc(it.chat)} · ${esc(it.from)}</b>${esc(it[L])}</div>`;
+  if (it?.kind === 'card' && !it.removed) h += `<div class="card">${esc(it[L])}${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`;
+  (b.callouts || []).forEach((c, i) => { h += `<div class="co${c.x > 62 ? ' left' : ''}${opts.drag === i ? ' drag' : ''}" data-co="${i}" style="left:${c.x}%;top:${c.y}%"><div class="pin"></div><div class="lab"><b>${esc(txt(c.label))}</b>${esc(txt(c.text))}</div></div>`; });
+  return `<div class="frame">${h}</div>`;
+}
+function stillBefore(b) { const i = beats.indexOf(b); for (let j = i - 1; j >= 0; j--) if (beats[j].still) return beats[j].still; return null; }
+
+// ------------------------------------------------------------ the current beat
+function notesFor(beatKey, target) { return notes.filter((n) => n.beat === beatKey && (target === undefined || n.target === target)); }
+function stickies(beatKey, target) {
+  return notesFor(beatKey, target).map((n) => `<div class="sticky${n.status === 'done' ? ' done' : ''}"><div>${esc(n.text)}</div>${n.reply ? `<small>Claude: ${esc(n.reply)}</small>` : `<small>${n.status === 'done' ? 'done' : 'open, for Claude'}</small>`}</div>`).join('');
+}
+const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
+function render(scroll) {
+  for (const b of document.querySelectorAll('[data-l]')) b.setAttribute('aria-pressed', b.dataset.l === L);
+  const open = notes.filter((n) => n.status !== 'done').length;
+  document.getElementById('notesBtn').textContent = `Notes to Claude${open ? ` (${open})` : ''}`;
+  renderNotes();
+  if (!beats.length) { app.innerHTML = `<p class="empty">${db ? 'No beats yet. Claude fills the story in from the game; ask in the thread if this stays empty.' : 'Loading the story…'}</p>`; document.getElementById('tl').innerHTML = ''; return; }
+  const b = cur(), k = b._key, i = beats.indexOf(b);
+  let body = stickies(k, 'beat');
+  if (b.notes) body += `<button class="blk dir" data-edit="${k}|notes" title="Presenter notes">${esc(b.notes)}</button>`;
+  if (b.slide) {
+    const s = b.slide[L] || {};
+    body += `<button class="blk sl" data-edit="${k}|slide"><span class="mono">slide ${esc(b.slide.id)}${b.slide.image ? ' · picture' : ''}${frames(b) ? ` · ${frames(b).length - 1} clicks` : ''}${b.slide.placeholder ? ' · placeholder' : ''}</span>${b.slide.image ? `<img src="${esc(b.slide.image)}" alt="">${s.caption ? `<div>${esc(s.caption)}</div>` : ''}` : `<h4>${esc(s.title || 'Untitled slide')}</h4><ul>${(s.bullets || []).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`}</button>${stickies(k, 'slide')}`;
+  }
+  if (b.card) body += `<button class="blk cd" data-edit="${k}|beatcard">${esc(b.card.text || '(black card)')}</button>`;
+  (b.items || []).forEach((x, j) => {
+    const on = j === moment ? ' on' : '', at = b.auto && x.t != null ? `<span class="mono"> · ${x.t}s</span>` : '';
+    if (x.kind === 'shot') { body += `<button class="cue${on}" data-m="${j}">CAMERA → <b>${esc(shotName(x.shot))}</b>${at}</button>`; return; }
+    if (x.kind === 'move') { body += `<button class="cue${on}" data-m="${j}">${esc(x.who)} ${esc(x.what)}${at}</button>`; return; }
+    if (x.kind === 'fx') { body += `<button class="cue${on}" data-m="${j}">${esc(x.what)}${at}</button>`; return; }
+    if (x.kind === 'line') body += `<button class="blk dl${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${faceOf(x) ? `<img class="av" src="${esc(faceOf(x))}" alt="">` : ''}${esc(x.who)} ${x.fx ? `<em>(${esc(x.fx)})</em>` : ''} <em>spoken in English${at}</em></div><div>${esc(L === 'no' ? x.no || x.en || '…' : x.en || '…')}</div><div class="alt">${esc(L === 'no' ? x.en : x.no)}</div></button>`;
+    if (x.kind === 'chat') body += `<button class="blk dl chat${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${faceOf(x) ? `<img class="av" src="${esc(faceOf(x))}" alt="">` : ''}${esc(x.from)} <em>${b.chat ? `click ${(chatSteps(b) || []).indexOf(x) + 1}${x.who === 'show' ? ' · report on the next screen' : ''}` : `on the screen · ${esc(x.chat)}`}${at}</em></div><div>${esc(x[L])}</div></button>`;
+    if (x.kind === 'card') body += `<button class="blk cd${on}${x.removed ? ' gone' : ''}" data-edit="${k}|item${j}" data-m="${j}">${x.removed ? '<div class="mono">removed from the story</div>' : ''}${esc(x[L] || '(card)')}${x.sub ? `<div class="mono">${esc(x.sub)}</div>` : ''}</button>`;
+    body += stickies(k, 'item' + j);
+  });
+  (b.callouts || []).forEach((c, j) => { body += `<button class="blk cl" data-edit="${k}|co${j}">POINTER → ${esc(c.target)}: <b>${esc(txt(c.label) || '…')}</b>, ${esc(txt(c.text))}</button>${stickies(k, 'co' + j)}`; });
+  if (!b.slide && !b.card && !(b.items || []).length && !(b.callouts || []).length) body += '<p class="mono">Nothing written in this beat yet: only the camera and the room. Add something below.</p>';
+  body += `<div class="addrow"><button data-add="${k}|line">+ line</button><button data-add="${k}|pointer">+ pointer</button><button data-add="${k}|card">+ title card</button><button data-add="${k}|note">+ note to Claude</button></div>
+    <div class="addrow"><button data-ins="${i + 1}">+ new slide or card after this beat</button></div>`;
+  app.innerHTML = `<div class="beathead"><span class="ch">${esc(b.chName)} · beat ${vis().indexOf(b) + 1} of ${vis().length}</span><h2>${esc(b.id)}</h2>
+      ${b.isNew ? '<span class="tag new">new</span>' : ''}${b.hidden ? '<span class="tag">left out</span>' : ''}${b.auto ? `<span class="tag">plays by itself · ≈${fmt(b.dur || 0)}</span>` : '<span class="tag">waits for Space</span>'}
+      <span class="spacer"></span><button class="btn" id="liveBtn" aria-pressed="${live}" title="Play this beat in the game right here, with its animation and sound">◉ Live</button>${b.hidden || live ? '' : `<a class="btn" href="${GAME}?beat=${encodeURIComponent(b.id)}" target="_blank" rel="noopener" title="Opens the live game at this beat, with its animation and sound. Edits show there once synced and merged.">▶ Play in the game</a>`}<button class="btn" data-edit="${k}|beat">Beat settings</button></div>
+    <div class="stagegrid"><div class="stagecol">${live ? `<div class="liveslot" id="liveslot">${b.hidden ? 'Left out of the run: show it again (Beat settings) and sync to play it.' : 'This beat is not in the game yet: it plays here once synced.'}</div>` : frame(b, { moment })}
+      <div class="navbtns"><button class="btn" id="prev" ${i ? '' : 'disabled'}>◀ Back</button><span class="mono">${live ? 'tap Start in the game once for sound; Back and Next press ← and Space there' : moment >= 0 ? 'showing one moment; tap it again to see the whole beat' : 'tap a line or cue to see that moment'}</span><span class="spacer"></span><button class="btn" id="next" ${i < beats.length - 1 ? '' : 'disabled'}>Next ▶</button></div></div>
+    <div class="panel"><h3>In this beat</h3>${body}</div></div>`;
+  document.getElementById('prev').onclick = () => step(-1);
+  document.getElementById('next').onclick = () => step(1);
+  document.getElementById('liveBtn').onclick = () => { live = !live; try { localStorage.setItem('sse.live', live ? '1' : '0'); } catch {} if (!live) { liveBox?.remove(); liveBox = null; liveBeat = null; } render(); };
+  if (live) liveShow(b);
+  timeline(scroll);
+}
+function renderNotes() {
+  const el = document.getElementById('notes');
+  el.hidden = !showNotes;
+  if (!showNotes) return;
+  const open = notes.filter((n) => n.status !== 'done'), done = notes.filter((n) => n.status === 'done');
+  const row = (n) => `<div class="row"><button data-jump="${esc(n.beat)}">${esc(n.beatId || n.beat)}</button><div class="sticky${n.status === 'done' ? ' done' : ''}"><div>${esc(n.text)}</div>${n.reply ? `<small>Claude: ${esc(n.reply)}</small>` : ''}</div></div>`;
+  el.innerHTML = `<h2>Notes to Claude</h2>${open.length ? open.map(row).join('') : '<p class="mono">No open notes. Add one with "+ note to Claude" on any beat, or in any edit box.</p>'}${done.length ? `<details><summary class="mono">${done.length} done</summary>${done.map(row).join('')}</details>` : ''}`;
+}
+
+// ------------------------------------------------------------ the timeline
+const PX = 9;
+function timeline(scroll) {
+  const beats = vis();   // this function's beats: the ones on the timeline
+  const W = (b) => Math.max(b.slide || b.card ? 70 : 58, b.dur ? b.dur * PX + 10 : 0);
+  let x = 0; const pos = beats.map((b) => { const p = { x, w: W(b) }; x += p.w + 3; return p; });
+  const total = x;
+  const rows = { scene: '', beat: '', slide: '', cam: '', talk: '', chat: '', people: '', ptr: '' };
+  let start = 0;
+  beats.forEach((b, i) => {
+    const p = pos[i], k = b._key, X = (t) => p.x + 5 + Math.min(t * PX, p.w - 10);
+    if (i === beats.length - 1 || beats[i + 1].ch !== b.ch) { rows.scene += `<button class="seg2 chap" data-go="${beats[start]._key}" style="left:${pos[start].x}px;width:${p.x + p.w - pos[start].x}px" title="${esc(b.chName)}">${esc(b.chName)}</button>`; start = i + 1; }
+    rows.beat += `<button class="seg2 beat${b.auto ? ' auto' : ''}${b.isNew ? ' new' : ''}${b.hidden ? ' hid' : ''}${k === curKey || (!curKey && !i) ? ' cur' : ''}" data-go="${k}" style="left:${p.x}px;width:${p.w}px" title="${esc(b.id)}">${esc(b.id)}${b.auto ? ` ≈${Math.round(b.dur)}s` : ''}</button>`;
+    if (b.slide) { const f = frames(b), n = f ? f.length - 1 : 0;
+      const ticks = f ? f.slice(1).map((_, c) => `<i class="tick" style="left:${((c + 1) / (n + 1)) * 100}%"></i>`).join('') : '';
+      rows.slide += `<button class="seg2 slide${f ? ' builds' : ''}" data-go="${k}" style="left:${p.x}px;width:${p.w}px" title="${esc(b.slide[L]?.title || 'slide')}${n ? ` · ${n} clicks` : ''}">${ticks}${esc(b.slide[L]?.title || 'slide')}${n ? ` · ${n}` : ''}</button>`; }
+    if (b.card) rows.slide += `<button class="seg2 card" data-go="${k}" style="left:${p.x}px;width:${p.w}px">${esc(b.card.text || 'black')}</button>`;
+    const shot0 = b.ctx?.shot || b.ctx?.place;
+    const cues = (shot0 ? [{ x: p.x, shot: shot0, j: null }] : []).concat((b.items || []).map((it, j) => (it.kind === 'shot' ? { x: X(it.t ?? 0), shot: it.shot, j } : null)).filter(Boolean));
+    cues.forEach((c, n) => { const end = n + 1 < cues.length ? cues[n + 1].x : p.x + p.w; const on = k === curKey && c.j === moment ? ' on' : '';
+      rows.cam += `<button class="seg2 cam${on}" data-go="${k}" ${c.j != null ? `data-gm="${c.j}"` : ''} style="left:${c.x}px;width:${Math.max(4, end - c.x - 1)}px" title="camera: ${esc(shotName(c.shot))}">${esc(shotName(c.shot))}</button>`; });
+    if (b.callouts?.length) rows.ptr += `<button class="seg2 co" data-go="${k}" style="left:${p.x + 2}px;width:${Math.min(p.w - 4, 60)}px">${b.callouts.length} ▸</button>`;
+    if (notesFor(k).some((n) => n.status !== 'done')) rows.ptr += `<button class="seg2 note" data-go="${k}" style="left:${p.x + p.w - 22}px;width:20px" title="Open note">✎</button>`;
+    (b.items || []).forEach((it, j) => {
+      const t = it.t ?? 0, on = k === curKey && j === moment ? ' on' : '';
+      if (it.kind === 'line' || it.kind === 'chat') rows[it.kind === 'line' ? 'talk' : 'chat'] += `<button class="seg2 ${it.kind}${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:${Math.max(6, Math.min((it.d || 1.5) * PX, p.x + p.w - X(t)))}px" title="${esc(it.kind === 'chat' ? it.from : it.who)}: ${esc(it[L] || it.en)}">${esc(it.kind === 'chat' ? it.from : it.who)}</button>`;
+      if (it.kind === 'card' && !it.removed) rows.slide += `<button class="seg2 card${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:${Math.max(30, Math.min(80, p.x + p.w - X(t)))}px">${esc(it[L] || 'card')}</button>`;
+      if (it.kind === 'move' || it.kind === 'fx') rows.people += `<button class="seg2 move${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:8px" title="${esc((it.who ? it.who + ' ' : '') + it.what)}"></button>`;
+    });
+  });
+  const b = cur(), p = pos[beats.indexOf(b)], m = b.items?.[moment];
+  const ph = p ? `<div class="playhead" style="left:${74 + p.x + 5 + (m?.t != null ? Math.min(m.t * PX, p.w - 10) : 0)}px"></div>` : '';
+  const row = (lab, html, tall) => `<div class="row${tall ? ' tall' : ''}"><div class="lab">${lab}</div><div class="track" style="width:${total}px">${html}</div></div>`;
+  const tl = document.getElementById('tl');
+  tl.innerHTML = ph + row('Chapter', rows.scene) + row('Beat', rows.beat, 1) + row('Slides', rows.slide) + row('Camera', rows.cam) + row('Spoken', rows.talk) + row('Chat', rows.chat) + row('People', rows.people) + row('Pointers', rows.ptr);
+  if (scroll && p) { const sc = document.getElementById('tlscroll'); const want = p.x + 74 - sc.clientWidth / 3; if (p.x + 74 < sc.scrollLeft + 74 || p.x + p.w + 74 > sc.scrollLeft + sc.clientWidth) sc.scrollTo({ left: Math.max(0, want), behavior: 'smooth' }); }
+}
+document.getElementById('tl').addEventListener('click', (e) => { const g = e.target.closest('[data-go]'); if (g) { go(g.dataset.go, g.dataset.gm != null ? +g.dataset.gm : -1); if (scrollY > 200) scrollTo({ top: 0, behavior: 'smooth' }); } });
+
+// ------------------------------------------------------------ writes
+async function saveBeat(b) {
+  if (!db) { setStatus('Not connected: this change is not saved', true); return; }
+  const i = beats.findIndex((x) => x._key === b._key); if (i >= 0) beats[i] = clone(b);
+  const body = clone(b); delete body._key;
+  body.updatedAt = new Date().toISOString();
+  setStatus('Saving…');
+  try { await db.collection('beats').doc(b._key).set(body); setStatus('Saved'); } catch (e) { setStatus(e.code === 'quota_exceeded' ? 'Storage is full: nothing more can be saved' : 'Could not save: try again', true); }
+}
+async function addNote(b, target, text) {
+  if (!text.trim()) return;
+  if (!db) { setStatus('Not connected: the note is not saved', true); return; }
+  setStatus('Saving…');
+  try { await db.collection('notes').add({ beat: b._key, beatId: b.id, target, text: text.trim(), status: 'open', createdAt: new Date().toISOString() }); setStatus('Note saved'); } catch { setStatus('Could not save the note', true); }
+}
+
+// ------------------------------------------------------------ the sheet
+const sheetRoot = document.getElementById('sheetRoot');
+function closeSheet() { sheetRoot.innerHTML = ''; render(); }
+function sheet(title, inner, onDone, extra = '') {
+  sheetRoot.innerHTML = `<div class="backdrop" data-close></div><form class="sheet" id="sheetForm" role="dialog" aria-label="${esc(title)}"><h3>${esc(title)}</h3>${inner}
+    <label class="f">Note to Claude (optional)<textarea class="t" id="f_note" rows="2" placeholder="Anything the fields can't do, e.g. move the camera closer, shorter, different person"></textarea></label>
+    <div class="acts">${extra}<button type="button" class="btn" data-close>Cancel</button><button class="btn primary" type="submit">Done</button></div></form>`;
+  const form = document.getElementById('sheetForm');
+  form.addEventListener('submit', (e) => { e.preventDefault(); onDone(form); closeSheet(); });
+  sheetRoot.querySelectorAll('[data-close]').forEach((x) => x.addEventListener('click', closeSheet));
+  form.querySelector('input, textarea')?.focus();
+  return form;
+}
+const fld = (id, lab, val, area, rows = 2) => `<label class="f">${lab}${area ? `<textarea class="t" id="${id}" rows="${rows}">${esc(val)}</textarea>` : `<input class="t" id="${id}" value="${esc(val)}">`}</label>`;
+const val = (f, id) => f.querySelector('#' + id)?.value ?? '';
+const lines = (s) => s.split('\n').map((x) => x.trim()).filter(Boolean);
+
+function edit(key, what, draft) {
+  const b = draft || beats.find((x) => x._key === key); if (!b) return;
+  const nb = clone(b); nb._key = key;
+  const finish = (f, target) => { saveBeat(nb); addNote(b, target, val(f, 'f_note')); };
+  if (what === 'beat') {
+    sheet(`Beat ${b.id}`, `<p class="mono">Camera, people and timing are set in the game. Ask for changes to them in the note.</p>
+      <label class="check"><input type="checkbox" id="f_hidden" ${b.hidden ? 'checked' : ''}> Leave this beat out of the show (it stays here, greyed out)</label>`,
+      (f) => { nb.hidden = f.querySelector('#f_hidden').checked; finish(f, 'beat'); });
+  } else if (what === 'notes') {
+    sheet('Presenter notes', fld('f_n', 'What you say or do during this beat (shown with P)', b.notes, 1, 4), (f) => { nb.notes = val(f, 'f_n'); finish(f, 'notes'); });
+  } else if (what === 'slide') {
+    const s = b.slide;
+    sheet(`Slide ${s.id}`, `
+      <label class="f">Kind<select class="t" id="f_kind"><option value="text">Text: title and bullets</option><option value="image" ${s.image ? 'selected' : ''}>Picture (with an optional caption)</option></select></label>
+      <div class="two">${fld('f_tno', 'Title (Norwegian)', s.no?.title)}${fld('f_ten', 'Title (English)', s.en?.title)}</div>
+      <div class="two">${fld('f_bno', 'Bullets, one per line (Norwegian)', (s.no?.bullets || []).join('\n'), 1, 5)}${fld('f_ben', 'Bullets, one per line (English)', (s.en?.bullets || []).join('\n'), 1, 5)}</div>
+      <div id="imgrow" ${s.image ? '' : 'hidden'}><label class="f">Picture (PNG or JPG exported from PowerPoint; it stays private)<input type="file" id="f_img" accept="image/png,image/jpeg"></label>
+      ${frames(b) ? `<p class="mono">${frames(b).length - 1} clicks from your PowerPoint animations. A new picture replaces them with a single picture.</p>` : ''}
+      <div class="two">${fld('f_cno', 'Caption (Norwegian)', s.no?.caption)}${fld('f_cen', 'Caption (English)', s.en?.caption)}</div></div>
+      <label class="check"><input type="checkbox" id="f_ph" ${s.placeholder ? 'checked' : ''}> Still a placeholder (shows the yellow tag)</label>`,
+      async (f) => {
+        nb.slide.no = { title: val(f, 'f_tno'), bullets: lines(val(f, 'f_bno')), caption: val(f, 'f_cno') };
+        nb.slide.en = { title: val(f, 'f_ten'), bullets: lines(val(f, 'f_ben')), caption: val(f, 'f_cen') };
+        nb.slide.placeholder = f.querySelector('#f_ph').checked;
+        const kind = f.querySelector('#f_kind').value;
+        if (kind === 'text') delete nb.slide.image;
+        const file = f.querySelector('#f_img').files?.[0];
+        if (kind === 'image' && file) { nb.slide.image = await upload(file); delete nb.slide.frames; }
+        finish(f, 'slide');
+      });
+    const f = document.getElementById('sheetForm');
+    f.querySelector('#f_kind').addEventListener('change', (e) => { f.querySelector('#imgrow').hidden = e.target.value !== 'image'; });
+  } else if (what === 'beatcard') {
+    sheet('Title card', fld('f_c', 'Text on the card (empty = plain black)', b.card?.text), (f) => { nb.card = { ...nb.card, text: val(f, 'f_c') }; finish(f, 'beatcard'); });
+  } else if (what.startsWith('item')) {
+    const j = +what.slice(4), x = b.items[j];
+    const del = x.isNew ? '<button type="button" class="btn danger" id="f_del">Remove</button>'
+      : x.kind === 'card' ? `<button type="button" class="btn${x.removed ? '' : ' danger'}" id="f_gone">${x.removed ? 'Put it back' : 'Remove from the story'}</button>` : '';
+    let inner = '';
+    if (x.kind === 'line') inner = `${x.isNew ? `<label class="f">Who says it<select class="t" id="f_who">${SPEAKERS.map(([r, n]) => `<option value="${r}" ${x.role === r ? 'selected' : ''}>${n}</option>`).join('')}</select></label>` : `<p class="mono">${esc(x.who)} · line ${esc(x.id)}</p>`}
+      <div class="two">${fld('f_en', 'Spoken (English, the voice reads this)', x.en, 1, 3)}${fld('f_no', 'Subtitle (Norwegian)', x.no, 1, 3)}</div>`;
+    if (x.kind === 'chat') inner = `<p class="mono">${esc(x.from)} on ${esc(x.chat)}</p><div class="two">${fld('f_no', 'Norwegian', x.no, 1, 3)}${fld('f_en', 'English', x.en, 1, 3)}</div>`;
+    if (x.kind === 'card') inner = `<div class="two">${fld('f_no', 'Card text (Norwegian)', x.no)}${fld('f_en', 'Card text (English)', x.en)}</div>`;
+    sheet(x.kind === 'line' ? 'Spoken line' : x.kind === 'chat' ? 'Chat message on a screen' : 'Title card', inner, (f) => {
+      const y = nb.items[j]; y.no = val(f, 'f_no'); y.en = val(f, 'f_en');
+      if (x.isNew && x.kind === 'line') { y.role = val(f, 'f_who'); y.who = SPEAKERS.find((s) => s[0] === y.role)?.[1] || y.role; }
+      finish(f, what);
+    }, del);
+    document.getElementById('f_del')?.addEventListener('click', () => { nb.items.splice(j, 1); saveBeat(nb); closeSheet(); });
+    document.getElementById('f_gone')?.addEventListener('click', () => { nb.items[j].removed = !x.removed; saveBeat(nb); closeSheet(); });
+  } else if (what.startsWith('co')) {
+    const j = +what.slice(2), c = nb.callouts[j];
+    for (const k of ['label', 'text']) if (typeof c[k] === 'string') c[k] = { no: c[k], en: '' };
+    sheet('Pointer in the room', `<p class="mono">Drag the orange dot to where it should point. The game shows it at that same spot on the screen, in this camera shot.</p>
+      <div id="dragframe">${frame(nb, { drag: j })}</div>
+      <label class="f">Points at<input class="t" id="f_tg" list="targets" value="${esc(c.target)}"></label><datalist id="targets">${TARGETS.map((t) => `<option value="${t}">`).join('')}</datalist>
+      <div class="two">${fld('f_lno', 'Heading (Norwegian)', c.label.no)}${fld('f_len', 'Heading (English)', c.label.en)}</div>
+      <div class="two">${fld('f_tno', 'Text (Norwegian)', c.text.no, 1)}${fld('f_ten', 'Text (English)', c.text.en, 1)}</div>`,
+      (f) => { c.target = val(f, 'f_tg'); c.label = { no: val(f, 'f_lno'), en: val(f, 'f_len') }; c.text = { no: val(f, 'f_tno'), en: val(f, 'f_ten') }; finish(f, what); },
+      '<button type="button" class="btn danger" id="f_del">Remove</button>');
+    document.getElementById('f_del').addEventListener('click', () => { nb.callouts.splice(j, 1); saveBeat(nb); closeSheet(); });
+    dragPins(document.getElementById('dragframe'), c);
+  }
+}
+function dragPins(root, c) {
+  const fr = root.querySelector('.frame'), el = root.querySelector('.co.drag'); if (!fr || !el) return;
+  const move = (e) => { const r = fr.getBoundingClientRect(); c.x = Math.round(Math.min(97, Math.max(3, (e.clientX - r.left) / r.width * 100))); c.y = Math.round(Math.min(95, Math.max(5, (e.clientY - r.top) / r.height * 100))); el.style.left = c.x + '%'; el.style.top = c.y + '%'; el.classList.toggle('left', c.x > 62); };
+  fr.addEventListener('pointerdown', (e) => { fr.setPointerCapture(e.pointerId); move(e); const mv = (ev) => move(ev); fr.addEventListener('pointermove', mv); fr.addEventListener('pointerup', () => fr.removeEventListener('pointermove', mv), { once: true }); });
+}
+
+function add(key, kind) {
+  const b = beats.find((x) => x._key === key); if (!b) return;
+  const nb = clone(b); nb._key = key; nb.items ||= []; nb.callouts ||= [];
+  if (kind === 'note') { sheet(`Note to Claude · ${b.id}`, '<p class="mono">What should change in this beat?</p>', (f) => addNote(b, 'beat', val(f, 'f_note'))); return; }
+  if (kind === 'line') { nb.items.push({ kind: 'line', id: `new.${rid()}`, role: 'operator', who: 'Adriaen', en: '', no: '', isNew: true }); }
+  if (kind === 'card') { nb.items.push({ kind: 'card', no: '', en: '', isNew: true }); }
+  if (kind === 'pointer') { nb.callouts.push({ target: b.ctx?.shot?.startsWith('monitor:') ? b.ctx.shot.slice(8) : 'band', label: { no: '', en: '' }, text: { no: '', en: '' }, x: 40, y: 45 }); }
+  edit(key, kind === 'pointer' ? 'co' + (nb.callouts.length - 1) : 'item' + (nb.items.length - 1), nb);
+}
+function insertAt(i) {
+  const prev = beats[i - 1] || beats[0], next = beats[i];
+  const order = next ? (prev.order + next.order) / 2 : prev.order + 10;
+  sheetRoot.innerHTML = `<div class="backdrop" data-close></div><div class="sheet" role="dialog" aria-label="Add"><h3>New beat after ${esc(prev?.id || 'the start')}</h3>
+    <div class="choices"><button data-k="text">Text slide<small>Title and bullets</small></button><button data-k="image">Picture slide<small>A PNG from PowerPoint, optional caption</small></button><button data-k="card">Title card<small>Big text over the picture or black</small></button></div>
+    <p class="mono">It becomes its own beat, with the same camera as the beat before it. The presenter moves on with Space.</p><div class="acts"><button class="btn" data-close>Cancel</button></div></div>`;
+  sheetRoot.querySelectorAll('[data-close]').forEach((x) => x.addEventListener('click', closeSheet));
+  sheetRoot.querySelectorAll('[data-k]').forEach((x) => x.addEventListener('click', async () => {
+    const k = x.dataset.k, n = rid(), key = `new-${n}`;
+    const nb = { _key: key, id: `new.${n}`, isNew: true, ch: prev.ch, chName: prev.chName, order, auto: false, notes: '', card: null, slide: null, items: [], callouts: [], ctx: { ...(prev.ctx || {}) }, still: null, after: prev.id };
+    if (k === 'card') nb.card = { text: '' };
+    else nb.slide = { id: `n-${n}`, no: { title: '', bullets: [] }, en: { title: '', bullets: [] }, ...(k === 'image' ? { image: '' } : {}) };
+    beats.splice(i, 0, nb); curKey = key; moment = -1; closeSheet(); await saveBeat(nb);
+    edit(key, k === 'card' ? 'beatcard' : 'slide');
+  }));
+}
+
+let assets;
+async function upload(file) {
+  assets ??= await claude.use('assets');
+  if (!assets) { setStatus('Pictures can only be added by the page owner', true); return ''; }
+  setStatus('Uploading…');
+  try { const r = await assets.upload(file); setStatus('Saved'); return r.url; } catch { setStatus('Upload failed: try a smaller PNG', true); return ''; }
+}
+
+// ------------------------------------------------------------ events
+app.addEventListener('click', (e) => {
+  const ed = e.target.closest('[data-edit]');
+  if (ed) { if (ed.dataset.m != null) moment = +ed.dataset.m; const [k, w] = ed.dataset.edit.split('|'); edit(k, w); return; }
+  const ck = e.target.closest('[data-click]'); if (ck) { const b = cur(); click = Math.max(0, Math.min(nClicks(b) - 1, clickAt(b) + +ck.dataset.click)); moment = -1; render(); return; }
+  const mm = e.target.closest('[data-m]'); if (mm) { moment = moment === +mm.dataset.m ? -1 : +mm.dataset.m; render(); return; }
+  const ad = e.target.closest('[data-add]'); if (ad) { const [k, w] = ad.dataset.add.split('|'); add(k, w); return; }
+  const ins = e.target.closest('[data-ins]'); if (ins) insertAt(+ins.dataset.ins);
+});
+document.getElementById('notes').addEventListener('click', (e) => { const a = e.target.closest('[data-jump]'); if (a) { go(a.dataset.jump); scrollTo({ top: 0, behavior: 'smooth' }); } });
+document.getElementById('notesBtn').addEventListener('click', () => { showNotes = !showNotes; renderNotes(); });
+const hidBox = document.getElementById('showHid');
+hidBox.checked = showHid;
+hidBox.addEventListener('change', () => { showHid = hidBox.checked; try { localStorage.setItem('sse.hid', showHid ? '1' : '0'); } catch {} render(); });
+document.querySelectorAll('[data-l]').forEach((b) => b.addEventListener('click', () => { L = b.dataset.l; try { localStorage.setItem('sse.lang', L); } catch {} render(); }));
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeSheet(); return; }
+  if (sheetRoot.innerHTML || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName)) return;
+  if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); step(1); }
+  if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); step(-1); }
+});
+
+render();
+(async () => {
+  db = await claude.use('db');
+  if (!db) { setStatus('Not connected: open this page signed in to edit', true); render(); return; }
+  setStatus('Connected');
+  let first = true;
+  db.collection('beats').onSnapshot((snap) => {
+    beats = snap.docs.map((d) => ({ ...clone(d.data()), _key: d.id })).sort((a, b) => a.order - b.order);
+    if (!sheetRoot.innerHTML) render(first); first = false;
+  }, () => setStatus('Lost the connection: reload the page', true));
+  db.collection('notes').onSnapshot((snap) => {
+    notes = snap.docs.map((d) => ({ ...d.data(), _id: d.id })).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    if (!sheetRoot.innerHTML) render();
+  }, () => {});
+})();
+</script>

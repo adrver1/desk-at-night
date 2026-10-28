@@ -4,6 +4,7 @@
 // lines.json (rendered to audio by web/scripts/voices.py).
 import { FULL, T } from './lang.js';
 import { PATHS } from './cast.js';
+import STORY from './story.json';
 import { CEO_MEET } from './trondheim.js';
 //
 // This repo is public: no real platform numbers, initiative names, or names
@@ -458,46 +459,34 @@ export const PLAIN_CARDS = {
 
 // The agents' chats on the screens of tomorrow's room: who writes ('me' or
 // 'ai') and what. A `chat` step shows one more message; an 'ai' message types
-// for a moment first.
-export const CHATS = {
-  plan: {
-    title: T('Forretningsplan-agent', 'Business-plan agent'), who: 'Brage',
-    messages: [
-      ['me', T('Hvordan holder forretningsplanen hvis den nye brønnen kommer tre måneder for sent?', 'How does the business plan hold up if the new well comes in three months late?')],
-      ['ai', T('Produksjonen faller litt i tredje kvartal. To prosjekter kan flyttes fram og dekke gapet. Skal jeg lage utkast til begge?', 'Production dips a little in the third quarter. Two projects can move forward to fill the gap. Shall I draft both?')],
-      ['me', T('Ja, lag begge. Og merk det som trenger godkjenning offshore.', 'Yes, draft both. And flag anything that needs sign-off offshore.')],
-      ['ai', T('Utkastene er klare. To punkter trenger godkjenning, og de er sendt til kontrollrommet.', 'Drafts ready. Two items need sign-off, and they have gone to the control room.')],
-    ],
-  },
-  slug: {
-    title: T('Reguleringsagent · anti-slug', 'Control agent · anti-slug'), who: 'Adriaen',
-    messages: [
-      ['me', T('Stigerøret begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?', 'The riser started slugging again overnight. Can you retune the anti-slug controller?')],
-      ['ai', T('Ny modell tilpasset fra nattens data. Den foreslåtte innstillingen holder stigerøret stabilt i simulatoren.', 'New model fitted from last night\'s data. The proposed tuning holds the riser steady in the simulator.')],
-      ['me', T('Bra. Kjør den gjennom logikktesteren før jeg signerer.', 'Good. Run it through the logic tester before I sign.')],
-      ['ai', T('Alle 14 testtilfeller består. Klar for din signatur.', 'All 14 test cases pass. Ready for your signature.')],
-    ],
-  },
+// for a moment first. The text is in story.json, with the default run's
+// slides, the pointers and the closing line (the story script editor edits it).
+const tx = (o) => (o ? T(o.no ?? o.en, o.en ?? o.no) : '');
+// `faces` name the portraits beside the messages (public/story/faces/<id>.png;
+// the agent's falls back to the agent icon).
+// A 'show' message is a report the agent hands over: the chat shows it as an
+// attachment and the screen beside it the picture or video (`file` in
+// public/story/reports/).
+const chatOf = (c) => ({ title: tx(c.title), who: c.who, faces: c.faces ?? {}, messages: c.messages.map(([who, m]) => [who, tx(m), m]) });
+export const CHATS = Object.fromEntries(Object.entries(STORY.chats).map(([id, c]) => [id, chatOf(c)]));
+// the private build's own wording of a chat (overrides.json `chats`)
+export const setChat = (id, c) => { CHATS[id] = chatOf({ ...STORY.chats[id], ...c }); };
+// the story editor's wording, by message: { 2: { no, en } } (keeps each report's file)
+export const setChatText = (id, texts) => {
+  const c = STORY.chats[id];
+  if (c) CHATS[id] = chatOf({ ...c, messages: c.messages.map(([who, m], i) => [who, texts[i] ? { ...m, ...texts[i] } : m]) });
 };
+// A chat beat (story.json inserted, `chat`): the chat on one of Adriaen's
+// monitors, its reports on the next; each press shows one more message
+export const CHAT_SCREEN = 'Desk0Mon1Screen', REPORT_SCREEN = 'Desk0Mon2Screen';
 
-// Slides of the default run. TODO(Adriaen): your own slides, as text here or
-// as PNGs in public/story/private/slides/<id>.png (see SLIDES above).
-const TODO = T('TODO(Adriaen): ditt lysbilde', 'TODO(Adriaen): your slide');
-Object.assign(SLIDES, {
-  'y-01': { title: T('Trondheim, ett år tidligere', 'Trondheim, one year ago'), bullets: [T('TODO: Trondheim-scenen kommer her (drone over Torvet, ned til døra på Føniks)', 'TODO: the Trondheim scene goes here (drone over Torvet, down to the Føniks door)'), T('Første uke i jobben', 'First week on the job')], placeholder: true },
-  'y-02': { title: T('Onboarding er bratt', 'Onboarding is steep'), bullets: [TODO, T('Nytt anlegg, nye systemer, nye forkortelser', 'New plant, new systems, new acronyms'), T('Tusenvis av styrende dokumenter', 'Thousands of governing documents'), T('Hvem vet hva, og hvor står det?', 'Who knows what, and where is it written?')], placeholder: true },
-  'd-01': { title: T('Et bevisst valg', 'A deliberate choice'), bullets: [TODO, T('KI inn i min egen onboarding', 'AI in my own onboarding'), T('Bygge verktøy for det, og for daglige reguleringsoppgaver', 'Build tools for it, and for daily control-engineering tasks')], placeholder: true },
-  'd-02': { title: T('Fra spørsmål til verktøy', 'From questions to tools'), bullets: [TODO, T('Hva spurte jeg om de første ukene?', 'What did I ask about in the first weeks?'), T('Hva ble til verktøy?', 'What became a tool?')], placeholder: true },
-  'm-01': { title: T('Hva er mulig', 'What is possible'), bullets: [TODO, T('Steptest-finner', 'Step-test finder'), T('Simulatorer', 'Simulators'), T('I-005 logikktester', 'I-005 logic tester'), T('Agenter for styrende dokumenter', 'Governing-document agents')], placeholder: true },
-  'm-02': { title: T('Modeller uten nye steptester', 'Models without new step tests'), bullets: [TODO, T('Finner brukbare strekk i historikken', 'Finds usable stretches in history'), T('Ingen tapte fat', 'No lost barrels')], placeholder: true },
-  'm-03': { title: T('Å se er å tro', 'Seeing is believing'), bullets: [TODO, T('Fysikkmodeller (Python, CasADi) som snakker OPC UA', 'Physics models (Python, CasADi) that talk OPC UA'), T('Prøv regulatoren før anlegget gjør det', 'Try the controller before the plant does')], placeholder: true },
-  'm-04': { title: T('Test logikken før leverandøren', 'Test the logic before the vendor'), bullets: [TODO, T('SCD etter I-005, kjørt i en interaktiv logikktester', 'SCD to I-005, run in an interactive logic tester'), T('Feil funnet på en laptop, ikke under igangkjøring', 'Mistakes found on a laptop, not at commissioning')], placeholder: true },
-  'm-05': { title: T('Styrende dokumenter, med kilde', 'Governing documents, with sources'), bullets: [TODO, T('Agenter som svarer med henvisning', 'Agents that answer with a citation'), T('Sjekker endringer mot kravene', 'Check changes against the requirements')], placeholder: true },
-  'h-01': { title: T('Kunnskapsgrafer', 'Knowledge graphs'), bullets: [TODO, T('Utstyr, dokumenter, krav og lærdom, koblet sammen', 'Equipment, documents, requirements and lessons, linked'), T('Én kunnskapsbase, mange agenter', 'One knowledge base, many agents')], placeholder: true },
-  'h-02': { title: T('Flere agenter sammen', 'Multi-agent work'), bullets: [TODO, T('Hver agent har sitt fag og sitt mandat', 'Each agent has its subject and its mandate'), T('Mennesker leder dem', 'People lead them')], placeholder: true },
-  'h-03': { title: T('MCP-verktøy', 'MCP tools'), bullets: [TODO, T('Agentene bruker de samme verktøyene som oss', 'The agents use the same tools we do'), T('Historikk, simulatorer, logikktester, dokumenter', 'History, simulators, logic tester, documents')], placeholder: true },
-  'h-04': { title: T('Hva betyr det for oss?', 'What does it mean for us?'), bullets: [TODO, T('Inn i idédugnaden', 'Into the brainstorm')], placeholder: true },
-});
+// Slides of the default run. TODO(Adriaen): your own slides, as text in
+// story.json (or the editor) or as PNGs in public/story/private/slides/<id>.png
+// (see SLIDES above).
+for (const [id, sl] of Object.entries(STORY.slides)) {
+  const v = sl[T('no', 'en')] ?? sl.en ?? sl.no ?? {};
+  SLIDES[id] = { title: v.title ?? '', bullets: v.bullets ?? [], caption: v.caption, placeholder: !!sl.placeholder, image: sl.image, builds: sl.builds ?? 0 };
+}
 
 // The governing-document agent on a desk monitor (mock-up), and its sources
 export const GOV_DOCS = {
@@ -514,7 +503,7 @@ const BLANK = Object.fromEntries(ALL_SCREENS.map((n) => [n, 'blank']));
 // either side, the graph at the ends; Adriaen's agent and the riser at his desk
 const TOMORROW_SCREENS = { Wall1Screen: 'graph', Wall2Screen: 'planChart', Wall3Screen: 'chatPlan', Wall4Screen: 'planChart', Wall5Screen: 'graph', Desk1Mon2Screen: 'chatSlug', Desk1Mon3Screen: 'riser' };
 const TOMORROW_CAST = { supervisor: { at: 'desk0typing' }, operator: { at: 'desk2typing' } };
-export const CLOSING = T('Denne delen er ikke vår å bestemme. Den er deres.', 'This part isn\'t ours to decide. It\'s yours.');
+export const CLOSING = tx(STORY.closing);
 
 const SHORT_CHAPTERS = [
   {
@@ -625,6 +614,62 @@ const SHORT_CHAPTERS = [
     ],
   },
 ];
+
+// What the story script editor changed (story.json): presenter notes and
+// title cards per beat, pointers, beats left out, and beats it added (a slide
+// or a title card after a given beat, with the same camera)
+function applyStory(chapters) {
+  // a chapter whose beats are all left out goes, and the rest renumber
+  for (let c = chapters.length - 1; c >= 0; c--) {
+    if (!chapters[c].prologue && chapters[c].beats.every((b) => STORY.hidden.includes(b.id))) chapters.splice(c, 1);
+  }
+  chapters.forEach((ch, c) => { ch.key = c + 1; });
+  for (const ch of chapters) {
+    for (const b of ch.beats) {
+      const o = STORY.beats[b.id];
+      if (o?.notes !== undefined) b.notes = o.notes;
+      if (o?.card && b.card) b.card = { ...b.card, text: tx(o.card) };
+      // title cards its steps show, in order
+      const cards = (b.do ?? []).filter((st) => st.card);
+      (o?.cards ?? []).forEach((c, i) => {
+        if (c === false && cards[i]) { b.do.splice(b.do.indexOf(cards[i]), 1); return; }   // removed in the editor
+        if (!c) return;
+        if (cards[i]) cards[i].card = { ...cards[i].card, text: tx(c) };
+        else (b.do ??= []).push({ card: { text: tx(c) } }, { wait: 3 }, { card: null });   // a card added in the editor
+      });
+      // lines added in the editor, spoken at the end of the beat
+      for (const id of o?.say ?? []) (b.do ??= []).push({ say: id });
+      if (STORY.callouts[b.id]) b.callouts = STORY.callouts[b.id].map((c) => ({ ...c, label: tx(c.label), text: tx(c.text) }));
+    }
+    for (const add of STORY.inserted) {
+      const i = ch.beats.findIndex((b) => b.id === add.after);
+      if (i < 0) continue;
+      // the overlay in force before it, for the beat after it to fall back to
+      let overlay = ch.base?.overlay ?? null;
+      for (const b of ch.beats.slice(0, i + 1)) for (const st of [b.set, b.end]) if (st && 'overlay' in st) overlay = st.overlay;
+      const nb = { id: add.id, notes: add.notes ?? '', set: { overlay: add.slide ? `slide:${add.slide}` : null } };
+      if (add.chat) {
+        nb.chat = add.chat;
+        nb.set = { ...nb.set, shot: `monitor:${CHAT_SCREEN}`, screens: { [CHAT_SCREEN]: `chat:${add.chat}`, [REPORT_SCREEN]: `report:${add.chat}` }, chats: { [add.chat]: 1 } };
+      }
+      if (add.card) nb.card = { text: tx(add.card), solid: !!add.solid };
+      if (STORY.callouts[add.id]) nb.callouts = STORY.callouts[add.id].map((c) => ({ ...c, label: tx(c.label), text: tx(c.text) }));
+      const after = ch.beats[i + 1];
+      if (after) after.set = { overlay, ...after.set };
+      ch.beats.splice(i + 1, 0, nb);
+    }
+    // a beat left out hands what it set up on to the beat after it
+    for (const id of STORY.hidden) {
+      const i = ch.beats.findIndex((b) => b.id === id);
+      if (i < 0 || ch.beats.length < 2) continue;
+      const [b] = ch.beats.splice(i, 1), nb = ch.beats[i];
+      if (nb) nb.set = merge2(merge2(b.set, b.end), nb.set);
+      else ch.beats[i - 1].end = merge2(ch.beats[i - 1].end, merge2(b.set, b.end));
+    }
+  }
+}
+const merge2 = (a, b) => ({ ...(a ?? {}), ...(b ?? {}) });
+applyStory(SHORT_CHAPTERS);
 
 export const CHAPTERS = FULL ? FULL_CHAPTERS : SHORT_CHAPTERS;
 // The slides this run shows, in order, for their numbers
