@@ -56,11 +56,12 @@ the editor shows what the game now does.
 A slide with `builds: N` in story.json has N clicks: the presenter's Space shows
 the next click before moving to the next beat, and ← steps back. The pictures,
 one per click, are `<slide id>.b00.webp` (before the first click) to
-`.b<N>.webp` in `public/story/slides/` (Adriaen's CtrlBuddy deck is cleared
-for publication; with `?private=1` a PNG of the same name in the git-ignored
-`public/story/private/slides/` wins). Make them from the deck with
-`pptx_anim_parse.py` and `pptx_anim_build.py` (PNGs), then convert to WebP at
-most 1920 wide. In the editor a slide's `frames` lists the same pictures, and
+`.b<N>.webp` in `public/story/slides/`. The deck shows real names, logos
+and tags, so the public pictures are blurred copies: the sharp PNGs go in the
+git-ignored `public/story/private/slides/` (they win with `?private=1`), and
+`scripts/blur_public.py` writes the public WebPs from them (the report
+pictures and videos in `reports/` likewise). Make the PNGs from the deck with
+`pptx_anim_parse.py` and `pptx_anim_build.py`, at most 1920 wide. In the editor a slide's `frames` lists the same pictures, and
 sync writes `builds` from it.
 
 ## Chat beats

@@ -11,6 +11,7 @@ import { CONTENT } from '../screens.js';
 import { LIVE } from '../controlScene.js';
 import { drawGraph } from './graph.js';
 import { AGENTS, ORG, SPEAKERS, CHATS, GOV_DOCS } from './content.js';
+import { PRIVATE, PRIVATE_BASE } from '../privateNames.js';
 import { T } from './lang.js';
 
 export const S = {
@@ -419,7 +420,12 @@ function reportMedia(file) {
     const video = /\.(mp4|webm)$/i.test(file);
     const el = reportFiles[file] = document.createElement(video ? 'video' : 'img');
     if (video) { Object.assign(el, { muted: true, loop: true, playsInline: true, preload: 'auto', seen: 0 }); S.videos[file] = el; }
-    el.src = S.reports + file;
+    // public: a blurred copy (scripts/blur_public.py); ?private=1: the sharp
+    // original in story/private/reports/ (pictures as .png), if it is there
+    if (PRIVATE) {
+      el.onerror = () => { el.onerror = null; el.src = S.reports + file; };
+      el.src = `${PRIVATE_BASE}reports/${file.replace(/\.webp$/, '.png')}`;
+    } else el.src = S.reports + file;
   }
   return reportFiles[file];
 }
