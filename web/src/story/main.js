@@ -11,7 +11,7 @@
 // ?story=full (the three-act version), ?lang=en|no (on-screen language).
 import * as THREE from 'three';
 import '../play.js';
-import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN } from './content.js';
+import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN, CREW_NAMES } from './content.js';
 import { FULL, LANG, T } from './lang.js';
 import lines from './lines.json';
 import { StoryUI } from './ui.js';
@@ -558,7 +558,7 @@ function prologueFrame() {
     }
     const at = 13 + i * 7;
     cue(`aim${i}`, at - 1.2, () => { intro.aim = headOf(focus) ?? vessel; });
-    cue(`credit${i}`, at, () => ui.credit([role, name]));
+    cue(`credit${i}`, at, () => ui.credit([role, name, CREW_NAMES[focus]?.[1]]));   // with their BU, as at Sola
     cue(`credit${i}-off`, at + 5, () => ui.credit(null));
   });
   cue('aim-back', 13 + (CREDITS.length - 1) * 7, () => { intro.aim = vessel; });

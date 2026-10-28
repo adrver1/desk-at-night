@@ -4,6 +4,8 @@
 // fence a pallet of chemical IBCs, just cargo in the background for now. They
 // board the way the intro's #board scene has them (up the step holding the
 // door post, bent along the aisle, sit down), into the seats they fly in.
+// As each one reaches the door their first name and business unit show
+// (CREW_NAMES in content.js), in one of three looks (?tags=a|b|c, 0 off).
 // The title runs here; the credits follow in the cabin flight (intro.html).
 // The music starts here and runs on through the flight (main.js).
 //
@@ -16,14 +18,15 @@
 import * as THREE from 'three';
 import { Helicopter } from '../helicopter.js';
 import { loadGltf } from './cast.js';
+import { CREW_NAMES } from './content.js';
 
-export const LENGTH = 27;   // s, from black to the hand-over to the cabin
+export const LENGTH = 28.5;   // s, from black to the hand-over to the cabin
 const WALK = 1.25;   // m/s, the walk clip's pace (intro.js)
 // The intro's cast and seats [row, place], so everyone flies where they boarded
 const CREW = ['blazer_lead', 'bearded_operator', 'crop_supervisor', 'curly_analyst', 'curly_fade_tech', 'glasses_engineer', 'grey_beard_lead'];
 const SEATING = [[0, 1], [0, 2], [0, 3], [1, 2], [2, 1], [2, 2], [3, 1]];
-const GAP = 2.5;     // m between passengers on the walkway
-const LEAD = 24.5;   // m along the walkway the first one is at t = 0 (at the helicopter by ~15 s)
+const GAP = 2.2;     // m between passengers on the walkway: one at the door every 1.8 s
+const LEAD = 27;     // m along the walkway the first one is at t = 0 (at the door at 14.5 s, the last at ~25 s)
 // The walkway from the departures door through the gate to the stand, as
 // painted by sola_apron.py; the last leg to the cabin door comes from intro.json
 const PATH = [[-12, 38], [-12, 32.5], [-12, 14], [-4.5, 6]].map(([x, z]) => new THREE.Vector3(x, 0, z));
@@ -32,6 +35,11 @@ const STEP_UP = 1.3, SIT = 1.5;   // s (intro.js)
 const DUCK_CABIN = 0.45, DUCK_DOOR = 1.25;
 const BEND = [['spine', 0.45], ['chest', 0.45], ['neck', -0.25]];
 const KNEE = 0.35 / DUCK_DOOR;
+// Name captions: a lower third for whoever is at the door (a), tags over
+// the heads in the door shot (b), or a roll call that builds up (c)
+const TAGS = new URLSearchParams(location.search).get('tags') ?? 'a';
+const TAG_FROM = 14;   // s, the door shot
+const TAG_HOLD = 2;    // s a lower third stays (a)
 
 // Shots: [from, to] for the camera and what it looks at, over [t0, t1]
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -166,7 +174,7 @@ export class Sola {
           if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; }
         });
         h.add(p);
-        return { p, mixer, act, bones, seat, face, outside, inside, cast: CREW[i],
+        return { p, mixer, act, bones, seat, face, outside, inside, cast: CREW[i], name: CREW_NAMES[CREW[i]],
           hipsUp: bones.hips ? bones.hips.position.clone().normalize() : new THREE.Vector3(0, 1, 0), duck: 0, ducked: 0, grab: false, grabbed: 0, lift: null };
       }).filter(Boolean);
       // Farthest seat from the door first, so nobody climbs over anybody
@@ -193,6 +201,7 @@ export class Sola {
     await this.load().catch((e) => { console.warn('sola', e); });
     if (!this.playing || !this.heli) { this.finish(); return; }
     this.mode = 'open';
+    this.tagsStart(host);
     this.show();
     this.cues = new Set();
     this.say = say;
@@ -239,6 +248,8 @@ export class Sola {
     this.ui?.credit(null);
     this.black?.remove();
     this.black = null;
+    this.tags?.remove();
+    this.tags = null;
     const r = this.resolve;
     this.resolve = null;
     r?.();
@@ -263,6 +274,7 @@ export class Sola {
     if (this.mode === 'open') {
       this.crewAt(t, dt);
       this.cuesAt(t);
+      this.tagsAt(t);
       const shot = SHOTS.find((s) => t < s.t[1]) ?? SHOTS.at(-1);
       pose = this.pose(shot, THREE.MathUtils.clamp((t - shot.t[0]) / (shot.t[1] - shot.t[0]), 0, 1));
       if (t >= LENGTH) { this.finish(); return; }
@@ -318,6 +330,7 @@ export class Sola {
         c.duck = 0;
         if (this.along(c, c.outside, c.start + WALK * t, dt)) {
           Object.assign(c, { state: 'stepup', at: t });
+          this.tagOn(c, t);
           c.p.rotation.y = Math.atan2(0, Math.sign(c.inside[0].z));   // facing the door
           c.act.idle?.reset().play();
           if (c.act.idle) c.act.walk?.crossFadeTo(c.act.idle, 0.25, false);
@@ -397,6 +410,64 @@ export class Sola {
       arm.getWorldPosition(sh);
       aimBone(arm, post.sub(sh).addScaledVector(r, R ? 0.1 : -0.1), c.grabbed);
       if (fore) fore.quaternion.slerp(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -0.35), c.grabbed);
+    }
+  }
+
+  // ------------------------------------------------------- name captions
+
+  tagsStart(host) {
+    this.tags?.remove();
+    this.tags = null;
+    if (TAGS === '0') return;
+    const box = document.createElement('div');
+    box.className = `solatags solatags-${TAGS}`;
+    const line = (c) => `<b>${c.name[0]}</b><small>${c.name[1]}</small>`;
+    if (TAGS === 'b') for (const c of this.crew) if (c.name) c.tagEl = box.appendChild(Object.assign(document.createElement('div'), { className: 'tag', innerHTML: line(c) }));
+    if (TAGS === 'c') {
+      box.innerHTML = '<div class="head">AI Catalyst Run 2026</div>';
+      // in boarding order, each row lights up as its person steps in
+      for (const c of [...this.crew].sort((a, b) => b.start - a.start)) if (c.name) c.tagEl = box.appendChild(Object.assign(document.createElement('div'), { className: 'row', innerHTML: line(c) }));
+    }
+    host.append(box);
+    this.tags = box;
+    this.lower = null;
+  }
+
+  // Someone has reached the door
+  tagOn(c, t) {
+    if (!this.tags || !c.name) return;
+    if (TAGS === 'a') {
+      this.lower?.classList.remove('on');
+      const old = this.lower;
+      setTimeout(() => old?.remove(), 600);
+      const e = this.tags.appendChild(Object.assign(document.createElement('div'), { className: 'lower', innerHTML: `<b>${c.name[0]}</b><small>${c.name[1]}</small>` }));
+      void e.offsetWidth;
+      e.classList.add('on');
+      this.lower = e;
+      this.lowerUntil = t + TAG_HOLD;
+    }
+    if (TAGS === 'c') {
+      for (const o of this.crew) o.tagEl?.classList.remove('now');
+      c.tagEl?.classList.add('on', 'now');
+    }
+  }
+
+  tagsAt(t) {
+    if (!this.tags) return;
+    this.tags.classList.toggle('out', t > LENGTH - 1.2);   // with the fade to black
+    if (TAGS === 'a' && this.lower && t > this.lowerUntil) this.lower.classList.remove('on');
+    if (TAGS !== 'b') return;
+    // Over each head while they walk up and step in, gone once inside
+    const w = this.tags.clientWidth, h = this.tags.clientHeight, q = new THREE.Vector3();
+    for (const c of this.crew) {
+      if (!c.tagEl) continue;
+      const on = t >= TAG_FROM && (c.state === 'walk' || c.state === 'stepup');
+      (c.bones.head ?? c.p).getWorldPosition(q);
+      q.y += 0.42;
+      q.project(this.camera);
+      const seen = on && q.z < 1 && Math.abs(q.x) < 1.1 && Math.abs(q.y) < 1.1;
+      c.tagEl.classList.toggle('on', seen);
+      if (seen) c.tagEl.style.transform = `translate(${((q.x + 1) / 2 * w).toFixed(1)}px, ${((1 - q.y) / 2 * h).toFixed(1)}px) translate(-50%, -100%)`;
     }
   }
 

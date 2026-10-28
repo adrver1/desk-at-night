@@ -5,6 +5,7 @@
 import { FULL, T } from './lang.js';
 import { PATHS } from './cast.js';
 import STORY from './story.json';
+import { CEO_MEET } from './trondheim.js';
 //
 // This repo is public: no real platform numbers, initiative names, or names
 // of people. Agents carry generic labels. The private build can override any
@@ -72,6 +73,18 @@ export const CREDITS = [
   ['Music · Wagner, Ride of the Valkyries', 'Philip Milman · CC BY 3.0', 'vessel'],
   ['Built with', 'Claude · GitHub Copilot', 'descent'],
 ];
+
+// The AI Catalyst Run 2026 crew as they board at Sola (sola.js): first name
+// and business unit, per cast model. Adriaen OK'd these for the public repo.
+export const CREW_NAMES = {
+  bearded_operator: ['Adriaen', 'OPS'],
+  blazer_lead: ['Brage', 'FSP'],
+  grey_beard_lead: ['Tore', 'PROG'],
+  glasses_engineer: ['Idar', 'FSP'],
+  curly_fade_tech: ['Kristian', 'DIGE'],
+  crop_supervisor: ['Bjørn', 'People & Safety'],
+  curly_analyst: ['Daniel', 'D&W'],
+};
 
 export const ACTS = {
   1: { name: 'Yesterday', sub: 'The day as it was' },
@@ -539,8 +552,9 @@ const SHORT_CHAPTERS = [
       { id: 'y.card', card: { text: '', solid: true }, notes: 'A plain black screen after the question. From here on you talk; Space moves on.' },
       { id: 'y.trondheim', set: { place: 'trondheim' },
         do: [{ wait: 0.8 }, { card: { text: T('For et år siden', 'One year ago'), sub: T('I november 2025', 'November 2025') } }, { wait: 6 }, { card: null },
-          { torvet: 'meet' }, { say: 'y.ceo1' }, { torvet: 'shake' }, { wait: 0.3 }, { torvet: 'in' }],
-        notes: 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the Føniks steps, the titles fade as it closes in. The CEO comes out as you climb the steps, welcomes you to Aker BP, you shake hands, and go in together. Your first week on the job.' },
+          ...(CEO_MEET ? [{ torvet: 'meet' }, { say: 'y.ceo1' }, { torvet: 'shake' }, { wait: 0.3 }, { torvet: 'in' }] : [{ torvet: 'door' }])],
+        notes: CEO_MEET ? 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the Føniks steps, the titles fade as it closes in. The CEO comes out as you climb the steps, welcomes you to Aker BP, you shake hands, and go in together. Your first week on the job.'
+          : 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the fountain, the titles fade as it closes in, and you walk up the steps and in at the Føniks door. Your first week on the job. (?ceo=1: the CEO welcomes you at the steps.)' },
       { id: 'y.steep', set: { overlay: 'slide:y-02' }, notes: 'Onboarding is steep. TODO(Adriaen): your talking points.' },
       { id: 'y.room', set: { overlay: null, place: null, shot: 'band', screens: null }, notes: 'The room as it was to a newcomer: screens full of things you have yet to learn.' },
     ],
