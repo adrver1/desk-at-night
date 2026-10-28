@@ -319,6 +319,11 @@
   "col": 6,
   "hex": "#9aa0a4"
  },
+ "pearl": {
+  "row": 5,
+  "col": 7,
+  "hex": "#efe8da"
+ },
  "leather_brown": {
   "row": 6,
   "col": 0,

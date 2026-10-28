@@ -15,6 +15,12 @@ into every character's .glb as named glTF animations:
     step_down    two 0.5 m steps down and 0.6 m forward, as out
                  of a helicopter cabin; ends with the hips 1 m lower,
                  so move the root there when it finishes      (1.75 s)
+    fart         standing: a sneaky glance round, leans forward with
+                 the right knee lifted and the hip popped, a little
+                 shudder, then straightens up relieved; the puff is
+                 from 0.75 to 1.25 s (FART_PUFF)              (2.5 s)
+    fart_seated  the same on a 0.45 m seat: rolls onto the left cheek,
+                 shudder, settles back                        (2.5 s)
 
 Face clips move only the eye and brow bones, so they play on top of any
 body clip (body clips never touch the face bones):
@@ -213,6 +219,45 @@ def pointing(f):
     return r
 
 
+# When the puff comes out in the fart clips, seconds from the clip start:
+# a player adds its cloud (and any sound) then
+FART_PUFF = (0.75, 1.25)
+
+
+def farting(f, glance=0.0, shudder=0.0, relief=0.0):
+    """Standing: f = 0 rest to 1 leaning forward with the right knee lifted
+    and the hips popped to the left; glance turns the head (degrees),
+    shudder jiggles the hips (-1..1), relief lifts the chest and head."""
+    r = standing(breath=1.5 * relief, head=glance)
+    arms_down(r, lower=36 - 8 * f, swing=(2 + 6 * f, 2 + 6 * f), elbow=(12 + 14 * f, 12 + 14 * f))
+    legs(r, "R", 22 * f, 30 * f, -6 * f)
+    legs(r, "L", 3 * f, 4 * f)
+    r["hips"] = [(Y, -9 * f + 2 * shudder), (X, 6 * f)]
+    r["spine"] = [(X, -14 * f + 4 * relief), (Y, 7 * f)]
+    r["chest"] = (X, -4 * f + 5 * relief)
+    r["head"] = [(Z, glance), (X, 6 * f - 9 * relief)]
+    r["hips_offset"] = (-0.02 * f + 0.004 * shudder, -0.01 * f, -0.012 * f)
+    return r
+
+
+def farting_seated(f, glance=0.0, shudder=0.0, relief=0.0):
+    """Seated: f = 0 sitting to 1 rolled onto the left cheek, the right
+    one lifted off the seat, leaning a little to the left."""
+    r = seated(breath=1.2 * relief, head=glance)
+    r["hips"] = (Y, -8 * f + 1.5 * shudder)
+    r["spine"] = [(X, 6 - 4 * f + 3 * relief), (Y, 10 * f)]
+    r["head"] = [(Z, glance), (X, -3 + 4 * f - 8 * relief)]
+    r["hips_offset"] = (-0.012 * f + 0.003 * shudder, -0.02, SEAT_DROP + 0.025 * f)
+    return r
+
+
+def fart_keys(pose):
+    """Glance round, lean in, shudder through the puff, relief, rest."""
+    return [(0, pose(0)), (6, pose(0, glance=22)), (12, pose(0.3, glance=-18)), (18, pose(1)),
+            (21, pose(1, shudder=1)), (24, pose(1, shudder=-1)), (27, pose(1, shudder=1)),
+            (30, pose(1)), (40, pose(0.2, relief=1)), (52, pose(0, relief=0.8)), (60, pose(0))]
+
+
 def clips():
     """{name: [(frame, pose)]}."""
     c = {}
@@ -236,6 +281,8 @@ def clips():
     c["flying"] = [(k * 12, flying(k / 8)) for k in range(9)]
     c["point"] = [(0, pointing(0)), (10, pointing(1)), (36, pointing(1)), (48, pointing(0))]
     c["step_down"] = stepping_down()
+    c["fart"] = fart_keys(farting)
+    c["fart_seated"] = fart_keys(farting_seated)
     return c
 
 
@@ -279,7 +326,8 @@ EXPRESSIONS = {"happy": (0.003, -4, 0.7, 0.003, 0.008, 0.005),
                "sad": (0.001, -16, 0.85, 0.0, -0.007, -0.002),
                "surprised": (0.011, 0, 1.3, 0.013, 0.0, -0.008),
                "angry": (-0.006, 18, 0.7, 0.001, -0.004, 0.004),
-               "worried": (0.005, -14, 1.05, 0.002, -0.003, -0.004)}
+               "worried": (0.005, -14, 1.05, 0.002, -0.003, -0.004),
+               "relieved": (0.006, -8, 0.3, 0.002, 0.006, 0.004)}
 EYES, BROWS = {"eye.R", "eye.L"}, {"brow.R", "brow.L"}
 MOUTH = {"mouth.R", "mouth.L"}
 
