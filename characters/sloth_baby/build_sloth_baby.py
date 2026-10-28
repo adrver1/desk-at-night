@@ -50,6 +50,81 @@ def head_point(rings, angle, z, offset=0.0):
     raise ValueError(z)
 
 
+def on_head(rings, x, z, offset):
+    """Point on (or `offset` off) the front of the head at (x, z)."""
+    ru = head_point(rings, 0, z).x
+    a = math.degrees(math.acos(max(-0.98, min(0.98, x / ru))))
+    return head_point(rings, a, z, offset)
+
+
+def patch(m, rings, outline, centre, offset, swatch, region):
+    """A flat-coloured piece on the head: a fan from `centre` to an outline
+    of (x, z) points, every corner lifted onto the head so a piece of any
+    size hugs the curve instead of sinking under it."""
+    c = on_head(rings, *centre, offset)
+    pts = [on_head(rings, x, z, offset) for x, z in outline]
+    for i in range(len(pts)):   # wound to face out: x runs to the viewer's left
+        m.face([c, pts[(i + 1) % len(pts)], pts[i]], swatch, region)
+
+
+def ellipse(cx, cz, a, b, tilt=0.0, n=10, bulge=0.0):
+    """Outline of an ellipse (half axes a along the tilted axis, b across);
+    bulge > 0 widens the end the axis points to: a teardrop."""
+    t = math.radians(tilt)
+    out = []
+    for i in range(n):
+        p = 2 * math.pi * i / n
+        u, v = a * math.cos(p), b * math.sin(p) * (1 + bulge * math.cos(p))
+        out.append((cx + u * math.cos(t) - v * math.sin(t), cz + u * math.sin(t) + v * math.cos(t)))
+    return out
+
+
+# Face layout in head units (times the head scale k), from the eye line:
+# eye patch centre, half axes, droop (degrees, outer end down), eye size
+EYES = dict(x=0.027, z=-0.002, a=0.020, b=0.0125, droop=22, eye=0.0085)
+
+
+def face(m, rings, zc, k):
+    """The three-toed sloth's face, drawn cute: a cream mask with a fringe of
+    fur dipping into it at the top, dark drooping teardrop patches round big
+    shiny eyes, a round dark nose and a little smile, pink cheeks."""
+    # cream mask: one piece over the whole front, its top edge dipping in a
+    # point at the middle where the head fur comes down (the fringe)
+    mask = []
+    for i in range(16):
+        p = 2 * math.pi * i / 16
+        x, z = 0.060 * math.cos(p), (0.036 if p < math.pi else 0.030) * math.sin(p)   # flatter under the chin
+        if z > 0:
+            z -= 0.012 * max(0.0, 1 - abs(x) / 0.025)   # fringe point
+        mask.append((x * k, zc + (z - 0.008) * k))
+    patch(m, rings, mask, (0, zc - 0.008 * k), 0.0015, FACE, "face")
+    e = EYES
+    for s in (1, -1):
+        cx, cz = s * e["x"] * k, zc + e["z"] * k
+        patch(m, rings, ellipse(cx, cz, e["a"] * k, e["b"] * k, -s * e["droop"] if s > 0 else 180 + e["droop"],
+                                n=12, bulge=0.25), (cx, cz), 0.003, MASK, "mask")
+        # the eye sits towards the inner, upper end of its patch
+        ex, ez = cx - s * 0.004 * k, cz + 0.002 * k
+        patch(m, rings, ellipse(ex, ez, e["eye"] * k, e["eye"] * k * 1.1, n=10), (ex, ez), 0.0045, "eye", "eye")
+        gx, gz = ex - s * 0.0025 * k, ez + 0.003 * k
+        patch(m, rings, ellipse(gx, gz, 0.0028 * k, 0.0028 * k, n=6), (gx, gz), 0.006, "white", "glint")
+        bx, bz = s * 0.042 * k, zc - 0.024 * k
+        patch(m, rings, ellipse(bx, bz, 0.009 * k, 0.005 * k, n=8), (bx, bz), 0.0025, "blush", "blush")
+    # nose: a small rounded bump, wider than tall
+    n0 = on_head(rings, 0, zc - 0.016 * k, 0.0)
+    nose = [n0 + Vector((dx * k, dy * k, dz * k)) for dx, dy, dz in
+            ((-0.010, 0.002, 0.0), (0.010, 0.002, 0.0), (-0.007, 0.002, 0.006), (0.007, 0.002, 0.006),
+             (-0.006, 0.002, -0.006), (0.006, 0.002, -0.006), (0.0, 0.009, 0.001), (-0.005, 0.008, 0.003),
+             (0.005, 0.008, 0.003))]
+    m.hull(nose, MASK, "nose")
+    # smile: a shallow U under the nose, as a thin strip
+    pts = [(x * k, zc + (-0.030 + 28 * x * x) * k) for x in (-0.011, -0.0055, 0.0, 0.0055, 0.011)]
+    lo = [on_head(rings, x, z - 0.0013 * k, 0.003) for x, z in pts]
+    hi = [on_head(rings, x, z + 0.0013 * k, 0.003) for x, z in pts]
+    for i in range(len(pts) - 1):
+        m.face([hi[i], hi[i + 1], lo[i + 1], lo[i]], "lip_dark", "mouth")
+
+
 def limb(m, a, b, r, swatch, claws, region):
     """A tapered hexagonal limb from a to b, with three claws past b."""
     d = (b - a)
@@ -79,26 +154,7 @@ def sloth(style):
              (z0 + 0.110 * k, 0.026 * k, 0.024 * k, 0.0, "head")]
     head = base.Mesh().tube(rings, colors={"head": FUR})
     zc = z0 + 0.052 * k                      # eye line
-    # pale face mask: a thin shell over the front of the head (a decal this
-    # big would sink under the head's bulge), then the dark stripes back
-    # from the eyes, nose and smile on top of it
-    rows = [zc + dz * k for dz in (-0.040, -0.022, -0.004, 0.014, 0.030)]
-    cols = (28, 55, 90, 125, 152)
-    grid = [[head_point(rings, a, z, 0.0015) for a in cols] for z in rows]
-    for i in range(len(rows) - 1):
-        for j in range(len(cols) - 1):
-            head.face([grid[i][j], grid[i][j + 1], grid[i + 1][j + 1], grid[i + 1][j]], FACE, "face")
-    bvh = head.bvh()
-    for s in (1, -1):
-        # the stripe runs from the eye down and back, so the face looks gentle
-        stripe = [(s * 0.010 * k, zc + 0.005 * k), (s * 0.028 * k, zc + 0.007 * k), (s * 0.054 * k, zc - 0.010 * k),
-                  (s * 0.050 * k, zc - 0.019 * k), (s * 0.026 * k, zc - 0.009 * k), (s * 0.010 * k, zc - 0.005 * k)]
-        head.decal_poly(bvh, stripe, MASK, "mask", lift=0.002)
-        head.decal(bvh, s * 0.021 * k, zc, 0.010 * k, 0.010 * k, "eye", "eye", lift=0.0035)
-        head.decal(bvh, s * 0.018 * k, zc + 0.003 * k, 0.0035 * k, 0.0035 * k, "white", "glint", lift=0.004)
-    head.decal(bvh, 0.0, zc - 0.019 * k, 0.018 * k, 0.011 * k, MASK, "nose", lift=0.002)
-    for s in (1, -1):
-        head.decal(bvh, s * 0.008 * k, zc - 0.031 * k, 0.014 * k, 0.003 * k, "lip_dark", "mouth", tilt=-s * 18, lift=0.002)
+    face(head, rings, zc, k)
     m.extend(head)
     # arms reach forward and up, as if hugging the holder's arm; legs forward
     r = st["limb"]
