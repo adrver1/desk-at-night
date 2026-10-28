@@ -5,12 +5,12 @@
 //
 // Two kinds of flag:
 //   banner  hangs from an arm at the top of the mast and is held along the
-//           mast too (the Aker BP banners at Føniks, preview_trondheim.py
+//           mast too (the company banners at Føniks, preview_trondheim.py
 //           flag_mast): only the bottom and the far edge move
 //   pole    a flag in a sleeve, held along the whole pole edge: it turns
 //           to fly downwind and hangs down when the wind drops
-//   flag    a traditional flag on a halyard (2.2 x 1.6 m, Aker BP logo and
-//           name), clipped to the rope at its two hoist corners only, so
+//   flag    a traditional flag on a halyard (2.2 x 1.6 m, the company logo
+//           and name), clipped to the rope at its two hoist corners only, so
 //           the top edge and the hoist are free to move too
 //
 // Three ways to move them (all kept, pick with `variant`):
@@ -31,6 +31,7 @@
 // Far away a flag drops to a coarse grid (every 4th vertex), the same
 // material and, for c, the same texture.
 import * as THREE from 'three';
+import { OVERRIDES, real } from './privateNames.js';
 
 export const KINDS = {
   banner: { w: 1.0, h: 2.6, nu: 9, nv: 21, stride: 4 },    // 160 quads near, 10 far
@@ -38,10 +39,13 @@ export const KINDS = {
   flag: { w: 2.2, h: 1.6, nu: 17, nv: 13, stride: 4 },     // 192 quads near, 12 far
 };
 
-const LOGO = [   // characters/_shared/outfits.py LOGO with the palette.py colours
-  ['#c42a72', [[0.12, 0.95], [0.33, 1.0], [0.30, 0.83], [0.55, 0.70], [0.55, 0.53], [0.02, 0.51], [0.05, 0.67], [0.18, 0.80]]],
-  ['#ec8a3c', [[0.36, 0.56], [0.56, 0.67], [1.0, 0.73], [1.0, 0.46], [0.86, 0.40], [0.46, 0.30], [0.22, 0.34]]],
-  ['#2e9a52', [[0.0, 0.31], [0.40, 0.39], [0.72, 0.41], [0.62, 0.23], [0.32, 0.14], [0.47, 0.0], [0.12, 0.02], [0.0, 0.11]]],
+// characters/_shared/outfits.py LOGO with the palette.py colours: the made-up
+// public company; the private build brings the real logo and name
+// (overrides.json `logo` and `names`, privateNames.js)
+const LOGO = OVERRIDES.logo ?? [
+  ['#7cc6dc', [[0.0, 0.94], [0.17, 0.99], [0.33, 0.99], [0.5, 0.94], [0.67, 0.89], [0.83, 0.89], [1.0, 0.94], [1.0, 0.72], [0.83, 0.67], [0.67, 0.67], [0.5, 0.72], [0.33, 0.77], [0.17, 0.77], [0.0, 0.72]]],
+  ['#1f8a96', [[0.0, 0.61], [0.17, 0.66], [0.33, 0.66], [0.5, 0.61], [0.67, 0.56], [0.83, 0.56], [1.0, 0.61], [1.0, 0.39], [0.83, 0.34], [0.67, 0.34], [0.5, 0.39], [0.33, 0.44], [0.17, 0.44], [0.0, 0.39]]],
+  ['#1f3a5f', [[0.0, 0.28], [0.17, 0.33], [0.33, 0.33], [0.5, 0.28], [0.67, 0.23], [0.83, 0.23], [1.0, 0.28], [1.0, 0.06], [0.83, 0.01], [0.67, 0.01], [0.5, 0.06], [0.33, 0.11], [0.17, 0.11], [0.0, 0.06]]],
 ];
 
 // The flag's face: white with the logo, as on the Blender banners (logo 0.8
@@ -61,7 +65,7 @@ export function flagTexture(kind, px = kind === 'flag' ? 512 : 256) {
     g.font = `600 ${Math.round(0.12 * c.height)}px "Instrument Sans", "Helvetica Neue", Arial, sans-serif`;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    g.fillText('Aker BP', cx, 0.8 * c.height);
+    g.fillText(real('Nordhav Energi'), cx, 0.8 * c.height);
   }
   for (const [col, pts] of LOGO) {
     g.fillStyle = col;

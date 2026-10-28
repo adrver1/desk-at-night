@@ -12,6 +12,7 @@ import { roomVertex } from './shaders.js';
 import { drawSlots, assign, contentOf, setOutside, setFeeds, isFeed } from './screens.js';
 import { SunShadow } from './sunShadow.js';
 import { clock } from './outdoor.js';
+import { OVERRIDES, PRIVATE_BASE } from './privateNames.js';
 
 const SCENE = 'control/';
 // GitHub Pages lets browsers reuse files for ten minutes without asking. After
@@ -316,7 +317,10 @@ export async function loadControlRoom(renderer) {
   // Whiteboards share its light too, with their own image as albedo. Drawn
   // once at bake time, so they cost one texture each and nothing per frame.
   const boards = Object.entries(meta.boards ?? {});
-  const boardBufs = await Promise.all(boards.map(([, png]) => bytes(png)));
+  // The private build (?private=1) swaps in its own pictures for the boards
+  // overrides.json `boards` lists (the desk photo frames' portraits)
+  const own = (png) => fetch(`${PRIVATE_BASE}control/${png}`).then((r) => (r.ok ? r.arrayBuffer() : bytes(png)));
+  const boardBufs = await Promise.all(boards.map(([, png]) => (OVERRIDES.boards?.includes(png) ? own(png) : bytes(png))));
   for (const [i, [name]] of boards.entries()) {
     const mesh = gltf.scene.getObjectByName(name);
     if (!mesh) continue;

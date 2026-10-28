@@ -21,7 +21,7 @@ const GLIDE = 14;   // s from the drone view down to the door
 const SKY = 0xf1f3f4;
 // Blender's frame (x east, y north, z up) to three's (y up, north along -z)
 const V = (x, y, z) => new THREE.Vector3(x, z, -y);
-// The Aker BP flags on Føniks's five masts fly south along the front, as on
+// The company flags on Føniks's five masts fly south along the front, as on
 // Adriaen's photo of the entrance, in a breeze between a light and a fresh one
 // (flags.js option C: the baked cloth). Hoists from flags.json, written by the
 // Føniks export.
@@ -42,7 +42,7 @@ const CAM = {
 // follow the ground and steps under people.
 const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-34.6, 34.6, 0), V(-39.6, 35.3, 0), V(-40.6, 36.2, 0), V(-40.97, 38.15, 0)] };
 // The CEO comes out of the left-hand door while Adriaen is still on the steps
-// by the fountain, welcomes him to Aker BP on the way down to meet him (the
+// by the fountain, welcomes him to the company on the way down to meet him (the
 // beat's { torvet: 'meet' } step waits for MEET before the line), and they
 // shake hands at the foot of the platform steps while the camera closes in
 // beside them ({ torvet: 'shake' } waits for the end of it). Then

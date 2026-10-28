@@ -14,6 +14,7 @@ import '../play.js';
 import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN, CREW_NAMES } from './content.js';
 import { FULL, LANG, T } from './lang.js';
 import lines from './lines.json';
+import { PRIVATE as PRIVATE_ON, OVERRIDES, realDeep } from '../privateNames.js';
 import { StoryUI } from './ui.js';
 import { Sound } from './sound.js';
 import { Cast } from './cast.js';
@@ -53,13 +54,15 @@ for (const ch of CHAPTERS) ch.beats = ch.beats.filter((b) => (!b.sola || SOLA_ST
 
 // Private overrides (git-ignored, ?private=1): real names and statuses,
 // slide images and tool screenshots for the private build
-const PRIVATE_ON = q.get('private') === '1';
-if (PRIVATE_ON) fetch(`${PRIVATE}overrides.json`).then((r) => (r.ok ? r.json() : null)).then((o) => { if (o) applyOverrides(o); }).catch(() => {});
+// (privateNames.js has already read overrides.json; its `names` map turns
+// the public stand-ins into the real names, here in the spoken lines)
+if (PRIVATE_ON) { realDeep(lines); applyOverrides(OVERRIDES); }
 if (q.get('fps') === '1' || q.has('perf')) document.documentElement.classList.add('show-fps');   // the panel sits on <body>, outside the game
 function applyOverrides(o) {
   // { lines: { id: text | { text, no } }, cards: { id: { initiative, status } }, slides: { id: {...} | { no, en } },
   //   chats: { id: {...} }, chatText: { id: { index: { no, en } } }, beats: { id: { notes, callouts } } }
   //   (the last two from the story editor's live stage)
+  realDeep(o);
   for (const [id, v] of Object.entries(o.lines ?? {})) if (lines[id]) Object.assign(lines[id], typeof v === 'string' ? { text: v } : v);
   const tx = (v) => (v && typeof v === 'object' ? T(v.no ?? v.en, v.en ?? v.no) : v ?? '');
   for (const [id, v] of Object.entries(o.beats ?? {})) for (const ch of CHAPTERS) for (const b of ch.beats) if (b.id === id) {

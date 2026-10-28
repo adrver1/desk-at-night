@@ -8,6 +8,7 @@
 // hooks.render), which keeps these lights off the supply vessel.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OVERRIDES, PRIVATE_BASE } from '../privateNames.js';
 
 const BASE = 'story/chars/';
 // Who is who: the speaker ids of content.js, plus the CEO's silent cameo.
@@ -35,15 +36,15 @@ export const SPOTS = {
   table1: { at: [1.75, 1.6], face: TABLE },
   table2: { at: [2.55, 1.6], face: TABLE },
   table3: { at: [3.3, 2.0], face: TABLE },
-  tableBand: { at: [1.3, 1.5], face: [0, -4] },   // at the meeting table, turned to the band (Brage, tomorrow)
+  tableBand: { at: [1.3, 1.5], face: [0, -4] },   // at the meeting table, turned to the band (the supervisor, tomorrow)
   door: { at: [4.75, 2.3], face: [0, 0] },         // just in through the door in the right wall
   coffee: { at: [4.85, 4.72], face: [4.85, 6], left: [1, [4, 3.6]] },   // at the coffee machine in the rest corner; his chair left turned toward it
 };
 
 // Tomorrow's morning (Adriaen, 2026-10-25): the walks and the coffee run, in
-// three's x, z. Brage comes in by the door, round the meeting table to his
+// three's x, z. The supervisor comes in by the door, round the meeting table to his
 // chair at the left desk; Adriaen goes through the opening in the rear wall
-// to the coffee machine and back with the jug to Brage's mug. The desks are an
+// to the coffee machine and back with the jug to the supervisor's mug. The desks are an
 // arc round the room's centre (radius 1.95 to 2.95 m, the right one reaching
 // round to about x 2.9, z -0.4), so the way to the rest corner first steps back
 // into the middle of the room and round the desk's end.
@@ -97,7 +98,9 @@ loader.register((parser) => {   // as intro.js: embedded images straight to bitm
   };
   return { name: 'bitmap_images' };
 });
-export const loadModel = (name) => loader.loadAsync(`${BASE}${name}.glb`);
+// The private build's own looks (overrides.json `chars`: the PPE with the real
+// company logo) come from story/private/chars/
+export const loadModel = (name) => loader.loadAsync(OVERRIDES.chars?.includes(name) ? `${PRIVATE_BASE}chars/${name}.glb` : `${BASE}${name}.glb`);
 export const loadGltf = (url) => loader.loadAsync(url);
 
 export class Cast {

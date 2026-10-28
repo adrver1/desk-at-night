@@ -5,6 +5,7 @@
 import { FULL, T } from './lang.js';
 import { PATHS } from './cast.js';
 import STORY from './story.json';
+import { PRIVATE, OVERRIDES, realDeep } from '../privateNames.js';
 import { CEO_MEET } from './trondheim.js';
 //
 // This repo is public: no real platform numbers, initiative names, or names
@@ -63,27 +64,28 @@ export const SPEAKERS = {
 };
 
 export const TITLE = 'A day in the life of EIGA';
-// TODO(Adriaen): credit wording and Brage's role
+// TODO(Adriaen): credit wording and the supervisor's role
 // [role, name, who the camera turns to in the cabin, or 'descent' for the
 // outside camera as the helicopter comes down onto the deck]
 export const CREDITS = [
-  ['Story and engineering', 'Adriaen', 'bearded_operator'],
-  ['With', 'Brage', 'blazer_lead'],
+  ['Story and engineering', 'Ola', 'bearded_operator'],
+  ['With', 'Per', 'blazer_lead'],
   // CC BY 3.0 asks for this line wherever the recording plays (see story/README.md)
   ['Music · Wagner, Ride of the Valkyries', 'Philip Milman · CC BY 3.0', 'vessel'],
   ['Built with', 'Claude · GitHub Copilot', 'descent'],
 ];
 
-// The AI Catalyst Run 2026 crew as they board at Sola (sola.js): first name
-// and business unit, per cast model. Adriaen OK'd these for the public repo.
+// The crew as they board at Sola (sola.js): first name and department, per
+// cast model. Made-up stand-ins: the real names are private (overrides.json
+// `crew`, ?private=1).
 export const CREW_NAMES = {
-  bearded_operator: ['Adriaen', 'OPS'],
-  blazer_lead: ['Brage', 'FSP'],
-  grey_beard_lead: ['Tore', 'PROG'],
-  glasses_engineer: ['Idar', 'FSP'],
-  curly_fade_tech: ['Kristian', 'DIGE'],
-  crop_supervisor: ['Bjørn', 'People & Safety'],
-  curly_analyst: ['Daniel', 'D&W'],
+  bearded_operator: ['Ola', 'Operations'],
+  blazer_lead: ['Per', 'Engineering'],
+  grey_beard_lead: ['Knut', 'Projects'],
+  glasses_engineer: ['Arne', 'Engineering'],
+  curly_fade_tech: ['Lars', 'Digital'],
+  crop_supervisor: ['Geir', 'HSE'],
+  curly_analyst: ['Jonas', 'Drilling'],
 };
 
 export const ACTS = {
@@ -499,7 +501,7 @@ export const GOV_DOCS = {
 // Every screen, blanked for the rewind
 const ALL_SCREENS = [0, 1, 2, 3, 4, 5].flatMap((i) => [`Desk0Mon${i}Screen`, `Desk1Mon${i}Screen`]).concat([0, 1, 2, 3, 4, 5, 6].map((i) => `Wall${i}Screen`), ['LinkScreen', 'TvScreen']);
 const BLANK = Object.fromEntries(ALL_SCREENS.map((n) => [n, 'blank']));
-// Tomorrow's room: Brage's agent in the middle of the band with his plan on
+// Tomorrow's room: the supervisor's agent in the middle of the band with his plan on
 // either side, the graph at the ends; Adriaen's agent and the riser at his desk
 const TOMORROW_SCREENS = { Wall1Screen: 'graph', Wall2Screen: 'planChart', Wall3Screen: 'chatPlan', Wall4Screen: 'planChart', Wall5Screen: 'graph', Desk1Mon2Screen: 'chatSlug', Desk1Mon3Screen: 'riser' };
 const TOMORROW_CAST = { supervisor: { at: 'desk0typing' }, operator: { at: 'desk2typing' } };
@@ -520,25 +522,25 @@ const SHORT_CHAPTERS = [
           { set: { shot: 'pair' } }, { at: 2.6, move: 'operator', stand: 1, toward: [4, 3.6] }, { say: 't.gm4' },
           { move: 'operator', walk: PATHS.desk2ToCoffee, to: 'coffee' }, { wait: 1.6 }, { set: { shot: 'wideRoom' } }, { idle: 'operator' }],
         end: { shot: 'wideRoom', cast: { supervisor: { at: 'desk0typing' }, operator: { at: 'coffee' } } },
-        notes: 'Runs by itself. Tomorrow\'s control room: Brage comes in, turns his chair round and sits down. Good morning; is the coffee fresh? Adriaen goes to put on a new pot.' },
-      { id: 't.brage', auto: true, set: { shot: 'brageBand' },
-        do: [{ wait: 0.4 }, { chat: 'plan' }, { say: 't.brage1' }, { chat: 'plan' }, { set: { shot: 'monitor:Wall3Screen' } }, { wait: 0.6 }, { say: 't.ai1' }, { wait: 0.2 },
-          { set: { shot: 'brage' } }, { chat: 'plan' }, { say: 't.brage2' }, { chat: 'plan' }, { set: { shot: 'monitor:Wall3Screen' } }, { wait: 0.6 }, { say: 't.ai2' }, { set: { shot: 'band' } }, { wait: 0.8 }],
+        notes: 'Runs by itself. Tomorrow\'s control room: Per comes in, turns his chair round and sits down. Good morning; is the coffee fresh? Ola goes to put on a new pot.' },
+      { id: 't.plan', auto: true, set: { shot: 'planBand' },
+        do: [{ wait: 0.4 }, { chat: 'plan' }, { say: 't.plan1' }, { chat: 'plan' }, { set: { shot: 'monitor:Wall3Screen' } }, { wait: 0.6 }, { say: 't.ai1' }, { wait: 0.2 },
+          { set: { shot: 'supervisor' } }, { chat: 'plan' }, { say: 't.plan2' }, { chat: 'plan' }, { set: { shot: 'monitor:Wall3Screen' } }, { wait: 0.6 }, { say: 't.ai2' }, { set: { shot: 'band' } }, { wait: 0.8 }],
         end: { shot: 'band', chats: { plan: 4, slug: 0 } },
-        notes: 'Brage works on the business plan with his agent on the wall band; the agent answers out loud in its robot voice. The plan on either side closes its gap once the drafts are in.' },
+        notes: 'Per works on the business plan with his agent on the wall band; the agent answers out loud in its robot voice. The plan on either side closes its gap once the drafts are in.' },
       { id: 't.coffee', auto: true, set: { shot: 'wideRoom', chats: { plan: 4, slug: 0 } },
         do: [{ move: 'operator', carry: 'jug' }, { move: 'operator', walk: PATHS.coffeeToDesk0 }, { wait: 4.4 }, { set: { shot: 'pour' } }, { idle: 'operator' },
           { move: 'operator', pour: 'S0Mug' }, { wait: 2.2 }, { say: 't.gm5' }, { idle: 'operator' },
           { move: 'operator', walk: PATHS.desk0ToDesk2 }, { move: 'operator', carry: null, put: [1.36, 0.745, -2.3] }, { move: 'operator', sit: 1, then: 'typing', to: 'desk2typing' }, { wait: 0.6 }, { set: { shot: 'wideRoom' } }, { idle: 'operator' }],
         end: { shot: 'wideRoom', mugs: { S0Mug: [1, -0.45, -2.12] }, cast: { supervisor: { at: 'desk0typing' }, operator: { at: 'desk2typing' } } },
-        notes: 'Adriaen comes back with a fresh pot, fills Brage\'s mug and sits down at his own desk.' },
+        notes: 'Ola comes back with a fresh pot, fills Per\'s mug and sits down at his own desk.' },
       { id: 't.adriaen', auto: true, set: { shot: 'adriaenDesk' },
         do: [{ wait: 0.4 }, { chat: 'slug' }, { say: 't.adr1' }, { chat: 'slug' }, { set: { shot: 'monitor:Desk1Mon2Screen' } }, { wait: 0.6 }, { say: 't.ai3' },
           { set: { shot: 'monitor:Desk1Mon3Screen', tool: 'antiSlug', screens: { Desk1Mon3Screen: 'antiSlug' } } }, { wait: 3.2 },
           { set: { shot: 'adriaenDesk' } }, { chat: 'slug' }, { say: 't.adr2' }, { chat: 'slug' }, { set: { shot: 'monitor:Desk1Mon2Screen' } }, { wait: 0.6 }, { say: 't.ai4' },
           { set: { shot: 'adriaen' } }, { wait: 0.4 }, { say: 't.adr3' }],
         end: { shot: 'adriaen', tool: 'antiSlug', screens: { Desk1Mon3Screen: 'antiSlug' }, chats: { plan: 4, slug: 4 } },
-        notes: 'Adriaen works with his agent on the anti-slug controller; the agent answers out loud. The camera settles on him.' },
+        notes: 'Ola works with his agent on the anti-slug controller; the agent answers out loud. The camera settles on him.' },
       { id: 't.question', auto: true, set: { shot: 'adriaen' }, do: [{ wait: 0.5 }, { card: { text: T('Hvordan kom vi hit?', 'How did we get here?') } }, { wait: 3.2 }, { card: null }],
         notes: 'The question. Let it hang for a moment.' },
       { id: 't.rewind', auto: true, do: [{ rewind: 6 }], end: { act: 5, time: 8.5, screens: BLANK, chats: { plan: 0, slug: 0 }, cast: {}, tool: null, shot: 'desk', graph: 0 },
@@ -553,7 +555,7 @@ const SHORT_CHAPTERS = [
       { id: 'y.trondheim', set: { place: 'trondheim' },
         do: [{ wait: 0.8 }, { card: { text: T('For et år siden', 'One year ago'), sub: T('I november 2025', 'November 2025') } }, { wait: 6 }, { card: null },
           ...(CEO_MEET ? [{ torvet: 'meet' }, { say: 'y.ceo1' }, { torvet: 'shake' }, { wait: 0.3 }, { torvet: 'in' }] : [{ torvet: 'door' }])],
-        notes: CEO_MEET ? 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the Føniks steps, the titles fade as it closes in. The CEO comes out as you climb the steps, welcomes you to Aker BP, you shake hands, and go in together. Your first week on the job.'
+        notes: CEO_MEET ? 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the Føniks steps, the titles fade as it closes in. The CEO comes out as you climb the steps, welcomes you to Nordhav Energi, you shake hands, and go in together. Your first week on the job.'
           : 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the fountain, the titles fade as it closes in, and you walk up the steps and in at the Føniks door. Your first week on the job. (?ceo=1: the CEO welcomes you at the steps.)' },
       { id: 'y.steep', set: { overlay: 'slide:y-02' }, notes: 'Onboarding is steep. TODO(Adriaen): your talking points.' },
       { id: 'y.room', set: { overlay: null, place: null, shot: 'band', screens: null }, notes: 'The room as it was to a newcomer: screens full of things you have yet to learn.' },
@@ -670,6 +672,13 @@ function applyStory(chapters) {
 }
 const merge2 = (a, b) => ({ ...(a ?? {}), ...(b ?? {}) });
 applyStory(SHORT_CHAPTERS);
+
+// The private build (?private=1): the real names over the public stand-ins
+// (privateNames.js), in everything this file hands out
+if (PRIVATE) {
+  for (const o of [STORY, SPEAKERS, CREDITS, CARDS, PLAIN_CARDS, SLIDES, CHATS, AGENTS, ORG, NOTICES, LOGS, GOV_DOCS, FULL_CHAPTERS, SHORT_CHAPTERS]) realDeep(o);
+  for (const [k, v] of Object.entries(OVERRIDES.crew ?? {})) CREW_NAMES[k] = v;
+}
 
 export const CHAPTERS = FULL ? FULL_CHAPTERS : SHORT_CHAPTERS;
 // The slides this run shows, in order, for their numbers

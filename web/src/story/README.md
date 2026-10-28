@@ -3,7 +3,7 @@
 `story.html` is the on-rails presentation. Two runs:
 
 - **Default** (design.md 18b/18c): the prologue, about 1.5 minutes in the
-  control room of tomorrow (Brage and his business-plan agent on the band,
+  control room of tomorrow (the supervisor and his business-plan agent on the band,
   Adriaen and his anti-slug agent at his desk, running by itself), "How did
   we get here?", the rewind to one year ago, then presenter-led chapters:
   Trondheim and onboarding, the decision, the tools, the how (knowledge
@@ -105,13 +105,27 @@ with their credit shown are.
 
 ## The private build
 
-The repo is public. Real initiative names, statuses, slides and tool
-screenshots go in `public/story/private/` (git-ignored) and show with
-`?private=1`:
+The repo and GitHub Pages are public, so they name no real people, company,
+platform or field: the story says made-up stand-ins (Ola, Per, Knut, Arne,
+Lars, Geir and Jonas; the operator Nordhav Energi and its platform Nordhav
+Alfa, plate "NORDHAV ALFA / 25/1-A"; the field Nordfeltet; a wave logo).
+The real names, statuses, slides and pictures go in `public/story/private/`
+(git-ignored; master copy in the private project files) and show with
+`?private=1` (`src/privateNames.js`):
 
-- `overrides.json`: `{ "lines": { id: text }, "cards": { id: { "initiative", "status" } }, "slides": { id: { "title", "bullets" } } }`
+- `overrides.json`:
+  - `names`: `{ "Ola": "<real name>", ... }`, whole words, applied to every line, chat, slide, card, credit and note, and to the flags' company name
+  - `crew`: `{ cast model: [first name, department] }` for the Sola captions
+  - `logo`: `[[colour, [[u, v], ...]], ...]`, the company logo on the flags
+  - `boards`, `signs`, `chars`: which desk photo boards (`control/`), platform name boards (`signs/`, by the public texture's name) and PPE looks (`chars/`) to load from this folder instead
+  - `lines`, `cards`, `slides`, `chats`, `chatText`, `beats`: wording over the public one, as before
+- `voice/`: the lines that say a real name, voiced with it (`scripts/voices.py --private`)
 - `slides/<slide id>.png`: a slide image instead of the placeholder (ids `a2-01` to `a2-08` in `content.js`)
 - `tools/<id>.png`: real screenshots for the Act 2 tools (`stepTest`, `riser`, `antiSlug`, `scd`)
+
+Never commit a real name: add it to `names` and write the stand-in in the
+repo. The story editor's sync (`scripts/story-editor/sync.py`) does that on
+the way in.
 
 ## Open items for Adriaen
 

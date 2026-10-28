@@ -2,7 +2,11 @@
 // on the spot with Web Audio so they cost no downloads: the two-tone process
 // alarm that builds through the Act 1 cascade, radio squelch, a desk phone
 // ringing, and the soft chime of an agent's notification.
+import { PRIVATE, PRIVATE_BASE } from '../privateNames.js';
 const VOICE = 'story/voice/';
+// The private build's own takes of the lines that say a real name
+// (voices.py --private), over the public ones with the stand-ins
+const PRIVATE_VOICE = PRIVATE ? `${PRIVATE_BASE}voice/` : null;
 
 // The rotor's two mixes, tuned by ear in a Web Audio test page (the Rotor Sound Lab):
 // blade passes in Hz (5 blades), beat depth, blade slap (harmonics), air
@@ -32,11 +36,13 @@ export class Sound {
 
   async loadIndex() {
     this.index = await fetch(`${VOICE}voice.json`).then((r) => r.json()).catch(() => ({}));
+    this.own = PRIVATE_VOICE ? await fetch(`${PRIVATE_VOICE}voice.json`).then((r) => r.json()).catch(() => ({})) : {};
+    Object.assign(this.index, this.own);
   }
 
   async buffer(id) {
     if (this.buffers[id]) return this.buffers[id];
-    const p = fetch(`${VOICE}${id}.mp3`).then((r) => { if (!r.ok) throw new Error(id); return r.arrayBuffer(); })
+    const p = fetch(`${this.own?.[id] ? PRIVATE_VOICE : VOICE}${id}.mp3`).then((r) => { if (!r.ok) throw new Error(id); return r.arrayBuffer(); })
       .then((b) => this.ctx.decodeAudioData(b)).catch(() => null);
     this.buffers[id] = p;
     return p;

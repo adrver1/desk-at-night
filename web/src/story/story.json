@@ -329,7 +329,7 @@
     "no": "Forretningsplan-agent",
     "en": "Business-plan agent"
    },
-   "who": "Brage",
+   "who": "Per",
    "messages": [
     [
      "me",
@@ -361,7 +361,7 @@
     ]
    ],
    "faces": {
-    "me": "brage"
+    "me": "supervisor"
    }
   },
   "slug": {
@@ -369,13 +369,13 @@
     "no": "Reguleringsagent · anti-slug",
     "en": "Control agent · anti-slug"
    },
-   "who": "Adriaen",
+   "who": "Ola",
    "messages": [
     [
      "me",
      {
-      "no": "Solveig begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?",
-      "en": "Solveig started slugging again overnight. Can you retune the anti-slug controller?"
+      "no": "Nordfeltet begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?",
+      "en": "Nordfeltet started slugging again overnight. Can you retune the anti-slug controller?"
      }
     ],
     [
@@ -441,7 +441,7 @@
      }
     ]
    ],
-   "who": "Adriaen",
+   "who": "Ola",
    "faces": {
     "me": "adriaen",
     "ai": "ctrlbuddy"
@@ -513,7 +513,7 @@
      }
     ]
    ],
-   "who": "Adriaen",
+   "who": "Ola",
    "faces": {
     "me": "adriaen",
     "ai": "ctrlbuddy"
@@ -550,12 +550,12 @@
     [
      "ai",
      {
-      "no": "… og det ble til et nytt APC-grensesnitt på Ivar Aasen.",
-      "en": "… and it turned into a new APC interface on Ivar Aasen."
+      "no": "… og det ble til et nytt APC-grensesnitt på Nordhav Alfa.",
+      "en": "… and it turned into a new APC interface on Nordhav Alfa."
      }
     ]
    ],
-   "who": "Adriaen",
+   "who": "Ola",
    "faces": {
     "me": "adriaen",
     "ai": "ctrlbuddy"
@@ -606,7 +606,7 @@
      }
     ]
    ],
-   "who": "Adriaen",
+   "who": "Ola",
    "faces": {
     "me": "adriaen",
     "ai": "ctrlbuddy"
@@ -614,7 +614,7 @@
   }
  },
  "callouts": {
-  "t.brage": [
+  "t.plan": [
    {
     "target": "Wall3Screen",
     "label": {
@@ -622,8 +622,8 @@
      "en": "Business-plan agent"
     },
     "text": {
-     "no": "Brage spør, agenten svarer på båndet",
-     "en": "Brage asks, the agent answers on the band"
+     "no": "Per spør, agenten svarer på båndet",
+     "en": "Per asks, the agent answers on the band"
     },
     "x": 61,
     "y": 38

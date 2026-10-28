@@ -8,13 +8,17 @@ small fetch shim in story.html asks for those names.
     cd web && npx vite build && python scripts/story-editor/pack_game.py dist <out>
 
 Then publish the editor with <out> as `root` and its files under `files`
-(see README.md, "Live stage").
+(see README.md, "Live stage"). The editor is private, so it carries the
+private build too (story/private/: the real names, voices, logo and
+pictures, git-ignored) and plays the game with ?private=1; --public leaves
+it out.
 """
 import os, re, shutil, sys
 
-src, out = sys.argv[1], sys.argv[2]
+args = [a for a in sys.argv[1:] if not a.startswith('--')]
+src, out = args[0], args[1]
 KEEP = ['story.html', 'assets', 'control', 'scene', 'intro', 'story']
-SKIP = {os.path.join('story', 'private')}   # the private build's own files never go up
+SKIP = {os.path.join('story', 'private')} if '--public' in sys.argv else set()
 SHIM = '''<script>
 // pack_game.py: binaries are served as .glb.wasm / .bin.wasm inside the editor artifact
 (() => { const f = window.fetch.bind(window), re = /\\.(glb|bin)(?=\\?|#|$)/;

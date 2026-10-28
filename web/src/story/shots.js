@@ -78,17 +78,17 @@ export class Shots {
       }
       case 'table': return this.look(new THREE.Vector3(-0.35, 1.62, 0.15), new THREE.Vector3(2.0, 1.3, 2.3), 62);
       case 'epilogue': return this.custom?.() ?? this.target('desk');
-      // Tomorrow's room: the whole room from the back corner; over Brage's
-      // shoulder at the band; Brage from the band side; over Adriaen's
+      // Tomorrow's room: the whole room from the back corner; over the supervisor's
+      // shoulder at the band; the supervisor from the band side; over Adriaen's
       // shoulder at his monitors; Adriaen side on
       case 'wideRoom': return this.look(new THREE.Vector3(3.3, 2.15, 2.6), new THREE.Vector3(-0.6, 1.2, -2.6), 68);
-      case 'brageBand': return this.look(new THREE.Vector3(2.8, 1.7, 2.6), new THREE.Vector3(-0.2, 1.6, -4), 45);
-      case 'brage': {
+      case 'planBand': return this.look(new THREE.Vector3(2.8, 1.7, 2.6), new THREE.Vector3(-0.2, 1.6, -4), 45);
+      case 'supervisor': {
         const head = headOf('supervisor');
         if (head) return this.look(new THREE.Vector3(0.15, 1.5, -2.4), head.clone().add(new THREE.Vector3(0, -0.15, 0)), 50);   // from the gap between the desks, his face lit by the band
-        return this.target('brageBand');
+        return this.target('planBand');
       }
-      // The morning: both desks from behind (the chitchat), and close on Brage's mug for the pour
+      // The morning: both desks from behind (the chitchat), and close on the supervisor's mug for the pour
       case 'pair': return this.look(new THREE.Vector3(2.3, 1.65, 0.7), new THREE.Vector3(-0.1, 1.0, -1.5), 55);
       case 'pour': return this.look(new THREE.Vector3(0.3, 1.65, -2.5), new THREE.Vector3(-0.55, 1.12, -1.65), 62);
       case 'adriaenDesk': return this.look(new THREE.Vector3(0.3, 1.8, -0.8), new THREE.Vector3(1.9, 1.0, -2.2), 45);

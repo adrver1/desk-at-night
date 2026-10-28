@@ -424,7 +424,7 @@ function reportMedia(file) {
   return reportFiles[file];
 }
 
-// The business plan beside Brage's chat: production by quarter, the plan
+// The business plan beside the supervisor's chat: production by quarter, the plan
 // against a late well, and the gap closing once the agent's drafts are in
 function planChart(ctx, w, h) {
   const s = w / 640, n = S.chats.plan ?? 0;

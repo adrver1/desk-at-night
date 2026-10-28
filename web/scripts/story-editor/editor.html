@@ -231,9 +231,20 @@ try { live = localStorage.getItem('sse.live') === '1'; } catch {}
 let showHid = false;
 try { showHid = localStorage.getItem('sse.hid') === '1'; } catch {}
 const vis = () => (showHid ? beats : beats.filter((b) => !b.hidden || b._key === curKey));
-const SPEAKERS = [['supervisor', 'Brage'], ['operator', 'Adriaen'], ['agent', 'Agent'], ['ceo', 'CEO'], ['pilot', 'Pilot'], ['crew', 'Ground crew'], ['engineer', 'Control engineer'], ['oim', 'OIM']];
+const SPEAKERS = [['supervisor', 'Per'], ['operator', 'Ola'], ['agent', 'Agent'], ['ceo', 'CEO'], ['pilot', 'Pilot'], ['crew', 'Ground crew'], ['engineer', 'Control engineer'], ['oim', 'OIM']];
 const TARGETS = ['band', 'window', 'clock', 'door', 'coffee', 'meeting table', ...[0, 1, 2, 3, 4, 5].flatMap((i) => [`Desk0Mon${i}Screen`, `Desk1Mon${i}Screen`]), ...[0, 1, 2, 3, 4, 5, 6].map((i) => `Wall${i}Screen`), 'LinkScreen', 'TvScreen'];
-const SHOTS = { wideRoom: 'wide room', band: 'display band', brageBand: 'Brage + band', brage: 'Brage', adriaen: 'Adriaen', adriaenDesk: 'Adriaen at his desk', pair: 'the two of them', pour: 'pouring', desk: 'desk', epilogue: 'fly-out', trondheim: 'Trondheim' };
+const SHOTS = { wideRoom: 'wide room', band: 'display band', planBand: 'Per + band', supervisor: 'Per', adriaen: 'Ola', adriaenDesk: 'Ola at his desk', pair: 'the two of them', pour: 'pouring', desk: 'desk', epilogue: 'fly-out', trondheim: 'Trondheim' };
+// The editor is private: with the packed private build beside it, the labels
+// say the real names (story/private/overrides.json `names`) instead of the
+// public stand-ins
+fetch('story/private/overrides.json').then((r) => (r.ok ? r.json() : null)).then((o) => {
+  const names = Object.entries(o?.names ?? {}).sort((a, b) => b[0].length - a[0].length);
+  if (!names.length) return;
+  const re = new RegExp(`(?<![\\p{L}])(${names.map(([k]) => k.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')).join('|')})(?![\\p{L}])`, 'gu'), map = Object.fromEntries(names);
+  const real = (t) => t.replace(re, (m) => map[m]);
+  for (const sp of SPEAKERS) sp[1] = real(sp[1]);
+  for (const k of Object.keys(SHOTS)) SHOTS[k] = real(SHOTS[k]);
+}).catch(() => {});
 const shotName = (s) => (s ? (s.startsWith('monitor:') ? 'screen ' + s.slice(8) : SHOTS[s] || s) : '');
 const other = () => (L === 'no' ? 'en' : 'no');
 const txt = (o) => (typeof o === 'string' ? o : o?.[L] || o?.[other()] || '');
@@ -282,7 +293,7 @@ function liveShow(b) {
   if (!liveBox || liveLang !== L) {
     liveBox?.remove();
     liveBox = document.createElement('div'); liveBox.id = 'livebox';
-    liveBox.innerHTML = `<iframe src="story.html?nofs&lang=${L}&beat=${encodeURIComponent(b.id)}" allow="autoplay; fullscreen" title="The game at this beat"></iframe>`;
+    liveBox.innerHTML = `<iframe src="story.html?nofs&private=1&lang=${L}&beat=${encodeURIComponent(b.id)}" allow="autoplay; fullscreen" title="The game at this beat"></iframe>`;
     document.body.append(liveBox);
     liveLang = L; liveBeat = null;
     liveBox.firstChild.addEventListener('load', () => { liveBeat = null; if (live) liveShow(cur()); });

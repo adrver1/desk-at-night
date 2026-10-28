@@ -207,7 +207,7 @@ function separatorOverview(ctx, w, h, t) {
   const lvl = sim.sepLevel(t);
   pipe(ctx, [[20 * s, 120 * s], [150 * s, 120 * s]], s);
   text(ctx, 'From wells', 20 * s, 110 * s, { px: 11 * s, color: C.dim });
-  vessel(ctx, 150 * s, 80 * s, 240 * s, 90 * s, lvl, s, '20-VA-001 HP separator');
+  vessel(ctx, 150 * s, 80 * s, 240 * s, 90 * s, lvl, s, 'V-101 HP separator');
   pipe(ctx, [[390 * s, 95 * s], [470 * s, 95 * s], [470 * s, 70 * s], [620 * s, 70 * s]], s);
   text(ctx, 'Gas → compression', 500 * s, 62 * s, { px: 11 * s, color: C.dim });
   pipe(ctx, [[390 * s, 155 * s], [470 * s, 155 * s], [470 * s, 200 * s], [620 * s, 200 * s]], s);

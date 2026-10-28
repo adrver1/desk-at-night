@@ -10,10 +10,10 @@ An outfit is a dict:
     parts   {name: Mesh} shells and accessories
     rigid   {region: bone} parts that follow one bone (helmets)
 
-Offshore PPE follows the Aker BP crew's two-tone hi-vis: a yellow jacket
+Offshore PPE follows the operator crew's two-tone hi-vis: a yellow jacket
 with a navy collar, navy lower sleeves and cuffs, a reflective band round
 the waist, the sleeves and the shins, reflective patches on the shoulders,
-the company's ribbon logo big on the back and small on the chest pocket,
+the company's wave logo big on the back and small on the chest pocket,
 navy trousers and black safety boots. Out on deck add a white helmet with
 the logo sticker, blue ear defenders, safety glasses and gloves.
 
@@ -28,7 +28,9 @@ crew's outfits): a navy one-piece flight suit with captain's epaulettes,
 and either a white flight helmet with the visor up and a boom mic, or an
 over-ear headset with a boom mic. Plain colours, no operator's logo.
 """
+import json
 import math
+import os
 
 import base_body as base
 
@@ -38,15 +40,20 @@ HIVIS, NAVY, TAPE = "hivis_yellow", "coverall_navy", "reflective"
 HELMET, RUBBER, CUP, GLOVE = "helmet_white", "rubber", "helmet_blue", "grey"
 FRAME, SHIELD, CLIP = "glass", "glass_clear", "plastic_black"
 
-# The Aker BP logo, simplified to three flat ribbons (magenta, orange,
-# green) stacked in an S, as (swatch, outline) in a unit box seen from the
-# front: u from left to right, v from bottom to top.
-LOGO = [("logo_magenta", [(0.12, 0.95), (0.33, 1.0), (0.30, 0.83), (0.55, 0.70), (0.55, 0.53),
-                          (0.02, 0.51), (0.05, 0.67), (0.18, 0.80)]),
-        ("logo_orange", [(0.36, 0.56), (0.56, 0.67), (1.0, 0.73), (1.0, 0.46), (0.86, 0.40),
-                         (0.46, 0.30), (0.22, 0.34)]),
-        ("logo_green", [(0.0, 0.31), (0.40, 0.39), (0.72, 0.41), (0.62, 0.23), (0.32, 0.14),
-                        (0.47, 0.0), (0.12, 0.02), (0.0, 0.11)])]
+# The company logo: three wave bands (sky, teal, navy), the made-up operator
+# "Nordhav Energi" of the public build, as (swatch, outline) in a unit box
+# seen from the front: u from left to right, v from bottom to top. The real
+# company's logo is private: point CREW_LOGO at a JSON file of the same
+# [[swatch, [[u, v], ...]], ...] to build the private looks with it.
+LOGO = [("logo_sky", [(0.0, 0.94), (0.17, 0.99), (0.33, 0.99), (0.5, 0.94), (0.67, 0.89), (0.83, 0.89), (1.0, 0.94),
+                      (1.0, 0.72), (0.83, 0.67), (0.67, 0.67), (0.5, 0.72), (0.33, 0.77), (0.17, 0.77), (0.0, 0.72)]),
+        ("logo_teal", [(0.0, 0.61), (0.17, 0.66), (0.33, 0.66), (0.5, 0.61), (0.67, 0.56), (0.83, 0.56), (1.0, 0.61),
+                       (1.0, 0.39), (0.83, 0.34), (0.67, 0.34), (0.5, 0.39), (0.33, 0.44), (0.17, 0.44), (0.0, 0.39)]),
+        ("logo_navy", [(0.0, 0.28), (0.17, 0.33), (0.33, 0.33), (0.5, 0.28), (0.67, 0.23), (0.83, 0.23), (1.0, 0.28),
+                       (1.0, 0.06), (0.83, 0.01), (0.67, 0.01), (0.5, 0.06), (0.33, 0.11), (0.17, 0.11), (0.0, 0.06)])]
+if os.environ.get("CREW_LOGO"):
+    with open(os.environ["CREW_LOGO"]) as f:
+        LOGO = [(sw, [tuple(p) for p in pts]) for sw, pts in json.load(f)]
 
 
 def logo(m, bvh, x, z, w, h, facing=1, region="logo"):

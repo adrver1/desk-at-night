@@ -35,8 +35,8 @@ to also write a contact sheet next to the reference into a private folder.
   helmets follow one bone, and clothing shells copy the weights of the skin
   under them.
 - Outfits (`_shared/outfits.py`) are shells built from the base body's own
-  rings, so they fit every character: `ppe` (Aker BP hi-vis jacket with
-  the ribbon logo on the back and chest pocket, navy lower sleeves and
+  rings, so they fit every character: `ppe` (hi-vis jacket with
+  the company's wave logo on the back and chest pocket, navy lower sleeves and
   trousers, reflective bands, safety boots) and `ppe_deck` (adds a white
   helmet with logo sticker, blue ear defenders on black clip arms from the
   helmet's side slots, wraparound safety glasses drawn as frame and clear

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 const ROOT = new URL('../../', import.meta.url).pathname;
 const FACES = {
   adriaen: ['web/public/story/chars/bearded_operator.glb', 180, 0.2],
-  brage: ['web/public/story/chars/blazer_lead.glb', 180, 0.2],
+  supervisor: ['web/public/story/chars/blazer_lead.glb', 180, 0.2],
   ctrlbuddy: ['characters/control_buddy/control_buddy.glb', 180, 0.3],
   ceo: ['web/public/story/chars/glasses_ceo.glb', 180, 0.2],
 };

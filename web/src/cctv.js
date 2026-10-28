@@ -13,6 +13,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Helicopter } from './helicopter.js';
+import { privateSigns } from './privateNames.js';
 
 // Pixels across (16:9, shown pixelated) and pictures a second for all the
 // shown cameras together, taken in turn: ?cctv=256,3 sets both
@@ -45,6 +46,7 @@ export class Cctv {
       new GLTFLoader().loadAsync(`${base}cctv.glb`),
       fetch(`${base}cctv.json`).then((r) => r.json()),
     ]);
+    privateSigns(gltf.scene);
     return new Cctv(renderer, outdoor, gltf.scene, info);
   }
 
