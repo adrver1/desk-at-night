@@ -374,8 +374,8 @@
     [
      "me",
      {
-      "no": "Stigerøret begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?",
-      "en": "The riser started slugging again overnight. Can you retune the anti-slug controller?"
+      "no": "Solveig begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?",
+      "en": "Solveig started slugging again overnight. Can you retune the anti-slug controller?"
      }
     ],
     [
@@ -413,8 +413,8 @@
     [
      "me",
      {
-      "no": "Å lete etter steptester tar tid. Kan du finne perioder i historikken der regulatoren sto i manuell og noen steppet ventilen?",
-      "en": "Hunting for step tests takes time. Can you find stretches in the history where the controller was in manual and someone stepped the valve?"
+      "no": "Å lete etter historiske steptester er tidkrevende. Bruk CDF for å se etter perioder der det ble gjennomført steptester på nivåregulatoren.",
+      "en": "Hunting for historical step tests takes time. Use CDF to look for periods when step tests were run on the level controller."
      }
     ],
     [
