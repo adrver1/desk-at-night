@@ -20,90 +20,90 @@
   },
   "y-02": {
    "no": {
-    "title": "Onboarding er bratt",
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Nytt anlegg, nye systemer, nye forkortelser",
      "Tusenvis av styrende dokumenter",
      "Hvem vet hva, og hvor står det?"
-    ]
+    ],
+    "title": "Onboarding er bratt"
    },
    "en": {
-    "title": "Onboarding is steep",
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "New plant, new systems, new acronyms",
      "Thousands of governing documents",
      "Who knows what, and where is it written?"
-    ]
+    ],
+    "title": "Onboarding is steep"
    },
    "placeholder": true
   },
   "d-01": {
    "no": {
-    "title": "Et bevisst valg",
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "KI inn i min egen onboarding",
      "Bygge verktøy for det, og for daglige reguleringsoppgaver"
-    ]
+    ],
+    "title": "Et bevisst valg"
    },
    "en": {
-    "title": "A deliberate choice",
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "AI in my own onboarding",
      "Build tools for it, and for daily control-engineering tasks"
-    ]
+    ],
+    "title": "A deliberate choice"
    },
    "placeholder": true
   },
   "d-02": {
    "no": {
-    "title": "Fra spørsmål til verktøy",
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Hva spurte jeg om de første ukene?",
      "Hva ble til verktøy?"
-    ]
+    ],
+    "title": "Fra spørsmål til verktøy"
    },
    "en": {
-    "title": "From questions to tools",
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "What did I ask about in the first weeks?",
      "What became a tool?"
-    ]
+    ],
+    "title": "From questions to tools"
    },
    "placeholder": true
   },
   "m-01": {
    "no": {
-    "title": "Hva er mulig",
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Steptest-finner",
      "Simulatorer",
      "I-005 logikktester",
      "Agenter for styrende dokumenter"
-    ]
+    ],
+    "title": "Hva er mulig"
    },
    "en": {
-    "title": "What is possible",
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Step-test finder",
      "Simulators",
      "I-005 logic tester",
      "Governing-document agents"
-    ]
+    ],
+    "title": "What is possible"
    },
    "placeholder": true
   },
   "m-02": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Finner brukbare strekk i historikken",
      "Ingen tapte fat"
     ],
@@ -111,7 +111,7 @@
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Finds usable stretches in history",
      "No lost barrels"
     ],
@@ -122,7 +122,7 @@
   "m-03": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Fysikkmodeller (Python, CasADi) som snakker OPC UA",
      "Prøv regulatoren før anlegget gjør det"
     ],
@@ -130,7 +130,7 @@
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Physics models (Python, CasADi) that talk OPC UA",
      "Try the controller before the plant does"
     ],
@@ -141,7 +141,7 @@
   "m-04": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "SCD etter I-005, kjørt i en interaktiv logikktester",
      "Feil funnet på en laptop, ikke under igangkjøring"
     ],
@@ -149,7 +149,7 @@
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "SCD to I-005, run in an interactive logic tester",
      "Mistakes found on a laptop, not at commissioning"
     ],
@@ -159,27 +159,27 @@
   },
   "m-05": {
    "no": {
-    "title": "Styrende dokumenter, med kilde",
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Agenter som svarer med henvisning",
      "Sjekker endringer mot kravene"
-    ]
+    ],
+    "title": "Styrende dokumenter, med kilde"
    },
    "en": {
-    "title": "Governing documents, with sources",
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Agents that answer with a citation",
      "Check changes against the requirements"
-    ]
+    ],
+    "title": "Governing documents, with sources"
    },
    "placeholder": true
   },
   "h-01": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Utstyr, dokumenter, krav og lærdom, koblet sammen",
      "Én kunnskapsbase, mange agenter"
     ],
@@ -187,7 +187,7 @@
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Equipment, documents, requirements and lessons, linked",
      "One knowledge base, many agents"
     ],
@@ -198,7 +198,7 @@
   "h-02": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Hver agent har sitt fag og sitt mandat",
      "Mennesker leder dem"
     ],
@@ -206,7 +206,7 @@
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Each agent has its subject and its mandate",
      "People lead them"
     ],
@@ -217,7 +217,7 @@
   "h-03": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Agentene bruker de samme verktøyene som oss",
      "Historikk, simulatorer, logikktester, dokumenter"
     ],
@@ -225,7 +225,7 @@
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "The agents use the same tools we do",
      "History, simulators, logic tester, documents"
     ],
@@ -236,14 +236,14 @@
   "h-04": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Inn i idédugnaden"
     ],
     "title": "Hva betyr det for oss?"
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Into the brainstorm"
     ],
     "title": "What does it mean for us?"
@@ -326,8 +326,8 @@
  "chats": {
   "plan": {
    "title": {
-    "no": "CtrlBuddy · forretningsplan",
-    "en": "CtrlBuddy · business plan"
+    "no": "PlanBuddy · forretningsplan",
+    "en": "PlanBuddy · business plan"
    },
    "who": "Per",
    "messages": [
@@ -367,8 +367,8 @@
   },
   "slug": {
    "title": {
-    "no": "Reguleringsagent · anti-slug",
-    "en": "Control agent · anti-slug"
+    "no": "CtrlBuddy · anti-slug",
+    "en": "CtrlBuddy · anti-slug"
    },
    "who": "Ola",
    "messages": [
@@ -402,7 +402,8 @@
     ]
    ],
    "faces": {
-    "me": "adriaen"
+    "me": "adriaen",
+    "ai": "ctrlbuddy"
    }
   },
   "step": {
@@ -692,10 +693,11 @@
   ]
  },
  "beats": {
-  "ep.line": {
-   "cards": [
-    false
-   ]
+  "t.plan": {
+   "notes": "Per works on the business plan with CtrlBuddy, on his own screen; the agent answers out loud in its robot voice."
+  },
+  "y.trondheim": {
+   "notes": "Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the fountain, the titles fade as it closes in, and you walk up the steps and in at the Føniks door. Your first week on the job. (optional: ?ceo=1: the CEO welcomes you at the steps.)"
   }
  },
  "inserted": [
@@ -773,9 +775,12 @@
   }
  ],
  "hidden": [
+  "y.steep",
   "d.s1",
   "d.wake",
   "d.s2",
+  "m.s1",
+  "m.step",
   "m.s2",
   "m.s3",
   "new.ctrl06",
@@ -785,14 +790,12 @@
   "h.g2",
   "h.s3",
   "h.g3",
-  "y.steep",
   "b.forward",
-  "b.room",
-  "m.s1",
-  "m.step"
+  "b.room"
  ],
  "closing": {
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",
   "en": "This part isn't ours to decide. It's yours."
- }
+ },
+ "chapterNames": {}
 }

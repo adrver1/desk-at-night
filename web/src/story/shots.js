@@ -95,6 +95,10 @@ export class Shots {
       case 'adriaenDesk': return this.look(new THREE.Vector3(0.3, 1.8, -0.8), new THREE.Vector3(1.9, 1.0, -2.2), 45);
       // one year ago: the operator at the left desk and the screen CtrlBuddy will appear on, both in the left half (the learning curve takes the right)
       case 'buddyDesk': return this.look(new THREE.Vector3(-0.2, 1.75, -1.1), new THREE.Vector3(-2.15, 1.0, -2.0), 42);
+      // the same, mirrored: whoever sits at the right desk and his screens
+      case 'buddyDesk_right': return this.look(new THREE.Vector3(0.2, 1.75, -1.1), new THREE.Vector3(2.15, 1.0, -2.0), 42);
+      // the learning curve beside the operator: turned a little right, so he sits further left and the graph has room
+      case 'curveDesk': return this.look(new THREE.Vector3(-0.2, 1.75, -1.1), new THREE.Vector3(-1.9, 1.0, -2.45), 42);
       case 'adriaen': return this.look(new THREE.Vector3(2.5, 1.45, -0.35), new THREE.Vector3(1.45, 1.1, -1.95), 55);   // his profile, the monitors beyond
       default: break;
     }

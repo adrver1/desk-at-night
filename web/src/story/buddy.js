@@ -50,6 +50,7 @@ const ARROW = [
 export class Buddy {
   constructor(game, screen) {
     this.game = game;
+    this.home = screen;   // his screen unless the state says another (buddyAt)
     this.screen = screen;
     this.look = null;
     this.scene = new THREE.Scene();
@@ -103,13 +104,18 @@ export class Buddy {
     const want = LOOK ?? s.buddy;
     S.buddy.who = BUDDY_WHO[s.buddyWho] ? s.buddyWho : 'buddy';
     for (const [who, a] of Object.entries(this.agents ?? {})) a.model.visible = who === S.buddy.who;
+    const screen = s.buddyAt ?? this.home;
+    if (screen !== this.screen) { this.screen = screen; this.look = null; }
     const look = want && BUDDY_LOOKS[want] && s.screens?.[this.screen] === 'buddy' ? want : null;   // only while his screen shows him
     if (look !== this.look) {
       this.look = look;
       if (look) {
         S.buddy.look = look;
         this.game.room?.setFeeds({ buddy: this.rt.texture });
-        const chair = this.game.chairs?.[0]?.obj.getWorldPosition(new THREE.Vector3()) ?? this.game.camera.position.clone();   // the screens face the desk's chair
+        // the screens face their desk's chair: the chair nearest the screen
+        const at = this.game.room?.screenFrame(this.screen, this.game.camera.position)?.center;
+        const chairs = (this.game.chairs ?? []).map((c) => c.obj.getWorldPosition(new THREE.Vector3()));
+        const chair = (at ? chairs.sort((a, b) => a.distanceTo(at) - b.distanceTo(at))[0] : chairs[0])?.clone() ?? this.game.camera.position.clone();
         this.frame = this.game.room?.screenFrame(this.screen, chair.setY(1.2));
         if (this.frame) {
           const w = 640, h = Math.round(640 * this.frame.height / this.frame.width);
