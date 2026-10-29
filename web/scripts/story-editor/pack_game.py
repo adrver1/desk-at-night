@@ -3,7 +3,8 @@
 The editor is a claude.ai artifact, which cannot frame or fetch another
 site, so it carries the game as its own files. The artifact service only
 serves web media types, so .glb/.bin go up as .glb.wasm/.bin.wasm and a
-small fetch shim in story.html asks for those names.
+small fetch shim in story.html (and intro.html, the prologue's flight,
+framed by the story) asks for those names.
 
     cd web && npx vite build && python scripts/story-editor/pack_game.py dist <out>
 
@@ -17,7 +18,7 @@ import os, re, shutil, sys
 
 args = [a for a in sys.argv[1:] if not a.startswith('--')]
 src, out = args[0], args[1]
-KEEP = ['story.html', 'assets', 'control', 'scene', 'intro', 'story']
+KEEP = ['story.html', 'intro.html', 'assets', 'control', 'scene', 'intro', 'story']
 SKIP = {os.path.join('story', 'private')} if '--public' in sys.argv else set()
 SHIM = '''<script>
 // pack_game.py: binaries are served as .glb.wasm / .bin.wasm inside the editor artifact
@@ -42,9 +43,10 @@ for top in KEEP:
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             shutil.copyfile(os.path.join(d, f), dst)
             n += 1; size += os.path.getsize(dst)
-page = os.path.join(out, 'story.html')
-html = open(page).read()
-i = html.index('<script')
-open(page, 'w').write(html[:i] + SHIM + html[i:])
+for name in ('story.html', 'intro.html'):
+    page = os.path.join(out, name)
+    html = open(page).read()
+    i = html.index('<script')
+    open(page, 'w').write(html[:i] + SHIM + html[i:])
 print(f'{n} files, {size / 1e6:.1f} MB in {out}')
 if n > 255 or size > 64e6: print('too big for one publish (255 files, 64 MB): publish in parts to the same url')
