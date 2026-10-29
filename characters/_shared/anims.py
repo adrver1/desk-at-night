@@ -23,6 +23,10 @@ into every character's .glb as named glTF animations:
     mouse        seated: right hand onto a mouse on the desk
                  (MOUSE_AT), small wiggles, back to the lap     (4 s)
     mouse_far    the same for the second desk's mouse (MOUSE_FAR)
+    phone        seated: picks a mobile up from the desk (PHONE_AT) and
+                 holds it at the ear, and stays there; the hand has it
+                 from PHONE_GRAB s                              (1.5 s)
+    phone_down   puts it back on the desk (there from PHONE_DROP s) (1.2 s)
 
 Face clips move only the eye and brow bones, so they play on top of any
 body clip (body clips never touch the face bones):
@@ -228,6 +232,10 @@ SIP_MUG = (0.52, 0.58, 0.80)          # the right hand's grip on the mug handle
 MOUSE_AT = (0.40, 0.48, 0.78)         # the right wrist over the mouse
 MOUSE_FAR = (0.54, 0.48, 0.78)        # the same on the second desk, whose mouse sits 14 cm further right
 SIP_HOLD = (20 / FPS, 76 / FPS)       # seconds: the hand has the mug from, until
+PHONE_AT = (0.14, 0.42, 0.785)        # a mobile lying on the desk edge, in front of the keyboard
+PHONE_EAR = (0.12, -0.07, 1.03)       # the right wrist with the phone at the ear
+PHONE_GRAB = 12 / FPS                 # phone: the hand has it from here on
+PHONE_DROP = 16 / FPS                 # phone_down: the phone is back on the desk from here
 
 
 def shoulder_seated(r, side):
@@ -319,6 +327,25 @@ def sip_keys(side):
             (78, p(1)), (86, p(0.4)), (92, p(0))]
 
 
+def phoning(stage):
+    """Seated, the right hand: stage 0 resting, 1 on the mobile on the desk,
+    2 holding it at the right ear (head tilted into it a little)."""
+    down = min(stage, 1.0) * (2 - max(stage, 1.0))   # 1 at the desk
+    up = max(0.0, stage - 1.0)
+    r = seated(look_down=6 * down)
+    r["spine"] = (X, 6 - 14 * down)
+    r["chest"] = (X, 2 - 3 * down)
+    r["head"] = [(Z, -8 * up), (X, -3 - 6 * down)]
+    if stage <= 0:
+        return r
+    phone, ear = Vector(PHONE_AT), Vector(PHONE_EAR)
+    w = Vector((0.20, 0.30, 0.62)).lerp(phone + Vector((0, -0.07, 0.02)), stage) if stage <= 1 else (phone + Vector((0, -0.07, 0.02))).lerp(ear, up)
+    hand = Vector((0.0, 0.95, -0.3)).lerp(Vector((-0.1, 0.25, 1.0)), up)
+    palm = Vector((0.0, 0.0, -1.0)).lerp(Vector((-1.0, 0.0, 0.0)), up)
+    reach(r, 1, tuple(w), tuple(hand), palm=tuple(palm), elbow_out=0.7 - 0.5 * up)
+    return r
+
+
 def mouse_keys(at=MOUSE_AT):
     """Hand on the mouse, a few small strokes and a pause, back to the lap."""
     w = [(0, 0), (0.025, 0.01), (-0.01, 0.02), (0.02, -0.015), (0.0, 0.0), (-0.02, 0.01), (0.015, 0.02), (0, 0)]
@@ -354,6 +381,8 @@ def clips():
     c["sip_left"] = sip_keys(-1)
     c["mouse"] = mouse_keys()
     c["mouse_far"] = mouse_keys(MOUSE_FAR)
+    c["phone"] = [(0, phoning(0)), (10, phoning(1)), (14, phoning(1)), (26, phoning(1.8)), (30, phoning(2)), (36, phoning(2))]
+    c["phone_down"] = [(0, phoning(2)), (8, phoning(1.2)), (12, phoning(1)), (18, phoning(1)), (28, phoning(0))]
     return c
 
 

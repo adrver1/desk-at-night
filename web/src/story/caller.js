@@ -30,15 +30,20 @@ export class Caller {
     this.on = false;
   }
 
-  set(who) {
+  // who calls (null: no call), and how far the call has come: 'ring' (the
+  // operator's portrait alone in the middle, the room showing through, where
+  // he picks up), 'talk' (his portrait moves right, the caller's appears),
+  // 'sep' (the separator in the speech bubble)
+  set(who, stage = 'sep') {
     who = who || null;
+    for (const k of ['ring', 'talk', 'sep']) this.el.classList.toggle(k, Boolean(who) && k === stage);
     if (who && who !== this.who) {
       const face = PRIVATE && OVERRIDES.faces?.[who] ? PRIVATE_BASE + OVERRIDES.faces[who] : CALLERS[who];
       this.el.querySelector('.them img').src = face ?? '';
       this.el.querySelector('.them figcaption').textContent = SPEAKERS[who]?.name ?? '';
       if (!this.built) this.build();
-      this.reset();
     }
+    if (who && stage !== 'sep') this.reset();   // the slugs start when the bubble opens
     this.who = who;
     this.on = Boolean(who);
     this.el.classList.toggle('on', this.on);

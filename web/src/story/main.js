@@ -176,7 +176,8 @@ function apply(s, { instant = false } = {}) {
   cast?.place(s.cast);
   buddy?.set(s);
   thoughts.set(s.thoughts);
-  caller.set(s.call);
+  caller.set(s.call, s.callStage);
+  cast?.phone(s.phone, instant);
   cast?.mugs(s.mugs);
   ui.clipboard(s.clipboard);
   ui.clipAway(Boolean(s.shot?.startsWith('monitor:') || s.overlay?.startsWith('slide:') || s.overlay?.startsWith('log:') || s.overlay?.startsWith('vote:') || s.overlay?.startsWith('card:') || s.graphOn === 'overlay'));
@@ -293,6 +294,7 @@ async function run(step, my) {
   if (step.set) return apply(merge(state, step.set));
   if (step.sound === 'ring') { sound.ring(2); return; }
   if (step.sound === 'grieg') { sound.ringGrieg(step.times ?? 2); return; }   // two rings: 5.1 s
+  if (step.sound === 'pickup') { sound.pickup(); return; }
   // CtrlBuddy's first appearance: the mouse pointer goes to him and clicks
   if (step.buddy === 'click') return buddy?.clickHim(() => sound.click());
   if (step.sound === 'alarmShort') { sound.startAlarm(3, 0.06); setTimeout(() => sound.stopAlarm(), 5000); return; }
@@ -529,7 +531,7 @@ function startPrologue(pro = 'takeoff', { carry = false, at = 0 } = {}) {
   const my = token;
   trondheim.hide();
   game.hooks.hidden = true;
-  ui.clipboard(null); ui.stars(null); ui.banner(null); ui.overlay(null, { call }); ui.org(null); ui.clearNotices(); ui.clock(null);
+  ui.clipboard(null); ui.stars(null); ui.banner(null); ui.overlay(null, { call }); ui.org(null); ui.clearNotices();
   host.classList.remove(`grade-${lastGrade}`); lastGrade = 0;
   showHud();
   if (pro === 'sola' && sola?.open) {
@@ -685,7 +687,6 @@ function frame(dt, now) {
       if (p) ui.boat(state.boatLabel, p.x, p.y, /No /.test(state.boatLabel) ? 'bad' : 'good'); else ui.boat(null);
     } else ui.boat(null);
     if (state.org || state.graphOn === 'overlay') ui.org(state.graphOn === 'overlay' ? 'graph' : state.org, S.graph, S.now - S.graphAt, S.now);
-    ui.clock(CHAPTERS[chapter]?.prologue || state.place ? null : S.clock);
   }
   caller.update(dt);
   // letters being typed into a chat: the zoomed screen redrawn every frame, not at its own rate
@@ -779,5 +780,5 @@ window.__story = {
   get state() { return { chapter: CHAPTERS[chapter].id, beat: CHAPTERS[chapter].beats[beat]?.id, running, waiting, free, s: state }; },
   beats: (key) => CHAPTERS.find((ch) => ch.key === key)?.beats.length ?? 0,
   sola: () => sola, epilogue: () => epilogue, trondheim,
-  ui, cast: () => cast, shots: () => shots, clockFace: () => clockFace, S, sound, toggleFree, SPEAKERS,
+  ui, cast: () => cast, shots: () => shots, caller, clockFace: () => clockFace, S, sound, toggleFree, SPEAKERS,
 };

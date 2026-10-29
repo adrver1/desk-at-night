@@ -587,9 +587,14 @@ const SHORT_CHAPTERS = [
       // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
       { id: 'm.think', set: { curve: null, thoughts: true }, notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
       // (Adriaen, 2026-10-29) and then the neighbouring platform calls about its separator
-      { id: 'm.call', auto: true, set: { thoughts: null, call: 'neighbour' }, do: [{ sound: 'grieg' }, { wait: 5.4 }, { say: 'm.call1' }, { say: 'm.call2' }, { say: 'm.call3' }],
-        notes: 'Nordhav Beta ringer: separatoren deres slugger, og de spør den nye operatøren om råd.' },
-      { id: 'm.buddy1', set: { curve: null, thoughts: null, call: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
+      // (Adriaen, 2026-10-29) the phone rings, he picks up in the room behind, his portrait moves aside
+      // for the caller's, and the separator comes up once the caller has said who it is
+      { id: 'm.call', auto: true, set: { thoughts: null, call: 'neighbour', callStage: 'ring' },
+        do: [{ sound: 'grieg' }, { wait: 3 }, { set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
+          { set: { callStage: 'talk' } }, { wait: 1 }, { say: 'm.call0' }, { set: { callStage: 'sep' } }, { wait: 1.2 }, { say: 'm.call1' }, { say: 'm.call2' }, { say: 'm.call3' }],
+        end: { callStage: 'sep', phone: 'operator' },
+        notes: 'Versjon A: Nordhav Beta ringer, separatoren deres slugger, og de spør den nye operatøren om råd. (Versjon B, som chat, er neste beat: c.call.)' },
+      { id: 'm.buddy1', set: { curve: null, thoughts: null, call: null, phone: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
         notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
       { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen' }, do: [{ wait: 0.8 }, { buddy: 'click' }],
         notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
@@ -689,7 +694,7 @@ function applyStory(chapters) {
       const nb = { id: add.id, notes: add.notes ?? '', set: { overlay: add.slide ? `slide:${add.slide}` : null } };
       if (add.chat) {
         nb.chat = add.chat;
-        nb.set = { ...nb.set, shot: `monitor:${CHAT_SCREEN}`, screens: { [CHAT_SCREEN]: `chat:${add.chat}`, [REPORT_SCREEN]: `report:${add.chat}` }, chats: { [add.chat]: 0 } };   // main.js enter types the first message
+        nb.set = { ...nb.set, shot: `monitor:${CHAT_SCREEN}`, screens: { [CHAT_SCREEN]: `chat:${add.chat}`, [REPORT_SCREEN]: `report:${add.chat}` }, chats: { [add.chat]: 0 }, thoughts: null, call: null, phone: null };   // main.js enter types the first message
       }
       if (add.card) nb.card = { text: tx(add.card), solid: !!add.solid };
       if (STORY.callouts[add.id]) nb.callouts = STORY.callouts[add.id].map((c) => ({ ...c, label: tx(c.label), text: tx(c.text) }));

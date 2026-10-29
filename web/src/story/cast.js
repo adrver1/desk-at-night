@@ -65,6 +65,8 @@ const yawTo = (dx, dz) => Math.atan2(-dx, -dz);
 // is where the hand meets the mug in their space (three's axes, ahead is -z),
 // SIP_HOLD when the hand has it (s). ?idles=0 keeps everyone still (stills).
 const SIP_MUG = [0.52, 0.80, -0.58], SIP_HOLD = [20 / 24, 76 / 24];
+// anims.py phone / phone_down: the mobile on the desk (seat space), when the hand has it
+const PHONE_AT = [0.14, 0.785, -0.42], PHONE_GRAB = 12 / 24, PHONE_DROP = 16 / 24;
 const IDLES = new URLSearchParams(location.search).get('idles') !== '0';
 const IDLE_FIRST = [2, 5], IDLE_GAP = [6, 14];   // s before the first idle, and between one and the next
 const wrap = (a) => ((a % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
@@ -133,13 +135,13 @@ export class Cast {
       if (!gltf) return;
       const p = gltf.scene;
       const mixer = new THREE.AnimationMixer(p);
-      const act = Object.fromEntries(['idle', 'seated_idle', 'talk', 'blink', 'walk', 'stand_up', 'typing', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far'].map((n) => {
+      const act = Object.fromEntries(['idle', 'seated_idle', 'talk', 'blink', 'walk', 'stand_up', 'typing', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far', 'phone', 'phone_down'].map((n) => {
         const clip = THREE.AnimationClip.findByName(gltf.animations, n);
         return [n, clip && mixer.clipAction(clip)];
       }));
       if (act.blink) act.blink.setLoop(THREE.LoopOnce);
       if (act.talk) { act.talk.play(); act.talk.setEffectiveWeight(0); }
-      for (const n of ['stand_up', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far']) if (act[n]) { act[n].setLoop(THREE.LoopOnce); act[n].clampWhenFinished = true; }
+      for (const n of ['stand_up', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far', 'phone', 'phone_down']) if (act[n]) { act[n].setLoop(THREE.LoopOnce); act[n].clampWhenFinished = true; }
       const bones = {};
       p.traverse((o) => {
         if (o.isBone) bones[o.name] = o;
@@ -500,7 +502,58 @@ export class Cast {
   // ------------------------------------------------------------ seated idles
   // Someone sitting still at a desk (no moves, not talking) now and then
   // sips from the mug beside them, if there is one in reach, or wiggles the mouse
+  // On the phone (state `phone`: who; Adriaen, 2026-10-29, the neighbour's
+  // call): picks a mobile up from the desk and holds it at the ear until the
+  // state lets go, then puts it back. instant: straight to the ear (a beat
+  // stepped into).
+  phone(who, instant = false) {
+    for (const [name, p] of Object.entries(this.people)) {
+      const on = name === who && p.root.visible;
+      if (on === Boolean(p.call?.on)) continue;
+      if (!p.act.phone) continue;   // a model built before the phone clips
+      this.endFidget(p);
+      if (!p.mobile) {
+        p.mobile = new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.009, 0.15), new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.35, metalness: 0.4 }));
+        p.mobile.name = 'mobile';
+        p.root.parent.add(p.mobile);
+      }
+      if (on) {
+        p.call = { on: true, t: instant ? 9 : 0, back: p.pose === 'phone' || p.pose === 'phone_down' ? 'seated_idle' : p.pose };
+        p.mobile.visible = true;
+        this.mobileOnDesk(p);
+        if (instant) { this.pose(p, 'phone'); p.act.phone.time = p.act.phone.getClip().duration; } else this.fade(p, 'phone', 0.3);
+      } else {
+        p.call = { on: false, t: 0, back: p.call?.back ?? 'seated_idle' };
+        this.fade(p, 'phone_down', 0.25);
+      }
+    }
+  }
+  mobileOnDesk(p) {
+    p.root.updateMatrixWorld(true);
+    p.mobile.position.copy(p.root.localToWorld(new THREE.Vector3(...PHONE_AT)));
+    p.mobile.parent.worldToLocal(p.mobile.position);
+    p.mobile.quaternion.copy(p.root.quaternion);
+  }
+  // The phone in the hand while the clips hold it, else on the desk
+  calling(p, dt) {
+    const c = p.call, t = (c.t += dt);
+    const held = c.on ? t >= PHONE_GRAB : t < PHONE_DROP;
+    const hand = p.bones.handR ?? p.bones['hand.R'];
+    if (!held || !hand) this.mobileOnDesk(p);
+    else {
+      p.root.updateMatrixWorld(true);
+      const at = hand.localToWorld(new THREE.Vector3(0, 0.07, 0.02));
+      p.mobile.parent.updateMatrixWorld(true);
+      p.mobile.position.copy(p.mobile.parent.worldToLocal(at));
+      // lying along the hand, screen toward the palm
+      const q = hand.getWorldQuaternion(new THREE.Quaternion()).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)));
+      p.mobile.quaternion.copy(p.mobile.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));
+    }
+    if (!c.on && t >= (p.act.phone_down?.getClip().duration ?? 1.2)) { p.call = null; this.fade(p, c.back, 0.3); }
+  }
+
   fidget(p, now, dt) {
+    if (p.call) { this.calling(p, dt); p.fidgetAt = null; return; }
     if (p.fidget) return this.fidgeting(p, now, dt);
     const sitting = SPOTS[p.at]?.chair !== undefined && (p.pose === 'seated_idle' || p.pose === 'typing');
     if (!IDLES || !sitting || p.task || p.queue.length || p.mouth) { p.fidgetAt = null; return; }

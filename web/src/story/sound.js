@@ -182,6 +182,8 @@ export class Sound {
     spk.type = 'bandpass'; spk.frequency.value = 1500; spk.Q.value = 0.8;
     g.gain.value = 1;
     spk.connect(g).connect(this.out);
+    this.ringBus?.disconnect();
+    this.ringBus = g;
     let t = ctx.currentTime + 0.05;
     for (let k = 0; k < times; k++) {
       for (const [n, d] of GRIEG) {
@@ -193,6 +195,15 @@ export class Sound {
       t += GRIEG_GAP;
     }
     return GRIEG_LEN * times;
+  }
+
+  // Answering the mobile: the ringtone stops, a soft tap on the screen and a click
+  pickup() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, bus = this.ringBus;
+    if (bus) { bus.gain.setTargetAtTime(0, t, 0.02); setTimeout(() => bus.disconnect(), 200); this.ringBus = null; }
+    this.tick(t + 0.03, 700, 0.5, 0.05);
+    this.tick(t + 0.12, 2400, 0.25, 0.02);
   }
 
   // The process alarm: a two-tone horn every 1.1 s, louder over `build`

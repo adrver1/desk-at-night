@@ -11,7 +11,7 @@ import { CONTENT } from '../screens.js';
 import { LIVE } from '../controlScene.js';
 import { drawGraph } from './graph.js';
 import { AGENTS, ORG, SPEAKERS, CHATS, GOV_DOCS } from './content.js';
-import { PRIVATE, PRIVATE_BASE } from '../privateNames.js';
+import { PRIVATE, PRIVATE_BASE, OVERRIDES } from '../privateNames.js';
 import { T } from './lang.js';
 
 export const S = {
@@ -385,11 +385,14 @@ function chat(ctx, w, h, id) {
   if (!n) text(ctx, T('Klar.', 'Ready.'), 20 * s, top + 40 * s, { px: 15 * s, color: C.dim });
 }
 
-// A portrait in a ring (public/story/faces/<id>.png); false until it loads
+// A portrait in a ring (public/story/faces/<id>.png, or <id> when it names
+// its own type, e.g. neighbour.svg; the private build's overrides.json
+// `faces` may swap it); false until it loads
 const faces = {};
 function face(ctx, id, x, y, r) {
   if (!id) return false;
-  const img = faces[id] ??= Object.assign(new Image(), { src: `story/faces/${id}.png` });
+  const own = PRIVATE && OVERRIDES.faces?.[id.split('.')[0]];
+  const img = faces[id] ??= Object.assign(new Image(), { src: own ? PRIVATE_BASE + own : `story/faces/${id.includes('.') ? id : `${id}.png`}` });
   if (!img.complete || !img.naturalWidth) return false;
   ctx.save();
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);

@@ -25,7 +25,7 @@ export class StoryUI {
     parent.append(h('div', 'tint'), h('div', 'vignette'), this.root);
     const add = (cls, html) => { const e = h('div', cls, html); this.root.append(e); return e; };
     this.el = {
-      title: add('title'), credit: add('credit'), subs: add('subs'), hud: add('hud'), clock: add('clockbadge'),
+      title: add('title'), credit: add('credit'), subs: add('subs'), hud: add('hud'),
       clipboard: add('clipboard'), stars: add('stars'), panel: add('panel'), slide: add('slide'), log: add('log'),
       notices: add('notices'), call: add('call'), sign: add('signoff'), search: add('search'), banner: add('banner'),
       org: add('org'), notes: add('notes'), boat: add('label3d'), callouts: add('callouts'), debug: add('debug'),
@@ -150,11 +150,6 @@ export class StoryUI {
     });
     const ch = chapters[c];
     this.navInfo.innerHTML = `<span>${ch.key} · ${esc(ch.name)} · ${i + 1}/${ch.beats.length}</span><span class="next ${waiting ? 'on' : ''}">▸ Space</span>`;
-  }
-
-  clock(text) {
-    this.el.clock.textContent = text ?? '';
-    this.el.clock.classList.toggle('on', Boolean(text));
   }
 
   notes(text, show) {

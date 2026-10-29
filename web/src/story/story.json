@@ -613,6 +613,48 @@
     "me": "adriaen",
     "ai": "ctrlbuddy"
    }
+  },
+  "neighbour": {
+   "title": {
+    "no": "Nordhav Beta",
+    "en": "Nordhav Beta"
+   },
+   "messages": [
+    [
+     "ai",
+     {
+      "no": "Hei, det er Nordhav Beta. Separatoren vår har slugget hele natta, og nivåene går opp og ned som en jojo.",
+      "en": "Hi, it's Nordhav Beta. Our separator has been slugging all night, the levels are going up and down like a yo-yo."
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Separatoren vår i natt",
+      "en": "Our separator last night",
+      "file": "neighbour-1.mp4"
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Dere har vel samme type separator? Har dere noen gode ideer?",
+      "en": "You've got the same kind of separator, haven't you? Any good ideas?"
+     }
+    ],
+    [
+     "me",
+     {
+      "no": "Eh... jeg skal se hva jeg finner ut.",
+      "en": "Eh... let me see what I can find out."
+     }
+    ]
+   ],
+   "who": "Ola",
+   "faces": {
+    "me": "adriaen",
+    "ai": "neighbour.svg"
+   }
   }
  },
  "callouts": {
@@ -701,6 +743,12 @@
   }
  },
  "inserted": [
+  {
+   "after": "m.call",
+   "id": "c.call",
+   "chat": "neighbour",
+   "notes": "Samme samtale som chat (versjon B): Nordhav Beta skriver, separatoren som video på skjermen ved siden av."
+  },
   {
    "after": "^money",
    "id": "c.step",
