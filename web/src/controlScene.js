@@ -581,6 +581,10 @@ export async function loadControlRoom(renderer) {
     redrawNow() {
       if (screens) screens.drawn = screens.focusDrawn = -Infinity;
     },
+    // ... or only the screen zoomed in on (letters typed into a chat)
+    redrawFocus() {
+      if (screens) screens.focusDrawn = -Infinity;
+    },
     focusedFeed() {
       const id = screens?.focus && contentOf(screens.focus.name);
       return id && isFeed(id) ? id : null;

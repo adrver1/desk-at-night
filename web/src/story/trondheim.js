@@ -17,7 +17,7 @@ import { FlagField, loadCloth } from '../flags.js';
 import flagCloth from '../flag-cloth/flag.bin?url';
 
 const BASE = 'story/trondheim/';
-const GLIDE = 14;   // s from the drone view down to the door
+const GLIDE = 8;   // s from the drone view down to the door (14 until Adriaen asked for a faster opening, 2026-10-29)
 const SKY = 0xf1f3f4;
 // Blender's frame (x east, y north, z up) to three's (y up, north along -z)
 const V = (x, y, z) => new THREE.Vector3(x, z, -y);
@@ -40,7 +40,7 @@ const CAM = {
 // steps south of the fountain (not over the ramp's rail) and across the
 // terrace to the foot of the platform steps (Adriaen, 2026-10-25). Heights
 // follow the ground and steps under people.
-const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-34.6, 34.6, 0), V(-39.6, 35.3, 0), V(-40.6, 36.2, 0), V(-40.97, 38.15, 0)] };
+const WALK = { at: GLIDE - 3, speed: 1.3, path: [CAM.ME, V(-34.6, 34.6, 0), V(-39.6, 35.3, 0), V(-40.6, 36.2, 0), V(-40.97, 38.15, 0)] };
 // The CEO comes out of the left-hand door while Adriaen is still on the steps
 // by the fountain, welcomes him to the company on the way down to meet him (the
 // beat's { torvet: 'meet' } step waits for MEET before the line), and they
@@ -59,11 +59,13 @@ const IN = { ceo: [CEO.path.at(-1), V(-42.6, 38.4, 0), V(-43.6, 38.4, 0), DOOR],
 // too long) Adriaen walks on from the foot of the steps straight in at the
 // door; ?ceo=1 brings back the CEO, the welcome and the handshake
 export const CEO_MEET = new URLSearchParams(location.search).get('ceo') === '1';
-// He walks the whole glide: in from the south-east of the square, past the
-// fountain and up the steps, in shot all the way down (Adriaen, 2026-10-27).
-// He comes through the gap between the planters at (-29, 18) and (-29, 27)
-// (trondheim_surroundings.py PLANTER_SPOTS), not through their trees
-const SOLO = [V(-26.5, 22.5, 0), V(-31, 23, 0), ...WALK.path, ...IN.me.slice(1)];
+// He walks the whole glide, in shot all the way down (Adriaen, 2026-10-27),
+// but from just short of the fountain, not in from the south-east of the
+// square: a shorter way to the door (2026-10-29). The longer way came
+// through the gap between the planters at (-29, 18) and (-29, 27)
+// (trondheim_surroundings.py PLANTER_SPOTS); ?walk=long brings it back
+const SOLO_LONG = [V(-26.5, 22.5, 0), V(-31, 23, 0), ...WALK.path, ...IN.me.slice(1)];
+const SOLO = new URLSearchParams(location.search).get('walk') === 'long' ? SOLO_LONG : [V(-33, 28.5, 0), ...WALK.path, ...IN.me.slice(1)];
 const pathLength = (pts) => pts.slice(1).reduce((n, q, i) => n + q.distanceTo(pts[i]), 0);
 const CUES = { meet: MEET, shake: SHAKE.at + SHAKE.len, door: pathLength(SOLO) / WALK.speed };
 // Where someone is d metres along a path: the point, the way they face, still walking or not

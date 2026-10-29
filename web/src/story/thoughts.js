@@ -1,7 +1,7 @@
 // One year ago, after the learning curve (Adriaen, 2026-10-29): the
 // operator's face with the things he had to learn round it in thought
 // bubbles, one more per click: the organisation, the lingo, the three-letter
-// abbreviations, petroleum engineering and the plant itself, each with a
+// abbreviations, petroleum engineering and the assets (the plants he looks after), each with a
 // question mark.
 //
 // State key (content.js): thoughts: true shows his face; Space (main.js
@@ -22,7 +22,7 @@ const THINGS = [
   ['lingo', 'Fagspråk', 'Lingo'],
   [T('TBF', 'TLA'), 'Forkortelser', 'Acronyms'],
   ['oil', 'Petroleumsfag', 'Petroleum engineering'],
-  ['assets', 'Anlegget', 'The plant'],
+  ['assets', 'Assetene', 'The assets'],
 ];
 // Where the bubbles sit round the face, as % of the overlay (x, y of their centre)
 const SPOTS = [[24, 22], [76, 20], [14, 58], [86, 56], [50, 82]];

@@ -23,7 +23,7 @@ export const S = {
   now: 0,                          // story clock, s
   clock: '12:00',                  // game time, for the headers
   images: {},                      // private tool screenshots, if any
-  chats: {}, chatAt: {},           // messages shown per chat (content.js CHATS) and when the last came
+  chats: {}, chatAt: {}, chatType: {},           // messages shown per chat (content.js CHATS) and when the last came
   reports: 'story/reports/',       // where the reports' pictures and videos are
   videos: {},                      // report videos by file, with when they were last drawn (seen)
   buddy: { look: 'splash', who: 'buddy', clickAt: -99 },   // CtrlBuddy's first appearance (buddy.js): how his screen looks, when he was clicked
@@ -347,7 +347,9 @@ function chat(ctx, w, h, id) {
   const bubbles = c.messages.slice(0, n).map(([who, msg], i) => {
     const typing = who === 'ai' && i === n - 1 && age < 1.4;
     const lines = typing ? ['•••'] : who === 'show' ? [`▤  ${msg}`] : wrap(ctx, msg, maxW - 2 * pad);
-    return { who: who === 'show' ? 'ai' : who, lines, typing, h: lines.length * lh + 2 * pad + (who === 'me' ? 0 : 16 * s) };
+    // our own message being typed: as many letters as are in yet (the bubble at its full size)
+    const keyed = who === 'me' && i === n - 1 && age < 0 ? Math.max(0, 1 + age / (S.chatType[id] || 1)) : null;
+    return { who: who === 'show' ? 'ai' : who, lines, typing, keyed, h: lines.length * lh + 2 * pad + (who === 'me' ? 0 : 16 * s) };
   });
   // Stack from the bottom up, dropping what no longer fits
   let y = h - 44 * s;   // clear of the story's navigator when the screen fills the view
@@ -359,7 +361,7 @@ function chat(ctx, w, h, id) {
     ctx.font = `500 ${px}px ${SANS}`;   // text() below changes it
     const bw = Math.min(maxW, Math.max(...b.lines.map((l) => ctx.measureText(l).width)) + 2 * pad);
     const x = b.who === 'me' ? w - gap - bw : gap;
-    const fresh = i === n - 1 && age < 0.4 ? Math.max(0, age / 0.4) : 1;   // still being typed until age 0
+    const fresh = b.keyed !== null ? 1 : i === n - 1 && age < 0.4 ? Math.max(0, age / 0.4) : 1;
     ctx.globalAlpha = fresh;
     // the writer's portrait, level with the bubble's foot
     const fx = b.who === 'me' ? w - 10 * s - fr : 10 * s + fr, fy = y + b.h - fr;
@@ -368,9 +370,13 @@ function chat(ctx, w, h, id) {
     ctx.beginPath(); ctx.roundRect(x, y, bw, b.h, 12 * s); ctx.fill();
     let ty = y + pad + 15 * s;
     if (b.who === 'ai') { text(ctx, c.title.split(' · ')[0], x + pad, ty - 2 * s, { px: 11 * s, weight: 600, color: C.ai }); ty += 16 * s; }
+    let left = b.keyed === null ? Infinity : Math.round(b.keyed * b.lines.reduce((k, l) => k + l.length + 1, 0));
     for (const l of b.lines) {
-      const dots = b.typing ? '•••'.slice(0, 1 + (Math.floor(S.now * 4) % 3)) : l;
-      text(ctx, dots, x + pad, ty, { px, color: C.bright });
+      if (left <= 0) break;
+      const shown = b.typing ? '•••'.slice(0, 1 + (Math.floor(S.now * 4) % 3)) : l.slice(0, left);
+      const caret = b.keyed !== null && left <= l.length ? '▍' : '';
+      text(ctx, shown + caret, x + pad, ty, { px, color: C.bright });
+      left -= l.length + 1;
       ty += lh;
     }
     ctx.globalAlpha = 1;

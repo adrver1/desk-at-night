@@ -132,12 +132,16 @@ function chatTo(id, n, typing) {
   if (typing) S.chatAt[id] = S.now + typed(id, n);
 }
 
-// Our own message in a chat: keyboard sounds, and the bubble comes once it is typed (s to wait)
-const TYPE_TIME = 0.9;
+// Our own message in a chat (Adriaen, 2026-10-29): typed out letter by letter
+// to keyboard clacks, quickly; done when the result is in (s to wait)
+const TYPE_CPS = 32, TYPE_TIME = [0.7, 3.5];
 function typed(id, n) {
-  if (CHATS[id].messages[n - 1]?.[0] !== 'me') return 0;
-  sound.typing(TYPE_TIME);
-  return TYPE_TIME;
+  const m = CHATS[id].messages[n - 1];
+  if (m?.[0] !== 'me') return 0;
+  const secs = Math.min(TYPE_TIME[1], Math.max(TYPE_TIME[0], String(m[1]).length / TYPE_CPS));
+  sound.typing(secs);
+  S.chatType[id] = secs;
+  return secs;
 }
 
 // ---------------------------------------------------------------- applying state
@@ -236,8 +240,9 @@ async function enter(c, i, { instant = false, skipDo = false, at = 0 } = {}) {
     if (rushing) cast?.rush(game.camera, S.now);
   } else if (b.end) apply(merge(state, b.end), { instant: true });
   if (skipDo && b.chat) chatTo(b.chat, CHATS[b.chat].messages.length, false);
-  if (skipDo && thoughts.on) thoughts.show(Infinity);   // stepped back into: every bubble   // stepped back into: all of it
+  if (skipDo && thoughts.on) thoughts.show(Infinity);   // stepped back into: every bubble
   if (my !== token) return;
+  if (!skipDo && b.chat && !state.chats?.[b.chat]) chatTo(b.chat, 1, true);   // a chat opens with its first message, typed out
   running = false; waiting = true;
   showHud();
   if (b.auto && !skipDo && !free) next();
@@ -657,6 +662,8 @@ function frame(dt, now) {
     if (state.org || state.graphOn === 'overlay') ui.org(state.graphOn === 'overlay' ? 'graph' : state.org, S.graph, S.now - S.graphAt, S.now);
     ui.clock(CHAPTERS[chapter]?.prologue || state.place ? null : S.clock);
   }
+  // letters being typed into a chat: the zoomed screen redrawn every frame, not at its own rate
+  if (Object.entries(S.chatAt).some(([id, at]) => at > S.now && S.chatType[id])) game.room?.redrawFocus?.();
   cast?.update(dt, game.camera, S.now);
   buddy?.update(dt, S.now);
   epilogue?.update(dt);
