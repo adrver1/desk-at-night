@@ -590,7 +590,7 @@ const SHORT_CHAPTERS = [
       // (Adriaen, 2026-10-29) the phone rings, he picks up in the room behind, his portrait moves aside
       // for the caller's, and the separator comes up once the caller has said who it is
       { id: 'm.call', auto: true, set: { thoughts: null, call: 'neighbour', callStage: 'ring' },
-        do: [{ sound: 'grieg' }, { wait: 3 }, { set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
+        do: [{ sound: 'ringtone' }, { wait: 3 }, { set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
           { set: { callStage: 'talk' } }, { wait: 1 }, { say: 'm.call0' }, { set: { callStage: 'sep' } }, { wait: 1.2 }, { say: 'm.call1' }, { say: 'm.call2' }, { say: 'm.call3' }],
         end: { callStage: 'sep', phone: 'operator' },
         notes: 'Versjon A: Nordhav Beta ringer, separatoren deres slugger, og de spør den nye operatøren om råd. (Versjon B, som chat, er neste beat: c.call.)' },
