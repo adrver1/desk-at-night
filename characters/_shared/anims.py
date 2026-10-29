@@ -27,6 +27,9 @@ into every character's .glb as named glTF animations:
                  holds it at the ear, and stays there; the hand has it
                  from PHONE_GRAB s                              (1.5 s)
     phone_down   puts it back on the desk (there from PHONE_DROP s) (1.2 s)
+    phone_left, phone_left_down   the same with the left hand, for the
+                 desk phone's handset (PHONE_DESK) to the left; the chair
+                 is swivelled and rolled toward it by the player
 
 Face clips move only the eye and brow bones, so they play on top of any
 body clip (body clips never touch the face bones):
@@ -234,6 +237,7 @@ MOUSE_FAR = (0.54, 0.48, 0.78)        # the same on the second desk, whose mouse
 SIP_HOLD = (20 / FPS, 76 / FPS)       # seconds: the hand has the mug from, until
 PHONE_AT = (0.14, 0.42, 0.785)        # a mobile lying on the desk edge, in front of the keyboard
 PHONE_EAR = (0.12, -0.07, 1.03)       # the right wrist with the phone at the ear
+PHONE_DESK = (-0.36, 0.58, 0.82)       # the desk phone's handset, once the chair has turned toward it
 PHONE_GRAB = 12 / FPS                 # phone: the hand has it from here on
 PHONE_DROP = 16 / FPS                 # phone_down: the phone is back on the desk from here
 
@@ -327,23 +331,35 @@ def sip_keys(side):
             (78, p(1)), (86, p(0.4)), (92, p(0))]
 
 
-def phoning(stage):
-    """Seated, the right hand: stage 0 resting, 1 on the mobile on the desk,
-    2 holding it at the right ear (head tilted into it a little)."""
+def phoning(stage, side=1, at=PHONE_AT):
+    """Seated, one hand (side 1 right, -1 left): stage 0 resting, 1 on the
+    phone on the desk (at), 2 holding it at that side's ear (head tilted
+    into it a little). Further out on the desk he leans further."""
     down = min(stage, 1.0) * (2 - max(stage, 1.0))   # 1 at the desk
     up = max(0.0, stage - 1.0)
-    r = seated(look_down=6 * down)
-    r["spine"] = (X, 6 - 14 * down)
-    r["chest"] = (X, 2 - 3 * down)
-    r["head"] = [(Z, -8 * up), (X, -3 - 6 * down)]
+    far = max(0.0, at[1] - PHONE_AT[1]) / 0.26        # 0 for the mobile in front, 1 for the desk phone
+    r = seated(look_down=(6 + 6 * far) * down)
+    r["spine"] = (X, 6 - (14 + 14 * far) * down)
+    r["chest"] = [(X, 2 - 3 * down), (Z, -side * 10 * far * down)]
+    r["head"] = [(Z, -side * 8 * up), (X, -3 - 6 * down)]
     if stage <= 0:
         return r
-    phone, ear = Vector(PHONE_AT), Vector(PHONE_EAR)
-    w = Vector((0.20, 0.30, 0.62)).lerp(phone + Vector((0, -0.07, 0.02)), stage) if stage <= 1 else (phone + Vector((0, -0.07, 0.02))).lerp(ear, up)
-    hand = Vector((0.0, 0.95, -0.3)).lerp(Vector((-0.1, 0.25, 1.0)), up)
-    palm = Vector((0.0, 0.0, -1.0)).lerp(Vector((-1.0, 0.0, 0.0)), up)
-    reach(r, 1, tuple(w), tuple(hand), palm=tuple(palm), elbow_out=0.7 - 0.5 * up)
+    phone = Vector(at)
+    ear = Vector((side * PHONE_EAR[0], PHONE_EAR[1], PHONE_EAR[2]))
+    lap = Vector((side * 0.20, 0.30, 0.62))
+    grip = phone + Vector((0, -0.07, 0.02))
+    w = lap.lerp(grip, stage) if stage <= 1 else grip.lerp(ear, up)
+    hand = Vector((0.0, 0.95, -0.3)).lerp(Vector((-side * 0.1, 0.25, 1.0)), up)
+    palm = Vector((0.0, 0.0, -1.0)).lerp(Vector((-side * 1.0, 0.0, 0.0)), up)
+    reach(r, side, tuple(w), tuple(hand), palm=tuple(palm), elbow_out=0.7 - 0.5 * up)
     return r
+
+
+def phone_keys(side=1, at=PHONE_AT):
+    """Pick up and hold at the ear; put back down."""
+    p = lambda st: phoning(st, side, at)
+    return ([(0, p(0)), (10, p(1)), (14, p(1)), (26, p(1.8)), (30, p(2)), (36, p(2))],
+            [(0, p(2)), (8, p(1.2)), (12, p(1)), (18, p(1)), (28, p(0))])
 
 
 def mouse_keys(at=MOUSE_AT):
@@ -381,8 +397,8 @@ def clips():
     c["sip_left"] = sip_keys(-1)
     c["mouse"] = mouse_keys()
     c["mouse_far"] = mouse_keys(MOUSE_FAR)
-    c["phone"] = [(0, phoning(0)), (10, phoning(1)), (14, phoning(1)), (26, phoning(1.8)), (30, phoning(2)), (36, phoning(2))]
-    c["phone_down"] = [(0, phoning(2)), (8, phoning(1.2)), (12, phoning(1)), (18, phoning(1)), (28, phoning(0))]
+    c["phone"], c["phone_down"] = phone_keys()
+    c["phone_left"], c["phone_left_down"] = phone_keys(-1, PHONE_DESK)
     return c
 
 

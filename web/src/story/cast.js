@@ -67,6 +67,12 @@ const yawTo = (dx, dz) => Math.atan2(-dx, -dz);
 const SIP_MUG = [0.52, 0.80, -0.58], SIP_HOLD = [20 / 24, 76 / 24];
 // anims.py phone / phone_down: the mobile on the desk (seat space), when the hand has it
 const PHONE_AT = [0.14, 0.785, -0.42], PHONE_GRAB = 12 / 24, PHONE_DROP = 16 / 24;
+// anims.py phone_left: the left desk's desk phone (control_room.py
+// build_desk_props), its handset in the cradle (world, three's axes, and its
+// yaw and tilt); to reach it he swivels the chair DESK_PHONE.turn to the left and
+// rolls it over until the handset is at PHONE_DESK in his space
+const DESK_PHONE = { chair: 0, at: [-2.2668, 0.805, -1.2322], yaw: 1.0243, tilt: 0.489, turn: 0.5 };
+const PHONE_DESK = [-0.36, 0.82, -0.58], ROLL = [0, 0.45, 0.8, 1.3];   // s: roll over from, to; back from, to
 const IDLES = new URLSearchParams(location.search).get('idles') !== '0';
 const IDLE_FIRST = [2, 5], IDLE_GAP = [6, 14];   // s before the first idle, and between one and the next
 const wrap = (a) => ((a % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
@@ -135,13 +141,13 @@ export class Cast {
       if (!gltf) return;
       const p = gltf.scene;
       const mixer = new THREE.AnimationMixer(p);
-      const act = Object.fromEntries(['idle', 'seated_idle', 'talk', 'blink', 'walk', 'stand_up', 'typing', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far', 'phone', 'phone_down'].map((n) => {
+      const act = Object.fromEntries(['idle', 'seated_idle', 'talk', 'blink', 'walk', 'stand_up', 'typing', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far', 'phone', 'phone_down', 'phone_left', 'phone_left_down'].map((n) => {
         const clip = THREE.AnimationClip.findByName(gltf.animations, n);
         return [n, clip && mixer.clipAction(clip)];
       }));
       if (act.blink) act.blink.setLoop(THREE.LoopOnce);
       if (act.talk) { act.talk.play(); act.talk.setEffectiveWeight(0); }
-      for (const n of ['stand_up', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far', 'phone', 'phone_down']) if (act[n]) { act[n].setLoop(THREE.LoopOnce); act[n].clampWhenFinished = true; }
+      for (const n of ['stand_up', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far', 'phone', 'phone_down', 'phone_left', 'phone_left_down']) if (act[n]) { act[n].setLoop(THREE.LoopOnce); act[n].clampWhenFinished = true; }
       const bones = {};
       p.traverse((o) => {
         if (o.isBone) bones[o.name] = o;
@@ -512,33 +518,61 @@ export class Cast {
       if (on === Boolean(p.call?.on)) continue;
       if (!p.act.phone) continue;   // a model built before the phone clips
       this.endFidget(p);
-      if (!p.mobile) {
-        p.mobile = new THREE.Mesh(new THREE.BoxGeometry(0.072, 0.009, 0.15), new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.35, metalness: 0.4 }));
-        p.mobile.name = 'mobile';
-        p.root.parent.add(p.mobile);
-      }
       if (on) {
-        p.call = { on: true, t: instant ? 9 : 0, back: p.pose === 'phone' || p.pose === 'phone_down' ? 'seated_idle' : p.pose };
+        // at the left desk: the desk phone, with the left hand; elsewhere a mobile
+        const desk = SPOTS[p.at]?.chair === DESK_PHONE.chair && p.act.phone_left ? this.deskPhoneRoll(p) : null;
+        if (!p.mobile) p.mobile = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.35, metalness: 0.4 }));
+        if (desk) p.mobile.scale.set(0.05, 0.028, 0.18); else p.mobile.scale.set(0.072, 0.009, 0.15);
+        p.mobile.name = desk ? 'handset' : 'mobile';
+        p.root.parent.add(p.mobile);
+        const clip = desk ? 'phone_left' : 'phone';
+        p.call = { on: true, t: instant ? 9 : 0, clip, desk, back: p.pose?.startsWith('phone') ? 'seated_idle' : p.pose };
         p.mobile.visible = true;
         this.mobileOnDesk(p);
-        if (instant) { this.pose(p, 'phone'); p.act.phone.time = p.act.phone.getClip().duration; } else this.fade(p, 'phone', 0.3);
+        if (instant) { this.pose(p, clip); p.act[clip].time = p.act[clip].getClip().duration; this.rollChair(p, 1); } else this.fade(p, clip, 0.3);
       } else {
-        p.call = { on: false, t: 0, back: p.call?.back ?? 'seated_idle' };
-        this.fade(p, 'phone_down', 0.25);
+        p.call = { ...p.call, on: false, t: 0, back: p.call?.back ?? 'seated_idle' };
+        this.fade(p, p.call.clip + '_down', 0.25);
       }
     }
   }
+  // Where his chair goes to reach the desk phone: [from, to] as [x, z, yaw]
+  deskPhoneRoll(p) {
+    const c = this.game.chairs[DESK_PHONE.chair].obj, from = [c.position.x, c.position.z, c.rotation.y];
+    const yaw = from[2] + DESK_PHONE.turn, [cs, sn] = [Math.cos(yaw), Math.sin(yaw)];
+    const [lx, , lz] = PHONE_DESK;
+    // the root (0.06 m ahead of the chair) with the handset at PHONE_DESK in its space
+    const rx = DESK_PHONE.at[0] - (cs * lx + sn * lz), rz = DESK_PHONE.at[2] - (-sn * lx + cs * lz);
+    return { from, to: [rx + Math.sin(yaw) * 0.06, rz + Math.cos(yaw) * 0.06, yaw] };
+  }
+  rollChair(p, k) {
+    const d = p.call?.desk;
+    if (!d) return;
+    const c = this.game.chairs[DESK_PHONE.chair].obj, [x0, z0, y0] = d.from, [x1, z1, y1] = d.to;
+    c.position.x = x0 + (x1 - x0) * k; c.position.z = z0 + (z1 - z0) * k; c.rotation.y = y0 + (y1 - y0) * k;
+    const f = [-Math.sin(c.rotation.y), -Math.cos(c.rotation.y)];
+    p.root.position.set(c.position.x + f[0] * 0.06, 0, c.position.z + f[1] * 0.06);
+    p.root.rotation.set(0, c.rotation.y, 0);
+  }
   mobileOnDesk(p) {
+    if (p.call?.desk) {
+      p.mobile.position.set(...DESK_PHONE.at);
+      p.mobile.parent.worldToLocal(p.mobile.position);
+      p.mobile.rotation.set(DESK_PHONE.tilt, DESK_PHONE.yaw, 0, 'YXZ');
+      return;
+    }
     p.root.updateMatrixWorld(true);
     p.mobile.position.copy(p.root.localToWorld(new THREE.Vector3(...PHONE_AT)));
     p.mobile.parent.worldToLocal(p.mobile.position);
     p.mobile.quaternion.copy(p.root.quaternion);
   }
-  // The phone in the hand while the clips hold it, else on the desk
+  // The phone in the hand while the clips hold it, else on the desk; the
+  // chair rolls over to the desk phone and back
   calling(p, dt) {
     const c = p.call, t = (c.t += dt);
+    if (c.desk) this.rollChair(p, c.on ? smooth((t - ROLL[0]) / (ROLL[1] - ROLL[0])) : 1 - smooth((t - ROLL[2]) / (ROLL[3] - ROLL[2])));
     const held = c.on ? t >= PHONE_GRAB : t < PHONE_DROP;
-    const hand = p.bones.handR ?? p.bones['hand.R'];
+    const hand = c.desk ? p.bones.handL ?? p.bones['hand.L'] : p.bones.handR ?? p.bones['hand.R'];
     if (!held || !hand) this.mobileOnDesk(p);
     else {
       p.root.updateMatrixWorld(true);
@@ -549,7 +583,8 @@ export class Cast {
       const q = hand.getWorldQuaternion(new THREE.Quaternion()).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)));
       p.mobile.quaternion.copy(p.mobile.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(q));
     }
-    if (!c.on && t >= (p.act.phone_down?.getClip().duration ?? 1.2)) { p.call = null; this.fade(p, c.back, 0.3); }
+    const down = Math.max(p.act[c.clip + '_down']?.getClip().duration ?? 1.2, c.desk ? ROLL[3] : 0);
+    if (!c.on && t >= down) { p.call = null; this.fade(p, c.back, 0.3); }
   }
 
   fidget(p, now, dt) {

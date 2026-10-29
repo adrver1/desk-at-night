@@ -378,6 +378,8 @@
 /* One year ago, what he had to learn (thoughts.js): his face, thought bubbles coming in round it */
 .thoughts { position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; transition: opacity 0.5s; background: radial-gradient(ellipse at 50% 52%, #0b1116cc 0 38%, #0b111699 70%); }
 .thoughts.on { opacity: 1; }
+/* going (into the call, which fades in over it): a beat later, so the dark stays even */
+.thoughts:not(.on) { transition-delay: 0.45s; }
 .thoughts .face { position: absolute; left: 50%; top: 52%; width: min(22vh, 18vw); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: #1d2a33; border: calc(0.5 * var(--u)) solid #e8eef2; object-fit: cover; box-shadow: 0 1vh 4vh #0008; }
 .thoughts .bubble { position: absolute; display: flex; flex-direction: column; align-items: center; gap: calc(0.8 * var(--u)); transform: translate(-50%, -50%) scale(0.4); opacity: 0;
   transition: opacity 0.35s, transform 0.45s cubic-bezier(.3,1.6,.5,1); background: #f4f1e8; color: #1c2730; border-radius: 50%; width: min(27vh, 21vw); aspect-ratio: 1.4; justify-content: center; box-shadow: 0 0.6vh 2.5vh #0007; }
@@ -391,13 +393,13 @@
 .thoughts .dot.d1 { width: 16%; aspect-ratio: 1; }
 .thoughts .dot.d2 { width: 9%; aspect-ratio: 1; }
 /* One year ago, a call (caller.js): the caller left, a speech bubble with the separator, the operator right */
-.caller { position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; transition: opacity 0.5s; background: #0b1116b8; }
+.caller { position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; transition: opacity 0.5s; background: radial-gradient(ellipse at 50% 52%, #0b1116cc 0 38%, #0b111699 70%); }
 .caller.on { opacity: 1; }
-.caller.ring { background: #0b111640; }
 .caller .them { opacity: 0; transition: opacity 0.5s 0.4s; }
 .caller.talk .them, .caller.sep .them { opacity: 1; }
 .caller .me { transition: left 0.9s cubic-bezier(.4,0,.2,1), top 0.9s cubic-bezier(.4,0,.2,1), width 0.9s cubic-bezier(.4,0,.2,1); }
-.caller.ring .me { left: 50%; top: 50%; width: min(22vh, 18vw); }
+/* ringing (and before): his face where the thoughts had it, so it stays put from m.think */
+.caller:not(.talk):not(.sep) .me { left: 50%; top: 52%; width: min(22vh, 18vw); }
 .caller .who { position: absolute; top: 46%; margin: 0; width: min(22vh, 15vw); transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: calc(1 * var(--u)); }
 .caller .who img { width: 100%; aspect-ratio: 1; border-radius: 50%; background: #1d2a33; border: calc(0.5 * var(--u)) solid #e8eef2; object-fit: cover; box-shadow: 0 1vh 4vh #0008; }
 .caller .who figcaption { color: #e8eef2; font: 700 calc(1.7 * var(--u)) var(--display, system-ui); white-space: nowrap; text-shadow: 0 0.3vh 1vh #000a; }

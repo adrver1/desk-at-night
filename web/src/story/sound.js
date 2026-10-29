@@ -185,6 +185,7 @@ export class Sound {
     this.ringBus?.disconnect();
     this.ringBus = g;
     let t = ctx.currentTime + 0.05;
+    const before = this.live.size;
     for (let k = 0; k < times; k++) {
       for (const [n, d] of TUNE) {
         const f = 987.77 * 2 ** (n / 12);
@@ -194,14 +195,23 @@ export class Sound {
       }
       t += TUNE_GAP;
     }
+    // it rings on into the next beat (cut() leaves it) until picked up or hung up
+    for (const o of [...this.live].slice(before)) this.live.delete(o);
     return TUNE_LEN * times;
   }
 
-  // Answering the mobile: the ringtone stops, a soft tap on the screen and a click
+  // The ringtone stops (the call is over, or never answered)
+  hangUp() {
+    const bus = this.ringBus;
+    if (!bus) return;
+    bus.gain.setTargetAtTime(0, this.ctx.currentTime, 0.02); setTimeout(() => bus.disconnect(), 200); this.ringBus = null;
+  }
+
+  // Answering the phone: the ringtone stops, the handset's click
   pickup() {
     if (!this.ctx) return;
-    const t = this.ctx.currentTime, bus = this.ringBus;
-    if (bus) { bus.gain.setTargetAtTime(0, t, 0.02); setTimeout(() => bus.disconnect(), 200); this.ringBus = null; }
+    const t = this.ctx.currentTime;
+    this.hangUp();
     this.tick(t + 0.03, 700, 0.5, 0.05);
     this.tick(t + 0.12, 2400, 0.25, 0.02);
   }

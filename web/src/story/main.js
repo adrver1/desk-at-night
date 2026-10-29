@@ -177,6 +177,7 @@ function apply(s, { instant = false } = {}) {
   buddy?.set(s);
   thoughts.set(s.thoughts);
   caller.set(s.call, s.callStage);
+  if (!s.call || s.callStage !== 'ring') sound.hangUp();   // the phone stops ringing once the call is over or answered
   cast?.phone(s.phone, instant);
   cast?.mugs(s.mugs);
   ui.clipboard(s.clipboard);
@@ -293,7 +294,7 @@ async function run(step, my) {
   if (step.torvet) return trondheim.reach(step.torvet);   // Trondheim's own timeline: 'meet' waits, 'in' goes
   if (step.set) return apply(merge(state, step.set));
   if (step.sound === 'ring') { sound.ring(2); return; }
-  if (step.sound === 'ringtone') { sound.ringtone(step.times ?? 2); return; }   // two rings: 5.1 s
+  if (step.sound === 'ringtone') { sound.ringtone(step.times ?? 2); return; }   // 2.55 s a ring; it rings on into the next beats until picked up
   if (step.sound === 'pickup') { sound.pickup(); return; }
   // CtrlBuddy's first appearance: the mouse pointer goes to him and clicks
   if (step.buddy === 'click') return buddy?.clickHim(() => sound.click());

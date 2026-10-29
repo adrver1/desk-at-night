@@ -587,13 +587,16 @@ const SHORT_CHAPTERS = [
       // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
       { id: 'm.think', set: { curve: null, thoughts: true }, notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
       // (Adriaen, 2026-10-29) and then the neighbouring platform calls about its separator
-      // (Adriaen, 2026-10-29) the phone rings, he picks up in the room behind, his portrait moves aside
-      // for the caller's, and the separator comes up once the caller has said who it is
-      { id: 'm.call', auto: true, set: { thoughts: null, call: 'neighbour', callStage: 'ring' },
-        do: [{ sound: 'ringtone' }, { wait: 3 }, { set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
+      // (Adriaen, 2026-10-29) the phone rings, in its own beat (it rings on while the presenter talks);
+      // then the call: he picks up in the room behind, his portrait moves aside for the caller's,
+      // and the separator comes up once the caller has said who it is
+      { id: 'm.ring', set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' }, do: [{ sound: 'ringtone', times: 6 }],
+        notes: 'Telefonen ringer. Space: han tar den.' },
+      { id: 'm.call', auto: true, set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' },
+        do: [{ set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
           { set: { callStage: 'talk' } }, { wait: 1 }, { say: 'm.call0' }, { set: { callStage: 'sep' } }, { wait: 1.2 }, { say: 'm.call1' }, { say: 'm.call2' }, { say: 'm.call3' }],
         end: { callStage: 'sep', phone: 'operator' },
-        notes: 'Versjon A: Nordhav Beta ringer, separatoren deres slugger, og de spør den nye operatøren om råd. (Versjon B, som chat, er neste beat: c.call.)' },
+        notes: 'Han tar telefonen: Nordhav Beta, separatoren deres slugger, og de spør den nye operatøren om råd. (Chatversjonen, c.call, ligger skjult.)' },
       { id: 'm.buddy1', set: { curve: null, thoughts: null, call: null, phone: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
         notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
       { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen' }, do: [{ wait: 0.8 }, { buddy: 'click' }],
