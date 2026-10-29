@@ -1,7 +1,7 @@
 """
 control_buddy: CtrlBuddy, the AI agent mascot from Adriaen's talk, as a
 low-poly robot. A tall domed head with ear bolts, wide dark shades under
-frowning brows, a small nose and a flat mouth, pointed collar flaps over the
+frowning brows, a small nose and a flat mouth, short flared sleeves over the
 shoulders, a grey tabard with a name badge, and segmented arms with
 joint rings. Its team-mates share the body and swap the badge and hat:
 the Scholar (COMPILER, mortarboard and bow tie) and the Nurse (LINTER,
@@ -32,6 +32,10 @@ from mathutils import Quaternion, Vector  # noqa: E402
 
 Mesh, X, Y, Z = base.Mesh, base.X, base.Y, base.Z
 FORM = "hover"
+# What covers the shoulders: "sleeves" (short flared sleeves of the tabard
+# round the top of each arm, as on the presentation pictures; they follow
+# the arm) or "flaps" (the earlier collar wedges, fixed to the chest)
+SHOULDERS = "sleeves"
 FORMS, ROLES = ("walker", "hover", "desk"), ("buddy", "scholar", "nurse")
 DESK_SCALE, DESK_HEAD = 0.3, 1.6
 
@@ -167,15 +171,16 @@ def torso(role, form):
     m = Mesh().tube(rings, angles=BOX8, swatch=METAL)
     m.tube([(1.38, 0.058, 0.055, 0, "neck"), (1.50, 0.050, 0.048, 0, "neck")], angles=base.HEX6,
            swatch=DARK, cap_start=False, cap_end=False)
-    # collar flaps: one metal wedge over each shoulder, from the side of the neck
-    # to a point past the top of the arm, its lower edge running back into
-    # the side of the tabard (the tabard itself goes up to the neck)
-    for sd in (1, -1):
-        flap = []
-        for y in (0.128, -0.128):
-            flap += [(sd * 0.062, y * 0.80, 1.425), (sd * 0.062, y * 0.80, 1.395),
-                     (sd * TABARD_W, y * 0.9, 1.262), (sd * 0.300, y * 0.45, 1.315), (sd * 0.290, y * 0.45, 1.290)]
-        m.hull(flap, COLLAR, "collar")
+    if SHOULDERS == "flaps":
+        # collar flaps: one metal wedge over each shoulder, from the side of the neck
+        # to a point past the top of the arm, its lower edge running back into
+        # the side of the tabard (the tabard itself goes up to the neck)
+        for sd in (1, -1):
+            flap = []
+            for y in (0.128, -0.128):
+                flap += [(sd * 0.062, y * 0.80, 1.425), (sd * 0.062, y * 0.80, 1.395),
+                         (sd * TABARD_W, y * 0.9, 1.262), (sd * 0.300, y * 0.45, 1.315), (sd * 0.290, y * 0.45, 1.290)]
+            m.hull(flap, COLLAR, "collar")
     # tabard: a flat white panel front and back with a black name badge
     front = 0.118
     bottom = TABARD_BOTTOM if form == "walker" else 0.92
@@ -210,6 +215,12 @@ def arm(side):
            axes=(u, v, w), angles=base.HEX6, swatch=METAL)
     m.tube([(0.265, 0.058, 0.058, 0, "forearm"), (0.465, 0.052, 0.052, 0, "forearm")], origin=o,
            axes=(u, v, w), angles=base.HEX6, swatch=METAL)
+    if SHOULDERS == "sleeves":
+        # short sleeve flaring out from the shoulder, its open end turned
+        # in to a lip so it reads as cloth with an arm inside, not a cone
+        m.tube([(-0.06, 0.080, 0.080, 0, "sleeve"), (0.06, 0.088, 0.088, 0, "sleeve"),
+                (0.14, 0.100, 0.100, 0, "sleeve"), (0.134, 0.068, 0.068, 0, "sleeve")],
+               origin=o, axes=(u, v, w), angles=base.HEX6, swatch=COLLAR, cap_end=False)
     for t, r, reg in ((0.25, 0.074, "elbow"), (0.475, 0.064, "wrist")):
         m.tube([(t - 0.018, r, r, 0, reg), (t + 0.018, r, r, 0, reg)], origin=o, axes=(u, v, w),
                angles=base.HEX6, swatch=DARK)
@@ -264,14 +275,14 @@ def puck():
 
 
 # --------------------------------------------------------------------- rig
-ARM_PARTS = {"upper_arm", "elbow", "forearm", "wrist", "hand"}
+ARM_PARTS = {"sleeve", "upper_arm", "elbow", "forearm", "wrist", "hand"}
 
 
 def bone_for(region, co, form):
     """Each vertex follows exactly one bone."""
     tag = "R" if co.x > 0 else "L"
     if region in ARM_PARTS:
-        if region == "upper_arm":
+        if region in ("upper_arm", "sleeve"):
             return f"upper_arm.{tag}"
         return f"hand.{tag}" if region == "hand" else f"forearm.{tag}"
     if region in ("thigh",):
