@@ -66,13 +66,16 @@ to also write a contact sheet next to the reference into a private folder.
   deck instead of the clear safety specs. Each character ships one
   everyday look plus `ppe` and `ppe_deck`; kept extra outfits are behind
   `EXTRA_LOOKS = True` in their script.
-- `anims.py` keys eight clips on the shared rig and every .glb carries them
+- `anims.py` keys the body clips on the shared rig and every .glb carries them
   as named glTF animations: `idle`, `walk` (in place; move the root),
   `seated_idle` (0.45 m seat), `stand_up`, `typing` (0.74 m desk) and
   `point`, plus `step_down` (two 0.5 m steps down from a 1 m helicopter
   cabin floor, ending 1 m lower and 0.6 m ahead) and `flying` (seated,
   right hand on a cyclic between the knees, left on a collective by the
-  left thigh). One clip set plays on
+  left thigh), and the seated idles `sip` / `sip_left` (reach for the
+  desk mug at `SIP_MUG`, cup to the lips, put it back; the hand holds it
+  between `SIP_HOLD` seconds) and `mouse` (hand on the mouse, small
+  wiggles). One clip set plays on
   every character and outfit. Face clips move only the face bones, so they
   play on top of a body clip: `blink`, `brows_raise`, `brows_frown`, the
   expressions `happy`, `sad`, `surprised`, `angry` and `worried`, and

@@ -57,7 +57,15 @@ export const PATHS = {
 const STRIDE = 1.15;       // m/s the walk clip's stride covers at its own pace
 const WALK_SPEED = 1.4;    // m/s, a brisk walk: the clip plays faster to match
 const TURN_RATE = 5;       // rad/s, how fast someone turns into a new direction
-const yawTo = (dx, dz) => Math.atan2(-dx, -dz);   // the yaw that faces along (dx, dz): people and chairs look down their -Z
+const yawTo = (dx, dz) => Math.atan2(-dx, -dz);
+// Seated idles (Adriaen, 2026-10-29): now and then someone sitting at a desk
+// takes a sip from the mug beside them or wiggles the mouse. The clips are on
+// the shared rig (characters/_shared/anims.py sip, sip_left, mouse); SIP_MUG
+// is where the hand meets the mug in their space (three's axes, ahead is -z),
+// SIP_HOLD when the hand has it (s). ?idles=0 keeps everyone still (stills).
+const SIP_MUG = [0.52, 0.80, -0.58], SIP_HOLD = [20 / 24, 76 / 24];
+const IDLES = new URLSearchParams(location.search).get('idles') !== '0';
+const IDLE_GAP = [9, 22];   // s between one idle and the next   // the yaw that faces along (dx, dz): people and chairs look down their -Z
 const wrap = (a) => ((a % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
 const smooth = (x) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3 - 2 * t); };
 
@@ -124,13 +132,13 @@ export class Cast {
       if (!gltf) return;
       const p = gltf.scene;
       const mixer = new THREE.AnimationMixer(p);
-      const act = Object.fromEntries(['idle', 'seated_idle', 'talk', 'blink', 'walk', 'stand_up', 'typing', 'point'].map((n) => {
+      const act = Object.fromEntries(['idle', 'seated_idle', 'talk', 'blink', 'walk', 'stand_up', 'typing', 'point', 'sip', 'sip_left', 'mouse'].map((n) => {
         const clip = THREE.AnimationClip.findByName(gltf.animations, n);
         return [n, clip && mixer.clipAction(clip)];
       }));
       if (act.blink) act.blink.setLoop(THREE.LoopOnce);
       if (act.talk) { act.talk.play(); act.talk.setEffectiveWeight(0); }
-      for (const n of ['stand_up', 'point']) if (act[n]) { act[n].setLoop(THREE.LoopOnce); act[n].clampWhenFinished = true; }
+      for (const n of ['stand_up', 'point', 'sip', 'sip_left', 'mouse']) if (act[n]) { act[n].setLoop(THREE.LoopOnce); act[n].clampWhenFinished = true; }
       const bones = {};
       p.traverse((o) => {
         if (o.isBone) bones[o.name] = o;
@@ -165,6 +173,7 @@ export class Cast {
       // next beat names where the last one's moves took them): leave them be
       if ((name === p.want || name === p.at) && (p.root.visible || !spot)) { p.want = name; continue; }
       any = true;
+      this.endFidget(p);
       p.at = name; p.want = name;
       p.queue.length = 0; p.task = null;
       for (const r of p.waiters ?? []) r();   // nobody waits for moves that will never come
@@ -208,6 +217,7 @@ export class Cast {
   // Stop every walk and sit midway: the next place() puts those people at their spots
   halt() {
     for (const p of Object.values(this.people)) {
+      this.endFidget(p);
       if (!p.task && !p.queue.length) continue;
       p.queue.length = 0; p.task = null; p.at = null; p.want = null;
       for (const r of p.waiters ?? []) r();
@@ -221,8 +231,11 @@ export class Cast {
   mugs(fill = {}) {
     for (const [name, m] of Object.entries(this.mugsRest ?? {})) {
       const [k, x, z] = [].concat(fill[name] ?? 1);
-      m.mug.position.copy(m.home);
-      if (x !== undefined) { m.mug.position.x = x; m.mug.position.z = z; }
+      // in someone's hand for a sip: where it goes back to changes instead
+      const held = Object.values(this.people).find((p) => p.fidget?.mug?.m === m && p.fidget.mug.rest)?.fidget.mug.rest;
+      const pos = held?.pos ?? m.mug.position;
+      pos.copy(m.home);
+      if (x !== undefined) { pos.x = x; pos.z = z; }
       this.fillMug(name, k);
     }
   }
@@ -483,6 +496,71 @@ export class Cast {
     }
   }
 
+  // ------------------------------------------------------------ seated idles
+  // Someone sitting still at a desk (no moves, not talking) now and then
+  // sips from the mug beside them, if there is one in reach, or wiggles the mouse
+  fidget(p, now, dt) {
+    if (p.fidget) return this.fidgeting(p, now, dt);
+    const sitting = SPOTS[p.at]?.chair !== undefined && (p.pose === 'seated_idle' || p.pose === 'typing');
+    if (!IDLES || !sitting || p.task || p.queue.length || p.mouth) { p.fidgetAt = null; return; }
+    if (p.fidgetAt == null) { p.fidgetAt = now + IDLE_GAP[0] * (0.4 + Math.random()); return; }
+    if (now < p.fidgetAt) return;
+    p.fidgetAt = null;
+    // a mug where the clip's hand goes, on either side
+    let sip = null;
+    for (const side of [1, -1]) {
+      const at = p.root.localToWorld(new THREE.Vector3(side * SIP_MUG[0], SIP_MUG[1], SIP_MUG[2]));
+      for (const m of Object.values(this.mugsRest ?? {})) {
+        const w = m.mug.getWorldPosition(new THREE.Vector3());
+        if (Math.hypot(w.x - at.x, w.z - at.z) < 0.4) sip = { side, m };
+      }
+    }
+    let name = sip && Math.random() < 0.6 ? (sip.side > 0 ? 'sip' : 'sip_left') : 'mouse';
+    if (p.forceIdle) { name = p.forceIdle; p.forceIdle = null; if (name !== 'mouse' && !sip) return; }
+    const a = p.act[name];
+    if (!a) return;
+    p.fidget = { name, back: p.pose, t: 0, dur: a.getClip().duration, mug: name === 'mouse' ? null : sip };
+    this.fade(p, name, 0.35);
+  }
+  fidgeting(p, now, dt) {
+    const f = p.fidget, t = (f.t += dt);   // the clip's own clock (dt, as the mixer has it)
+    if (p.task || p.queue.length) return this.endFidget(p);
+    if (t >= f.dur - 0.3 && p.pose === f.name) this.fade(p, f.back, 0.3);
+    if (f.mug) this.holdMug(p, f, t);
+    if (t >= f.dur) { this.endFidget(p); p.fidgetAt = now + IDLE_GAP[0] + Math.random() * (IDLE_GAP[1] - IDLE_GAP[0]); }
+  }
+  // The mug goes from the desk into the hand and back while the clip holds it
+  holdMug(p, f, t) {
+    const { m, side } = f.mug, mug = m.mug;
+    if (!f.mug.rest) f.mug.rest = { pos: mug.position.clone(), quat: mug.quaternion.clone() };
+    const hand = p.bones[side > 0 ? 'handR' : 'handL'] ?? p.bones[side > 0 ? 'hand.R' : 'hand.L'];
+    const k = smooth((t - SIP_HOLD[0] + 0.12) / 0.2) * smooth((SIP_HOLD[1] + 0.12 - t) / 0.2);
+    if (!hand || k <= 0) { mug.position.copy(f.mug.rest.pos); mug.quaternion.copy(f.mug.rest.quat); return; }
+    p.root.updateMatrixWorld(true);
+    // the handle in the palm, the cup beside the hand on the inside, its
+    // handle (the mug's +x) pointing out at the hand
+    const palm = hand.localToWorld(new THREE.Vector3(0, 0.06, 0));
+    const inward = new THREE.Vector3(-side, 0, 0).transformDirection(p.root.matrixWorld);
+    const want = palm.addScaledVector(inward, 0.1).add(new THREE.Vector3(0, -0.05, 0));
+    mug.parent.updateMatrixWorld(true);
+    mug.parent.worldToLocal(want);
+    mug.position.lerpVectors(f.mug.rest.pos, want, k);
+    // tipped toward the mouth while it is up there
+    const up = smooth((t - 1.4) / 0.4) * smooth((2.6 - t) / 0.4);
+    const qp = mug.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+    const held = qp.multiply(p.root.getWorldQuaternion(new THREE.Quaternion()))
+      .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), side > 0 ? 0 : Math.PI))
+      .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(side > 0 ? 1 : -1, 0, 0), 0.6 * up));
+    mug.quaternion.slerpQuaternions(f.mug.rest.quat, held, k);
+  }
+  endFidget(p) {
+    const f = p.fidget;
+    if (!f) return;
+    p.fidget = null;
+    if (f.mug?.rest) { f.mug.m.mug.position.copy(f.mug.rest.pos); f.mug.m.mug.quaternion.copy(f.mug.rest.quat); }
+    if (p.pose === f.name) this.fade(p, f.back, 0.3);
+  }
+
   // Straight into a pose, with any other body clip stopped (talk and blink play on top)
   pose(p, name) {
     const next = p.act[name];
@@ -546,6 +624,7 @@ export class Cast {
         neck.rotateY(p.applied);
         p.bones.head?.rotateY(p.applied);
       }
+      this.fidget(p, now, dt);
       p.armK = THREE.MathUtils.clamp((p.armK ?? 0) + (p.carry === 'jug' ? dt : -dt) / 0.3, 0, 1);
       if (p.armK) this.carryArm(p, smooth(p.armK));
       if (p.carry === 'jug') this.holdJug(p);
