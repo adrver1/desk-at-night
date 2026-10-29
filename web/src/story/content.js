@@ -577,6 +577,15 @@ const SHORT_CHAPTERS = [
       { id: 'm.s1', set: { overlay: 'slide:m-01' }, notes: 'The money slides: what is possible.' },
       { id: 'm.step', set: { overlay: null, shot: 'monitor:Desk0Mon2Screen', tool: 'stepTest' }, notes: 'Step-test finder on history. TODO(Adriaen): screenshot of the real tool in private/tools/stepTest.png.' },
       { id: 'm.s2', set: { overlay: 'slide:m-02' } },
+      // CtrlBuddy's first appearance (Adriaen, 2026-10-29), before his first chat (c.step):
+      // the learning curve in two clicks (axes, then the curve), then he appears on the screen beside the operator
+      { id: 'm.curve1', set: { overlay: null, curve: 'axes', shot: 'buddyDesk', screens: null, cast: { operator: { at: 'desk0typing' } } },
+        notes: 'Ett år siden, kontrollrommet. Aksene: tid og læring.' },
+      { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
+      { id: 'm.buddy1', set: { curve: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
+        notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
+      { id: 'm.buddy2', set: { shot: 'monitor:Desk0Mon1Screen' }, do: [{ wait: 0.8 }, { buddy: 'click' }],
+        notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
       { id: 'm.riser', set: { overlay: null, shot: 'monitor:Desk0Mon3Screen', tool: 'riser', screens: { Desk0Mon3Screen: 'riser' } }, notes: 'The riser simulator, open loop: it fills and blows through.' },
       { id: 'm.antislug', set: { tool: 'antiSlug', screens: { Desk0Mon3Screen: 'antiSlug' } }, notes: 'Anti-slug control tuned on the model. Seeing is believing.' },
       { id: 'm.s3', set: { overlay: 'slide:m-03' } },
@@ -627,6 +636,11 @@ function applyStory(chapters) {
   }
   chapters.forEach((ch, c) => { ch.key = c + 1; });
   for (const ch of chapters) {
+    // its name, if renamed in the editor (by any of its beats, added ones too)
+    const ids = ch.beats.map((b) => b.id);
+    for (const add of STORY.inserted) if (ids.includes(add.after)) ids.push(add.id);
+    const named = ids.find((id) => STORY.chapterNames?.[id]);
+    if (named) ch.name = tx(STORY.chapterNames[named]);
     for (const b of ch.beats) {
       const o = STORY.beats[b.id];
       if (o?.notes !== undefined) b.notes = o.notes;

@@ -45,6 +45,7 @@ def public(o):
 
 beats = public(sorted(load('beats'), key=lambda b: b['order']))
 notes = public(load('notes'))
+chapter_names = public(load('chapters')) if os.path.isdir(f'{src}/chapters') else []
 story_p, lines_p = f'{WEB}/src/story/story.json', f'{WEB}/src/story/lines.json'
 story, lines = json.load(open(story_p)), json.load(open(lines_p))
 voice, pictures, changed = [], [], []
@@ -53,6 +54,10 @@ def same(a, b): return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=
 def both(o): return {'no': o.get('no', ''), 'en': o.get('en', '')}
 
 story['inserted'], story['hidden'], story['callouts'] = [], [], {}
+# chapter names edited in the editor, by a beat of the chapter (content.js applyStory)
+names = {c['beat']: both(c) for c in chapter_names if c.get('beat') and (c.get('no') or c.get('en'))}
+if names != story.get('chapterNames', {}): changed.append('chapter names')
+story['chapterNames'] = names
 for i, b in enumerate(beats):
     bid, base = b['id'], b.get('base') or {}
     o = {}

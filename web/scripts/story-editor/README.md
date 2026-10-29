@@ -41,7 +41,7 @@ Seeding replaces the editor's beats: sync first.
 ## Sync (editor to game)
 
 When Adriaen says "sync": save the database with ArtifactData `list` and
-`out_dir` (collections `beats` and `notes`), then
+`out_dir` (collections `beats`, `notes` and `chapters`, the chapter names edited with ✎), then
 
     python scripts/story-editor/sync.py <that dir>
 

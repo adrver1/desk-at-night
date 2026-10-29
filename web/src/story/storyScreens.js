@@ -26,6 +26,7 @@ export const S = {
   chats: {}, chatAt: {},           // messages shown per chat (content.js CHATS) and when the last came
   reports: 'story/reports/',       // where the reports' pictures and videos are
   videos: {},                      // report videos by file, with when they were last drawn (seen)
+  buddy: { look: 'splash', clickAt: -99 },   // CtrlBuddy's first appearance (buddy.js): how his screen looks, when he was clicked
 };
 
 const C = {
@@ -358,7 +359,7 @@ function chat(ctx, w, h, id) {
     ctx.font = `500 ${px}px ${SANS}`;   // text() below changes it
     const bw = Math.min(maxW, Math.max(...b.lines.map((l) => ctx.measureText(l).width)) + 2 * pad);
     const x = b.who === 'me' ? w - gap - bw : gap;
-    const fresh = i === n - 1 && age < 0.4 ? age / 0.4 : 1;
+    const fresh = i === n - 1 && age < 0.4 ? Math.max(0, age / 0.4) : 1;   // still being typed until age 0
     ctx.globalAlpha = fresh;
     // the writer's portrait, level with the bubble's foot
     const fx = b.who === 'me' ? w - 10 * s - fr : 10 * s + fr, fy = y + b.h - fr;
@@ -476,7 +477,71 @@ function govDocs(ctx, w, h) {
   text(ctx, 'MOCK-UP', w - 20 * s, top + 22 * s, { px: 11 * s, color: C.dim, align: 'right', weight: 600 });
 }
 
+// ---------------------------------------------------------------- CtrlBuddy's first appearance
+
+// Where CtrlBuddy himself stands on his screen, per look: his middle (x, y)
+// and height, as shares of the screen. buddy.js draws him there in 3D, under
+// this screen's picture (the screen is a live feed, see controlScene.js), and
+// the mouse pointer goes there to click him.
+//   popup  a small window over the usual process picture, Clippy style
+//   splash his own start screen, big in the middle
+//   chat   in the empty chat window that the click then starts
+// Adriaen picked splash (2026-10-29); the other two stay for ?buddylook=
+export const BUDDY_LOOKS = {
+  popup: { x: 0.8, y: 0.6, h: 0.5, bg: '#1d2a33' },
+  splash: { x: 0.5, y: 0.55, h: 0.55, bg: '#16323a' },
+  chat: { x: 0.5, y: 0.42, h: 0.62, bg: '#14191f' },
+};
+function buddyScreen(ctx, w, h, t) {
+  const s = w / 640, look = S.buddy.look, L = BUDDY_LOOKS[look];
+  const hi = since(S.buddy.clickAt) < 0.6;   // just clicked: his frame lights up
+  if (look === 'popup') {
+    CONTENT.separator[1](ctx, w, h, t);
+    const bw = 0.36 * w, bh = 0.62 * h, bx = L.x * w - bw / 2, by = L.y * h - bh / 2 + 6 * s;
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 8 * s); ctx.fill();
+    ctx.restore();
+    rect(ctx, bx, by - 22 * s, bw, 22 * s, '#2a4a56');
+    agentIcon(ctx, bx + 13 * s, by - 11 * s, 6 * s);
+    text(ctx, 'CtrlBuddy', bx + 25 * s, by - 6 * s, { px: 12 * s, weight: 600, color: C.bright });
+    text(ctx, '×', bx + bw - 10 * s, by - 6 * s, { px: 14 * s, color: C.dim, align: 'right' });
+    ctx.strokeStyle = hi ? C.ai : '#2a4a56'; ctx.lineWidth = 2 * s;
+    ctx.strokeRect(bx, by - 22 * s, bw, bh + 22 * s);
+    // his speech bubble, to the left of the window
+    const tw = 150 * s, tx = bx - tw - 12 * s, ty = by + 20 * s;
+    ctx.fillStyle = '#fff6c8';
+    ctx.beginPath(); ctx.roundRect(tx, ty, tw, 58 * s, 8 * s); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(tx + tw, ty + 18 * s); ctx.lineTo(tx + tw + 12 * s, ty + 26 * s); ctx.lineTo(tx + tw, ty + 32 * s); ctx.fill();
+    text(ctx, T('Hei! Jeg er CtrlBuddy.', 'Hi! I am CtrlBuddy.'), tx + 10 * s, ty + 22 * s, { px: 12 * s, weight: 600, color: '#222' });
+    text(ctx, T('Trenger du hjelp?', 'Need a hand?'), tx + 10 * s, ty + 42 * s, { px: 12 * s, color: '#333' });
+    return;
+  }
+  if (look === 'splash') {
+    // his own start screen: the picture is the 3D feed, with a title and a button over it
+    text(ctx, 'CtrlBuddy', w / 2, 46 * s, { px: 30 * s, weight: 700, color: C.bright, align: 'center' });
+    text(ctx, T('Din assistent i kontrollrommet', 'Your control room assistant'), w / 2, 68 * s, { px: 13 * s, color: '#9cc', align: 'center' });
+    const bw = 170 * s, bx = w / 2 - bw / 2, by = h - 70 * s;
+    ctx.fillStyle = hi ? '#8ff0cf' : C.ai;
+    ctx.beginPath(); ctx.roundRect(bx, by, bw, 34 * s, 17 * s); ctx.fill();
+    text(ctx, T('Start samtale', 'Start a chat'), w / 2, by + 22 * s, { px: 14 * s, weight: 600, color: '#0c1a16', align: 'center' });
+    return;
+  }
+  // chat: the window the click opens, still empty, with him waving in it
+  header(ctx, w, 'CtrlBuddy', S.clock, '#1c2a27');
+  agentIcon(ctx, w - 110 * s, 15 * s, 8 * s);
+  const bx = 18 * s, by = h - 96 * s;
+  ctx.fillStyle = '#20342f';
+  ctx.beginPath(); ctx.roundRect(bx, by, 250 * s, 40 * s, 12 * s); ctx.fill();
+  text(ctx, T('Hei! Hva kan jeg hjelpe deg med?', 'Hi! What can I help you with?'), bx + 12 * s, by + 25 * s, { px: 14 * s, color: C.bright });
+  rect(ctx, 0, h - 44 * s, w, 44 * s, '#1a2026');
+  ctx.strokeStyle = hi ? C.ai : C.line; ctx.lineWidth = 1.5 * s;
+  ctx.beginPath(); ctx.roundRect(14 * s, h - 36 * s, w - 28 * s, 28 * s, 14 * s); ctx.stroke();
+  text(ctx, T('Skriv en melding …', 'Type a message …'), 28 * s, h - 17 * s, { px: 13 * s, color: C.dim });
+}
+
 const ADD = {
+  buddy: ['CtrlBuddy', buddyScreen],
   wi: ['Water injection', waterInjection],
   flood: ['Alarm flood', flood],
   rootCause: ['Alarms by root cause', rootCause],

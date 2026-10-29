@@ -714,7 +714,7 @@
  },
  "inserted": [
   {
-   "after": "m.s2",
+   "after": "m.buddy2",
    "id": "c.step",
    "chat": "step",
    "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."
@@ -798,7 +798,10 @@
   "h.g1",
   "h.g2",
   "h.s3",
-  "h.g3"
+  "h.g3",
+  "y.steep",
+  "b.forward",
+  "b.room"
  ],
  "closing": {
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",

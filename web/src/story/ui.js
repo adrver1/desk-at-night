@@ -79,7 +79,7 @@ export class StoryUI {
   // jumps to any chapter (or any beat of the current one). Three looks,
   // kept side by side (?nav=a|b|c, NAV in main.js):
   //   a  one thin track, a segment per chapter sized by its beats
-  //   b  chapter tabs grouped under their acts, dots for the beats
+  //   b  a box per chapter with its full name, dots for the beats (the default)
   //   c  the three acts as bands with a playhead, names on hover
   // It dims when the mouse is still, so it stays out of the picture.
   nav(chapters, style, jump) {
@@ -101,13 +101,14 @@ export class StoryUI {
     this.navParts = [];
     for (const g of groups) {
       const ge = h('div', 'nav-group');
-      ge.style.flexGrow = style === 'b' ? g.chs.length : g.chs.reduce((n, x) => n + x.ch.beats.length, 0);   // b: equal tabs
-      if (style !== 'a') ge.append(h('div', 'nav-act', esc(g.name)));
+      const room = (x) => x.ch.name.length + 4;   // b: a box as wide as its name wants
+      ge.style.flexGrow = style === 'b' ? g.chs.reduce((n, x) => n + room(x), 0) : g.chs.reduce((n, x) => n + x.ch.beats.length, 0);
+      if (style === 'c') ge.append(h('div', 'nav-act', esc(g.name)));
       const row = h('div', 'nav-row');
       for (const { ch, c, label } of g.chs) {
         const part = btn('nav-ch', '', `${ch.key} · ${ch.name}`, () => jump(c, 0));
-        part.style.flexGrow = style === 'b' ? 1 : ch.beats.length;
-        part.innerHTML = style === 'b' ? `<span class="nav-key">${ch.key}</span><span class="nav-label">${esc(label)}</span><span class="nav-dots"></span>`
+        part.style.flexGrow = style === 'b' ? room({ ch }) : ch.beats.length;
+        part.innerHTML = style === 'b' ? `<span class="nav-key">${ch.key}</span><span class="nav-label">${esc(ch.name)}</span><span class="nav-dots"></span>`
           : `<span class="nav-fill"></span>${style === 'c' ? `<span class="nav-tip">${ch.key} · ${esc(label)}</span>` : ''}`;
         row.append(part);
         this.navParts.push(part);
@@ -116,7 +117,8 @@ export class StoryUI {
       track.append(ge);
     }
     this.navInfo = h('div', 'nav-info');
-    e.append(prev, track, next, this.navInfo);
+    e.append(prev, track, next);
+    if (style !== 'b') e.append(this.navInfo);   // b: the boxes and dots say it all (Adriaen, 2026-10-29)
     this.navTotal = total;
     this.navChapters = chapters;
     this.navJump = jump;

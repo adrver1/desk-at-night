@@ -1,0 +1,253 @@
+// CtrlBuddy's first appearance (Adriaen, 2026-10-29): one year ago, the
+// operator at his desk with the learning curve beside him, then CtrlBuddy on
+// his screen, waving, and a big pixelated mouse pointer that clicks him, which
+// opens the chat of the next beat.
+//
+// CtrlBuddy is the 3D robot (characters/control_buddy, copied to
+// public/story/chars/) in a little scene of his own, drawn every frame into a
+// render target that his screen shows as a live feed under its 2D picture
+// (storyScreens.js buddyScreen draws the window around him, BUDDY_LOOKS says
+// where he stands). The pointer is a flat sprite lying on the screen's glass,
+// so it moves smoothly whatever rate the screen's picture redraws at.
+//
+// State keys (content.js beats): buddy: 'splash' (Adriaen's pick, 2026-10-29)
+// | 'popup' | 'chat' shows him in that look on the chat screen while it shows
+// 'buddy'; curve: 'axes' | 'plot' shows the learning curve's axes, then the
+// curve too (two clicks). The step { buddy: 'click' } moves the pointer to him
+// and clicks.
+import * as THREE from 'three';
+import { loadModel } from './cast.js';
+import { S, BUDDY_LOOKS } from './storyScreens.js';
+import { T } from './lang.js';
+
+const smooth = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
+const POINTER_FROM = [0.12, 0.92];   // where the pointer comes in, as shares of the screen
+const MOVE = 1.3, PRESS = 0.18;      // s: the move to him, the button held down
+const LOOK = new URLSearchParams(location.search).get('buddylook');   // try another look (BUDDY_LOOKS)
+
+// The classic arrow, one character a pixel: # black edge, o white fill
+const ARROW = [
+  '#',
+  '##',
+  '#o#',
+  '#oo#',
+  '#ooo#',
+  '#oooo#',
+  '#ooooo#',
+  '#oooooo#',
+  '#ooooooo#',
+  '#oooooooo#',
+  '#ooooo#####',
+  '#oo#oo#',
+  '#o# #oo#',
+  '##  #oo#',
+  '#    #oo#',
+  '     #oo#',
+  '      ##',
+];
+
+export class Buddy {
+  constructor(game, screen) {
+    this.game = game;
+    this.screen = screen;
+    this.look = null;
+    this.scene = new THREE.Scene();
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 2.4));
+    const key = new THREE.DirectionalLight(0xffffff, 2.2);
+    key.position.set(1.2, 2.5, 3);
+    this.scene.add(key);
+    this.camera = new THREE.PerspectiveCamera(30, 16 / 9, 0.1, 50);
+    this.rt = new THREE.WebGLRenderTarget(640, 360, { samples: 4 });
+    this.rt.texture.userData.raw = true;
+    this.rt.texture.colorSpace = THREE.LinearSRGBColorSpace;
+    // the pointer: a flat sprite on the screen's glass, in a pass of its own over the room
+    this.pointerScene = new THREE.Scene();
+    this.pointer = this.makePointer();
+    this.pointerScene.add(this.pointer);
+    this.click = null;   // { t0, done } while the pointer is on its way
+    game.hooks.render.push((renderer, camera) => {
+      if (!this.look) return;
+      this.draw(renderer);
+      if (this.pointer.visible) renderer.render(this.pointerScene, camera);
+    });
+    this.curveEl = this.makeCurve();
+  }
+
+  async load() {
+    const gltf = await loadModel('control_buddy').catch((e) => { console.warn('buddy', e); return null; });
+    if (!gltf) return;
+    const p = gltf.scene;
+    p.rotation.y = Math.PI;   // the crew look down their -Z; he faces our camera on +Z
+    p.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+    this.scene.add(p);
+    this.model = p;
+    this.mixer = new THREE.AnimationMixer(p);
+    const clip = THREE.AnimationClip.findByName(gltf.animations, 'idle');
+    if (clip) this.mixer.clipAction(clip).play();
+    this.bones = {};
+    p.traverse((o) => { if (o.isBone) this.bones[o.name] = o; });
+    p.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(p);
+    this.size = box.getSize(new THREE.Vector3());
+    this.mid = box.getCenter(new THREE.Vector3());
+  }
+
+  // The story's state: his look on screen (or null), and the learning curve
+  set(s) {
+    const want = LOOK ?? s.buddy;
+    const look = want && BUDDY_LOOKS[want] && s.screens?.[this.screen] === 'buddy' ? want : null;   // only while his screen shows him
+    if (look !== this.look) {
+      this.look = look;
+      if (look) {
+        S.buddy.look = look;
+        this.game.room?.setFeeds({ buddy: this.rt.texture });
+        const chair = this.game.chairs?.[0]?.obj.getWorldPosition(new THREE.Vector3()) ?? this.game.camera.position.clone();   // the screens face the desk's chair
+        this.frame = this.game.room?.screenFrame(this.screen, chair.setY(1.2));
+        if (this.frame) {
+          const w = 640, h = Math.round(640 * this.frame.height / this.frame.width);
+          if (h !== this.rt.height) this.rt.setSize(w, h);
+          this.camera.aspect = w / h;
+        }
+        this.scene.background = new THREE.Color(BUDDY_LOOKS[look].bg);
+      }
+    }
+    if (!look) { this.pointer.visible = false; this.click = null; S.buddy.clickAt = -99; }
+    this.curve(s.curve);
+  }
+
+  // The pointer comes in, goes to him and clicks; resolves once he has been clicked
+  clickHim(onClick) {
+    if (!this.look || !this.frame) return Promise.resolve();
+    return new Promise((done) => { this.click = { t: 0, onClick, done }; this.pointer.visible = true; this.placePointer(...POINTER_FROM); });
+  }
+
+  // The click jumps to its end: the pointer on him, him clicked (for a beat entered directly)
+  clicked() {
+    if (!this.look || !this.frame) return;
+    const L = BUDDY_LOOKS[this.look];
+    this.click = null;
+    this.pointer.visible = true;
+    this.placePointer(L.x + 0.02, L.y - 0.02);
+    this.pointer.scale.setScalar(this.pointerSize);
+    S.buddy.clickAt = S.now - 10;
+  }
+
+  update(dt, now) {
+    if (!this.look) return;
+    this.mixer?.update(dt);
+    if (this.model) {
+      // a little bob, a hop when he is clicked, and the wave until then
+      const since = now - S.buddy.clickAt;
+      this.model.position.y = 0.02 * Math.sin(now * 2.1) + (since < 0.7 ? 0.12 * Math.sin(Math.PI * since / 0.7) : 0);
+      if (since > 0.7) this.wave(now);
+    }
+    const c = this.click;
+    if (c) {
+      c.t += dt;
+      const L = BUDDY_LOOKS[this.look], k = smooth(c.t / MOVE);
+      const [x0, y0] = POINTER_FROM, x1 = L.x + 0.02, y1 = L.y - 0.02;
+      // a gentle arc, like a hand on a mouse
+      this.placePointer(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k - 0.08 * Math.sin(Math.PI * k));
+      const down = c.t > MOVE + 0.15 && c.t < MOVE + 0.15 + PRESS;
+      this.pointer.scale.setScalar(this.pointerSize * (down ? 0.88 : 1));
+      if (c.t > MOVE + 0.15 && !c.clicked) { c.clicked = true; S.buddy.clickAt = now; c.onClick?.(); }
+      if (c.t > MOVE + 0.9) { this.click = null; c.done(); }
+    }
+  }
+
+  // Right arm up and out, the forearm swinging side to side
+  wave(now) {
+    const b = this.bones, up = b.upper_armR ?? b['upper_arm.R'], fore = b.forearmR ?? b['forearm.R'], hand = b.handR ?? b['hand.R'];   // the loader drops the dots
+    if (!up || !fore) return;
+    this.model.updateMatrixWorld(true);
+    const x = Math.sign(up.getWorldPosition(new THREE.Vector3()).x - this.model.position.x) || -1;   // his right, seen from the front
+    const a = 0.45 * Math.sin(now * 8);
+    aim(up, new THREE.Vector3(0.75 * x, 0.45, 0.25).normalize());
+    aim(fore, new THREE.Vector3((Math.sin(a) + 0.1) * x, Math.cos(a), 0.15).normalize());
+    if (hand) aim(hand, new THREE.Vector3((Math.sin(a * 1.3) + 0.1) * x, Math.cos(a * 1.3), 0.15).normalize());
+  }
+
+  // Draw him into his screen's feed, framed where his look puts him
+  draw(renderer) {
+    if (!this.model || !this.frame) return;
+    const L = BUDDY_LOOKS[this.look], cam = this.camera, w = this.rt.width, h = this.rt.height;
+    const fov = THREE.MathUtils.degToRad(cam.fov);
+    const d = this.size.y / L.h / (2 * Math.tan(fov / 2));
+    cam.position.set(this.mid.x, this.mid.y, this.mid.z + d);
+    cam.lookAt(this.mid);
+    cam.setViewOffset(w, h, (0.5 - L.x) * w, (0.5 - L.y) * h, w, h);
+    const prev = renderer.getRenderTarget();
+    renderer.setRenderTarget(this.rt);
+    renderer.render(this.scene, cam);
+    renderer.setRenderTarget(prev);
+  }
+
+  makePointer() {
+    const px = 18, c = document.createElement('canvas');
+    c.width = c.height = px;
+    const g = c.getContext('2d');
+    ARROW.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (ch === ' ') return;
+      g.fillStyle = ch === '#' ? '#000' : '#fff';
+      g.fillRect(x, y, 1, 1);
+    }));
+    const tex = new THREE.CanvasTexture(c);
+    tex.magFilter = tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const geo = new THREE.PlaneGeometry(1, 1).translate(0.5, -0.5, 0);   // the tip at the origin
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.5, toneMapped: false, depthTest: false }));
+    m.visible = false;
+    m.renderOrder = 10;
+    return m;
+  }
+
+  // The pointer's tip at (u, v) on the screen, as shares of its width and height (v down)
+  placePointer(u, v) {
+    const f = this.frame, size = 0.3 * f.height;   // big: near a third of the screen's height
+    this.pointer.position.copy(f.at(u, v)).addScaledVector(f.normal, 0.004);
+    const right = new THREE.Vector3().crossVectors(f.up, f.normal);
+    this.pointer.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right, f.up, f.normal));
+    if (this.pointerSize !== size) this.pointer.scale.setScalar(size);
+    this.pointerSize = size;
+  }
+
+  // ---------------------------------------------------------------- the learning curve
+
+  makeCurve() {
+    const el = document.createElement('div');
+    el.className = 'learning';
+    // a first-order response: steep at first, then levelling off
+    const pts = Array.from({ length: 61 }, (_, i) => {
+      const t = i / 60, y = 1 - Math.exp(-t / 0.18);
+      return `${(60 + t * 320).toFixed(1)},${(250 - y * 200).toFixed(1)}`;
+    }).join(' ');
+    el.innerHTML = `<svg viewBox="0 0 420 300" aria-hidden="true">
+      <path class="axis" d="M60 30 V250 H400" />
+      <path class="arrow" d="M54 40 L60 28 L66 40 M390 244 L402 250 L390 256" />
+      <polyline class="plot" points="${pts}" />
+      <text x="230" y="285" text-anchor="middle">${T('Tid', 'Time')}</text>
+      <text x="0" y="0" transform="translate(36 140) rotate(-90)" text-anchor="middle">${T('Læring', 'Learning')}</text>
+    </svg>`;
+    (document.getElementById('game') ?? document.body).append(el);
+    return el;
+  }
+
+  // 'axes' shows the panel and its axes, 'plot' draws the curve in as well
+  curve(step) {
+    this.curveEl.classList.toggle('on', Boolean(step));
+    this.curveEl.classList.toggle('plot', step === 'plot');
+  }
+}
+
+// Turn a bone so its length (+Y) points along a direction in the buddy's
+// scene (as cast.js aim, without the blend)
+function aim(bone, want) {
+  bone.updateMatrixWorld(true);
+  const qb = bone.getWorldQuaternion(new THREE.Quaternion());
+  const now = new THREE.Vector3(0, 1, 0).applyQuaternion(qb);
+  const world = new THREE.Quaternion().setFromUnitVectors(now, want).multiply(qb);
+  const qp = bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+  bone.quaternion.copy(qp.multiply(world));
+  bone.updateMatrixWorld(true);
+}

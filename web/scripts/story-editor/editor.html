@@ -47,6 +47,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .beathead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding-block: 12px 8px }
 .beathead h2 { margin: 0; font: 600 24px/1 var(--display); letter-spacing: .02em }
 .beathead .ch { font: 500 13px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .04em }
+.beathead .chname { font: inherit; color: inherit; text-transform: inherit; letter-spacing: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px }
 .tag { font: 500 11px var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; white-space: nowrap }
 .tag.new { color: var(--t-new); border-color: var(--t-new) }
 .stagegrid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); gap: 16px; align-items: start; padding-bottom: 16px }
@@ -223,6 +224,10 @@ const rid = () => Math.random().toString(36).slice(2, 7);
 let L = 'no', curKey = null, moment = -1;
 try { L = localStorage.getItem('sse.lang') || 'no'; curKey = localStorage.getItem('sse.beat'); } catch {}
 let db = null, beats = [], notes = [], showNotes = false;
+let chapters = {};   // chapter names edited here, by the key of the chapter's first beat: { beat, no, en }
+// A beat's chapter, as its first beat, and the chapter's name (edited, or as in the game)
+const chFirst = (b) => beats.find((x) => x.ch === b.ch) || b;
+const chLabel = (b) => { const c = chapters[chFirst(b)._key]; return (c && (c[L] || c.no)) || b.chName; };
 // left-out beats on the timeline and in ← → stepping (the beat on screen always shows)
 // the live game on the stage: the built game, shipped as this page's own files
 // (pack_game.py), playing the beat with its moves and sound
@@ -394,7 +399,7 @@ function render(scroll) {
   if (!b.slide && !b.card && !(b.items || []).length && !(b.callouts || []).length) body += '<p class="mono">Nothing written in this beat yet: only the camera and the room. Add something below.</p>';
   body += `<div class="addrow"><button data-add="${k}|line">+ line</button><button data-add="${k}|pointer">+ pointer</button><button data-add="${k}|card">+ title card</button><button data-add="${k}|note">+ note to Claude</button></div>
     <div class="addrow"><button data-ins="${i + 1}">+ new slide or card after this beat</button></div>`;
-  app.innerHTML = `<div class="beathead"><span class="ch">${esc(b.chName)} · beat ${vis().indexOf(b) + 1} of ${vis().length}</span><h2>${esc(b.id)}</h2>
+  app.innerHTML = `<div class="beathead"><span class="ch"><button class="chname" data-edit="${k}|chapter" title="Rename this chapter (its box in the game's bar)">${esc(chLabel(b))} ✎</button> · beat ${vis().indexOf(b) + 1} of ${vis().length}</span><h2>${esc(b.id)}</h2>
       ${b.isNew ? '<span class="tag new">new</span>' : ''}${b.hidden ? '<span class="tag">left out</span>' : ''}${b.auto ? `<span class="tag">plays by itself · ≈${fmt(b.dur || 0)}</span>` : '<span class="tag">waits for Space</span>'}
       <span class="spacer"></span><button class="btn" id="liveBtn" aria-pressed="${live}" title="Play this beat in the game right here, with its animation and sound">◉ Live</button>${b.hidden || live ? '' : `<a class="btn" href="${GAME}?beat=${encodeURIComponent(b.id)}" target="_blank" rel="noopener" title="Opens the live game at this beat, with its animation and sound. Edits show there once synced and merged.">▶ Play in the game</a>`}<button class="btn" data-edit="${k}|beat">Beat settings</button></div>
     <div class="stagegrid"><div class="stagecol">${live ? `<div class="liveslot" id="liveslot">${b.hidden ? 'Left out of the run: show it again (Beat settings) and sync to play it.' : 'This beat is not in the game yet: it plays here once synced.'}</div>` : frame(b, { moment })}
@@ -426,7 +431,7 @@ function timeline(scroll) {
   let start = 0;
   beats.forEach((b, i) => {
     const p = pos[i], k = b._key, X = (t) => p.x + 5 + Math.min(t * PX, p.w - 10);
-    if (i === beats.length - 1 || beats[i + 1].ch !== b.ch) { rows.scene += `<button class="seg2 chap" data-go="${beats[start]._key}" style="left:${pos[start].x}px;width:${p.x + p.w - pos[start].x}px" title="${esc(b.chName)}">${esc(b.chName)}</button>`; start = i + 1; }
+    if (i === beats.length - 1 || beats[i + 1].ch !== b.ch) { rows.scene += `<button class="seg2 chap" data-go="${beats[start]._key}" style="left:${pos[start].x}px;width:${p.x + p.w - pos[start].x}px" title="${esc(chLabel(b))}">${esc(chLabel(b))}</button>`; start = i + 1; }
     rows.beat += `<button class="seg2 beat${b.auto ? ' auto' : ''}${b.isNew ? ' new' : ''}${b.hidden ? ' hid' : ''}${k === curKey || (!curKey && !i) ? ' cur' : ''}" data-go="${k}" style="left:${p.x}px;width:${p.w}px" title="${esc(b.id)}">${esc(b.id)}${b.auto ? ` ≈${Math.round(b.dur)}s` : ''}</button>`;
     if (b.slide) { const f = frames(b), n = f ? f.length - 1 : 0;
       const ticks = f ? f.slice(1).map((_, c) => `<i class="tick" style="left:${((c + 1) / (n + 1)) * 100}%"></i>`).join('') : '';
@@ -491,6 +496,16 @@ function edit(key, what, draft) {
   const b = draft || beats.find((x) => x._key === key); if (!b) return;
   const nb = clone(b); nb._key = key;
   const finish = (f, target) => { saveBeat(nb); addNote(b, target, val(f, 'f_note')); };
+  if (what === 'chapter') {
+    const first = chFirst(b), c = chapters[first._key] || {};
+    sheet('Chapter name', `<p class="mono">The name on this chapter's box in the bar along the bottom of the game.</p>${fld('f_cno', 'Norwegian', c.no || first.chName)}${fld('f_cen', 'English', c.en || '')}`,
+      async (f) => {
+        const body = { beat: first.id, no: val(f, 'f_cno').trim(), en: val(f, 'f_cen').trim() };
+        try { await db.collection('chapters').doc(first._key).set(body); setStatus('Saved'); } catch { setStatus('Could not save: try again', true); }
+        addNote(b, 'chapter', val(f, 'f_note'));
+      });
+    return;
+  }
   if (what === 'beat') {
     sheet(`Beat ${b.id}`, `<p class="mono">Camera, people and timing are set in the game. Ask for changes to them in the note.</p>
       <label class="check"><input type="checkbox" id="f_hidden" ${b.hidden ? 'checked' : ''}> Leave this beat out of the show (it stays here, greyed out)</label>`,
@@ -623,6 +638,10 @@ render();
     beats = snap.docs.map((d) => ({ ...clone(d.data()), _key: d.id })).sort((a, b) => a.order - b.order);
     if (!sheetRoot.innerHTML) render(first); first = false;
   }, () => setStatus('Lost the connection: reload the page', true));
+  db.collection('chapters').onSnapshot((snap) => {
+    chapters = Object.fromEntries(snap.docs.map((d) => [d.id, d.data()]));
+    if (!sheetRoot.innerHTML) render();
+  }, () => {});
   db.collection('notes').onSnapshot((snap) => {
     notes = snap.docs.map((d) => ({ ...d.data(), _id: d.id })).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
     if (!sheetRoot.innerHTML) render();

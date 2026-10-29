@@ -26,6 +26,7 @@ import { Epilogue } from './epilogue.js';
 import { Sola, LENGTH as SOLA_LENGTH } from './sola.js';
 import { Trondheim } from './trondheim.js';
 import { ClockFace } from './clockFace.js';
+import { Buddy } from './buddy.js';
 
 const game = window.__game;
 const q = new URLSearchParams(location.search);
@@ -44,7 +45,7 @@ if (NAV !== '0') ui.nav(CHAPTERS, NAV, (c, i) => { sound.wake(); return c === 'n
 const sound = new Sound();
 const call = new Call(ui.el.call);
 const trondheim = new Trondheim(host);
-let cast = null, shots = null, epilogue = null, clockFace = null;
+let cast = null, shots = null, epilogue = null, clockFace = null, buddy = null;
 // The Sola opening (on by default since 2026-10-25, off with ?sola=0) and its
 // callback stills in Acts 1 and 3 of the full version (only with ?solastills=1)
 const SOLA_OPEN = q.get('sola') !== '0';
@@ -126,7 +127,15 @@ function chatStep(dir) {
 function chatTo(id, n, typing) {
   const show = CHATS[id].messages[n - 1][0] === 'show';
   apply(merge(state, { chats: { ...state.chats, [id]: n }, shot: `monitor:${show ? REPORT_SCREEN : CHAT_SCREEN}` }));
-  if (typing) S.chatAt[id] = S.now;
+  if (typing) S.chatAt[id] = S.now + typed(id, n);
+}
+
+// Our own message in a chat: keyboard sounds, and the bubble comes once it is typed (s to wait)
+const TYPE_TIME = 0.9;
+function typed(id, n) {
+  if (CHATS[id].messages[n - 1]?.[0] !== 'me') return 0;
+  sound.typing(TYPE_TIME);
+  return TYPE_TIME;
 }
 
 // ---------------------------------------------------------------- applying state
@@ -156,6 +165,7 @@ function apply(s, { instant = false } = {}) {
   if (s.place === 'trondheim') { if (!trondheim.on) trondheim.show(); game.hooks.hidden = true; }
   else if (trondheim.on) { trondheim.hide(); game.hooks.hidden = false; }
   cast?.place(s.cast);
+  buddy?.set(s);
   cast?.mugs(s.mugs);
   ui.clipboard(s.clipboard);
   ui.clipAway(Boolean(s.shot?.startsWith('monitor:') || s.overlay?.startsWith('slide:') || s.overlay?.startsWith('log:') || s.overlay?.startsWith('vote:') || s.overlay?.startsWith('card:') || s.graphOn === 'overlay'));
@@ -235,6 +245,8 @@ async function run(step, my) {
   if (step.torvet) return trondheim.reach(step.torvet);   // Trondheim's own timeline: 'meet' waits, 'in' goes
   if (step.set) return apply(merge(state, step.set));
   if (step.sound === 'ring') { sound.ring(2); return; }
+  // CtrlBuddy's first appearance: the mouse pointer goes to him and clicks
+  if (step.buddy === 'click') return buddy?.clickHim(() => sound.click());
   if (step.sound === 'alarmShort') { sound.startAlarm(3, 0.06); setTimeout(() => sound.stopAlarm(), 5000); return; }
   if (step.notice) {
     ui.notice(step.notice);
@@ -246,8 +258,9 @@ async function run(step, my) {
   if (step.chat) {
     const id = step.chat, n = (state.chats?.[id] ?? 0) + 1;
     state.chats = { ...state.chats, [id]: n };
-    S.chats[id] = n; S.chatAt[id] = S.now;
-    return sleep(0.3);
+    const wait = typed(id, n);
+    S.chats[id] = n; S.chatAt[id] = S.now + wait;
+    return sleep(0.3 + wait);
   }
   if (step.card !== undefined) { ui.title(step.card); return; }
   if (step.rewind) return rewind(step.rewind, my, -1);
@@ -291,25 +304,20 @@ async function run(step, my) {
 }
 
 // The rewind (dir -1) to one year ago, or the fast forward (dir 1) back to
-// tomorrow: the clock races round, the picture judders like a tape, and on
-// the way back the screens go out one by one (and with ?grade=1 the colour
-// drains to sepia).
+// tomorrow: the clock races round and the picture judders like a tape (and
+// with ?grade=1 the colour drains to sepia on the way back). The screens stay
+// on: going dark they looked like they were failing (Adriaen, 2026-10-29).
 // The state lands where the beat's `end` says (or the next chapter's base).
 async function rewind(over, my, dir) {
   const t0 = performance.now(), from = state.time ?? 12, span = 24 * 3;
-  const screens = Object.keys(state.screens ?? {}).concat(Object.keys(DEFAULT_LAYOUT)).filter((n, i, a) => a.indexOf(n) === i);
   host.classList.add(dir < 0 ? 'rewinding' : 'forwarding');
   clockFace?.show(dir < 0);   // the rest corner's clock, big over the picture, on the way back to one year ago only
   sound.cut();
-  let off = 0;
   while (performance.now() - t0 < over * 1000) {
     if (my !== token) { host.classList.remove('rewinding', 'forwarding'); clockFace?.show(false); return; }
     const k = (performance.now() - t0) / (over * 1000);
     setTime(from + dir * span * k * k * (3 - 2 * k));
     if (dir < 0) {
-      // Screens out, a few at a time
-      const want = Math.floor(smoothstep(k / 0.7) * screens.length);
-      for (; off < want; off++) game.room?.setContent(screens[off], 'blank');
       if (GRADES && k > 0.45 && lastGrade !== 5) { host.classList.remove(`grade-${lastGrade}`); host.classList.add('grade-5'); lastGrade = 5; }
     }
     await sleep(1 / 30);
@@ -317,7 +325,6 @@ async function rewind(over, my, dir) {
   host.classList.remove('rewinding', 'forwarding');
   clockFace?.show(false);
 }
-const smoothstep = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
 
 async function say(id, my) {
   const line = lines[id];
@@ -609,6 +616,7 @@ function frame(dt, now) {
     ui.clock(CHAPTERS[chapter]?.prologue || state.place ? null : S.clock);
   }
   cast?.update(dt, game.camera, S.now);
+  buddy?.update(dt, S.now);
   epilogue?.update(dt);
   // a report's video plays only while its screen is drawn
   for (const v of Object.values(S.videos)) if (!v.paused && S.now - v.seen > 0.5) v.pause();
@@ -644,10 +652,11 @@ begin.addEventListener('click', start);
 game.ready.then(async () => {
   shots = new Shots(game);
   cast = new Cast(game);
+  buddy = new Buddy(game, CHAT_SCREEN);
   clockFace = new ClockFace(game);
   shots.cast = cast;
   game.hooks.frame.push(frame);
-  await Promise.all([cast.load(), sound.loadIndex()]);
+  await Promise.all([cast.load(), buddy.load(), sound.loadIndex()]);
   go.disabled = false;
   go.textContent = T('Start', 'Begin');
   if (!begin.parentNode) enter(chapter, beat, { instant: true });

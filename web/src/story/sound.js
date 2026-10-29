@@ -108,6 +108,42 @@ export class Sound {
     this.tone(1318.5, t + 0.12, 0.3, 0.04);
   }
 
+  // A short knock of filtered noise: one key or mouse button
+  tick(t0, freq, level, len = 0.03) {
+    const n = Math.floor(this.ctx.sampleRate * len), buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (n * 0.18));   // a sharp attack, quick decay
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 1.6;
+    const g = this.ctx.createGain();
+    g.gain.value = level;
+    src.connect(bp).connect(g).connect(this.out);
+    src.start(t0);
+    this.live.add(src);
+    src.onended = () => this.live.delete(src);
+  }
+
+  // A mouse click: the button going down, then up
+  click() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.tick(t, 3200, 0.5, 0.025);
+    this.tick(t + 0.075, 2600, 0.3, 0.02);
+  }
+
+  // Someone typing for `secs`: uneven keystrokes, now and then the space bar's deeper knock
+  typing(secs = 0.9) {
+    if (!this.ctx) return;
+    let t = this.ctx.currentTime + 0.02;
+    const end = t + secs;
+    while (t < end) {
+      const space = Math.random() < 0.15;
+      this.tick(t, space ? 900 : 1700 + Math.random() * 900, space ? 0.32 : 0.18 + Math.random() * 0.1, space ? 0.045 : 0.025);
+      t += 0.07 + Math.random() * 0.09;
+    }
+  }
+
   // A desk phone: two rings of 440 + 480 Hz
   ring(times = 2) {
     if (!this.ctx) return;

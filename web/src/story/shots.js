@@ -92,15 +92,21 @@ export class Shots {
       case 'pair': return this.look(new THREE.Vector3(2.3, 1.65, 0.7), new THREE.Vector3(-0.1, 1.0, -1.5), 55);
       case 'pour': return this.look(new THREE.Vector3(0.3, 1.65, -2.5), new THREE.Vector3(-0.55, 1.12, -1.65), 62);
       case 'adriaenDesk': return this.look(new THREE.Vector3(0.3, 1.8, -0.8), new THREE.Vector3(1.9, 1.0, -2.2), 45);
+      // one year ago: the operator at the left desk and the screen CtrlBuddy will appear on, both in the left half (the learning curve takes the right)
+      case 'buddyDesk': return this.look(new THREE.Vector3(-0.2, 1.75, -1.1), new THREE.Vector3(-2.15, 1.0, -2.0), 42);
       case 'adriaen': return this.look(new THREE.Vector3(2.5, 1.45, -0.35), new THREE.Vector3(1.45, 1.1, -1.95), 55);   // his profile, the monitors beyond
       default: break;
     }
-    if (name.startsWith('monitor:')) {
-      const f = this.game.room.screenFrame(name.slice(8), this.seat);
+    // a screen filling the view (monitor:), or halfway there (half:, its neighbours and the desk around it)
+    if (name.startsWith('monitor:') || name.startsWith('half:')) {
+      const half = name.startsWith('half:');
+      const f = this.game.room.screenFrame(name.slice(name.indexOf(':') + 1), this.seat);
       if (!f) return this.target('desk');
       const fov = 50, t = Math.tan(THREE.MathUtils.degToRad(fov) / 2) / 1.04;
-      const d = Math.max(f.height / 2 / t, f.width / 2 / (t * this.game.camera.aspect));
+      const d = Math.max(f.height / 2 / t, f.width / 2 / (t * this.game.camera.aspect)) * (half ? 2.2 : 1);
       const pos = f.center.clone().addScaledVector(f.normal, d);
+      // halfway: from a little to the screen's left, clear of whoever sits at it
+      if (half) pos.addScaledVector(new THREE.Vector3().crossVectors(f.up, f.normal), 0.4 * d);
       const m = new THREE.Matrix4().lookAt(pos, f.center, f.up);
       return { pos, quat: new THREE.Quaternion().setFromRotationMatrix(m), fov };
     }
@@ -124,7 +130,7 @@ export class Shots {
     cam.position.copy(this.pose.pos);
     cam.quaternion.copy(this.pose.quat);
     // A breath of life: the head never holds perfectly still
-    if (this.name !== 'epilogue' && !this.name.startsWith('monitor:')) {
+    if (this.name !== 'epilogue' && !this.name.startsWith('monitor:') && !this.name.startsWith('half:')) {
       cam.rotateY(0.004 * Math.sin(this.t * 0.37));
       cam.rotateX(0.003 * Math.sin(this.t * 0.51 + 1));
     }

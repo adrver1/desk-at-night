@@ -423,8 +423,10 @@ export async function loadControlRoom(renderer) {
   function showFeed(o) {
     const m = o.mesh.material, id = contentOf(o.name), feed = isFeed(id) ? feeds[id] : null;
     m.uniforms.uFeed.value = feed;
-    if (Boolean(m.defines.FEED) !== Boolean(feed)) {
+    const raw = Boolean(feed?.userData.raw);
+    if (Boolean(m.defines.FEED) !== Boolean(feed) || Boolean(m.defines.FEED_RAW) !== raw) {
       if (feed) m.defines.FEED = ''; else delete m.defines.FEED;
+      if (raw) m.defines.FEED_RAW = ''; else delete m.defines.FEED_RAW;
       m.needsUpdate = true;
     }
   }
@@ -550,11 +552,13 @@ export async function loadControlRoom(renderer) {
       if (o) { showFeed(o); if (o.tex) draw(o, 0); o.mesh.visible = isLive(name) || o === screens.focus; }
     },
     // Live camera pictures from cctv.js (id -> texture) and the cameras' gain:
-    // those screens show the picture with only rain, noise and caption drawn
+    // those screens show the picture with only rain, noise and caption drawn.
+    // A texture with userData.raw is shown as it is, without the cameras' gain
+    // (story mode's CtrlBuddy, drawn in 3D under his screen's picture)
     setFeeds(textures, gain) {
       Object.assign(feeds, textures);
-      gainSource = gain;
-      setFeeds(Object.keys(textures));
+      if (gain) gainSource = gain;
+      setFeeds(Object.keys(feeds));
       if (!screens) return;
       for (const o of screens.overlays.values()) { showFeed(o); if (o.tex) draw(o, 0); }
     },
@@ -599,8 +603,11 @@ function overlayMaterial(feedGain) {
         vec4 over = texture2D(uOver, vUv);
         vec3 col = over.rgb;
         #ifdef FEED
-          vec3 pic = texture2D(uFeed, vec2(vUv.x, 1.0 - vUv.y)).rgb * uFeedGain;  // render targets run bottom up
-          pic = pic / (1.0 + pic);
+          vec3 pic = texture2D(uFeed, vec2(vUv.x, 1.0 - vUv.y)).rgb;  // render targets run bottom up
+          #ifndef FEED_RAW
+            pic *= uFeedGain;   // a camera's picture: its exposure, and a soft shoulder
+            pic = pic / (1.0 + pic);
+          #endif
           col = mix(pic, over.rgb, over.a);
         #endif
         gl_FragColor = vec4(col * uColor, 1.0);
@@ -644,5 +651,5 @@ function faceFrame(mesh, from) {
   const center = O.clone().addScaledVector(U, 0.5).addScaledVector(V, 0.5);
   const normal = new THREE.Vector3().crossVectors(U, V).normalize();
   if (from && normal.dot(from.clone().sub(center)) < 0) normal.negate();
-  return { center, normal, up: V.clone().normalize().negate(), width: U.length(), height: V.length() };
+  return { center, normal, up: V.clone().normalize().negate(), width: U.length(), height: V.length(), at: (u, v) => O.clone().addScaledVector(U, u).addScaledVector(V, v) };
 }
