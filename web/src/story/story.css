@@ -296,14 +296,14 @@
 .nav-a .nav-fill { position: absolute; inset: 0 auto 0 0; background: var(--paper); transition: width 0.4s; }
 .nav-a .nav-ch.now { box-shadow: 0 0 0 1px var(--paper); }
 
-/* b: tabs under their acts */
+/* b: a box per chapter, its full name, dots for the beats */
 .nav-b .nav-ch { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 1px 6px; align-items: center; text-align: left;
   padding: 4px 6px; border-radius: 6px; background: #0007; border-top: 2px solid #ffffff22; }
 .nav-b .nav-ch:hover { background: #fff2; }
 .nav-b .nav-ch.done { border-top-color: #ffffff77; }
 .nav-b .nav-ch.now { border-top-color: var(--tungsten); background: #000a; color: #fff; }
-.nav-b .nav-key { font-weight: 600; color: var(--tungsten); }
-.nav-b .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-b .nav-key { font-weight: 600; color: var(--tungsten); align-self: start; }
+.nav-b .nav-label { line-height: 1.2; text-wrap: balance; }   /* full chapter names: they wrap rather than clip */
 .nav-b .nav-dots { grid-column: 1 / -1; display: flex; gap: 3px; flex-wrap: wrap; }
 .nav-b .nav-dot { width: 7px; height: 7px; border-radius: 50%; background: #ffffff40; }
 .nav-b .nav-dot.done { background: #ffffffaa; }

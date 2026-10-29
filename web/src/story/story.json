@@ -326,8 +326,8 @@
  "chats": {
   "plan": {
    "title": {
-    "no": "Forretningsplan-agent",
-    "en": "Business-plan agent"
+    "no": "CtrlBuddy · forretningsplan",
+    "en": "CtrlBuddy · business plan"
    },
    "who": "Per",
    "messages": [
@@ -361,7 +361,8 @@
     ]
    ],
    "faces": {
-    "me": "supervisor"
+    "me": "supervisor",
+    "ai": "ctrlbuddy"
    }
   },
   "slug": {
@@ -614,21 +615,6 @@
   }
  },
  "callouts": {
-  "t.plan": [
-   {
-    "target": "Wall3Screen",
-    "label": {
-     "no": "Forretningsplan-agent",
-     "en": "Business-plan agent"
-    },
-    "text": {
-     "no": "Per spør, agenten svarer på båndet",
-     "en": "Per asks, the agent answers on the band"
-    },
-    "x": 61,
-    "y": 38
-   }
-  ],
   "m.step": [
    {
     "target": "Desk0Mon2Screen",
@@ -801,7 +787,9 @@
   "h.g3",
   "y.steep",
   "b.forward",
-  "b.room"
+  "b.room",
+  "m.s1",
+  "m.step"
  ],
  "closing": {
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",

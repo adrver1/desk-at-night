@@ -26,7 +26,7 @@ export const S = {
   chats: {}, chatAt: {},           // messages shown per chat (content.js CHATS) and when the last came
   reports: 'story/reports/',       // where the reports' pictures and videos are
   videos: {},                      // report videos by file, with when they were last drawn (seen)
-  buddy: { look: 'splash', clickAt: -99 },   // CtrlBuddy's first appearance (buddy.js): how his screen looks, when he was clicked
+  buddy: { look: 'splash', who: 'buddy', clickAt: -99 },   // CtrlBuddy's first appearance (buddy.js): how his screen looks, when he was clicked
 };
 
 const C = {
@@ -487,6 +487,11 @@ function govDocs(ctx, w, h) {
 //   splash his own start screen, big in the middle
 //   chat   in the empty chat window that the click then starts
 // Adriaen picked splash (2026-10-29); the other two stay for ?buddylook=
+// Who appears (state buddyWho): the model, and the name on his start screen
+export const BUDDY_WHO = {
+  buddy: { model: 'control_buddy', name: () => 'CtrlBuddy', sub: () => T('Din assistent i kontrollrommet', 'Your control room assistant') },
+  scholar: { model: 'control_buddy_scholar', name: () => T('Forretningsplan-agent', 'Business-plan agent'), sub: () => T('Utkast, tall og kilder til planen', 'Drafts, figures and sources for the plan') },
+};
 export const BUDDY_LOOKS = {
   popup: { x: 0.8, y: 0.6, h: 0.5, bg: '#1d2a33' },
   splash: { x: 0.5, y: 0.55, h: 0.55, bg: '#16323a' },
@@ -519,8 +524,9 @@ function buddyScreen(ctx, w, h, t) {
   }
   if (look === 'splash') {
     // his own start screen: the picture is the 3D feed, with a title and a button over it
-    text(ctx, 'CtrlBuddy', w / 2, 46 * s, { px: 30 * s, weight: 700, color: C.bright, align: 'center' });
-    text(ctx, T('Din assistent i kontrollrommet', 'Your control room assistant'), w / 2, 68 * s, { px: 13 * s, color: '#9cc', align: 'center' });
+    const who = BUDDY_WHO[S.buddy.who] ?? BUDDY_WHO.buddy;
+    text(ctx, who.name(), w / 2, 46 * s, { px: 30 * s, weight: 700, color: C.bright, align: 'center' });
+    text(ctx, who.sub(), w / 2, 68 * s, { px: 13 * s, color: '#9cc', align: 'center' });
     const bw = 170 * s, bx = w / 2 - bw / 2, by = h - 70 * s;
     ctx.fillStyle = hi ? '#8ff0cf' : C.ai;
     ctx.beginPath(); ctx.roundRect(bx, by, bw, 34 * s, 17 * s); ctx.fill();

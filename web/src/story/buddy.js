@@ -13,11 +13,12 @@
 // State keys (content.js beats): buddy: 'splash' (Adriaen's pick, 2026-10-29)
 // | 'popup' | 'chat' shows him in that look on the chat screen while it shows
 // 'buddy'; curve: 'axes' | 'plot' shows the learning curve's axes, then the
-// curve too (two clicks). The step { buddy: 'click' } moves the pointer to him
-// and clicks.
+// curve too (two clicks); buddyWho: 'scholar' puts his team-mate there instead
+// (kept as an option). The step { buddy: 'click' } moves the
+// pointer to him and clicks.
 import * as THREE from 'three';
 import { loadModel } from './cast.js';
-import { S, BUDDY_LOOKS } from './storyScreens.js';
+import { S, BUDDY_LOOKS, BUDDY_WHO } from './storyScreens.js';
 import { T } from './lang.js';
 
 const smooth = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
@@ -74,27 +75,34 @@ export class Buddy {
   }
 
   async load() {
-    const gltf = await loadModel('control_buddy').catch((e) => { console.warn('buddy', e); return null; });
-    if (!gltf) return;
-    const p = gltf.scene;
-    p.rotation.y = Math.PI;   // the crew look down their -Z; he faces our camera on +Z
-    p.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
-    this.scene.add(p);
-    this.model = p;
-    this.mixer = new THREE.AnimationMixer(p);
-    const clip = THREE.AnimationClip.findByName(gltf.animations, 'idle');
-    if (clip) this.mixer.clipAction(clip).play();
-    this.bones = {};
-    p.traverse((o) => { if (o.isBone) this.bones[o.name] = o; });
-    p.updateMatrixWorld(true);
-    const box = new THREE.Box3().setFromObject(p);
-    this.size = box.getSize(new THREE.Vector3());
-    this.mid = box.getCenter(new THREE.Vector3());
+    this.agents = {};
+    await Promise.all(Object.entries(BUDDY_WHO).map(async ([who, { model }]) => {
+      const gltf = await loadModel(model).catch((e) => { console.warn('buddy', model, e); return null; });
+      if (!gltf) return;
+      const p = gltf.scene;
+      p.rotation.y = Math.PI;   // the crew look down their -Z; he faces our camera on +Z
+      p.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+      p.visible = false;
+      this.scene.add(p);
+      const mixer = new THREE.AnimationMixer(p);
+      const clip = THREE.AnimationClip.findByName(gltf.animations, 'idle');
+      if (clip) mixer.clipAction(clip).play();
+      const bones = {};
+      p.traverse((o) => { if (o.isBone) bones[o.name] = o; });
+      p.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(p);
+      this.agents[who] = { model: p, mixer, bones, size: box.getSize(new THREE.Vector3()), mid: box.getCenter(new THREE.Vector3()) };
+    }));
   }
+
+  // The agent on screen now (BUDDY_WHO): CtrlBuddy, or a team-mate
+  get agent() { return this.agents?.[S.buddy.who]; }
 
   // The story's state: his look on screen (or null), and the learning curve
   set(s) {
     const want = LOOK ?? s.buddy;
+    S.buddy.who = BUDDY_WHO[s.buddyWho] ? s.buddyWho : 'buddy';
+    for (const [who, a] of Object.entries(this.agents ?? {})) a.model.visible = who === S.buddy.who;
     const look = want && BUDDY_LOOKS[want] && s.screens?.[this.screen] === 'buddy' ? want : null;   // only while his screen shows him
     if (look !== this.look) {
       this.look = look;
@@ -134,12 +142,13 @@ export class Buddy {
 
   update(dt, now) {
     if (!this.look) return;
-    this.mixer?.update(dt);
-    if (this.model) {
+    const a = this.agent;
+    if (a) {
+      a.mixer.update(dt);
       // a little bob, a hop when he is clicked, and the wave until then
       const since = now - S.buddy.clickAt;
-      this.model.position.y = 0.02 * Math.sin(now * 2.1) + (since < 0.7 ? 0.12 * Math.sin(Math.PI * since / 0.7) : 0);
-      if (since > 0.7) this.wave(now);
+      a.model.position.y = 0.02 * Math.sin(now * 2.1) + (since < 0.7 ? 0.12 * Math.sin(Math.PI * since / 0.7) : 0);
+      if (since > 0.7) this.wave(a, now);
     }
     const c = this.click;
     if (c) {
@@ -156,11 +165,11 @@ export class Buddy {
   }
 
   // Right arm up and out, the forearm swinging side to side
-  wave(now) {
-    const b = this.bones, up = b.upper_armR ?? b['upper_arm.R'], fore = b.forearmR ?? b['forearm.R'], hand = b.handR ?? b['hand.R'];   // the loader drops the dots
+  wave({ model, bones: b }, now) {
+    const up = b.upper_armR ?? b['upper_arm.R'], fore = b.forearmR ?? b['forearm.R'], hand = b.handR ?? b['hand.R'];   // the loader drops the dots
     if (!up || !fore) return;
-    this.model.updateMatrixWorld(true);
-    const x = Math.sign(up.getWorldPosition(new THREE.Vector3()).x - this.model.position.x) || -1;   // his right, seen from the front
+    model.updateMatrixWorld(true);
+    const x = Math.sign(up.getWorldPosition(new THREE.Vector3()).x - model.position.x) || -1;   // his right, seen from the front
     const a = 0.45 * Math.sin(now * 8);
     aim(up, new THREE.Vector3(0.75 * x, 0.45, 0.25).normalize());
     aim(fore, new THREE.Vector3((Math.sin(a) + 0.1) * x, Math.cos(a), 0.15).normalize());
@@ -169,12 +178,13 @@ export class Buddy {
 
   // Draw him into his screen's feed, framed where his look puts him
   draw(renderer) {
-    if (!this.model || !this.frame) return;
+    const a = this.agent;
+    if (!a || !this.frame) return;
     const L = BUDDY_LOOKS[this.look], cam = this.camera, w = this.rt.width, h = this.rt.height;
     const fov = THREE.MathUtils.degToRad(cam.fov);
-    const d = this.size.y / L.h / (2 * Math.tan(fov / 2));
-    cam.position.set(this.mid.x, this.mid.y, this.mid.z + d);
-    cam.lookAt(this.mid);
+    const d = a.size.y / L.h / (2 * Math.tan(fov / 2));
+    cam.position.set(a.mid.x, a.mid.y, a.mid.z + d);
+    cam.lookAt(a.mid);
     cam.setViewOffset(w, h, (0.5 - L.x) * w, (0.5 - L.y) * h, w, h);
     const prev = renderer.getRenderTarget();
     renderer.setRenderTarget(this.rt);

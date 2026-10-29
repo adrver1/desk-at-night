@@ -70,6 +70,7 @@ export class Shots {
     const headOf = (who) => this.cast?.head(who);
     switch (name) {
       case 'desk': return this.look(this.seat, new THREE.Vector3(-0.85, 1.32, -3.6), 70);
+      case 'roomBand': return this.look(new THREE.Vector3(0.5, 1.55, 0.2), new THREE.Vector3(-0.9, 1.6, -3.2), 62);   // the band and the left desk with the operator at it, from behind
       case 'band': return this.look(new THREE.Vector3(-0.4, 1.38, -0.4), new THREE.Vector3(0, 1.8, -4), 62);
       case 'clock': return this.look(this.seat, this.clock, 26);
       case 'boat': {

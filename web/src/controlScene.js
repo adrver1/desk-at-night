@@ -394,6 +394,12 @@ export async function loadControlRoom(renderer) {
       for (const mesh of screens.meshes) {
         const geometry = sliceSlot(mesh.geometry, slot, meta.screens.canvas);
         if (!geometry) continue;
+        // lift it 2 mm off the glass: the polygon offset alone lost to the
+        // screen underneath close up, a triangle at a time (the camera's
+        // full zoom on a chat showed the atlas's older picture through half the quad)
+        if (!geometry.attributes.normal) geometry.computeVertexNormals();
+        const pos = geometry.attributes.position, nrm = geometry.attributes.normal;
+        for (let i = 0; i < pos.count; i++) pos.setXYZ(i, pos.getX(i) + nrm.getX(i) * 0.002, pos.getY(i) + nrm.getY(i) * 0.002, pos.getZ(i) + nrm.getZ(i) * 0.002);
         const mat = overlayMaterial(feedGain);
         o = { name, slot, mesh: new THREE.Mesh(geometry, mat), scale: 0, tex: null };
         o.mesh.visible = false; // until it has a texture and is wanted

@@ -504,6 +504,8 @@ const BLANK = Object.fromEntries(ALL_SCREENS.map((n) => [n, 'blank']));
 // Tomorrow's room: the supervisor's agent in the middle of the band with his plan on
 // either side, the graph at the ends; Adriaen's agent and the riser at his desk
 const TOMORROW_SCREENS = { Wall1Screen: 'graph', Wall2Screen: 'planChart', Wall3Screen: 'chatPlan', Wall4Screen: 'planChart', Wall5Screen: 'graph', Desk1Mon2Screen: 'chatSlug', Desk1Mon3Screen: 'riser' };
+// Per's own screen (the chat screen) during his business-plan chat: the agent first, then the chat
+const PLAN_SCREENS = (id) => ({ ...TOMORROW_SCREENS, [CHAT_SCREEN]: id });
 const TOMORROW_CAST = { supervisor: { at: 'desk0typing' }, operator: { at: 'desk2typing' } };
 export const CLOSING = tx(STORY.closing);
 
@@ -523,11 +525,15 @@ const SHORT_CHAPTERS = [
           { move: 'operator', walk: PATHS.desk2ToCoffee, to: 'coffee' }, { wait: 1.6 }, { set: { shot: 'wideRoom' } }, { idle: 'operator' }],
         end: { shot: 'wideRoom', cast: { supervisor: { at: 'desk0typing' }, operator: { at: 'coffee' } } },
         notes: 'Runs by itself. Tomorrow\'s control room: Per comes in, turns his chair round and sits down. Good morning; is the coffee fresh? Ola goes to put on a new pot.' },
-      { id: 't.plan', auto: true, set: { shot: 'planBand' },
-        do: [{ wait: 0.4 }, { chat: 'plan' }, { say: 't.plan1' }, { chat: 'plan' }, { set: { shot: 'monitor:Wall3Screen' } }, { wait: 0.6 }, { say: 't.ai1' }, { wait: 0.2 },
-          { set: { shot: 'supervisor' } }, { chat: 'plan' }, { say: 't.plan2' }, { chat: 'plan' }, { set: { shot: 'monitor:Wall3Screen' } }, { wait: 0.6 }, { say: 't.ai2' }, { set: { shot: 'band' } }, { wait: 0.8 }],
-        end: { shot: 'band', chats: { plan: 4, slug: 0 } },
-        notes: 'Per works on the business plan with his agent on the wall band; the agent answers out loud in its robot voice. The plan on either side closes its gap once the drafts are in.' },
+      // (Adriaen, 2026-10-29) like CtrlBuddy's first appearance: Per and his screen, the agent appears there,
+      // the pointer clicks it and the chat opens on that screen at full zoom. The agent is CtrlBuddy here too (Adriaen's pick)
+      { id: 't.plan', auto: true, set: { shot: 'buddyDesk' },
+        do: [{ wait: 0.8 }, { set: { screens: PLAN_SCREENS('buddy'), buddy: 'splash' } }, { wait: 1.6 }, { buddy: 'click' },
+          { set: { screens: PLAN_SCREENS('chatPlan'), shot: `monitor:${CHAT_SCREEN}` } }, { wait: 0.4 },
+          { chat: 'plan' }, { say: 't.plan1' }, { chat: 'plan' }, { wait: 0.6 }, { say: 't.ai1' }, { wait: 0.2 },
+          { set: { shot: 'supervisor' } }, { chat: 'plan' }, { say: 't.plan2' }, { chat: 'plan' }, { set: { shot: `monitor:${CHAT_SCREEN}` } }, { wait: 0.6 }, { say: 't.ai2' }, { set: { shot: 'band' } }, { wait: 0.8 }],
+        end: { shot: 'band', screens: PLAN_SCREENS('chatPlan'), chats: { plan: 4, slug: 0 } },
+        notes: 'Per works on the business plan with his agent, on his own screen; the agent answers out loud in its robot voice. The plan on either side closes its gap once the drafts are in.' },
       { id: 't.coffee', auto: true, set: { shot: 'wideRoom', chats: { plan: 4, slug: 0 } },
         do: [{ move: 'operator', carry: 'jug' }, { move: 'operator', walk: PATHS.coffeeToDesk0 }, { wait: 4.4 }, { set: { shot: 'pour' } }, { idle: 'operator' },
           { move: 'operator', pour: 'S0Mug' }, { wait: 2.2 }, { say: 't.gm5' }, { idle: 'operator' },
@@ -558,7 +564,7 @@ const SHORT_CHAPTERS = [
         notes: CEO_MEET ? 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the Føniks steps, the titles fade as it closes in. The CEO comes out as you climb the steps, welcomes you to Nordhav Energi, you shake hands, and go in together. Your first week on the job.'
           : 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the fountain, the titles fade as it closes in, and you walk up the steps and in at the Føniks door. Your first week on the job. (?ceo=1: the CEO welcomes you at the steps.)' },
       { id: 'y.steep', set: { overlay: 'slide:y-02' }, notes: 'Onboarding is steep. TODO(Adriaen): your talking points.' },
-      { id: 'y.room', set: { overlay: null, place: null, shot: 'band', screens: null }, notes: 'The room as it was to a newcomer: screens full of things you have yet to learn.' },
+      { id: 'y.room', set: { overlay: null, place: null, shot: 'roomBand', screens: null, cast: { operator: { at: 'desk0' } } }, notes: 'The room as it was to a newcomer: screens full of things you have yet to learn.' },
     ],
   },
   {
@@ -584,7 +590,7 @@ const SHORT_CHAPTERS = [
       { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
       { id: 'm.buddy1', set: { curve: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
         notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
-      { id: 'm.buddy2', set: { shot: 'monitor:Desk0Mon1Screen' }, do: [{ wait: 0.8 }, { buddy: 'click' }],
+      { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen' }, do: [{ wait: 0.8 }, { buddy: 'click' }],
         notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
       { id: 'm.riser', set: { overlay: null, shot: 'monitor:Desk0Mon3Screen', tool: 'riser', screens: { Desk0Mon3Screen: 'riser' } }, notes: 'The riser simulator, open loop: it fills and blows through.' },
       { id: 'm.antislug', set: { tool: 'antiSlug', screens: { Desk0Mon3Screen: 'antiSlug' } }, notes: 'Anti-slug control tuned on the model. Seeing is believing.' },
