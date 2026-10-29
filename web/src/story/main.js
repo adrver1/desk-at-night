@@ -160,6 +160,7 @@ function apply(s, { instant = false } = {}) {
   S.tool = s.tool;
   // Chats: as many messages as the state says, the newest already typed
   for (const [id, n] of Object.entries(s.chats ?? {})) if (S.chats[id] !== n) { S.chats[id] = n; S.chatAt[id] = -99; }
+  game.room?.redrawNow?.();   // the screens show this state from the next frame on, not a quarter second late
   // Somewhere else than the control room (one year ago: Trondheim)
   // (its own canvas covers the room, so the room isn't drawn behind it)
   if (s.place === 'trondheim') { if (!trondheim.on) trondheim.show(); game.hooks.hidden = true; }
@@ -217,6 +218,7 @@ async function enter(c, i, { instant = false, skipDo = false, at = 0 } = {}) {
   showHud();
   ui.notes(b.notes, notesOn);
   ui.callouts(b.callouts);
+  if (CHAPTERS[c].key === 2) trondheim.prepare();   // tomorrow: Trondheim loads and compiles now, ready for after the rewind
   running = true; waiting = false;
   if (!skipDo) {
     // at: start that many seconds in (the editor's timeline): the steps before it happen at once
@@ -293,6 +295,7 @@ async function run(step, my) {
     state.chats = { ...state.chats, [id]: n };
     const wait = typed(id, n);
     S.chats[id] = n; S.chatAt[id] = S.now + wait;
+    game.room?.redrawNow?.();
     return sleep(0.3 + wait);
   }
   if (step.card !== undefined) { ui.title(step.card); return; }

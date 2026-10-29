@@ -575,6 +575,12 @@ export async function loadControlRoom(renderer) {
       return shown;
     },
     // The camera on the screen shown sharp, if it shows one (for cctv.js)
+    // Redraw the live screens on the next frame, whatever their rate: what
+    // they show has just changed (a chat's messages), so the old picture
+    // mustn't stay up for a quarter of a second
+    redrawNow() {
+      if (screens) screens.drawn = screens.focusDrawn = -Infinity;
+    },
     focusedFeed() {
       const id = screens?.focus && contentOf(screens.focus.name);
       return id && isFeed(id) ? id : null;

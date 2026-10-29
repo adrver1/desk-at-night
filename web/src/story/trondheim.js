@@ -146,24 +146,37 @@ export class Trondheim {
     return this.loaded;
   }
 
-  async show() {
-    if (this.on) return;
-    this.on = true;
+  // Load the scene and compile its shaders ahead (main.js, a while before the
+  // rewind), so show() has nothing to wait for
+  async prepare() {
     await this.load();
-    if (!this.on) return;
     if (!this.renderer) {
       this.renderer = new THREE.WebGLRenderer({ antialias: true });
       this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
       this.renderer.outputColorSpace = THREE.SRGBColorSpace;
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
       this.renderer.domElement.className = 'trondheim';
+      if (this.scene && this.camera) this.renderer.compile(this.scene, this.camera);
     }
-    this.host.insertBefore(this.renderer.domElement, this.host.querySelector('.tint'));   // over the game, under the story's overlays
+  }
+
+  async show() {
+    if (this.on) return;
+    this.on = true;
+    // Black until its first frame: the room behind stops drawing (hooks.hidden)
+    // and would otherwise show its last frame while this loads (Adriaen, 2026-10-29)
+    this.cover ??= Object.assign(document.createElement('div'), { className: 'trondheim-cover' });
+    this.host.insertBefore(this.cover, this.host.querySelector('.tint'));
+    await this.prepare();
+    if (!this.on) return;
+    this.host.insertBefore(this.renderer.domElement, this.cover);
     this.t0 = performance.now();
     this.last = this.t0;
     this.tIn = null;
     for (const p of [this.me, this.ceo]) if (p) p.mouth = null;
     this.place(0);
+    this.frame(this.t0);   // drawn now, in the same task that puts the canvas up
+    this.cover.remove();
     const loop = (now) => {
       if (!this.on) return;
       this.frame(now);
@@ -177,6 +190,7 @@ export class Trondheim {
     this.on = false;
     cancelAnimationFrame(this.raf);
     this.renderer?.domElement.remove();
+    this.cover?.remove();
     for (const w of this.waits ?? []) w.r();
     this.waits = [];
   }
