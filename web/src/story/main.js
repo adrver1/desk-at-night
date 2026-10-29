@@ -300,12 +300,16 @@ async function run(step, my) {
     return sleep(0.6);
   }
   if (step.chat) {
-    const id = step.chat, n = (state.chats?.[id] ?? 0) + 1;
+    // our own message is typed out under the line that follows (spoken as it
+    // is typed, Adriaen 2026-10-29); the next message waits for the typing
+    const id = step.chat, left = (S.chatAt[id] ?? 0) - S.now;
+    if (left > 0) { await sleep(left); if (my !== token) return; }
+    const n = (state.chats?.[id] ?? 0) + 1;
     state.chats = { ...state.chats, [id]: n };
     const wait = typed(id, n);
     S.chats[id] = n; S.chatAt[id] = S.now + wait;
     game.room?.redrawNow?.();
-    return sleep(0.3 + wait);
+    return sleep(0.3);
   }
   if (step.card !== undefined) { ui.title(step.card); return; }
   if (step.rewind) return rewind(step.rewind, my, -1);

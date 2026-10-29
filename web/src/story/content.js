@@ -525,8 +525,9 @@ const SHORT_CHAPTERS = [
         do: [{ wait: 0.5 }, { move: 'supervisor', walk: PATHS.doorToDesk0 }, { wait: 1.6 }, { say: 't.gm1' }, { say: 't.gm2' },
           { idle: 'supervisor' }, { move: 'supervisor', sit: 0, then: 'typing', to: 'desk0typing' }, { wait: 1.2 }, { say: 't.gm3' }, { idle: 'supervisor' },
           { set: { shot: 'pair' } }, { at: 2.6, move: 'operator', stand: 1, toward: [4, 3.6] }, { say: 't.gm4' },
-          { move: 'operator', walk: PATHS.desk2ToCoffee, to: 'coffee' }, { wait: 1.6 }, { set: { shot: 'wideRoom' } }, { idle: 'operator' }],
-        end: { shot: 'wideRoom', cast: { supervisor: { at: 'desk0typing' }, operator: { at: 'coffee' } } },
+          // (Adriaen, 2026-10-29) he walks on out of the picture while the camera already closes in on Per for t.plan
+          { move: 'operator', walk: PATHS.desk2ToCoffee, to: 'coffee' }, { wait: 1.2 }, { set: { shot: 'buddyDesk' } }, { wait: 2.2 }],
+        end: { shot: 'buddyDesk', cast: { supervisor: { at: 'desk0typing' }, operator: { at: 'coffee' } } },
         notes: 'Runs by itself. Tomorrow\'s control room: Per comes in, turns his chair round and sits down. Good morning; is the coffee fresh? Ola goes to put on a new pot.' },
       // (Adriaen, 2026-10-29) like CtrlBuddy's first appearance: Per and his screen, the agent appears there,
       // the pointer clicks it and the chat opens on that screen at full zoom. It is the CtrlBuddy model, but
