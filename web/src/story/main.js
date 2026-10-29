@@ -189,7 +189,7 @@ function setTime(h) {
 
 // ---------------------------------------------------------------- beats
 
-async function enter(c, i, { instant = false, skipDo = false } = {}) {
+async function enter(c, i, { instant = false, skipDo = false, at = 0 } = {}) {
   token++;
   const my = token;
   sound.cut();
@@ -219,11 +219,16 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
   ui.callouts(b.callouts);
   running = true; waiting = false;
   if (!skipDo) {
+    // at: start that many seconds in (the editor's timeline): the steps before it happen at once
+    let clock = 0, rushing = at > 0;
     for (const step of b.do ?? []) {
       if (my !== token) return;
+      if (rushing && clock < at && (step.at === undefined || clock + step.at < at)) { clock += rush(step, my); continue; }
+      if (rushing) { rushing = false; cast?.rush(game.camera, S.now); }
       if (step.at !== undefined) { run(step, my); continue; }  // timed steps run alongside
       await run(step, my);
     }
+    if (rushing) cast?.rush(game.camera, S.now);
   } else if (b.end) apply(merge(state, b.end), { instant: true });
   if (skipDo && b.chat) chatTo(b.chat, CHATS[b.chat].messages.length, false);   // stepped back into: all of it
   if (my !== token) return;
@@ -233,6 +238,34 @@ async function enter(c, i, { instant = false, skipDo = false } = {}) {
 }
 
 const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
+
+// A step done at once, for a start partway into a beat; returns the time it
+// takes in the editor's reckoning (scripts/story-editor/seed.py), which
+// places the timeline's moments
+function rush(step, my) {
+  if (step.say) return (sound.index[step.say]?.dur ?? 2.5) + 0.3;
+  if (step.wait) return step.wait;
+  if (step.idle) return 2.5;
+  if (step.rewind || step.forward) {
+    setTime((state.time ?? 12) + (step.rewind ? -72 : 72));
+    if (step.rewind && GRADES && lastGrade !== 5) { host.classList.remove(`grade-${lastGrade}`); host.classList.add('grade-5'); lastGrade = 5; }
+    return step.rewind || step.forward;
+  }
+  if (step.torvet) return { meet: 4, shake: 2, in: 3 }[step.torvet] ?? 2;
+  if (step.sound) return 0;
+  if (step.move) { cast?.move(step.move, step); return 0; }
+  if (step.set) { apply(merge(state, step.set), { instant: true }); return 0; }
+  if (step.chat) {
+    const id = step.chat, n = (state.chats?.[id] ?? 0) + 1;
+    state.chats = { ...state.chats, [id]: n };
+    S.chats[id] = n; S.chatAt[id] = -99;
+    return CHATS[id].messages[n - 1]?.[0] === 'ai' ? 1.2 : 0.2;
+  }
+  if (step.buddy === 'click') { buddy?.clicked(); return 0; }
+  if (step.clock) { setTime(step.clock[1]); return 0; }
+  run(step, my);   // the rest (cards, notices, the graph, ticks) are quick
+  return 0;
+}
 
 async function run(step, my) {
   if (step.at !== undefined) { await sleep(step.at); if (my !== token) return; }
@@ -663,7 +696,7 @@ game.ready.then(async () => {
 }).catch((e) => { go.textContent = `Could not load: ${e.message}`; console.error(e); });
 sound.loadIndex();
 
-let wantBeat = null;   // __story.goto before Start
+let wantBeat = null, wantAt = 0;   // __story.goto before Start
 function start() {
   if (!begin.parentNode) return;
   if (go.disabled && !q.has('chapter')) {
@@ -684,7 +717,7 @@ function start() {
   // ?beat=<beat id> (the story script editor's ▶ links): that beat, wherever it is now
   const want = wantBeat ?? q.get('beat');
   if (want) CHAPTERS.forEach((ch, ci) => { const bi = ch.beats.findIndex((b) => b.id === want); if (bi >= 0) { chapter = ci; beat = bi; } });
-  if (CHAPTERS[chapter].prologue || game.room) enter(chapter, beat, { instant: true });
+  if (CHAPTERS[chapter].prologue || game.room) enter(chapter, beat, { instant: true, at: wantBeat ? wantAt : 0 });
   if (q.get('mode') === 'free') game.ready.then(() => setTimeout(toggleFree, 300));
 }
 
@@ -692,11 +725,12 @@ function start() {
 window.__story = {
   start, next, back, override: applyOverrides,
   // the story editor's live stage: play a beat by its id, with its moves and lines
-  goto: (id) => {
+  // (at: seconds into it, as the editor's timeline places its moments)
+  goto: (id, { at = 0 } = {}) => {
     const ci = CHAPTERS.findIndex((ch) => ch.beats.some((b) => b.id === id));
     if (ci < 0) return false;
-    if (begin.parentNode) { wantBeat = id; return true; }   // Start (a tap in the game, so sound may play) goes there
-    game.ready.then(() => enter(ci, CHAPTERS[ci].beats.findIndex((b) => b.id === id)));
+    if (begin.parentNode) { wantBeat = id; wantAt = at; return true; }   // Start (a tap in the game, so sound may play) goes there
+    game.ready.then(() => enter(ci, CHAPTERS[ci].beats.findIndex((b) => b.id === id), { at }));
     return true;
   },
   enter: (key, i = 0, o) => enter(CHAPTERS.findIndex((ch) => ch.key === key), i, o),

@@ -93,5 +93,7 @@ this after each sync that changes the game.
 The editor talks to the game through `window.__story` (same origin):
 `override()` hands it the beat's wording as edited (lines, chat messages,
 text slides, presenter notes, pointers) and `goto(id)` plays the beat; it
-follows the game when a beat moves on by itself or on Space in the game. New
+follows the game when a beat moves on by itself or on Space in the game. With Live on, clicking a line, chat message, camera cue or person's move
+on the timeline plays its beat from that moment (`goto(id, { at })`): the
+steps before it happen at once, timed the way `seed.py` places them. New
 beats, order, timing and hidden beats need a sync first.

@@ -457,7 +457,15 @@ function timeline(scroll) {
   tl.innerHTML = ph + row('Chapter', rows.scene) + row('Beat', rows.beat, 1) + row('Slides', rows.slide) + row('Camera', rows.cam) + row('Spoken', rows.talk) + row('Chat', rows.chat) + row('People', rows.people) + row('Pointers', rows.ptr);
   if (scroll && p) { const sc = document.getElementById('tlscroll'); const want = p.x + 74 - sc.clientWidth / 3; if (p.x + 74 < sc.scrollLeft + 74 || p.x + p.w + 74 > sc.scrollLeft + sc.clientWidth) sc.scrollTo({ left: Math.max(0, want), behavior: 'smooth' }); }
 }
-document.getElementById('tl').addEventListener('click', (e) => { const g = e.target.closest('[data-go]'); if (g) { go(g.dataset.go, g.dataset.gm != null ? +g.dataset.gm : -1); if (scrollY > 200) scrollTo({ top: 0, behavior: 'smooth' }); } });
+document.getElementById('tl').addEventListener('click', (e) => { const g = e.target.closest('[data-go]'); if (g) { const m = g.dataset.gm != null ? +g.dataset.gm : -1; liveSeek(g.dataset.go, m); go(g.dataset.go, m); if (scrollY > 200) scrollTo({ top: 0, behavior: 'smooth' }); } });
+// Live: a timeline element plays its beat from that element's moment (a line, chat message, camera cue, person's move), the rest from the beat's start
+function liveSeek(key, m) {
+  const b = beats.find((x) => x._key === key), g = live && game();
+  if (!b || b.hidden || !g || !liveBox) return;
+  const at = m >= 0 ? Math.max(0, (b.items?.[m]?.t ?? 0) - 0.05) : 0;
+  liveBeat = b.id;   // so liveShow doesn't start it again from the top
+  Promise.resolve(g.override(overridesFor(b))).then(() => { if (!g.goto(b.id, { at })) liveMiss = b.id; });
+}
 
 // ------------------------------------------------------------ writes
 async function saveBeat(b) {

@@ -245,6 +245,11 @@ export class Cast {
     p.queue.push(m);
     if (m.to) p.atAfter = m.to;
   }
+  // Play every queued move to its end at once (a start partway into a beat)
+  rush(camera, now) {
+    const busy = () => Object.values(this.people).some((p) => p.root.visible && (p.task || p.queue.length));
+    for (let i = 0; i < 1200 && busy(); i++) this.update(0.05, camera, now);
+  }
   // Resolves once everyone named has finished their moves
   idle(...whos) {
     return Promise.all(whos.map((who) => {
