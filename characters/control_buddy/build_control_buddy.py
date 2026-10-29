@@ -1,8 +1,8 @@
 """
 control_buddy: CtrlBuddy, the AI agent mascot from Adriaen's talk, as a
 low-poly robot. A tall domed head with ear bolts, wide dark shades under
-frowning brows, a big triangle nose and a flat mouth, short flared sleeves over the
-shoulders, a grey tabard with a name badge, and segmented arms with
+frowning brows, a big triangle nose and a flat mouth, short sleeves pointing out over
+the shoulders, a grey tabard with a name badge, and segmented arms with
 joint rings. Its team-mates share the body and swap the badge and hat:
 the Scholar (COMPILER, mortarboard and bow tie) and the Nurse (LINTER,
 nurse cap and a first-aid patch).
@@ -32,9 +32,9 @@ from mathutils import Quaternion, Vector  # noqa: E402
 
 Mesh, X, Y, Z = base.Mesh, base.X, base.Y, base.Z
 FORM = "hover"
-# What covers the shoulders: "sleeves" (short flared sleeves of the tabard
-# round the top of each arm, as on the presentation pictures; they follow
-# the arm) or "flaps" (the earlier collar wedges, fixed to the chest)
+# What covers the shoulders: "sleeves" (short sleeves of the tabard pointing
+# straight out sideways, as on the presentation pictures; part of the torso)
+# or "flaps" (the earlier collar wedges)
 SHOULDERS = "sleeves"
 FORMS, ROLES = ("walker", "hover", "desk"), ("buddy", "scholar", "nurse")
 DESK_SCALE, DESK_HEAD = 0.3, 1.6
@@ -157,13 +157,20 @@ def head(role):
         m.bar((0, 0, 1.902), (0.14, 0.03, 1.902), 0.004, "gold", "hat")
         m.bar((0.14, 0.03, 1.902), (0.15, 0.04, 1.80), 0.006, "gold", "hat")
     elif role == "nurse":
-        # nurse cap: a short folded band around the dome, a red cross on front
-        m.tube([(top - 0.025, 0.110, 0.102, 0.004, "hat"), (top + 0.045, 0.095, 0.090, 0.008, "hat")],
-               angles=BOX8, swatch="white", cap_start=False)
-        cy, cz = 0.104, top + 0.012
-        quad_y(m, -0.008, 0.008, cz - 0.022, cz + 0.022, cy, "signal_red", "hat")
-        quad_y(m, -0.022, -0.008, cz - 0.008, cz + 0.008, cy, "signal_red", "hat")
-        quad_y(m, 0.008, 0.022, cz - 0.008, cz + 0.008, cy, "signal_red", "hat")
+        # nurse cap as drawn: perched on the dome, flaring wider towards
+        # its flat top, with a red cross on the slanted front
+        z0, z1 = 1.792, 1.905
+        lo, hi = (0.106, 0.098), (0.130, 0.108)
+        box_pts = [(sx * lo[0], sy * lo[1], z0) for sx in (-1, 1) for sy in (-1, 1)]
+        box_pts += [(sx * hi[0], sy * hi[1], z1) for sx in (-1, 1) for sy in (-1, 1)]
+        m.hull(box_pts, "white", "hat")
+
+        def front(x, z):  # a point just proud of the cap's slanted front
+            t = (z - z0) / (z1 - z0)
+            return (x, lo[1] + (hi[1] - lo[1]) * t + 0.002, z)
+        cz, a1, a2 = 1.852, 0.009, 0.030
+        for x0, x1, za, zb in ((-a1, a1, cz - a2, cz + a2), (-a2, -a1, cz - a1, cz + a1), (a1, a2, cz - a1, cz + a1)):
+            m.face([front(x0, za), front(x0, zb), front(x1, zb), front(x1, za)], "signal_red", "hat")
     return m
 
 
@@ -183,6 +190,9 @@ def torso(role, form):
                 flap += [(sd * 0.062, y * 0.80, 1.425), (sd * 0.062, y * 0.80, 1.395),
                          (sd * TABARD_W, y * 0.9, 1.262), (sd * 0.300, y * 0.45, 1.315), (sd * 0.290, y * 0.45, 1.290)]
             m.hull(flap, COLLAR, "collar")
+    if SHOULDERS == "sleeves":
+        for sd in (1, -1):
+            m.extend(sleeve(sd))
     # tabard: a flat white panel front and back with a black name badge
     front = 0.118
     bottom = TABARD_BOTTOM if form == "walker" else 0.92
@@ -191,20 +201,48 @@ def torso(role, form):
         y1 = side * (front + 0.014)
         box(m, (-TABARD_W, min(y0, y1), bottom), (TABARD_W, max(y0, y1), TABARD_TOP), TABARD, "tabard")
     fy = front + 0.0145
-    bw = 0.205 if role == "buddy" else 0.19
-    quad_y(m, -bw / 2 - 0.008, bw / 2 + 0.008, BADGE_Z - 0.028, BADGE_Z + 0.028, fy, INK, "badge")
-    quad_y(m, -bw / 2, bw / 2, BADGE_Z - 0.022, BADGE_Z + 0.022, fy + 0.0015, "white", "badge")
-    text(m, BADGE[role], 0, BADGE_Z, 0.026, fy + 0.003)
-    if role == "nurse":  # first-aid patch at the bottom right
-        quad_y(m, 0.040, 0.112, 0.92, 0.99, fy, INK, "badge")
-        quad_y(m, 0.044, 0.108, 0.924, 0.986, fy + 0.0015, "white", "badge")
-        quad_y(m, 0.071, 0.081, 0.932, 0.978, fy + 0.003, "signal_red", "badge")
-        quad_y(m, 0.052, 0.100, 0.950, 0.960, fy + 0.003, "signal_red", "badge")
+    bw = {"buddy": 0.205, "scholar": 0.19, "nurse": 0.14}[role]
+    # the Linter wears scrubs: a V-neck, the badge off to its right (the
+    # viewer's left) under the V, and a first-aid pocket on the other side
+    bx, bz = (0.048, 1.262) if role == "nurse" else (0.0, BADGE_Z)
+    quad_y(m, bx - bw / 2 - 0.008, bx + bw / 2 + 0.008, bz - 0.028, bz + 0.028, fy, INK, "badge")
+    quad_y(m, bx - bw / 2, bx + bw / 2, bz - 0.022, bz + 0.022, fy + 0.0015, "white", "badge")
+    text(m, BADGE[role], bx, bz, 0.026, fy + 0.003)
+    if role == "nurse":
+        m.face([(0.0, fy, 1.312), (-0.062, fy, TABARD_TOP), (0.062, fy, TABARD_TOP)], NOSE, "tabard")
+        px0, px1, pz0, pz1 = -0.118, -0.042, 1.168, 1.258    # first-aid pocket
+        quad_y(m, px0, px1, pz0, pz1, fy, INK, "badge")
+        quad_y(m, px0 + 0.005, px1 - 0.005, pz0 + 0.005, pz1 - 0.005, fy + 0.0015, "white", "badge")
+        cx, cz = (px0 + px1) / 2, (pz0 + pz1) / 2
+        quad_y(m, cx - 0.007, cx + 0.007, cz - 0.026, cz + 0.026, fy + 0.003, "signal_red", "badge")
+        quad_y(m, cx - 0.026, cx + 0.026, cz - 0.007, cz + 0.007, fy + 0.003, "signal_red", "badge")
     if role == "scholar":  # bow tie at the collar
         m.hull([(0, 0.112, 1.385), (0.055, 0.118, 1.415), (0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
         m.hull([(0, 0.112, 1.385), (-0.055, 0.118, 1.415), (-0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
         box(m, (-0.012, 0.115, 1.373), (0.012, 0.130, 1.397), INK, "bowtie")
     return m
+
+
+def sleeve(side):
+    """Short sleeve of the tabard, part of the torso (it follows the chest,
+    not the arm). As drawn it points straight out sideways: its top runs
+    level from the neckline to a point past the shoulder, and its opening
+    is cut at a slant back in to the armpit, where the arm comes out."""
+    u, v, w = -Z, Y, X          # u down, v forward, w out along the shoulder
+    o = Vector((0.0, 0.0, 1.335))
+    angles = [math.radians(a) for a in range(0, 360, 45)]
+
+    def ring(t_mid, t_slant, ru, rv, flare, shrink=1.0):
+        pts = []
+        for a in angles:
+            top = max(0.0, -math.cos(a))           # 1 on top
+            t = t_mid - t_slant * math.cos(a)
+            k = shrink * (1 + flare * top ** 2)
+            pts.append(o + w * t + u * (ru * k * math.cos(a)) + v * (rv * k * math.sin(a)))
+        return pts
+    m = Mesh().loft([ring(0.10, 0.0, 0.075, 0.105, 0.0), ring(0.255, 0.050, 0.085, 0.112, 0.15),
+                     ring(0.250, 0.047, 0.085, 0.112, 0.15, shrink=0.75)], COLLAR, "sleeve")
+    return m if side > 0 else m.mirrored()
 
 
 def arm(side):
@@ -217,24 +255,6 @@ def arm(side):
            axes=(u, v, w), angles=base.HEX6, swatch=METAL)
     m.tube([(0.265, 0.058, 0.058, 0, "forearm"), (0.465, 0.052, 0.052, 0, "forearm")], origin=o,
            axes=(u, v, w), angles=base.HEX6, swatch=METAL)
-    if SHOULDERS == "sleeves":
-        # short sleeve flaring out from the shoulder, its open end turned
-        # in to a lip so it reads as cloth with an arm inside, not a cone
-        # As drawn, the opening is cut at a slant: long over the top of the
-        # arm, where it flares to a point sticking up and out, and short
-        # under the armpit. u points from the arm's top towards the armpit.
-        angles = [math.radians(a) for a in range(0, 360, 45)]
-
-        def ring(t_mid, t_slant, r, flare, shrink=1.0):
-            pts = []
-            for a in angles:
-                top = max(0.0, -math.cos(a))          # 1 on top of the arm
-                t = t_mid - t_slant * math.cos(a)
-                rr = (r + flare * top ** 2) * shrink
-                pts.append(o + w * t + u * (rr * math.cos(a)) + v * (rr * math.sin(a)))
-            return pts
-        m.loft([ring(-0.06, 0.0, 0.082, 0.0), ring(0.09, 0.075, 0.090, 0.045),
-                ring(0.084, 0.072, 0.090, 0.045, shrink=0.72)], COLLAR, "sleeve")
     for t, r, reg in ((0.25, 0.074, "elbow"), (0.475, 0.064, "wrist")):
         m.tube([(t - 0.018, r, r, 0, reg), (t + 0.018, r, r, 0, reg)], origin=o, axes=(u, v, w),
                angles=base.HEX6, swatch=DARK)
@@ -289,14 +309,14 @@ def puck():
 
 
 # --------------------------------------------------------------------- rig
-ARM_PARTS = {"sleeve", "upper_arm", "elbow", "forearm", "wrist", "hand"}
+ARM_PARTS = {"upper_arm", "elbow", "forearm", "wrist", "hand"}
 
 
 def bone_for(region, co, form):
     """Each vertex follows exactly one bone."""
     tag = "R" if co.x > 0 else "L"
     if region in ARM_PARTS:
-        if region in ("upper_arm", "sleeve"):
+        if region == "upper_arm":
             return f"upper_arm.{tag}"
         return f"hand.{tag}" if region == "hand" else f"forearm.{tag}"
     if region in ("thigh",):
