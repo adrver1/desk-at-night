@@ -292,6 +292,7 @@ async function run(step, my) {
   if (step.torvet) return trondheim.reach(step.torvet);   // Trondheim's own timeline: 'meet' waits, 'in' goes
   if (step.set) return apply(merge(state, step.set));
   if (step.sound === 'ring') { sound.ring(2); return; }
+  if (step.sound === 'grieg') { sound.ringGrieg(step.times ?? 2); return; }   // two rings: 5.1 s
   // CtrlBuddy's first appearance: the mouse pointer goes to him and clicks
   if (step.buddy === 'click') return buddy?.clickHim(() => sound.click());
   if (step.sound === 'alarmShort') { sound.startAlarm(3, 0.06); setTimeout(() => sound.stopAlarm(), 5000); return; }

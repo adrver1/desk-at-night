@@ -19,6 +19,12 @@ const ROTOR = {
   outside: { rate: 22, depth: 0.85, sharp: 8, cutoff: 1500, noise: 0.8, thump: 0.6, tailHz: 105, tail: 0.05, whineHz: 1350, whine: 0.006 },
 };
 
+// The ringtone's tune: semitones from B, and lengths (s). B C# D E F# D F#,
+// F D F, E C E: the theme's first bars, quick
+const Q = 0.105, L = 0.27;
+const GRIEG = [[0, Q], [2, Q], [3, Q], [5, Q], [7, Q], [3, Q], [7, L], [6, Q], [3, Q], [6, L], [5, Q], [1, Q], [5, L]];
+const GRIEG_GAP = 0.7, GRIEG_LEN = GRIEG.reduce((a, [, d]) => a + d, 0) + GRIEG_GAP;
+
 export class Sound {
   constructor() {
     this.ctx = null;
@@ -165,6 +171,28 @@ export class Sound {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     for (let k = 0; k < times; k++) for (const f of [440, 480]) this.tone(f, t + k * 1.2, 0.8, 0.035);
+  }
+
+  // A mobile ringing with the opening of Grieg's "In the Hall of the Mountain
+  // King" (Adriaen, 2026-10-29: the neighbouring platform's call), sped up and
+  // played through a small phone speaker. Returns its length (s).
+  ringGrieg(times = 2) {
+    if (!this.ctx) return GRIEG_LEN * times;
+    const ctx = this.ctx, spk = ctx.createBiquadFilter(), g = ctx.createGain();
+    spk.type = 'bandpass'; spk.frequency.value = 1500; spk.Q.value = 0.8;
+    g.gain.value = 1;
+    spk.connect(g).connect(this.out);
+    let t = ctx.currentTime + 0.05;
+    for (let k = 0; k < times; k++) {
+      for (const [n, d] of GRIEG) {
+        const f = 987.77 * 2 ** (n / 12);
+        this.tone(f, t, d * 0.85, 0.05, 'square', spk);
+        this.tone(f * 2, t, d * 0.6, 0.012, 'sine', spk);
+        t += d;
+      }
+      t += GRIEG_GAP;
+    }
+    return GRIEG_LEN * times;
   }
 
   // The process alarm: a two-tone horn every 1.1 s, louder over `build`

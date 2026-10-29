@@ -587,7 +587,7 @@ const SHORT_CHAPTERS = [
       // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
       { id: 'm.think', set: { curve: null, thoughts: true }, notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
       // (Adriaen, 2026-10-29) and then the neighbouring platform calls about its separator
-      { id: 'm.call', auto: true, set: { thoughts: null, call: 'neighbour' }, do: [{ wait: 1 }, { say: 'm.call1' }, { say: 'm.call2' }, { say: 'm.call3' }],
+      { id: 'm.call', auto: true, set: { thoughts: null, call: 'neighbour' }, do: [{ sound: 'grieg' }, { wait: 5.4 }, { say: 'm.call1' }, { say: 'm.call2' }, { say: 'm.call3' }],
         notes: 'Nordhav Beta ringer: separatoren deres slugger, og de spør den nye operatøren om råd.' },
       { id: 'm.buddy1', set: { curve: null, thoughts: null, call: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
         notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
