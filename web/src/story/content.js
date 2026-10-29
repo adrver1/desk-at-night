@@ -300,7 +300,7 @@ export const SEARCH = ['Lifting operations, general (rev 2, superseded)', 'Crane
 // frame), in subchapters the presenter can jump between (Adriaen,
 // 2026-10-25). `pro` names where each starts; main.js turns that into the
 // intro's clock (PRO_START) and moves the navigator along as it plays
-// through. The Sola one goes with ?sola=0.
+// through. The Sola one only comes with ?sola=1 (off by default since 2026-10-29).
 const PROLOGUE_BEATS = [
   { id: 'pro.sola', pro: 'sola', set: { act: 0 }, notes: 'Sola heliport: fade in from black on the apron, the title, the crew boards the helicopter.' },
   { id: 'pro.takeoff', pro: 'takeoff', set: { act: 0 }, notes: 'Up and away: the cabin, the title (when there is no Sola opening), the pilot on the intercom.' },

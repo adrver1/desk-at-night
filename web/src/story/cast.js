@@ -232,7 +232,7 @@ export class Cast {
       for (const r of p.waiters ?? []) r();
       p.waiters = [];
     }
-    this.stream.visible = false;
+    if (this.stream) this.stream.visible = false;   // not there yet while the cast still loads
   }
 
   // How full the mugs on the desks are (0 empty .. 1 full), and where they

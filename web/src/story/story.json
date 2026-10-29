@@ -321,6 +321,28 @@
     "title": "Deck slide 14"
    },
    "builds": 6
+  },
+  "cb-what": {
+   "no": {
+    "title": "CtrlBuddy – hva er det?",
+    "bullets": [
+     "AI-agent: Bygget i VS Code, med GitHub Copilot som harness",
+     "Modell: Kjører stort sett på Claude 5.5",
+     "Instruksjoner: Oppfører seg som en erfaren automasjonsingeniør",
+     "Verktøy: Kobler seg til datakilder via API-er: CDF, ABB LoopInsight",
+     "Kunnskapsbase: Nordhav Energi-spesifikk fagkunnskap for oppgavene"
+    ]
+   },
+   "en": {
+    "title": "CtrlBuddy – what is it?",
+    "bullets": [
+     "AI agent: Built in VS Code, with GitHub Copilot as the harness",
+     "Model: Running mostly Claude 5.5",
+     "Instructions: Behaves like an advanced automation engineer",
+     "Tools: Connects to data sources through APIs: CDF, ABB LoopInsight",
+     "Knowledge base: Nordhav Energi-specific domain knowledge for its tasks"
+    ]
+   }
   }
  },
  "chats": {

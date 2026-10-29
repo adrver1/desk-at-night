@@ -6,8 +6,8 @@
 //
 // Keys: Space or → next, ← back, 1-9 chapter, F free mode (and back), P
 // presenter notes, O debug overlay (free mode). A presentation clicker sends
-// the same keys. URL: ?chapter=N, ?mode=free, ?sola=0 (skips the Sola apron
-// scene before the flight, on by default), ?nofs (no fullscreen on start),
+// the same keys. URL: ?chapter=N, ?mode=free, ?sola=1 (adds the Sola apron
+// scene before the flight, off by default), ?nofs (no fullscreen on start),
 // ?story=full (the three-act version), ?lang=en|no (on-screen language).
 import * as THREE from 'three';
 import '../play.js';
@@ -52,9 +52,10 @@ let cast = null, shots = null, epilogue = null, clockFace = null, buddy = null;
 const thoughts = new Thoughts();
 const explain = new Explain();
 const caller = new Caller();
-// The Sola opening (on by default since 2026-10-25, off with ?sola=0) and its
-// callback stills in Acts 1 and 3 of the full version (only with ?solastills=1)
-const SOLA_OPEN = q.get('sola') !== '0';
+// The Sola opening (off since 2026-10-29, Adriaen: "Remove Sola beat"; kept,
+// on with ?sola=1) and its callback stills in Acts 1 and 3 of the full
+// version (only with ?solastills=1)
+const SOLA_OPEN = q.get('sola') === '1';
 const SOLA_STILLS = q.get('solastills') === '1';
 const sola = SOLA_OPEN || SOLA_STILLS ? Object.assign(new Sola(game, { open: SOLA_OPEN }), { sound, titleText: TITLE, credits: CREDITS, music: MUSIC }) : null;
 for (const ch of CHAPTERS) ch.beats = ch.beats.filter((b) => (!b.sola || SOLA_STILLS) && (b.pro !== 'sola' || SOLA_OPEN));
@@ -537,6 +538,8 @@ function startPrologue(pro = 'takeoff', { carry = false, at = 0 } = {}) {
   trondheim.hide();
   game.hooks.hidden = true;
   ui.clipboard(null); ui.stars(null); ui.banner(null); ui.overlay(null, { call }); ui.org(null); ui.clearNotices();
+  // The room's own overlays too (a jump from the call, the curve or the explainer straight into the prologue)
+  buddy?.set({}); thoughts.set(null); explain.set(null); caller.set(null); sound.hangUp(); cast?.phone(null, true);
   host.classList.remove(`grade-${lastGrade}`); lastGrade = 0;
   showHud();
   if (pro === 'sola' && sola?.open) {
