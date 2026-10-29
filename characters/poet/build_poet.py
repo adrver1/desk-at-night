@@ -29,15 +29,17 @@ COAT, LAPEL, SHIRT, CRAVAT = "charcoal", "black", "white", "black"
 
 # Fringe from the right temple round the back to the left temple: angle,
 # bottom, top and how far the middle row puffs out (wispy over the ears)
-FRINGE = [(28, 1.650, 1.700, 0.012), (12, 1.610, 1.705, 0.034), (350, 1.585, 1.712, 0.046),
+FRINGE = [(24, 1.650, 1.700, 0.0), (12, 1.610, 1.705, 0.030), (350, 1.585, 1.712, 0.046),
           (320, 1.555, 1.718, 0.046), (290, 1.535, 1.720, 0.040), (270, 1.530, 1.720, 0.038)]
 
 
 def fringe(color, region="hair"):
     """A horseshoe of hair: three rows per angle (flush at the bottom and
     top, puffed out in between), mirrored to the left side."""
-    pts = [[base.head_point(a, z0, 0.004), base.head_point(a, (z0 + z1) / 2 - 0.01, puff),
-            base.head_point(a, z1, 0.004)] for a, z0, z1, puff in FRINGE]
+    # a column with no puff sinks just under the skin: the fringe tapers
+    # into the temple without an edge showing
+    pts = [[base.head_point(a, z0, 0.004 if puff else -0.004), base.head_point(a, (z0 + z1) / 2 - 0.01, puff or -0.004),
+            base.head_point(a, z1, 0.004 if puff else -0.004)] for a, z0, z1, puff in FRINGE]
     left = [[Vector((-p.x, p.y, p.z)) for p in col] for col in pts[-2::-1]]
     cols = pts + left
     m = base.Mesh()
