@@ -28,6 +28,7 @@ import { Trondheim } from './trondheim.js';
 import { ClockFace } from './clockFace.js';
 import { Buddy } from './buddy.js';
 import { Thoughts } from './thoughts.js';
+import { Explain } from './explain.js';
 import { Caller } from './caller.js';
 
 const game = window.__game;
@@ -49,6 +50,7 @@ const call = new Call(ui.el.call);
 const trondheim = new Trondheim(host);
 let cast = null, shots = null, epilogue = null, clockFace = null, buddy = null;
 const thoughts = new Thoughts();
+const explain = new Explain();
 const caller = new Caller();
 // The Sola opening (on by default since 2026-10-25, off with ?sola=0) and its
 // callback stills in Acts 1 and 3 of the full version (only with ?solastills=1)
@@ -176,6 +178,7 @@ function apply(s, { instant = false } = {}) {
   cast?.place(s.cast);
   buddy?.set(s);
   thoughts.set(s.thoughts);
+  explain.set(s.explain);
   caller.set(s.call, s.callStage);
   if (!s.call || s.callStage !== 'ring') sound.hangUp();   // the phone stops ringing once the call is over or answered
   cast?.phone(s.phone, instant);

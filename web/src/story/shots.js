@@ -103,7 +103,18 @@ export class Shots {
       case 'adriaen': return this.look(new THREE.Vector3(2.5, 1.45, -0.35), new THREE.Vector3(1.45, 1.1, -1.95), 55);   // his profile, the monitors beyond
       default: break;
     }
-    // a screen filling the view (monitor:), or halfway there (half:, its neighbours and the desk around it)
+    // a screen filling the view (monitor:), or halfway there (half:, its neighbours and the desk around it),
+    // or straight on in the left half of the view (side:, room for a panel on the right: explain.js)
+    if (name.startsWith('side:')) {
+      const f = this.game.room.screenFrame(name.slice(5), this.seat);
+      if (!f) return this.target('desk');
+      const fov = 50, t = Math.tan(THREE.MathUtils.degToRad(fov) / 2) / 1.04;
+      const d = Math.max(f.height / 2 / t, f.width / 2 / (t * this.game.camera.aspect)) * 1.7;
+      const right = new THREE.Vector3().crossVectors(f.up, f.normal).multiplyScalar(0.56 * d * t * this.game.camera.aspect);
+      const pos = f.center.clone().addScaledVector(f.normal, d).add(right);
+      const m = new THREE.Matrix4().lookAt(pos, f.center.clone().add(right), f.up);
+      return { pos, quat: new THREE.Quaternion().setFromRotationMatrix(m), fov };
+    }
     if (name.startsWith('monitor:') || name.startsWith('half:')) {
       const half = name.startsWith('half:');
       const f = this.game.room.screenFrame(name.slice(name.indexOf(':') + 1), this.seat);
@@ -136,7 +147,7 @@ export class Shots {
     cam.position.copy(this.pose.pos);
     cam.quaternion.copy(this.pose.quat);
     // A breath of life: the head never holds perfectly still
-    if (this.name !== 'epilogue' && !this.name.startsWith('monitor:') && !this.name.startsWith('half:')) {
+    if (this.name !== 'epilogue' && !this.name.startsWith('monitor:') && !this.name.startsWith('half:') && !this.name.startsWith('side:')) {
       cam.rotateY(0.004 * Math.sin(this.t * 0.37));
       cam.rotateX(0.003 * Math.sin(this.t * 0.51 + 1));
     }
