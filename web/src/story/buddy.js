@@ -253,9 +253,11 @@ export class Buddy {
     const plot = el.querySelector('.plot'), learner = el.querySelector('.learner'), len = plot.getTotalLength();
     const follow = () => {
       const drawn = Math.min(len, Math.max(0, 700 - parseFloat(getComputedStyle(plot).strokeDashoffset)));
-      const p = plot.getPointAtLength(drawn);
-      learner.setAttribute('transform', `translate(${p.x} ${p.y})`);
-      learner.style.opacity = el.classList.contains('plot') && drawn > 1 ? 1 : 0;
+      // the curve gone (it snaps back undrawn): the portrait goes at once, where it is
+      const on = el.classList.contains('plot') && drawn > 1;
+      learner.style.transition = on ? '' : 'none';
+      learner.style.opacity = on ? 1 : 0;
+      if (on) { const p = plot.getPointAtLength(drawn); learner.setAttribute('transform', `translate(${p.x} ${p.y})`); }
       if (el.classList.contains('on')) requestAnimationFrame(follow); else this.following = false;
     };
     this.followCurve = () => { if (!this.following) { this.following = true; requestAnimationFrame(follow); } };

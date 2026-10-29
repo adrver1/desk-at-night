@@ -9,7 +9,7 @@
 // has the real one) and the private build may swap the portrait
 // (overrides.json `faces`: { neighbour: 'faces/<file>' }).
 //
-// In the bubble the caller stands in his PPE in front of his slugging
+// In the bubble the caller stands in his deck PPE in front of his slugging
 // separator, worried, and startled each time a slug comes through (Adriaen,
 // 2026-10-29): a crew stand-in in public, overrides.json `callerModels`
 // ({ neighbour: '<private chars model>' }) in the private build.
@@ -22,7 +22,7 @@ import { loadModel } from './cast.js';
 
 const W = 960, H = 540;   // px of the bubble's picture
 const CALLERS = { neighbour: 'story/faces/neighbour.svg' };
-const CALLER_MODELS = { neighbour: 'grey_beard_lead_ppe' };
+const CALLER_MODELS = { neighbour: 'grey_beard_lead_ppe_deck' };   // out on the plant: helmet, ear defenders, gloves
 const STARTLED = 1.6;   // s he looks startled when a slug comes through
 
 export class Caller {

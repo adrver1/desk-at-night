@@ -372,7 +372,7 @@
 .learning .arrow { opacity: 0; transition: opacity 0.3s 0.9s; }
 .learning.on .axis { stroke-dashoffset: 0; transition: stroke-dashoffset 0.9s ease-out 0.3s; }
 .learning.on .arrow { opacity: 1; }
-.learning.plot .plot { stroke-dashoffset: 0; transition: stroke-dashoffset 2.2s cubic-bezier(.2,.7,.3,1) 0.4s; }
+.learning.plot .plot { stroke-dashoffset: 0; transition: stroke-dashoffset 3.6s cubic-bezier(.25,.6,.35,1) 0.4s; }   /* (Adriaen, 2026-10-29: a slower reveal) */
 .learning .learner { opacity: 0; transition: opacity 0.3s; }
 .learning .learner .ring { fill: #e8eef2; }
 .learning text { fill: #e8eef2; font: 600 22px var(--display, system-ui); }

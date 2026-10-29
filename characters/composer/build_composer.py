@@ -7,8 +7,9 @@ dark frock coat over a white shirt with a wing collar and a black bow tie.
     python characters/composer/build_composer.py
 
 He comes from another century, so besides his own look he has only the
-indoor PPE (`--outfit ppe`), for the story's video call from offshore
-(Adriaen, 2026-10-29); no deck PPE or survival suit. The mane, moustache and bow tie are his own parts,
+PPE for the story's video call from offshore (Adriaen, 2026-10-29): indoor
+`ppe`, and `ppe_deck` with helmet and gloves, which the call uses; no
+survival suit. The mane, moustache and bow tie are his own parts,
 built from the shared hair and face helpers.
 """
 import os
@@ -93,8 +94,8 @@ LOOK = crew.Look(
     hair=lambda helmet: mane(HAIR, SIDES, helmet),
     face=lambda body: {"beard": walrus(HAIR)},
     top={"belly": SHIRT, "chest": SHIRT, "upper_arm": COAT, "forearm": COAT},
-    office=office, shared=("ppe",), ears=1.0,
-    notes=["19th-century look; indoor PPE only, for the story's video call from offshore.", "Mane and walrus moustache are his own parts."])
+    office=office, shared=("ppe", "ppe_deck"), ears=1.0,
+    notes=["19th-century look; PPE (indoor and deck) only for the story's video call from offshore.", "Mane and walrus moustache are his own parts."])
 
 if __name__ == "__main__":
     crew.main(LOOK, HERE)
