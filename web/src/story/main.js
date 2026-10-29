@@ -210,7 +210,7 @@ async function enter(c, i, { instant = false, skipDo = false, at = 0 } = {}) {
   chapter = c; beat = i;
   const ch = CHAPTERS[c], b = ch.beats[i];
   location.hash = `${ch.key}.${i + 1}`;
-  if (ch.prologue) return startPrologue(b.pro);
+  if (ch.prologue) return startPrologue(b.pro, { at });
   stopPrologue();
   if (sola) sola.hide();
   if (ch.id === 'epilogue') { await epilogueReady(); } else epilogue?.hide();
@@ -505,7 +505,7 @@ const PRO_START = { takeoff: () => 0, credits: () => 12, landing: (i) => i.FLIGH
 // the apron and goes on into the take-off; any other starts the intro at its
 // time, with the music where it would be had it played through. carry: the
 // take-off straight after the Sola opening, its music already running.
-function startPrologue(pro = 'takeoff', { carry = false } = {}) {
+function startPrologue(pro = 'takeoff', { carry = false, at = 0 } = {}) {
   const my = token;
   trondheim.hide();
   game.hooks.hidden = true;
@@ -536,6 +536,7 @@ function startPrologue(pro = 'takeoff', { carry = false } = {}) {
   prologue.cues.clear();
   prologue.ended = false;
   prologue.seek = carry ? null : pro;   // done in prologueFrame once the intro is up
+  prologue.seekAt = at;   // s into it (the editor's timeline; not for Sola, which plays from its start)
   prologue.skipBefore = 0;
   const black = document.createElement('div');
   black.className = 'blackout on';
@@ -584,7 +585,7 @@ function prologueNext() {
 function prologueFrame() {
   const intro = prologue.frame?.contentWindow?.intro;
   if (!intro) return;
-  if (prologue.seek) { const pro = prologue.seek; prologue.seek = null; if (pro !== 'takeoff' || SOLA_OPEN) proSeek(intro, PRO_START[pro](intro), { music: true }); }
+  if (prologue.seek) { const pro = prologue.seek, at = prologue.seekAt || 0; prologue.seek = null; if (pro !== 'takeoff' || SOLA_OPEN || at) proSeek(intro, PRO_START[pro](intro) + at, { music: true }); }
   const t = intro.t;
   if (prologue.black && t > 0.5) prologue.black.classList.remove('on');
   // The navigator follows the subchapters as the intro plays through them
