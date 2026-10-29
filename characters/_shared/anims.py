@@ -22,6 +22,7 @@ into every character's .glb as named glTF animations:
     sip_left     the same with the left hand, a mug to the left
     mouse        seated: right hand onto a mouse on the desk
                  (MOUSE_AT), small wiggles, back to the lap     (4 s)
+    mouse_far    the same for the second desk's mouse (MOUSE_FAR)
 
 Face clips move only the eye and brow bones, so they play on top of any
 body clip (body clips never touch the face bones):
@@ -225,6 +226,7 @@ def pointing(f):
 # mouse as they stand on the control room desks from the chair
 SIP_MUG = (0.52, 0.58, 0.80)          # the right hand's grip on the mug handle
 MOUSE_AT = (0.40, 0.48, 0.78)         # the right wrist over the mouse
+MOUSE_FAR = (0.54, 0.48, 0.78)        # the same on the second desk, whose mouse sits 14 cm further right
 SIP_HOLD = (20 / FPS, 76 / FPS)       # seconds: the hand has the mug from, until
 
 
@@ -294,7 +296,7 @@ def sipping(side, stage, sip=0.0):
     return r
 
 
-def mousing(f, wiggle=(0.0, 0.0)):
+def mousing(f, wiggle=(0.0, 0.0), at=MOUSE_AT):
     """Seated, f = 0 resting to 1 the right hand on the mouse, moved by
     wiggle (x, y metres); a little lean toward the desk."""
     r = seated(look_down=4 * f)
@@ -303,7 +305,7 @@ def mousing(f, wiggle=(0.0, 0.0)):
     if f <= 0:
         return r
     lap = Vector((0.20, 0.30, 0.62))
-    m = Vector(MOUSE_AT) + Vector((wiggle[0], wiggle[1], 0))
+    m = Vector(at) + Vector((wiggle[0], wiggle[1], 0))
     w = lap.lerp(m, f)
     reach(r, 1, tuple(w), (-0.10, 0.97, -0.20), palm=(-0.25, 0, -1.0), elbow_out=0.9)
     return r
@@ -317,12 +319,12 @@ def sip_keys(side):
             (78, p(1)), (86, p(0.4)), (92, p(0))]
 
 
-def mouse_keys():
+def mouse_keys(at=MOUSE_AT):
     """Hand on the mouse, a few small strokes and a pause, back to the lap."""
     w = [(0, 0), (0.025, 0.01), (-0.01, 0.02), (0.02, -0.015), (0.0, 0.0), (-0.02, 0.01), (0.015, 0.02), (0, 0)]
-    keys = [(0, mousing(0)), (12, mousing(1))]
-    keys += [(12 + 8 * (k + 1), mousing(1, xy)) for k, xy in enumerate(w)]
-    return keys + [(84, mousing(1)), (96, mousing(0))]
+    keys = [(0, mousing(0, at=at)), (12, mousing(1, at=at))]
+    keys += [(12 + 8 * (k + 1), mousing(1, xy, at)) for k, xy in enumerate(w)]
+    return keys + [(84, mousing(1, at=at)), (96, mousing(0, at=at))]
 
 
 def clips():
@@ -351,6 +353,7 @@ def clips():
     c["sip"] = sip_keys(1)
     c["sip_left"] = sip_keys(-1)
     c["mouse"] = mouse_keys()
+    c["mouse_far"] = mouse_keys(MOUSE_FAR)
     return c
 
 

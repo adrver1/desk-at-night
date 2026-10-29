@@ -133,13 +133,13 @@ export class Cast {
       if (!gltf) return;
       const p = gltf.scene;
       const mixer = new THREE.AnimationMixer(p);
-      const act = Object.fromEntries(['idle', 'seated_idle', 'talk', 'blink', 'walk', 'stand_up', 'typing', 'point', 'sip', 'sip_left', 'mouse'].map((n) => {
+      const act = Object.fromEntries(['idle', 'seated_idle', 'talk', 'blink', 'walk', 'stand_up', 'typing', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far'].map((n) => {
         const clip = THREE.AnimationClip.findByName(gltf.animations, n);
         return [n, clip && mixer.clipAction(clip)];
       }));
       if (act.blink) act.blink.setLoop(THREE.LoopOnce);
       if (act.talk) { act.talk.play(); act.talk.setEffectiveWeight(0); }
-      for (const n of ['stand_up', 'point', 'sip', 'sip_left', 'mouse']) if (act[n]) { act[n].setLoop(THREE.LoopOnce); act[n].clampWhenFinished = true; }
+      for (const n of ['stand_up', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far']) if (act[n]) { act[n].setLoop(THREE.LoopOnce); act[n].clampWhenFinished = true; }
       const bones = {};
       p.traverse((o) => {
         if (o.isBone) bones[o.name] = o;
@@ -516,14 +516,23 @@ export class Cast {
         if (Math.hypot(w.x - at.x, w.z - at.z) < 0.4) sip = { side, m };
       }
     }
-    // coffee first, then mostly turn about with the mouse
-    let name = sip && (!p.sipped || Math.random() < 0.4) ? (sip.side > 0 ? 'sip' : 'sip_left') : 'mouse';
-    if (p.forceIdle) { name = p.forceIdle; p.forceIdle = null; if (name !== 'mouse' && !sip) return; }
+    // The second desk mirrors the first but keeps its mouse on the right, so
+    // seen from the chair it lies further out there: its mug stands to the left
+    const far = Object.values(this.mugsRest ?? {}).some((m) => {
+      const l = p.root.worldToLocal(m.mug.parent.localToWorld(m.home.clone()));
+      return Math.hypot(l.x, l.z) < 1 && l.x < 0;
+    });
+    const mouse = far && p.act.mouse_far ? 'mouse_far' : 'mouse';
+    // coffee first, then mostly the mouse (Adriaen: less coffee, more mouse),
+    // and never two sips in a row
+    let name = sip && (!p.sipped || (p.lastIdle === mouse && Math.random() < 0.25)) ? (sip.side > 0 ? 'sip' : 'sip_left') : mouse;
+    if (p.forceIdle) { name = p.forceIdle === 'mouse' ? mouse : p.forceIdle; p.forceIdle = null; if (!name.startsWith('mouse') && !sip) return; }
     if (!p.act[name]) name = 'mouse';   // a model built before the sip clips
     const a = p.act[name];
     if (!a) { console.warn(`story: ${p.name ?? 'someone'} has no idle clips (rebuild the model)`); p.fidgetAt = Infinity; return; }
-    p.sipped ||= name !== 'mouse';
-    p.fidget = { name, back: p.pose, t: 0, dur: a.getClip().duration, mug: name === 'mouse' ? null : sip };
+    p.sipped ||= !name.startsWith('mouse');
+    p.lastIdle = name;
+    p.fidget = { name, back: p.pose, t: 0, dur: a.getClip().duration, mug: name.startsWith('mouse') ? null : sip };
     this.fade(p, name, 0.35);
   }
   fidgeting(p, now, dt) {
