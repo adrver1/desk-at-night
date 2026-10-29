@@ -14,6 +14,13 @@
 
 `?lang=en` or `?lang=no` switches the on-screen language of either run.
 
+Every spoken line has its text in both languages (`lines.json` `text` and
+`no`), and what is heard and what is read are set apart: `?voice=no|en|off`
+and `?subs=no|en|off` (or the V and U keys, which cycle them and remember
+the choice), both following `?lang` by default. Norwegian takes go in
+`public/story/voice/no/` with their own `voice.json`; until a line has one
+it is heard in English.
+
 `story.html`  It loads the first-person game
 (`src/play.js`) underneath and drives it beat by beat: camera shots, people,
 screens, sounds, overlays, subtitles. Free mode (F) hands the game back to

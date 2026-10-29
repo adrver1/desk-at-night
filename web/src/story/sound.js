@@ -3,6 +3,9 @@
 // alarm that builds through the Act 1 cascade, radio squelch, a desk phone
 // ringing, and the soft chime of an agent's notification.
 import { PRIVATE, PRIVATE_BASE } from '../privateNames.js';
+import { SPEECH } from './lang.js';
+// English takes in story/voice/, Norwegian ones (once there are any) in
+// story/voice/no/, each with its own voice.json
 const VOICE = 'story/voice/';
 // The private build's own takes of the lines that say a real name
 // (voices.py --private), over the public ones with the stand-ins
@@ -35,16 +38,29 @@ export class Sound {
   }
 
   async loadIndex() {
-    this.index = await fetch(`${VOICE}voice.json`).then((r) => r.json()).catch(() => ({}));
-    this.own = PRIVATE_VOICE ? await fetch(`${PRIVATE_VOICE}voice.json`).then((r) => r.json()).catch(() => ({})) : {};
-    Object.assign(this.index, this.own);
+    const get = (dir) => (dir ? fetch(`${dir}voice.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})) : {});
+    const [en, own, no, ownNo] = await Promise.all([get(VOICE), get(PRIVATE_VOICE), get(`${VOICE}no/`), get(PRIVATE_VOICE && `${PRIVATE_VOICE}no/`)]);
+    this.index = Object.assign(en, own);
+    this.indexNo = Object.assign(no, ownNo);
+    this.own = own; this.ownNo = ownNo;
   }
+  // The take a line is heard in: Norwegian when asked for and there is one,
+  // else English; null when the voice is off
+  take(id) {
+    if (SPEECH.voice === 'off') return null;
+    if (SPEECH.voice === 'no' && this.indexNo?.[id]) return { ...this.indexNo[id], url: `${this.ownNo[id] ? `${PRIVATE_VOICE}no/` : `${VOICE}no/`}${id}.mp3` };
+    return this.index[id] && { ...this.index[id], url: `${this.own?.[id] ? PRIVATE_VOICE : VOICE}${id}.mp3` };
+  }
+  // A line's length (s) and mouth track, whichever take is heard
+  entry(id) { return this.take(id) ?? this.index[id]; }
 
   async buffer(id) {
-    if (this.buffers[id]) return this.buffers[id];
-    const p = fetch(`${this.own?.[id] ? PRIVATE_VOICE : VOICE}${id}.mp3`).then((r) => { if (!r.ok) throw new Error(id); return r.arrayBuffer(); })
+    const url = this.take(id)?.url;
+    if (!url) return null;
+    if (this.buffers[url]) return this.buffers[url];
+    const p = fetch(url).then((r) => { if (!r.ok) throw new Error(id); return r.arrayBuffer(); })
       .then((b) => this.ctx.decodeAudioData(b)).catch(() => null);
-    this.buffers[id] = p;
+    this.buffers[url] = p;
     return p;
   }
   preload(ids) { if (this.ctx) for (const id of ids) this.buffer(id); }
@@ -54,7 +70,7 @@ export class Sound {
   // (a phone may suspend it) never fires 'ended', so the line's own length,
   // plus a little, ends it too: a silent line must not stall the beat.
   async line(id, { gain = 1 } = {}) {
-    const dur = this.index[id]?.dur;
+    const dur = this.entry(id)?.dur;
     if (this.ctx?.state === 'suspended') this.ctx.resume?.();
     const buf = this.ctx ? await this.buffer(id) : null;
     if (!buf) { await new Promise((r) => setTimeout(r, (dur ?? 3) * 1000)); return; }

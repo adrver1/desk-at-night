@@ -392,3 +392,6 @@
 .thoughts .dot { position: absolute; background: #f4f1e8; border-radius: 50%; }
 .thoughts .dot.d1 { width: 16%; aspect-ratio: 1; }
 .thoughts .dot.d2 { width: 9%; aspect-ratio: 1; }
+/* V / U: which voice and subtitles (main.js speechToast) */
+.speech-toast { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); z-index: 20; pointer-events: none; padding: 0.5em 1em; border-radius: 0.5em; background: #0b1116d9; color: #e8eef2; font: 600 calc(1.4 * var(--u)) var(--display, system-ui); opacity: 0; transition: opacity 0.3s; }
+.speech-toast.on { opacity: 1; }

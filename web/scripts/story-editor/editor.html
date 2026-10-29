@@ -124,6 +124,8 @@ a.btn { text-decoration: none; display: inline-block; margin-right: 8px }
 .tlscroll { overflow-x: auto; overflow-y: hidden; position: relative; scrollbar-width: thin }
 .tl { position: relative; min-height: 100%; padding-left: 74px; width: max-content }
 [hidden] { display: none !important }
+.speech { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted) }
+.speech select { font: inherit; background: transparent; color: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 2px 4px }
 .tl .lab { position: sticky; left: 0; z-index: 2; width: 70px; margin-left: -74px; background: var(--surface); font: 500 10px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; display: flex; align-items: center; padding-left: max(8px, env(safe-area-inset-left, 0px)) }
 .tl .row { position: relative; height: 22px; display: flex; width: max-content }
 .tl .row.tall { height: 30px }
@@ -196,6 +198,8 @@ input.t, textarea.t, select.t { width: 100%; font: 15px/1.4 var(--body); color: 
   <div class="seg" role="group" aria-label="Main language">
     <button id="lNo" data-l="no">Norsk</button><button id="lEn" data-l="en">English</button>
   </div>
+  <label class="speech" title="What Live plays: the spoken lines' voice, and their subtitles. Norwegian voice is English until Norwegian takes exist.">Voice <select id="voiceSel"><option value="">as the language</option><option value="no">Norsk</option><option value="en">English</option><option value="off">Off</option></select></label>
+  <label class="speech">Subtitles <select id="subsSel"><option value="">as the language</option><option value="no">Norsk</option><option value="en">English</option><option value="off">Off</option></select></label>
   <button class="btn note" id="notesBtn">Notes to Claude</button>
 </div></header>
 
@@ -224,6 +228,9 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 const rid = () => Math.random().toString(36).slice(2, 7);
 let L = 'no', curKey = null, moment = -1;
 try { L = localStorage.getItem('sse.lang') || 'no'; curKey = localStorage.getItem('sse.beat'); } catch {}
+// Live's voice and subtitles, each Norwegian, English, off or (empty) as the main language
+let VOI = '', SUB = '';
+try { VOI = localStorage.getItem('sse.voice') || ''; SUB = localStorage.getItem('sse.subs') || ''; } catch {}
 let db = null, beats = [], notes = [], showNotes = false;
 let chapters = {};   // chapter names edited here, by the key of the chapter's first beat: { beat, no, en }
 // A beat's chapter, as its first beat, and the chapter's name (edited, or as in the game)
@@ -296,12 +303,13 @@ function overridesFor(b) {
 function liveShow(b) {
   const slot = document.getElementById('liveslot');
   let playable = !b.hidden;
-  if (!liveBox || liveLang !== L) {
+  const speech = `${L}|${VOI || L}|${SUB || L}`;
+  if (!liveBox || liveLang !== speech) {
     liveBox?.remove();
     liveBox = document.createElement('div'); liveBox.id = 'livebox';
-    liveBox.innerHTML = `<iframe src="story.html?nofs&private=1&lang=${L}&beat=${encodeURIComponent(b.id)}" allow="autoplay; fullscreen" title="The game at this beat"></iframe>`;
+    liveBox.innerHTML = `<iframe src="story.html?nofs&private=1&lang=${L}&voice=${VOI || L}&subs=${SUB || L}&beat=${encodeURIComponent(b.id)}" allow="autoplay; fullscreen" title="The game at this beat"></iframe>`;
     document.body.append(liveBox);
-    liveLang = L; liveBeat = null;
+    liveLang = speech; liveBeat = null;
     liveBox.firstChild.addEventListener('load', () => { liveBeat = null; if (live) liveShow(cur()); });
     requestAnimationFrame(livePlace);
   }
@@ -645,6 +653,11 @@ document.addEventListener('keydown', (e) => { const s = e.target.closest?.('[dat
 const hidBox = document.getElementById('showHid');
 hidBox.checked = showHid;
 hidBox.addEventListener('change', () => { showHid = hidBox.checked; try { localStorage.setItem('sse.hid', showHid ? '1' : '0'); } catch {} render(); });
+for (const [id, k] of [['voiceSel', 'voice'], ['subsSel', 'subs']]) {
+  const sel = document.getElementById(id);
+  sel.value = k === 'voice' ? VOI : SUB;
+  sel.addEventListener('change', () => { if (k === 'voice') VOI = sel.value; else SUB = sel.value; try { localStorage.setItem(`sse.${k}`, sel.value); } catch {} if (live) liveShow(cur()); });
+}
 document.querySelectorAll('[data-l]').forEach((b) => b.addEventListener('click', () => { L = b.dataset.l; try { localStorage.setItem('sse.lang', L); } catch {} render(); }));
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { closeSheet(); return; }

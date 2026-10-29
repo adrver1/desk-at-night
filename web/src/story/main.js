@@ -12,7 +12,7 @@
 import * as THREE from 'three';
 import '../play.js';
 import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN, CREW_NAMES } from './content.js';
-import { FULL, LANG, T } from './lang.js';
+import { FULL, T, SPEECH, cycleSpeech } from './lang.js';
 import lines from './lines.json';
 import { PRIVATE as PRIVATE_ON, OVERRIDES, realDeep } from '../privateNames.js';
 import { StoryUI } from './ui.js';
@@ -254,7 +254,7 @@ const sleep = (s) => new Promise((r) => setTimeout(r, s * 1000));
 // takes in the editor's reckoning (scripts/story-editor/seed.py), which
 // places the timeline's moments
 function rush(step, my) {
-  if (step.say) return (sound.index[step.say]?.dur ?? 2.5) + 0.3;
+  if (step.say) return (sound.entry(step.say)?.dur ?? 2.5) + 0.3;
   if (step.wait) return step.wait;
   if (step.idle) return 2.5;
   if (step.rewind || step.forward) {
@@ -378,8 +378,8 @@ async function rewind(over, my, dir) {
 async function say(id, my) {
   const line = lines[id];
   if (!line) return;
-  ui.subs(line.name ?? line.who, LANG === 'no' ? line.no ?? line.text : line.text);
-  const mouth = sound.index[id]?.mouth ?? '';
+  if (SPEECH.subs !== 'off') ui.subs(line.name ?? line.who, SPEECH.subs === 'no' ? line.no ?? line.text : line.text);
+  const mouth = SPEECH.voice === 'off' ? '' : sound.entry(id)?.mouth ?? '';
   cast?.talk(line.who, mouth);
   trondheim.talk(line.who, mouth);
   call.talk(line.who, mouth);
@@ -452,6 +452,15 @@ function toggleFree() {
   }
 }
 
+function speechToast(k) {
+  const v = cycleSpeech(k), say = { no: T('norsk', 'Norwegian'), en: T('engelsk', 'English'), off: T('av', 'off') }[v];
+  if (k === 'subs' && v === 'off') ui.subs();
+  const el = document.querySelector('.speech-toast') ?? Object.assign(document.createElement('div'), { className: 'speech-toast' });
+  el.textContent = `${k === 'voice' ? T('Tale', 'Voice') : T('Undertekst', 'Subtitles')}: ${say}${k === 'voice' && v === 'no' && !Object.keys(sound.indexNo ?? {}).length ? T(' (engelsk til norsk tale finnes)', ' (English until Norwegian takes exist)') : ''}`;
+  (document.getElementById('game') ?? document.body).append(el);
+  el.classList.add('on'); clearTimeout(el.t); el.t = setTimeout(() => el.classList.remove('on'), 1800);
+}
+
 addEventListener('keydown', (e) => {
   if (begin.parentNode) { if (e.code === 'Space' || e.code === 'Enter') start(); return; }
   handleKey(e);
@@ -462,6 +471,8 @@ function handleKey(e) {
   if (e.code === 'KeyF') return toggleFree();
   if (e.code === 'KeyO' && free) { ui.el.debug.hidden = !ui.el.debug.hidden; return debugPanel(); }
   if (free) return;
+  // V: the voice, U: the subtitles (undertekst), each Norwegian, English or off
+  if (e.code === 'KeyV' || e.code === 'KeyU') { speechToast(e.code === 'KeyV' ? 'voice' : 'subs'); return; }
   if (e.code === 'KeyP') { notesOn = !notesOn; ui.notes(CHAPTERS[chapter].beats[beat]?.notes, notesOn); return; }
   if (e.code === 'Space' || e.code === 'ArrowRight' || e.code === 'PageDown' || e.code === 'Enter') { e.preventDefault(); next(); return; }
   if (e.code === 'ArrowLeft' || e.code === 'PageUp' || e.code === 'Backspace') { e.preventDefault(); back(); return; }
