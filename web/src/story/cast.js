@@ -57,6 +57,7 @@ export const PATHS = {
 const STRIDE = 1.15;       // m/s the walk clip's stride covers at its own pace
 const WALK_SPEED = 1.4;    // m/s, a brisk walk: the clip plays faster to match
 const TURN_RATE = 5;       // rad/s, how fast someone turns into a new direction
+// the yaw that faces along (dx, dz): people and chairs look down their -Z
 const yawTo = (dx, dz) => Math.atan2(-dx, -dz);
 // Seated idles (Adriaen, 2026-10-29): now and then someone sitting at a desk
 // takes a sip from the mug beside them or wiggles the mouse. The clips are on
@@ -65,7 +66,7 @@ const yawTo = (dx, dz) => Math.atan2(-dx, -dz);
 // SIP_HOLD when the hand has it (s). ?idles=0 keeps everyone still (stills).
 const SIP_MUG = [0.52, 0.80, -0.58], SIP_HOLD = [20 / 24, 76 / 24];
 const IDLES = new URLSearchParams(location.search).get('idles') !== '0';
-const IDLE_GAP = [9, 22];   // s between one idle and the next   // the yaw that faces along (dx, dz): people and chairs look down their -Z
+const IDLE_FIRST = [2, 5], IDLE_GAP = [6, 14];   // s before the first idle, and between one and the next
 const wrap = (a) => ((a % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
 const smooth = (x) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3 - 2 * t); };
 
@@ -503,7 +504,7 @@ export class Cast {
     if (p.fidget) return this.fidgeting(p, now, dt);
     const sitting = SPOTS[p.at]?.chair !== undefined && (p.pose === 'seated_idle' || p.pose === 'typing');
     if (!IDLES || !sitting || p.task || p.queue.length || p.mouth) { p.fidgetAt = null; return; }
-    if (p.fidgetAt == null) { p.fidgetAt = now + IDLE_GAP[0] * (0.4 + Math.random()); return; }
+    if (p.fidgetAt == null) { p.fidgetAt = now + IDLE_FIRST[0] + Math.random() * (IDLE_FIRST[1] - IDLE_FIRST[0]); return; }
     if (now < p.fidgetAt) return;
     p.fidgetAt = null;
     // a mug where the clip's hand goes, on either side
@@ -515,10 +516,13 @@ export class Cast {
         if (Math.hypot(w.x - at.x, w.z - at.z) < 0.4) sip = { side, m };
       }
     }
-    let name = sip && Math.random() < 0.6 ? (sip.side > 0 ? 'sip' : 'sip_left') : 'mouse';
+    // coffee first, then mostly turn about with the mouse
+    let name = sip && (!p.sipped || Math.random() < 0.4) ? (sip.side > 0 ? 'sip' : 'sip_left') : 'mouse';
     if (p.forceIdle) { name = p.forceIdle; p.forceIdle = null; if (name !== 'mouse' && !sip) return; }
+    if (!p.act[name]) name = 'mouse';   // a model built before the sip clips
     const a = p.act[name];
-    if (!a) return;
+    if (!a) { console.warn(`story: ${p.name ?? 'someone'} has no idle clips (rebuild the model)`); p.fidgetAt = Infinity; return; }
+    p.sipped ||= name !== 'mouse';
     p.fidget = { name, back: p.pose, t: 0, dur: a.getClip().duration, mug: name === 'mouse' ? null : sip };
     this.fade(p, name, 0.35);
   }

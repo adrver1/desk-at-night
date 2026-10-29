@@ -596,7 +596,9 @@ const SHORT_CHAPTERS = [
       { id: 'm.curve1', set: { overlay: null, curve: 'axes', shot: 'curveDesk', buddyAt: CHAT_SCREEN, buddyWho: 'buddy', screens: null, cast: { operator: { at: 'desk0typing' } } },
         notes: 'Ett år siden, kontrollrommet. Aksene: tid og læring.' },
       { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
-      { id: 'm.buddy1', set: { curve: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
+      // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
+      { id: 'm.think', set: { curve: null, thoughts: true }, notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, anlegget. Space: én boble til.' },
+      { id: 'm.buddy1', set: { curve: null, thoughts: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
         notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
       { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen' }, do: [{ wait: 0.8 }, { buddy: 'click' }],
         notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },

@@ -80,6 +80,7 @@ a.btn { text-decoration: none; display: inline-block; margin-right: 8px }
 .cue.on { color: var(--accent) }
 .sticky { background: var(--note); color: var(--note-ink); border-radius: 4px; padding: 6px 10px; font-size: 13px; display: grid; gap: 2px }
 .sticky.done { background: var(--done); color: var(--done-ink) }
+.sticky[data-note] { cursor: pointer }
 .sticky small { font: 11px var(--mono); opacity: .8 }
 .addrow { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 6px; border-top: 1px solid var(--line) }
 .addrow button { font: 500 13px var(--body); color: var(--accent); background: none; border: 1px dashed var(--accent); border-radius: 999px; padding: 3px 10px; cursor: pointer }
@@ -368,7 +369,7 @@ function stillBefore(b) { const i = beats.indexOf(b); for (let j = i - 1; j >= 0
 // ------------------------------------------------------------ the current beat
 function notesFor(beatKey, target) { return notes.filter((n) => n.beat === beatKey && (target === undefined || n.target === target)); }
 function stickies(beatKey, target) {
-  return notesFor(beatKey, target).map((n) => `<div class="sticky${n.status === 'done' ? ' done' : ''}"><div>${esc(n.text)}</div>${n.reply ? `<small>Claude: ${esc(n.reply)}</small>` : `<small>${n.status === 'done' ? 'done' : 'open, for Claude'}</small>`}</div>`).join('');
+  return notesFor(beatKey, target).map((n) => `<div class="sticky${n.status === 'done' ? ' done' : ''}" data-note="${esc(n._id)}" role="button" tabindex="0" title="Edit this note"><div>${esc(n.text)}</div>${n.reply ? `<small>Claude: ${esc(n.reply)}</small>` : `<small>${n.status === 'done' ? 'done' : 'open, for Claude'} · ✎ edit</small>`}</div>`).join('');
 }
 const fmt = (t) => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
 function render(scroll) {
@@ -416,7 +417,7 @@ function renderNotes() {
   el.hidden = !showNotes;
   if (!showNotes) return;
   const open = notes.filter((n) => n.status !== 'done'), done = notes.filter((n) => n.status === 'done');
-  const row = (n) => `<div class="row"><button data-jump="${esc(n.beat)}">${esc(n.beatId || n.beat)}</button><div class="sticky${n.status === 'done' ? ' done' : ''}"><div>${esc(n.text)}</div>${n.reply ? `<small>Claude: ${esc(n.reply)}</small>` : ''}</div></div>`;
+  const row = (n) => `<div class="row"><button data-jump="${esc(n.beat)}">${esc(n.beatId || n.beat)}</button><div class="sticky${n.status === 'done' ? ' done' : ''}" data-note="${esc(n._id)}" role="button" tabindex="0" title="Edit this note"><div>${esc(n.text)}</div>${n.reply ? `<small>Claude: ${esc(n.reply)}</small>` : ''}</div></div>`;
   el.innerHTML = `<h2>Notes to Claude</h2>${open.length ? open.map(row).join('') : '<p class="mono">No open notes. Add one with "+ note to Claude" on any beat, or in any edit box.</p>'}${done.length ? `<details><summary class="mono">${done.length} done</summary>${done.map(row).join('')}</details>` : ''}`;
 }
 
@@ -486,9 +487,9 @@ async function addNote(b, target, text) {
 // ------------------------------------------------------------ the sheet
 const sheetRoot = document.getElementById('sheetRoot');
 function closeSheet() { sheetRoot.innerHTML = ''; render(); }
-function sheet(title, inner, onDone, extra = '') {
+function sheet(title, inner, onDone, extra = '', { note = true } = {}) {
   sheetRoot.innerHTML = `<div class="backdrop" data-close></div><form class="sheet" id="sheetForm" role="dialog" aria-label="${esc(title)}"><h3>${esc(title)}</h3>${inner}
-    <label class="f">Note to Claude (optional)<textarea class="t" id="f_note" rows="2" placeholder="Anything the fields can't do, e.g. move the camera closer, shorter, different person"></textarea></label>
+    ${note ? `<label class="f">Note to Claude (optional)<textarea class="t" id="f_note" rows="2" placeholder="Anything the fields can't do, e.g. move the camera closer, shorter, different person"></textarea></label>` : ''}
     <div class="acts">${extra}<button type="button" class="btn" data-close>Cancel</button><button class="btn primary" type="submit">Done</button></div></form>`;
   const form = document.getElementById('sheetForm');
   form.addEventListener('submit', (e) => { e.preventDefault(); onDone(form); closeSheet(); });
@@ -625,6 +626,22 @@ app.addEventListener('click', (e) => {
 });
 document.getElementById('notes').addEventListener('click', (e) => { const a = e.target.closest('[data-jump]'); if (a) { go(a.dataset.jump); scrollTo({ top: 0, behavior: 'smooth' }); } });
 document.getElementById('notesBtn').addEventListener('click', () => { showNotes = !showNotes; renderNotes(); });
+// A note already written: change its text (it opens again for Claude) or delete it (Adriaen, 2026-10-29)
+function editNote(id) {
+  const n = notes.find((x) => x._id === id);
+  if (!n || !db) return;
+  const form = sheet(`Note to Claude · ${n.beatId || n.beat}`, `${fld('f_text', 'Note', n.text, 1, 4)}${n.reply ? `<p class="mono">Claude: ${esc(n.reply)}</p>` : ''}`, async (f) => {
+    const text = val(f, 'f_text').trim();
+    if (!text || text === n.text) return;
+    try { await db.collection('notes').doc(id).update({ text, status: 'open', editedAt: new Date().toISOString() }); setStatus('Note saved'); } catch { setStatus('Could not save the note', true); }
+  }, '<button type="button" class="btn" id="delNote" style="margin-right:auto;color:var(--danger)">Delete</button>', { note: false });
+  form.querySelector('#delNote').addEventListener('click', async () => {
+    closeSheet();
+    try { await db.collection('notes').doc(id).delete(); setStatus('Note deleted'); } catch { setStatus('Could not delete the note', true); }
+  });
+}
+document.addEventListener('click', (e) => { const s = e.target.closest('[data-note]'); if (s) editNote(s.dataset.note); });
+document.addEventListener('keydown', (e) => { const s = e.target.closest?.('[data-note]'); if (s && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); editNote(s.dataset.note); } });
 const hidBox = document.getElementById('showHid');
 hidBox.checked = showHid;
 hidBox.addEventListener('change', () => { showHid = hidBox.checked; try { localStorage.setItem('sse.hid', showHid ? '1' : '0'); } catch {} render(); });

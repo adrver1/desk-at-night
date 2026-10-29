@@ -376,3 +376,19 @@
 .learning.on .arrow { opacity: 1; }
 .learning.plot .plot { stroke-dashoffset: 0; transition: stroke-dashoffset 2.2s cubic-bezier(.2,.7,.3,1) 0.4s; }
 .learning text { fill: #e8eef2; font: 600 22px var(--display, system-ui); }
+
+/* One year ago, what he had to learn (thoughts.js): his face, thought bubbles coming in round it */
+.thoughts { position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; transition: opacity 0.5s; background: radial-gradient(ellipse at 50% 52%, #0b1116cc 0 38%, #0b111699 70%); }
+.thoughts.on { opacity: 1; }
+.thoughts .face { position: absolute; left: 50%; top: 52%; width: min(22vh, 18vw); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: #1d2a33; border: calc(0.5 * var(--u)) solid #e8eef2; object-fit: cover; box-shadow: 0 1vh 4vh #0008; }
+.thoughts .bubble { position: absolute; display: flex; flex-direction: column; align-items: center; gap: calc(0.8 * var(--u)); transform: translate(-50%, -50%) scale(0.4); opacity: 0;
+  transition: opacity 0.35s, transform 0.45s cubic-bezier(.3,1.6,.5,1); background: #f4f1e8; color: #1c2730; border-radius: 50%; width: min(27vh, 21vw); aspect-ratio: 1.4; justify-content: center; box-shadow: 0 0.6vh 2.5vh #0007; }
+.thoughts .bubble.in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.thoughts .bubble svg { width: 34%; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.thoughts .bubble .letters { font: 800 calc(3.4 * var(--u)) var(--display, system-ui); letter-spacing: 0.04em; }
+.thoughts .bubble span { font: 600 calc(1.6 * var(--u)) var(--display, system-ui); text-align: center; padding: 0 9%; line-height: 1.15; }
+.thoughts .bubble em { font-style: normal; color: #d9822b; margin-left: 0.15em; font-weight: 800; }
+/* the little circles from the bubble toward his head */
+.thoughts .dot { position: absolute; background: #f4f1e8; border-radius: 50%; }
+.thoughts .dot.d1 { width: 16%; aspect-ratio: 1; }
+.thoughts .dot.d2 { width: 9%; aspect-ratio: 1; }

@@ -27,6 +27,7 @@ import { Sola, LENGTH as SOLA_LENGTH } from './sola.js';
 import { Trondheim } from './trondheim.js';
 import { ClockFace } from './clockFace.js';
 import { Buddy } from './buddy.js';
+import { Thoughts } from './thoughts.js';
 
 const game = window.__game;
 const q = new URLSearchParams(location.search);
@@ -46,6 +47,7 @@ const sound = new Sound();
 const call = new Call(ui.el.call);
 const trondheim = new Trondheim(host);
 let cast = null, shots = null, epilogue = null, clockFace = null, buddy = null;
+const thoughts = new Thoughts();
 // The Sola opening (on by default since 2026-10-25, off with ?sola=0) and its
 // callback stills in Acts 1 and 3 of the full version (only with ?solastills=1)
 const SOLA_OPEN = q.get('sola') !== '0';
@@ -167,6 +169,7 @@ function apply(s, { instant = false } = {}) {
   else if (trondheim.on) { trondheim.hide(); game.hooks.hidden = false; }
   cast?.place(s.cast);
   buddy?.set(s);
+  thoughts.set(s.thoughts);
   cast?.mugs(s.mugs);
   ui.clipboard(s.clipboard);
   ui.clipAway(Boolean(s.shot?.startsWith('monitor:') || s.overlay?.startsWith('slide:') || s.overlay?.startsWith('log:') || s.overlay?.startsWith('vote:') || s.overlay?.startsWith('card:') || s.graphOn === 'overlay'));
@@ -232,7 +235,8 @@ async function enter(c, i, { instant = false, skipDo = false, at = 0 } = {}) {
     }
     if (rushing) cast?.rush(game.camera, S.now);
   } else if (b.end) apply(merge(state, b.end), { instant: true });
-  if (skipDo && b.chat) chatTo(b.chat, CHATS[b.chat].messages.length, false);   // stepped back into: all of it
+  if (skipDo && b.chat) chatTo(b.chat, CHATS[b.chat].messages.length, false);
+  if (skipDo && thoughts.on) thoughts.show(Infinity);   // stepped back into: every bubble   // stepped back into: all of it
   if (my !== token) return;
   running = false; waiting = true;
   showHud();
@@ -388,6 +392,7 @@ function next() {
   if (CHAPTERS[chapter].prologue) return prologueNext();
   if (ui.advanceVote()) return;
   if (!running && ui.stepBuild(1)) return;
+  if (thoughts.step(1)) return;
   if (chatStep(1)) return;
   const b = CHAPTERS[chapter].beats[beat];
   if (running && b.skip !== 'next') {
@@ -411,6 +416,7 @@ function next() {
 function back() {
   if (free) return;
   if (ui.stepBuild(-1)) return;
+  if (thoughts.step(-1)) return;
   if (chatStep(-1)) return;
   // a slide we step back into shows all its clicks
   if (beat > 0 || chapter > 0) ui.buildFromEnd = true;
