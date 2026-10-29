@@ -61,5 +61,9 @@
   "t.ai3": { "who": "agent", "name": "Agent", "fx": "robot", "text": "New model fitted from last night's data. The proposed tuning holds the riser steady in the simulator.", "no": "Ny modell tilpasset fra nattens data. Den foreslåtte innstillingen holder stigerøret stabilt i simulatoren." },
   "t.ai4": { "who": "agent", "name": "Agent", "fx": "robot", "text": "All 14 test cases pass. Ready for your signature.", "no": "Alle 14 testtilfeller består. Klar for din signatur." },
 
-  "y.ceo1": { "who": "ceo", "name": "Toppsjefen", "text": "Ola! Welcome to Nordhav Energi. Good to have you with us.", "no": "Ola! Velkommen til Nordhav Energi. Godt å ha deg med oss." }
+  "y.ceo1": { "who": "ceo", "name": "Toppsjefen", "text": "Ola! Welcome to Nordhav Energi. Good to have you with us.", "no": "Ola! Velkommen til Nordhav Energi. Godt å ha deg med oss." },
+
+  "m.call1": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "Hi, it's Nordhav Beta. Our separator has been slugging all night, the levels are going up and down like a yo-yo.", "no": "Hei, det er Nordhav Beta. Separatoren vår har slugget hele natta, og nivåene går opp og ned som en jojo." },
+  "m.call2": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "You've got the same kind of separator, haven't you? Any good ideas?", "no": "Dere har vel samme type separator? Har dere noen gode ideer?" },
+  "m.call3": { "who": "operator", "name": "Ola", "text": "Eh... let me see what I can find out.", "no": "Eh... jeg skal se hva jeg finner ut." }
 }

@@ -61,6 +61,7 @@ export const SPEAKERS = {
   crew: { name: 'Ground crew' },
   agent: { name: 'AI agent (on the screens)' },
   ceo: { name: 'CEO', model: 'glasses_ceo' },
+  neighbour: { name: 'Nordhav Beta' },   // the neighbouring platform, on the phone (caller.js)
 };
 
 export const TITLE = 'A day in the life of EIGA';
@@ -574,6 +575,24 @@ const SHORT_CHAPTERS = [
           : 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the fountain, the titles fade as it closes in, and you walk up the steps and in at the Føniks door. Your first week on the job. (?ceo=1: the CEO welcomes you at the steps.)' },
       { id: 'y.steep', set: { overlay: 'slide:y-02' }, notes: 'Onboarding is steep. TODO(Adriaen): your talking points.' },
       { id: 'y.room', set: { overlay: null, place: null, shot: 'roomBand', screens: null, cast: { operator: { at: 'desk0' } } }, notes: 'The room as it was to a newcomer: screens full of things you have yet to learn.' },
+      // (Adriaen, 2026-10-29) the learning curve and CtrlBuddy's first appearance belong to one year ago
+      { id: 'm.s1', set: { overlay: 'slide:m-01' }, notes: 'The money slides: what is possible.' },
+      { id: 'm.step', set: { overlay: null, shot: 'monitor:Desk0Mon2Screen', tool: 'stepTest', screens: { Desk0Mon2Screen: 'stepTest' } }, notes: 'Step-test finder on history. TODO(Adriaen): screenshot of the real tool in private/tools/stepTest.png.' },
+      { id: 'm.s2', set: { overlay: 'slide:m-02' } },
+      // CtrlBuddy's first appearance (Adriaen, 2026-10-29), before his first chat (c.step):
+      // the learning curve in two clicks (axes, then the curve), then he appears on the screen beside the operator
+      { id: 'm.curve1', set: { overlay: null, curve: 'axes', shot: 'curveDesk', buddyAt: CHAT_SCREEN, buddyWho: 'buddy', screens: null, cast: { operator: { at: 'desk0typing' } } },
+        notes: 'Ett år siden, kontrollrommet. Aksene: tid og læring.' },
+      { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
+      // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
+      { id: 'm.think', set: { curve: null, thoughts: true }, notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
+      // (Adriaen, 2026-10-29) and then the neighbouring platform calls about its separator
+      { id: 'm.call', auto: true, set: { thoughts: null, call: 'neighbour' }, do: [{ wait: 1 }, { say: 'm.call1' }, { say: 'm.call2' }, { say: 'm.call3' }],
+        notes: 'Nordhav Beta ringer: separatoren deres slugger, og de spør den nye operatøren om råd.' },
+      { id: 'm.buddy1', set: { curve: null, thoughts: null, call: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
+        notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
+      { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen' }, do: [{ wait: 0.8 }, { buddy: 'click' }],
+        notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
     ],
   },
   {
@@ -589,20 +608,6 @@ const SHORT_CHAPTERS = [
     key: 5, id: 'money', name: T('I dag · Verktøyene', 'Today · The tools'),
     base: { act: 2, time: 13.2, shot: 'desk', ...DESK, cast: { operator: { at: 'desk2' } }, screens: { Desk0Mon2Screen: 'stepTest', Desk0Mon3Screen: 'riser', Desk0Mon4Screen: 'govDocs' } },
     beats: [
-      { id: 'm.s1', set: { overlay: 'slide:m-01' }, notes: 'The money slides: what is possible.' },
-      { id: 'm.step', set: { overlay: null, shot: 'monitor:Desk0Mon2Screen', tool: 'stepTest' }, notes: 'Step-test finder on history. TODO(Adriaen): screenshot of the real tool in private/tools/stepTest.png.' },
-      { id: 'm.s2', set: { overlay: 'slide:m-02' } },
-      // CtrlBuddy's first appearance (Adriaen, 2026-10-29), before his first chat (c.step):
-      // the learning curve in two clicks (axes, then the curve), then he appears on the screen beside the operator
-      { id: 'm.curve1', set: { overlay: null, curve: 'axes', shot: 'curveDesk', buddyAt: CHAT_SCREEN, buddyWho: 'buddy', screens: null, cast: { operator: { at: 'desk0typing' } } },
-        notes: 'Ett år siden, kontrollrommet. Aksene: tid og læring.' },
-      { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
-      // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
-      { id: 'm.think', set: { curve: null, thoughts: true }, notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
-      { id: 'm.buddy1', set: { curve: null, thoughts: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
-        notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
-      { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen' }, do: [{ wait: 0.8 }, { buddy: 'click' }],
-        notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
       { id: 'm.riser', set: { overlay: null, shot: 'monitor:Desk0Mon3Screen', tool: 'riser', screens: { Desk0Mon3Screen: 'riser' } }, notes: 'The riser simulator, open loop: it fills and blows through.' },
       { id: 'm.antislug', set: { tool: 'antiSlug', screens: { Desk0Mon3Screen: 'antiSlug' } }, notes: 'Anti-slug control tuned on the model. Seeing is believing.' },
       { id: 'm.s3', set: { overlay: 'slide:m-03' } },
@@ -655,7 +660,7 @@ function applyStory(chapters) {
   for (const ch of chapters) {
     // its name, if renamed in the editor (by any of its beats, added ones too)
     const ids = ch.beats.map((b) => b.id);
-    for (const add of STORY.inserted) if (ids.includes(add.after)) ids.push(add.id);
+    for (const add of STORY.inserted) if (ids.includes(add.after) || add.after === `^${ch.id}`) ids.push(add.id);
     const named = ids.find((id) => STORY.chapterNames?.[id]);
     if (named) ch.name = tx(STORY.chapterNames[named]);
     for (const b of ch.beats) {
@@ -675,8 +680,9 @@ function applyStory(chapters) {
       if (STORY.callouts[b.id]) b.callouts = STORY.callouts[b.id].map((c) => ({ ...c, label: tx(c.label), text: tx(c.text) }));
     }
     for (const add of STORY.inserted) {
-      const i = ch.beats.findIndex((b) => b.id === add.after);
-      if (i < 0) continue;
+      // after a beat, or `^<chapter id>`: first in that chapter
+      const i = add.after === `^${ch.id}` ? -1 : ch.beats.findIndex((b) => b.id === add.after);
+      if (i < 0 && add.after !== `^${ch.id}`) continue;
       // the overlay in force before it, for the beat after it to fall back to
       let overlay = ch.base?.overlay ?? null;
       for (const b of ch.beats.slice(0, i + 1)) for (const st of [b.set, b.end]) if (st && 'overlay' in st) overlay = st.overlay;

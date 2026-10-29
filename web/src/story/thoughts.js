@@ -1,8 +1,8 @@
 // One year ago, after the learning curve (Adriaen, 2026-10-29): the
 // operator's face with the things he had to learn round it in thought
 // bubbles, one more per click: the organisation, the lingo, the three-letter
-// abbreviations, petroleum engineering and the assets (the plants he looks after), each with a
-// question mark.
+// abbreviations, petroleum engineering, the assets (the plants he looks after)
+// and AI, each with a question mark.
 //
 // State key (content.js): thoughts: true shows his face; Space (main.js
 // next) brings in the next bubble before the story moves on, ← takes one
@@ -23,9 +23,10 @@ const THINGS = [
   [T('TBF', 'TLA'), 'Forkortelser', 'Acronyms'],
   ['oil', 'Petroleumsfag', 'Petroleum engineering'],
   ['assets', 'Assetene', 'The assets'],
+  ['AI', 'Kunstig intelligens', 'Artificial intelligence'],   // (Adriaen, 2026-10-29)
 ];
 // Where the bubbles sit round the face, as % of the overlay (x, y of their centre)
-const SPOTS = [[24, 22], [76, 20], [14, 58], [86, 56], [50, 82]];
+const SPOTS = [[24, 20], [76, 20], [12, 52], [88, 52], [30, 84], [70, 84]];
 
 export class Thoughts {
   constructor() {

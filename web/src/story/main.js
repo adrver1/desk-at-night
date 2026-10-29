@@ -28,6 +28,7 @@ import { Trondheim } from './trondheim.js';
 import { ClockFace } from './clockFace.js';
 import { Buddy } from './buddy.js';
 import { Thoughts } from './thoughts.js';
+import { Caller } from './caller.js';
 
 const game = window.__game;
 const q = new URLSearchParams(location.search);
@@ -48,6 +49,7 @@ const call = new Call(ui.el.call);
 const trondheim = new Trondheim(host);
 let cast = null, shots = null, epilogue = null, clockFace = null, buddy = null;
 const thoughts = new Thoughts();
+const caller = new Caller();
 // The Sola opening (on by default since 2026-10-25, off with ?sola=0) and its
 // callback stills in Acts 1 and 3 of the full version (only with ?solastills=1)
 const SOLA_OPEN = q.get('sola') !== '0';
@@ -174,6 +176,7 @@ function apply(s, { instant = false } = {}) {
   cast?.place(s.cast);
   buddy?.set(s);
   thoughts.set(s.thoughts);
+  caller.set(s.call);
   cast?.mugs(s.mugs);
   ui.clipboard(s.clipboard);
   ui.clipAway(Boolean(s.shot?.startsWith('monitor:') || s.overlay?.startsWith('slide:') || s.overlay?.startsWith('log:') || s.overlay?.startsWith('vote:') || s.overlay?.startsWith('card:') || s.graphOn === 'overlay'));
@@ -683,6 +686,7 @@ function frame(dt, now) {
     if (state.org || state.graphOn === 'overlay') ui.org(state.graphOn === 'overlay' ? 'graph' : state.org, S.graph, S.now - S.graphAt, S.now);
     ui.clock(CHAPTERS[chapter]?.prologue || state.place ? null : S.clock);
   }
+  caller.update(dt);
   // letters being typed into a chat: the zoomed screen redrawn every frame, not at its own rate
   if (Object.entries(S.chatAt).some(([id, at]) => at > S.now && S.chatType[id])) game.room?.redrawFocus?.();
   cast?.update(dt, game.camera, S.now);

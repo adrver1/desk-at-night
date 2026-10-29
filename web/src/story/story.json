@@ -702,7 +702,7 @@
  },
  "inserted": [
   {
-   "after": "m.buddy2",
+   "after": "^money",
    "id": "c.step",
    "chat": "step",
    "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."

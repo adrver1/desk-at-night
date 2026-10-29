@@ -47,6 +47,7 @@ CAST = {
     'tech': ('am_liam', 1.05),          # curly_fade_tech, on the radio
     'crew': ('bf_emma', 1.0),           # ground crew at Sola (the optional opening)
     'ceo': ('am_onyx', 0.95),           # glasses_ceo, welcomes Adriaen at Føniks one year ago
+    'neighbour': ('bm_daniel', 0.97),   # the neighbouring platform on the phone (caller.js)
     'agent': ('af_nova', 1.05),         # the AI agents on the screens, through the robot filter
 }
 
