@@ -8,14 +8,22 @@
 // caller's name comes from SPEAKERS (a stand-in in public; the private build
 // has the real one) and the private build may swap the portrait
 // (overrides.json `faces`: { neighbour: 'faces/<file>' }).
+//
+// In the bubble the caller stands in his PPE in front of his slugging
+// separator, worried, and startled each time a slug comes through (Adriaen,
+// 2026-10-29): a crew stand-in in public, overrides.json `callerModels`
+// ({ neighbour: '<private chars model>' }) in the private build.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Separator, SeparatorSim } from '../separator.js';
 import { PRIVATE, PRIVATE_BASE, OVERRIDES } from '../privateNames.js';
 import { SPEAKERS } from './content.js';
+import { loadModel } from './cast.js';
 
 const W = 960, H = 540;   // px of the bubble's picture
 const CALLERS = { neighbour: 'story/faces/neighbour.svg' };
+const CALLER_MODELS = { neighbour: 'grey_beard_lead_ppe' };
+const STARTLED = 1.6;   // s he looks startled when a slug comes through
 
 export class Caller {
   constructor() {
@@ -42,6 +50,7 @@ export class Caller {
       this.el.querySelector('.them img').src = face ?? '';
       this.el.querySelector('.them figcaption').textContent = SPEAKERS[who]?.name ?? '';
       if (!this.built) this.build();
+      this.person(who);
     }
     if (who && stage !== 'sep') this.reset();   // the slugs start when the bubble opens
     this.who = who;
@@ -65,23 +74,65 @@ export class Caller {
     scene.add(this.sep.group);
     // the vessel's length across the bubble, a little from above
     const cam = this.camera = new THREE.PerspectiveCamera(34, W / H, 0.1, 200);
-    const target = new THREE.Vector3(-0.3, -0.3, 0), t = Math.tan(THREE.MathUtils.degToRad(17));
+    const target = new THREE.Vector3(-0.3, -0.75, 0), t = Math.tan(THREE.MathUtils.degToRad(17));
     cam.position.set(1.5, 3.0, Math.max(3.4 / t, 6.6 / (t * cam.aspect)) + 0.5).add(target);
     cam.lookAt(target);
     this.built = true;
   }
 
+  // The caller in front of the vessel, on the skid's floor
+  person(who) {
+    const name = (PRIVATE && OVERRIDES.callerModels?.[who]) || CALLER_MODELS[who];
+    if (this.man) { this.scene.remove(this.man.root); this.man = null; }
+    if (!name) return;
+    const want = (this.wanted = name);
+    loadModel(name).then((gltf) => {
+      if (this.wanted !== want) return;
+      const root = gltf.scene, mixer = new THREE.AnimationMixer(root);
+      const clip = (n) => gltf.animations.find((a) => a.name === n);
+      const act = (n) => clip(n) && mixer.clipAction(clip(n));
+      act('idle')?.play();
+      const face = { worried: act('worried'), surprised: act('surprised') };
+      for (const a of Object.values(face)) if (a) { a.setLoop(THREE.LoopOnce); a.clampWhenFinished = true; }
+      const box = new THREE.Box3().setFromObject(this.sep.group);
+      // left of the middle, well in front of the vessel, facing us (people look down their -z), turned a little to it
+      root.position.set(-2.7, box.min.y, box.max.z + 2.0);
+      root.rotation.y = Math.PI + 0.35;
+      root.scale.setScalar(1.25);
+      this.scene.add(root);
+      this.man = { root, mixer, face, shown: null };
+      this.mood('worried');
+    }).catch(() => {});
+  }
+
+  // Hold an expression (its clip stopped where the face is fully set)
+  mood(name) {
+    const m = this.man;
+    if (!m || m.shown === name) return;
+    for (const [n, a] of Object.entries(m.face)) {
+      if (!a) continue;
+      if (n === name) { a.reset().play(); a.time = 1.5; a.paused = true; a.setEffectiveWeight(1); } else a.stop();
+    }
+    m.shown = name;
+  }
+
   reset() {
     this.sim = new SeparatorSim();
+    this.slugAt = null;
     this.nextSlug = 0.6;
   }
 
   // Each frame (dt in s) while shown: big slugs, one after the other
   update(dt) {
     if (!this.on || !this.built) return;
+    if (!this.sim) this.reset();   // a beat entered straight at the separator
     dt = Math.min(dt, 0.05);
     const p = this.sim;
-    if (p.t > this.nextSlug) { p.slug(1.1 + 0.5 * Math.random()); this.nextSlug = p.t + 7 + 3 * Math.random(); }
+    if (p.t > this.nextSlug) { p.slug(1.1 + 0.5 * Math.random()); this.slugAt = p.t; this.nextSlug = p.t + 7 + 3 * Math.random(); }
+    if (this.man) {
+      this.mood(p.t - (this.slugAt ?? -99) < STARTLED ? 'surprised' : 'worried');
+      this.man.mixer.update(dt);
+    }
     p.step(dt);
     p.apply(this.sep);
     this.sep.update(dt, p.stir);

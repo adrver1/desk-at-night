@@ -15,7 +15,7 @@
 // 'buddy'; curve: 'axes' | 'plot' shows the learning curve's axes, then the
 // curve too (two clicks); buddyWho: 'scholar' puts his team-mate there instead
 // (kept as an option). The step { buddy: 'click' } moves the
-// pointer to him and clicks.
+// pointer to him and clicks, in a beat whose state has buddyPointer: true.
 import * as THREE from 'three';
 import { loadModel } from './cast.js';
 import { S, BUDDY_LOOKS, BUDDY_WHO } from './storyScreens.js';
@@ -125,7 +125,8 @@ export class Buddy {
         this.scene.background = new THREE.Color(BUDDY_LOOKS[look].bg);
       }
     }
-    if (!look) { this.pointer.visible = false; this.click = null; S.buddy.clickAt = -99; }
+    // the pointer only in the beat that clicks him (state buddyPointer; Adriaen, 2026-10-29: not while he waves)
+    if (!look || !s.buddyPointer) { this.pointer.visible = false; this.click = null; S.buddy.clickAt = -99; }
     this.curve(s.curve);
   }
 
@@ -242,10 +243,22 @@ export class Buddy {
       <path class="axis" d="M60 30 V250 H400" />
       <path class="arrow" d="M54 40 L60 28 L66 40 M390 244 L402 250 L390 256" />
       <polyline class="plot" points="${pts}" />
+      <defs><clipPath id="learnerClip"><circle r="24" /></clipPath></defs>
+      <g class="learner"><circle class="ring" r="27" /><image href="story/faces/adriaen.png" x="-24" y="-24" width="48" height="48" clip-path="url(#learnerClip)" /></g>
       <text x="230" y="285" text-anchor="middle">${T('Tid', 'Time')}</text>
       <text x="0" y="0" transform="translate(36 140) rotate(-90)" text-anchor="middle">${T('Læring', 'Learning')}</text>
     </svg>`;
     (document.getElementById('game') ?? document.body).append(el);
+    // (Adriaen, 2026-10-29) his portrait rides the tip of the curve as it draws: he is the one learning
+    const plot = el.querySelector('.plot'), learner = el.querySelector('.learner'), len = plot.getTotalLength();
+    const follow = () => {
+      const drawn = Math.min(len, Math.max(0, 700 - parseFloat(getComputedStyle(plot).strokeDashoffset)));
+      const p = plot.getPointAtLength(drawn);
+      learner.setAttribute('transform', `translate(${p.x} ${p.y})`);
+      learner.style.opacity = el.classList.contains('plot') && drawn > 1 ? 1 : 0;
+      if (el.classList.contains('on')) requestAnimationFrame(follow); else this.following = false;
+    };
+    this.followCurve = () => { if (!this.following) { this.following = true; requestAnimationFrame(follow); } };
     return el;
   }
 
@@ -253,6 +266,7 @@ export class Buddy {
   curve(step) {
     this.curveEl.classList.toggle('on', Boolean(step));
     this.curveEl.classList.toggle('plot', step === 'plot');
+    if (step) this.followCurve();
   }
 }
 

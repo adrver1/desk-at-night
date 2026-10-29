@@ -373,6 +373,8 @@
 .learning.on .axis { stroke-dashoffset: 0; transition: stroke-dashoffset 0.9s ease-out 0.3s; }
 .learning.on .arrow { opacity: 1; }
 .learning.plot .plot { stroke-dashoffset: 0; transition: stroke-dashoffset 2.2s cubic-bezier(.2,.7,.3,1) 0.4s; }
+.learning .learner { opacity: 0; transition: opacity 0.3s; }
+.learning .learner .ring { fill: #e8eef2; }
 .learning text { fill: #e8eef2; font: 600 22px var(--display, system-ui); }
 
 /* One year ago, what he had to learn (thoughts.js): his face, thought bubbles coming in round it */
@@ -411,17 +413,19 @@
 .caller .speech canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; }
 /* the tail points back at the caller */
 .caller .speech .tail { position: absolute; left: calc(-3.2 * var(--u)); top: 46%; width: 0; height: 0; border-top: calc(2.2 * var(--u)) solid transparent; border-bottom: calc(2.2 * var(--u)) solid transparent; border-right: calc(3.4 * var(--u)) solid #e8e8e4; }
-/* One year ago, what CtrlBuddy is (explain.js): a dark panel beside him, one part per beat */
-.explain { position: absolute; right: 4%; top: 50%; transform: translate(4%, -50%); width: min(44vw, 78vh); z-index: 6; pointer-events: none; opacity: 0; transition: opacity 0.4s, transform 0.5s cubic-bezier(.3,1.2,.5,1);
-  background: #0b1116e0; color: #e8eef2; border-radius: calc(2.4 * var(--u)); padding: calc(2.6 * var(--u)) calc(3 * var(--u)); box-shadow: 0 1vh 4vh #0008; }
-.explain.on { opacity: 1; transform: translate(0, -50%); }
-.explain h2 { margin: 0 0 calc(1.6 * var(--u)); font: 700 calc(2.6 * var(--u))/1.1 var(--display, system-ui); letter-spacing: -0.01em; }
-.explain ol { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(1.4 * var(--u)); }
-.explain li { display: grid; grid-template-columns: calc(4.4 * var(--u)) 1fr; gap: calc(1.4 * var(--u)); align-items: center; opacity: 0.12; transform: translateX(calc(1.5 * var(--u))); transition: opacity 0.4s, transform 0.45s cubic-bezier(.3,1.4,.5,1); }
+/* One year ago, what CtrlBuddy is (explain.js): a half-slide in the deck's look (white, a light title,
+   magenta square bullets, line drawings), filling the right half beside him, one part per beat */
+.explain { position: absolute; right: 0; top: 0; bottom: 0; width: 50%; z-index: 6; pointer-events: none; opacity: 0; transform: translateX(3%); transition: opacity 0.45s, transform 0.5s cubic-bezier(.3,1.1,.5,1);
+  background: #fff; color: #1d1d1f; box-shadow: -1vh 0 4vh #0006; display: flex; flex-direction: column; justify-content: center; padding: 0 5% 4% 6%; box-sizing: border-box; font-family: Aptos, 'Segoe UI', Arial, system-ui, sans-serif; }
+.explain.on { opacity: 1; transform: none; }
+.explain h2 { margin: 0 0 calc(3 * var(--u)); font: 400 calc(3.6 * var(--u))/1.1 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; letter-spacing: -0.01em; }
+.explain ol { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(2 * var(--u)); }
+.explain li { display: grid; grid-template-columns: calc(5 * var(--u)) 1fr; gap: calc(1.8 * var(--u)); align-items: center; opacity: 0; transform: translateY(calc(1 * var(--u))); transition: opacity 0.4s, transform 0.45s cubic-bezier(.3,1.3,.5,1); }
 .explain li.in { opacity: 1; transform: none; }
-.explain li svg { width: 100%; aspect-ratio: 1; fill: none; stroke: #7fd1c0; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
-.explain li b { display: block; font: 700 calc(1.9 * var(--u))/1.15 var(--display, system-ui); color: #7fd1c0; }
-.explain li span { display: block; font: 500 calc(1.65 * var(--u))/1.3 var(--display, system-ui); }
+.explain li svg { width: 100%; aspect-ratio: 1; fill: none; stroke: #1d1d1f; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.explain li b { display: flex; align-items: center; gap: 0.5em; font: 700 calc(2.1 * var(--u))/1.2 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; }
+.explain li b::before { content: ''; width: 0.42em; height: 0.42em; background: #c2185b; flex: none; }
+.explain li span { display: block; margin-left: calc(2 * var(--u) * 0.92); font: 400 calc(1.8 * var(--u))/1.3 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; color: #333; }
 /* V / U: which voice and subtitles (main.js speechToast) */
 .speech-toast { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); z-index: 20; pointer-events: none; padding: 0.5em 1em; border-radius: 0.5em; background: #0b1116d9; color: #e8eef2; font: 600 calc(1.4 * var(--u)) var(--display, system-ui); opacity: 0; transition: opacity 0.3s; }
 .speech-toast.on { opacity: 1; }

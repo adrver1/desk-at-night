@@ -216,6 +216,14 @@ export class Sound {
     this.tick(t + 0.12, 2400, 0.25, 0.02);
   }
 
+  // Hanging up: the handset back in its cradle, a plastic knock and the hook switch
+  hangupClick() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.tick(t, 300, 0.6, 0.06);
+    this.tick(t + 0.05, 1800, 0.35, 0.02);
+  }
+
   // The process alarm: a two-tone horn every 1.1 s, louder over `build`
   // seconds, with a layer of radio squelch and hum. stop() or cut() ends it.
   startAlarm(build = 15, peak = 0.12) {

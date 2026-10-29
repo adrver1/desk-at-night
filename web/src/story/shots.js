@@ -110,7 +110,7 @@ export class Shots {
       if (!f) return this.target('desk');
       const fov = 50, t = Math.tan(THREE.MathUtils.degToRad(fov) / 2) / 1.04;
       const d = Math.max(f.height / 2 / t, f.width / 2 / (t * this.game.camera.aspect)) * 1.7;
-      const right = new THREE.Vector3().crossVectors(f.up, f.normal).multiplyScalar(0.56 * d * t * this.game.camera.aspect);
+      const right = new THREE.Vector3().crossVectors(f.up, f.normal).multiplyScalar(0.5 * d * t * this.game.camera.aspect);
       const pos = f.center.clone().addScaledVector(f.normal, d).add(right);
       const m = new THREE.Matrix4().lookAt(pos, f.center.clone().add(right), f.up);
       return { pos, quat: new THREE.Quaternion().setFromRotationMatrix(m), fov };

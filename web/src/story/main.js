@@ -299,6 +299,7 @@ async function run(step, my) {
   if (step.sound === 'ring') { sound.ring(2); return; }
   if (step.sound === 'ringtone') { sound.ringtone(step.times ?? 2); return; }   // 2.55 s a ring; it rings on into the next beats until picked up
   if (step.sound === 'pickup') { sound.pickup(); return; }
+  if (step.sound === 'hangup') { sound.hangupClick(); return; }
   // CtrlBuddy's first appearance: the mouse pointer goes to him and clicks
   if (step.buddy === 'click') return buddy?.clickHim(() => sound.click());
   if (step.sound === 'alarmShort') { sound.startAlarm(3, 0.06); setTimeout(() => sound.stopAlarm(), 5000); return; }

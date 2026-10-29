@@ -534,7 +534,7 @@ const SHORT_CHAPTERS = [
       // the pointer clicks it and the chat opens on that screen at full zoom. It is the CtrlBuddy model, but
       // CtrlBuddy is Ola's process-control agent: Per's has its own name (PlanBuddy, BUDDY_WHO.planner)
       { id: 't.plan', auto: true, set: { shot: 'buddyDesk', buddyAt: CHAT_SCREEN, buddyWho: 'planner' },
-        do: [{ wait: 0.8 }, { set: { screens: PLAN_SCREENS('buddy'), buddy: 'splash' } }, { wait: 1.6 }, { buddy: 'click' },
+        do: [{ wait: 0.8 }, { set: { screens: PLAN_SCREENS('buddy'), buddy: 'splash', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
           { set: { screens: PLAN_SCREENS('chatPlan'), shot: `monitor:${CHAT_SCREEN}` } }, { wait: 0.4 },
           { chat: 'plan' }, { say: 't.plan1' }, { chat: 'plan' }, { wait: 0.6 }, { say: 't.ai1' }, { wait: 0.2 },
           { set: { shot: 'supervisor' } }, { chat: 'plan' }, { say: 't.plan2' }, { chat: 'plan' }, { set: { shot: `monitor:${CHAT_SCREEN}` } }, { wait: 0.6 }, { say: 't.ai2' }, { set: { shot: 'band' } }, { wait: 0.8 }],
@@ -549,7 +549,7 @@ const SHORT_CHAPTERS = [
       // (Adriaen, 2026-10-29) the same template as Per's: Ola and his screen on the right (buddyDesk_right),
       // CtrlBuddy appears and waves, the pointer clicks him, the chat opens at full zoom
       { id: 't.adriaen', auto: true, set: { shot: 'buddyDesk_right', buddyAt: SLUG_SCREEN, buddyWho: 'buddy', buddy: null },
-        do: [{ wait: 0.8 }, { set: { screens: ADR_SCREENS('buddy'), buddy: 'splash' } }, { wait: 1.6 }, { buddy: 'click' },
+        do: [{ wait: 0.8 }, { set: { screens: ADR_SCREENS('buddy'), buddy: 'splash', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
           { set: { screens: ADR_SCREENS('chatSlug'), shot: `monitor:${SLUG_SCREEN}` } }, { wait: 0.4 },
           { chat: 'slug' }, { say: 't.adr1' }, { chat: 'slug' }, { wait: 0.6 }, { say: 't.ai3' },
           { set: { shot: 'monitor:Desk1Mon3Screen', tool: 'antiSlug', screens: { Desk1Mon3Screen: 'antiSlug' } } }, { wait: 3.2 },
@@ -592,11 +592,18 @@ const SHORT_CHAPTERS = [
       // and the separator comes up once the caller has said who it is
       { id: 'm.ring', set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' }, do: [{ sound: 'ringtone', times: 6 }],
         notes: 'Telefonen ringer. Space: han tar den.' },
-      { id: 'm.call', auto: true, set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' },
+      { id: 'm.call', set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' },
         do: [{ set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
-          { set: { callStage: 'talk' } }, { wait: 1 }, { say: 'm.call0' }, { set: { callStage: 'sep' } }, { wait: 1.2 }, { say: 'm.call1' }, { say: 'm.call2' }, { say: 'm.call3' }],
-        end: { callStage: 'sep', phone: 'operator' },
-        notes: 'Han tar telefonen: Nordhav Beta, separatoren deres slugger, og de spør den nye operatøren om råd. (Chatversjonen, c.call, ligger skjult.)' },
+          { set: { callStage: 'talk' } }, { wait: 1 }, { say: 'm.call0' }],
+        end: { callStage: 'talk', phone: 'operator' },
+        notes: 'Han tar telefonen: det er Nordhav Beta. (Chatversjonen, c.call, ligger skjult.)' },
+      // (Adriaen, 2026-10-29) the separator and the complaint in a beat of their own; at the end
+      // he hangs up (the pickup played backwards, a click) and the call goes
+      { id: 'm.slug', auto: true, set: { call: 'neighbour', callStage: 'sep', phone: 'operator', shot: 'phoneDesk' },
+        do: [{ wait: 1.2 }, { say: 'm.call1' }, { say: 'm.call2' }, { say: 'm.call3' }, { wait: 0.4 },
+          { set: { phone: null } }, { wait: 0.65 }, { sound: 'hangup' }, { wait: 0.9 }, { set: { call: null } }, { wait: 0.6 }],
+        end: { call: null, phone: null },
+        notes: 'Separatoren deres slugger, og de spør den nye operatøren om råd. Han legger på.' },
       { id: 'm.buddy1', set: { curve: null, thoughts: null, call: null, phone: null, explain: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
         notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
       // (Adriaen, 2026-10-29) what he is, one part per beat, while he waves; then the click
@@ -605,7 +612,7 @@ const SHORT_CHAPTERS = [
       { id: 'm.what3', set: { explain: 3 }, notes: 'Instruksjonene: oppfører seg som en erfaren automasjonsingeniør.' },
       { id: 'm.what4', set: { explain: 4 }, notes: 'Verktøyene: datakilder via API-er (CDF, ABB LoopInsight).' },
       { id: 'm.what5', set: { explain: 5 }, notes: 'Kunnskapsbasen: selskaps- og fagspesifikk kunnskap for oppgavene.' },
-      { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen', explain: null }, do: [{ wait: 0.8 }, { buddy: 'click' }],
+      { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen', explain: null, buddyPointer: true }, do: [{ wait: 0.8 }, { buddy: 'click' }],
         notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
     ],
   },

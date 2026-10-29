@@ -1,7 +1,7 @@
 // One year ago, CtrlBuddy waving on the operator's screen (Adriaen,
 // 2026-10-29): before the pointer clicks him, what he is, one part per beat
-// in a dark panel beside him. The agent, its harness and model, its
-// instructions, its tools and its knowledge base.
+// on a half-slide beside him in the look of his deck's slides. The agent,
+// its harness and model, its instructions, its tools and its knowledge base.
 //
 // State key (content.js): explain: n shows the panel with the first n parts,
 // null hides it.
@@ -29,7 +29,7 @@ export class Explain {
   constructor() {
     const el = this.el = document.createElement('div');
     el.className = 'explain';
-    el.innerHTML = `<h2>${T('Hva er CtrlBuddy?', 'What is CtrlBuddy?')}</h2><ol>` + PARTS.map(([icon, hno, hen, no, en]) =>
+    el.innerHTML = `<h2>${T('CtrlBuddy – hva er det?', 'CtrlBuddy – what is it?')}</h2><ol>` + PARTS.map(([icon, hno, hen, no, en]) =>
       `<li><svg viewBox="0 0 48 48" aria-hidden="true">${ICONS[icon]}</svg><div><b>${T(hno, hen)}</b><span>${real(T(no, en))}</span></div></li>`).join('') + '</ol>';
     (document.getElementById('game') ?? document.body).append(el);
     this.parts = [...el.querySelectorAll('li')];
