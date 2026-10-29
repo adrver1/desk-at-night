@@ -49,7 +49,7 @@ for ch, che in zip(no['CHAPTERS'], en['CHAPTERS']):
             t0 = round(t, 1)
             if 'say' in s:
                 l = LINES[s['say']]; dur = VOICE.get(s['say'], {}).get('dur', 2.5)
-                items.append({'kind': 'line', 'id': s['say'], 'who': l.get('name') or names.get(l['who'], l['who']), 'role': l['who'], 'en': l['text'], 'no': l.get('no', ''), 'fx': l.get('fx'), 't': t0, 'd': dur})
+                items.append({'kind': 'line', 'id': s['say'], 'who': l.get('name') or names.get(l['who'], l['who']), 'role': l['who'], 'en': l['text'], 'no': l.get('no', ''), 'fx': l.get('fx'), **{f: False for f in ('voice', 'subs') if l.get(f) is False}, 't': t0, 'd': dur})
                 t += dur + 0.3
             elif 'chat' in s:
                 c = s['chat']; i = chats.get(c, 0); chats[c] = i + 1

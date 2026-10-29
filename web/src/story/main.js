@@ -62,7 +62,7 @@ for (const ch of CHAPTERS) ch.beats = ch.beats.filter((b) => (!b.sola || SOLA_ST
 if (PRIVATE_ON) { realDeep(lines); applyOverrides(OVERRIDES); }
 if (q.get('fps') === '1' || q.has('perf')) document.documentElement.classList.add('show-fps');   // the panel sits on <body>, outside the game
 function applyOverrides(o) {
-  // { lines: { id: text | { text, no } }, cards: { id: { initiative, status } }, slides: { id: {...} | { no, en } },
+  // { lines: { id: text | { text, no, voice, subs } }, cards: { id: { initiative, status } }, slides: { id: {...} | { no, en } },
   //   chats: { id: {...} }, chatText: { id: { index: { no, en } } }, beats: { id: { notes, callouts } } }
   //   (the last two from the story editor's live stage)
   realDeep(o);
@@ -378,13 +378,18 @@ async function rewind(over, my, dir) {
 async function say(id, my) {
   const line = lines[id];
   if (!line) return;
-  if (SPEECH.subs !== 'off') ui.subs(line.name ?? line.who, SPEECH.subs === 'no' ? line.no ?? line.text : line.text);
-  const mouth = SPEECH.voice === 'off' ? '' : sound.entry(id)?.mouth ?? '';
+  // Each line can switch its own voice and subtitle off (lines.json
+  // `voice: false` / `subs: false`, set in the editor); a line with neither
+  // still takes its time
+  const voiced = line.voice !== false && SPEECH.voice !== 'off';
+  if (SPEECH.subs !== 'off' && line.subs !== false) ui.subs(line.name ?? line.who, SPEECH.subs === 'no' ? line.no ?? line.text : line.text);
+  const mouth = voiced ? sound.entry(id)?.mouth ?? '' : '';
   cast?.talk(line.who, mouth);
   trondheim.talk(line.who, mouth);
   call.talk(line.who, mouth);
   shots?.speaker(line.who);
-  await sound.line(id);
+  if (voiced) await sound.line(id);
+  else await sleep(sound.entry(id)?.dur ?? 3);
   if (my === token) { ui.subs(); await sleep(0.35); }
 }
 

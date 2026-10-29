@@ -164,6 +164,7 @@ a.btn { text-decoration: none; display: inline-block; margin-right: 8px }
 .frame .clicks button[disabled] { opacity: .3; cursor: default }
 .seg2.card { background: var(--t-card) }
 .seg2.line { background: var(--t-line) }
+.seg2.line.mute { background: repeating-linear-gradient(135deg, var(--t-line) 0 5px, transparent 5px 9px); outline: 1px solid var(--t-line); outline-offset: -1px }
 .seg2.chat { background: var(--t-chat) }
 .seg2.move { background: var(--t-move); min-width: 6px }
 .seg2.cam { background: none; color: var(--t-cam); border-left: 2px solid var(--t-cam); border-radius: 0; padding-left: 3px }
@@ -294,7 +295,7 @@ const game = () => { try { return liveBox?.firstChild.contentWindow.__story ?? n
 function overridesFor(b) {
   const o = { lines: {}, chatText: {}, slides: {}, beats: { [b.id]: { notes: b.notes || '', callouts: b.callouts || [] } } };
   for (const x of b.items || []) {
-    if (x.kind === 'line' && !x.isNew) o.lines[x.id] = { text: x.en || '', no: x.no || '' };
+    if (x.kind === 'line' && !x.isNew) o.lines[x.id] = { text: x.en || '', no: x.no || '', voice: x.voice !== false, subs: x.subs !== false };
     if (x.kind === 'chat' && x.key != null) (o.chatText[x.key] ??= {})[x.idx] = { no: x.no || '', en: x.en || '' };
   }
   if (b.slide && !b.slide.image) o.slides[b.slide.id] = { no: b.slide.no || {}, en: b.slide.en || {} };
@@ -366,7 +367,7 @@ function frame(b, opts = {}) {
   if (frames(b) && opts.drag == null) { const f = frames(b), ci = clickAt(b); h += `<div class="clicks"><button data-click="-1" ${ci ? '' : 'disabled'} aria-label="Previous click">‹</button><span>${ci ? `click ${ci} of ${f.length - 1}` : `before the first click (${f.length - 1})`}</span><button data-click="1" ${ci < f.length - 1 ? '' : 'disabled'} aria-label="Next click">›</button></div>`; }
   if (b.card) h += `<div class="card${b.card.solid ? ' solid' : ''}">${esc(b.card.text)}</div>`;
   const it = m >= 0 ? items[m] : items.find((x) => x.kind === 'line');
-  if (it?.kind === 'line' && !b.slide) h += `<div class="subs"><span>${faceOf(it) ? `<img class="av" src="${esc(faceOf(it))}" alt="">` : ''}<b>${esc(it.who)}:</b> ${esc(L === 'no' ? it.no || it.en : it.en)}</span></div>`;
+  if (it?.kind === 'line' && it.subs !== false && !b.slide) h += `<div class="subs"><span>${faceOf(it) ? `<img class="av" src="${esc(faceOf(it))}" alt="">` : ''}<b>${esc(it.who)}:</b> ${esc(L === 'no' ? it.no || it.en : it.en)}</span></div>`;
   if (it?.kind === 'chat' && !cs) h += `<div class="chatb">${faceOf(it) ? `<img src="${esc(faceOf(it))}" alt="">` : ''}<b>${esc(it.chat)} · ${esc(it.from)}</b>${esc(it[L])}</div>`;
   if (it?.kind === 'card' && !it.removed) h += `<div class="card">${esc(it[L])}${it.sub ? `<small>${esc(it.sub)}</small>` : ''}</div>`;
   (b.callouts || []).forEach((c, i) => { h += `<div class="co${c.x > 62 ? ' left' : ''}${opts.drag === i ? ' drag' : ''}" data-co="${i}" style="left:${c.x}%;top:${c.y}%"><div class="pin"></div><div class="lab"><b>${esc(txt(c.label))}</b>${esc(txt(c.text))}</div></div>`; });
@@ -399,7 +400,7 @@ function render(scroll) {
     if (x.kind === 'shot') { body += `<button class="cue${on}" data-m="${j}">CAMERA → <b>${esc(shotName(x.shot))}</b>${at}</button>`; return; }
     if (x.kind === 'move') { body += `<button class="cue${on}" data-m="${j}">${esc(x.who)} ${esc(x.what)}${at}</button>`; return; }
     if (x.kind === 'fx') { body += `<button class="cue${on}" data-m="${j}">${esc(x.what)}${at}</button>`; return; }
-    if (x.kind === 'line') body += `<button class="blk dl${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${faceOf(x) ? `<img class="av" src="${esc(faceOf(x))}" alt="">` : ''}${esc(x.who)} ${x.fx ? `<em>(${esc(x.fx)})</em>` : ''} <em>spoken in English${at}</em></div><div>${esc(L === 'no' ? x.no || x.en || '…' : x.en || '…')}</div><div class="alt">${esc(L === 'no' ? x.en : x.no)}</div></button>`;
+    if (x.kind === 'line') body += `<button class="blk dl${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${faceOf(x) ? `<img class="av" src="${esc(faceOf(x))}" alt="">` : ''}${esc(x.who)} ${x.fx ? `<em>(${esc(x.fx)})</em>` : ''} <em>${lineSw(x)}${at}</em></div><div>${esc(L === 'no' ? x.no || x.en || '…' : x.en || '…')}</div><div class="alt">${esc(L === 'no' ? x.en : x.no)}</div></button>`;
     if (x.kind === 'chat') body += `<button class="blk dl chat${on}" data-edit="${k}|item${j}" data-m="${j}"><div class="who">${faceOf(x) ? `<img class="av" src="${esc(faceOf(x))}" alt="">` : ''}${esc(x.from)} <em>${b.chat ? `click ${(chatSteps(b) || []).indexOf(x) + 1}${x.who === 'show' ? ' · report on the next screen' : ''}` : `on the screen · ${esc(x.chat)}`}${at}</em></div><div>${esc(x[L])}</div></button>`;
     if (x.kind === 'card') body += `<button class="blk cd${on}${x.removed ? ' gone' : ''}" data-edit="${k}|item${j}" data-m="${j}">${x.removed ? '<div class="mono">removed from the story</div>' : ''}${esc(x[L] || '(card)')}${x.sub ? `<div class="mono">${esc(x.sub)}</div>` : ''}</button>`;
     body += stickies(k, 'item' + j);
@@ -454,7 +455,7 @@ function timeline(scroll) {
     if (notesFor(k).some((n) => n.status !== 'done')) rows.ptr += `<button class="seg2 note" data-go="${k}" style="left:${p.x + p.w - 22}px;width:20px" title="Open note">✎</button>`;
     (b.items || []).forEach((it, j) => {
       const t = it.t ?? 0, on = k === curKey && j === moment ? ' on' : '';
-      if (it.kind === 'line' || it.kind === 'chat') rows[it.kind === 'line' ? 'talk' : 'chat'] += `<button class="seg2 ${it.kind}${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:${Math.max(6, Math.min((it.d || 1.5) * PX, p.x + p.w - X(t)))}px" title="${esc(it.kind === 'chat' ? it.from : it.who)}: ${esc(it[L] || it.en)}">${esc(it.kind === 'chat' ? it.from : it.who)}</button>`;
+      if (it.kind === 'line' || it.kind === 'chat') rows[it.kind === 'line' ? 'talk' : 'chat'] += `<button class="seg2 ${it.kind}${on}${it.kind === 'line' && it.voice === false ? ' mute' : ''}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:${Math.max(6, Math.min((it.d || 1.5) * PX, p.x + p.w - X(t)))}px" title="${esc(it.kind === 'chat' ? it.from : it.who)}: ${esc(it[L] || it.en)}">${esc(it.kind === 'chat' ? it.from : it.who)}</button>`;
       if (it.kind === 'card' && !it.removed) rows.slide += `<button class="seg2 card${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:${Math.max(30, Math.min(80, p.x + p.w - X(t)))}px">${esc(it[L] || 'card')}</button>`;
       if (it.kind === 'move' || it.kind === 'fx') rows.people += `<button class="seg2 move${on}" data-go="${k}" data-gm="${j}" style="left:${X(t)}px;width:8px" title="${esc((it.who ? it.who + ' ' : '') + it.what)}"></button>`;
     });
@@ -505,6 +506,8 @@ function sheet(title, inner, onDone, extra = '', { note = true } = {}) {
   form.querySelector('input, textarea')?.focus();
   return form;
 }
+// A spoken line's own switches, as a short tag on its block and timeline segment
+const lineSw = (x) => x.voice === false && x.subs === false ? 'silent' : x.voice === false ? 'subtitles only' : x.subs === false ? 'voice only' : 'voice + subtitles';
 const fld = (id, lab, val, area, rows = 2) => `<label class="f">${lab}${area ? `<textarea class="t" id="${id}" rows="${rows}">${esc(val)}</textarea>` : `<input class="t" id="${id}" value="${esc(val)}">`}</label>`;
 const val = (f, id) => f.querySelector('#' + id)?.value ?? '';
 const lines = (s) => s.split('\n').map((x) => x.trim()).filter(Boolean);
@@ -559,11 +562,14 @@ function edit(key, what, draft) {
       : x.kind === 'card' ? `<button type="button" class="btn${x.removed ? '' : ' danger'}" id="f_gone">${x.removed ? 'Put it back' : 'Remove from the story'}</button>` : '';
     let inner = '';
     if (x.kind === 'line') inner = `${x.isNew ? `<label class="f">Who says it<select class="t" id="f_who">${SPEAKERS.map(([r, n]) => `<option value="${r}" ${x.role === r ? 'selected' : ''}>${n}</option>`).join('')}</select></label>` : `<p class="mono">${esc(x.who)} · line ${esc(x.id)}</p>`}
-      <div class="two">${fld('f_en', 'Spoken (English, the voice reads this)', x.en, 1, 3)}${fld('f_no', 'Subtitle (Norwegian)', x.no, 1, 3)}</div>`;
+      <div class="two">${fld('f_no', 'Norsk', x.no, 1, 3)}${fld('f_en', 'English', x.en, 1, 3)}</div>
+      <label class="check"><input type="checkbox" id="f_voice" ${x.voice !== false ? 'checked' : ''}> Voice (the line is heard)</label>
+      <label class="check"><input type="checkbox" id="f_subs" ${x.subs !== false ? 'checked' : ''}> Subtitles (the line shows as text)</label>`;
     if (x.kind === 'chat') inner = `<p class="mono">${esc(x.from)} on ${esc(x.chat)}</p><div class="two">${fld('f_no', 'Norwegian', x.no, 1, 3)}${fld('f_en', 'English', x.en, 1, 3)}</div>`;
     if (x.kind === 'card') inner = `<div class="two">${fld('f_no', 'Card text (Norwegian)', x.no)}${fld('f_en', 'Card text (English)', x.en)}</div>`;
     sheet(x.kind === 'line' ? 'Spoken line' : x.kind === 'chat' ? 'Chat message on a screen' : 'Title card', inner, (f) => {
       const y = nb.items[j]; y.no = val(f, 'f_no'); y.en = val(f, 'f_en');
+      if (x.kind === 'line') for (const k of ['voice', 'subs']) { if (f.querySelector(`#f_${k}`).checked) delete y[k]; else y[k] = false; }
       if (x.isNew && x.kind === 'line') { y.role = val(f, 'f_who'); y.who = SPEAKERS.find((s) => s[0] === y.role)?.[1] || y.role; }
       finish(f, what);
     }, del);

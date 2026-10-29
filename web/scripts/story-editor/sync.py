@@ -95,6 +95,10 @@ for i, b in enumerate(beats):
                 l = lines[it['id']]
                 if l['text'] != it.get('en', l['text']): l['text'] = it['en']; voice.append(it['id'])
                 if it.get('no') is not None and l.get('no', '') != it['no']: l['no'] = it['no']; changed.append(f'subtitle {it["id"]}')
+            l = lines[it['id']]
+            for f in ('voice', 'subs'):   # switched off in the editor; on is the default
+                if it.get(f) is False and l.get(f) is not False: l[f] = False; changed.append(f'{f} off {it["id"]}')
+                elif it.get(f) is not False and f in l: del l[f]; changed.append(f'{f} on {it["id"]}')
         elif k == 'chat':
             m = story['chats'][it['key']]['messages'][it['idx']]
             if not same({k: m[1].get(k, '') for k in ('no', 'en')}, both(it)): m[1] = {**m[1], **both(it)}; changed.append(f'chat {it["key"]} {it["idx"] + 1}')   # keeps a report's file
