@@ -33,7 +33,8 @@ from mathutils import Quaternion, Vector  # noqa: E402
 Mesh, X, Y, Z = base.Mesh, base.X, base.Y, base.Z
 FORM = "hover"
 # What covers the shoulders: "sleeves" (short sleeves of the tabard pointing
-# straight out sideways, as on the presentation pictures; part of the torso)
+# straight out sideways, as on the presentation pictures; rooted on the chest,
+# following the arm)
 # or "flaps" (the earlier collar wedges)
 SHOULDERS = "sleeves"
 FORMS, ROLES = ("walker", "hover", "desk"), ("buddy", "scholar", "nurse")
@@ -224,8 +225,8 @@ def torso(role, form):
 
 
 def sleeve(side):
-    """Short sleeve of the tabard, part of the torso (it follows the chest,
-    not the arm). As drawn it points straight out sideways: its top runs
+    """Short sleeve of the tabard. Built on the torso, its root follows the
+    chest and the rest the upper arm (bone_for). As drawn it points straight out sideways: its top runs
     level from the neckline to a point past the shoulder, and its opening
     is cut at a slant back in to the armpit, where the arm comes out."""
     u, v, w = -Z, Y, X          # u down, v forward, w out along the shoulder
@@ -319,6 +320,11 @@ def bone_for(region, co, form):
         if region == "upper_arm":
             return f"upper_arm.{tag}"
         return f"hand.{tag}" if region == "hand" else f"forearm.{tag}"
+    if region == "sleeve":
+        # the sleeve's root stays on the chest and the rest rides on the
+        # upper arm, so it stretches like cloth when the arm waves instead
+        # of the arm passing through it
+        return "chest" if abs(co.x) < 0.15 else f"upper_arm.{tag}"
     if region in ("thigh",):
         return f"thigh.{tag}"
     if region in ("knee", "shin"):
