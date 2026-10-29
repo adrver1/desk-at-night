@@ -32,6 +32,9 @@ import { Neighbour, LOOKS } from './neighbour.js';
 const LATITUDE = 58.8;
 export const ROOM_HEADING = 60;
 export const PLATFORM_HEADING = 150;
+// Our platform's origin in the control room's frame (three.js x, z), from
+// blender/control_room.py's PLATFORM_OFFSET turned by PLATFORM_YAW
+export const ROOM_ORIGIN = [13.1, -36.4];
 
 // Sky colours (linear radiance) by sun elevation in degrees. Zenith, horizon,
 // and the sun's own colour as direct light: deep night, blue hour, sunset,
@@ -763,8 +766,8 @@ export class Outdoor {
     this.scene.add(this.sky, this.ocean);
     // The neighbour platform on the horizon, in a pass of its own at full
     // resolution (it is only a few pixels wide); ?neighbour=a|b|c picks the
-    // look, 0 hides it
-    const look = new URLSearchParams(location.search).get('neighbour') ?? 'b';
+    // look (a, the cut-out, unless asked), 0 hides it
+    const look = new URLSearchParams(location.search).get('neighbour') ?? 'a';
     this.far = new THREE.Scene();
     this.far.name = 'neighbour';
     if (LOOKS[look]) {
@@ -1072,7 +1075,8 @@ export class Outdoor {
   // 9 km the waves round its legs are smaller than a pixel
   renderFar(renderer) {
     if (!this.neighbour) return;
-    this.neighbour.update(this, this.camera);
+    const target = renderer.getRenderTarget();
+    this.neighbour.update(this, this.camera, target ? target.height : renderer.getDrawingBufferSize(new THREE.Vector2()).y);
     renderer.clearDepth();
     renderer.render(this.far, this.camera);
   }

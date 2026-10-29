@@ -1,6 +1,6 @@
 // PROTOTYPE (throwaway): how should the neighbour platform on the horizon
 // look? Our platform from the intro in the foreground, the neighbour 9 km
-// SSE under outdoor.js's sky and sea (?neighbour=a|b|c picks the look).
+// SSE under outdoor.js's sky and sea (?neighbour=a|b|c picks the look, a by default).
 // URL: neighbour-prototype.html?neighbour=b&view=deck|zoom|heli&time=12&weather=cloudy
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -52,7 +52,7 @@ controls.target.copy(view.pos.clone().add(view.at.clone().sub(view.pos).normaliz
 controls.rotateSpeed = -0.3;
 controls.enableZoom = controls.enablePan = false;
 controls.update();
-document.querySelector('#tag').textContent = `${view.name} · ${NEIGHBOUR.distance / 1000} km at ${NEIGHBOUR.bearing}° · ?neighbour=${q.get('neighbour') ?? 'b'}`;
+document.querySelector('#tag').textContent = `${view.name} · ${NEIGHBOUR.distance / 1000} km at ${NEIGHBOUR.bearing}° · ?neighbour=${q.get('neighbour') ?? 'a'}`;
 
 function resize() {
   const w = innerWidth, h = innerHeight;

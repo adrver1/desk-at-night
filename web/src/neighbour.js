@@ -6,8 +6,9 @@
 // red lights on the tower and crane. Proportions traced from a photo taken
 // on our platform; heights scaled so the tower tip is 147 m above the sea.
 //
-// Three looks (LOOKS): a flat cut-out that turns to face you, low-poly
-// blocks, and blocks with a lattice tower and crane. outdoor.js draws it in
+// Three looks (LOOKS): a flat cut-out that turns to face you (in use,
+// Adriaen's pick), low-poly blocks, and blocks with a lattice tower and
+// crane; ?neighbour=b|c shows the others. outdoor.js draws it in
 // its own full-resolution pass over the sky and sea, lit and fogged like them.
 import * as THREE from 'three';
 
@@ -103,7 +104,7 @@ function legs(list, lattice) {
 }
 
 // One merged, flat-shaded geometry for a look
-export function neighbourGeometry(look = 'b') {
+export function neighbourGeometry(look = 'a') {
   const list = [], lattice = look === 'c';
   for (const b of BOXES) box(list, ...b);
   if (lattice) {   // steps in the roof line: modules of different heights
@@ -187,16 +188,19 @@ const fragment = /* glsl */ `
   }`;
 const lightVertex = /* glsl */ `
   attribute float aRed;
-  uniform float uSize;
+  uniform float uGlow, uViewHeight, uVisibility;
   varying float vRed;
   varying float vFog;
-  uniform float uVisibility;
   void main() {
     vRed = aRed;
     vec4 w = modelMatrix * vec4(position, 1.0);
     vFog = exp(-length(w.xyz - cameraPosition) / uVisibility);
     gl_Position = projectionMatrix * viewMatrix * w;
-    gl_PointSize = uSize * (aRed > 0.5 ? 1.15 : 1.0);
+    // a glow of uGlow metres, in pixels: at 9 km under a pixel, so it is
+    // drawn at one pixel and dimmed by what it misses
+    float px = uGlow * (aRed > 0.5 ? 1.3 : 1.0) * uViewHeight * projectionMatrix[1][1] / (2.0 * gl_Position.w);
+    gl_PointSize = clamp(px, 1.5, 4.0);
+    vFog *= clamp(px / 1.5, 0.3, 1.0);
   }`;
 const lightFragment = /* glsl */ `
   uniform float uOn;
@@ -205,7 +209,7 @@ const lightFragment = /* glsl */ `
   void main() {
     float r = length(gl_PointCoord - 0.5) * 2.0;
     float a = smoothstep(1.0, 0.0, r);
-    vec3 white = vec3(1.0, 0.82, 0.55) * 6.0, red = vec3(1.0, 0.04, 0.02) * 9.0;
+    vec3 white = vec3(1.0, 0.82, 0.55) * 2.5, red = vec3(1.0, 0.04, 0.02) * 6.0;
     vec3 col = mix(white, red, step(0.5, vRed)) * a * a * uOn * vFog;
     gl_FragColor = vec4(col, 1.0);
     #include <tonemapping_fragment>
@@ -214,7 +218,7 @@ const lightFragment = /* glsl */ `
 
 export class Neighbour {
   // look: 'a' | 'b' | 'c' (LOOKS)
-  constructor(look = 'b') {
+  constructor(look = 'a') {
     this.group = new THREE.Group();
     this.group.name = 'neighbour platform';
     this.uniforms = {
@@ -230,7 +234,7 @@ export class Neighbour {
     lg.setAttribute('aRed', new THREE.Float32BufferAttribute(pts.map((p) => p[3]), 1));
     this.lights = new THREE.Points(lg, new THREE.ShaderMaterial({
       vertexShader: lightVertex, fragmentShader: lightFragment, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      uniforms: { uOn: { value: 0 }, uSize: { value: 2.5 }, uVisibility: this.uniforms.uVisibility },
+      uniforms: { uOn: { value: 0 }, uGlow: { value: 3 }, uViewHeight: { value: 720 }, uVisibility: this.uniforms.uVisibility },
     }));
     this.lights.frustumCulled = false;
     this.group.add(this.mesh, this.lights);
@@ -246,8 +250,10 @@ export class Neighbour {
     this.group.rotation.set(0, this.yaw, 0);
   }
 
-  // Light, fog and night from outdoor.js's state; the cut-out turns to the camera
-  update(outdoor, camera) {
+  // Light, fog and night from outdoor.js's state for a view `viewHeight`
+  // pixels high; the cut-out turns to the camera
+  update(outdoor, camera, viewHeight = 720) {
+    this.lights.material.uniforms.uViewHeight.value = viewHeight;
     const u = this.uniforms, L = outdoor.light;
     u.uSky.value.copy(L.sky);
     u.uSun.value.copy(L.sun);
