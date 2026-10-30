@@ -283,6 +283,7 @@ export class LiveSlide {
       if (e.kind === 'img') d.src = this.base + e.src;
       else d.innerHTML = e.html;
       if (e.w) d.style.width = `calc(var(--sw) * ${e.w / 16 * 100})`;
+      if (e.h) d.style.height = `calc(var(--sw) * ${e.h / 16 * 100})`;
       this.html.append(d);
     }
     return it;
