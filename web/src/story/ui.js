@@ -6,6 +6,8 @@
 import { SPEAKERS, CLIPBOARD, STAR_DIMS, STARS, STAR_ROWS, SAFETY_LINE, CARDS, LEVELS, VOTES, VOTE_URL, SLIDES, LOGS, NOTICES, AGENTS, ORG, NEVER, PLAIN_CARDS, SEARCH, SLIDE_ORDER } from './content.js';
 import { T } from './lang.js';
 import { drawGraph } from './graph.js';
+import { LiveSlide, KG_LOOK } from './kg/engine.js';
+import { LIVE_SLIDES } from './kg/slides.js';
 
 const h = (tag, cls, html) => {
   const e = document.createElement(tag);
@@ -219,11 +221,15 @@ export class StoryUI {
   overlay(id, { cast, call } = {}) {
     const fromEnd = this.buildFromEnd; this.buildFromEnd = false;
     if (id === this.overlayId) return;
+    const was = this.overlayId;
     this.overlayId = id;
     const [kind, arg] = (id ?? '').split(':');
-    for (const k of ['panel', 'slide', 'log', 'search', 'sign']) this.el[k].classList.remove('on');
+    // a live slide whose figures glide over from the slide before stays up, no fade between
+    const glide = kind === 'slide' && was?.startsWith('slide:') && KG_LOOK !== 'deck' && LIVE_SLIDES[arg]?.glideIn;
+    for (const k of ['panel', 'slide', 'log', 'search', 'sign']) if (!(glide && k === 'slide')) this.el[k].classList.remove('on');
     call?.show(kind === 'call' || kind === 'phone' ? { who: arg, phone: kind === 'phone' } : null);
     this.voteState = null;
+    if (kind !== 'slide') this.live?.hide();
     if (kind === 'slide') this.showSlide(arg, fromEnd);
     if (kind === 'card') this.showPlainCard(arg);
     if (kind === 'vote') this.showVote(arg);
@@ -236,6 +242,18 @@ export class StoryUI {
     const s = SLIDES[id], e = this.el.slide;
     const ids = SLIDE_ORDER, n = ids.indexOf(id) + 1;
     e.innerHTML = `<div class="num">${n} / ${ids.length}</div>`;
+    // the knowledge-graph slides are drawn live (kg/), unless ?kglook=deck
+    const live = KG_LOOK !== 'deck' && LIVE_SLIDES[id];
+    e.classList.toggle('live', !!live);
+    if (live) {
+      this.live ??= new LiveSlide(e, { publicBase: this.publicBase });
+      e.prepend(this.live.el);
+      this.build = null;
+      this.live.show(live, fromEnd);
+      fadeIn(e);
+      return;
+    }
+    this.live?.hide();
     let img = this.slideImages[id];
     // PowerPoint builds: one picture per click, Space steps through them
     const frames = this.slideBuilds[id];
@@ -269,6 +287,7 @@ export class StoryUI {
 
   // Space/← on a slide with builds: the next or previous click first
   stepBuild(dir) {
+    if (this.live?.def && this.overlayId === `slide:${this.live.def.id}`) return this.live.step(dir);
     const b = this.build;
     if (!b || this.overlayId !== `slide:${b.id}`) return false;
     const i = b.i + dir;

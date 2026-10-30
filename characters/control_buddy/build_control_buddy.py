@@ -4,11 +4,14 @@ low-poly robot. A tall domed head with ear bolts, wide dark shades under
 frowning brows, a big triangle nose and a flat mouth, short sleeves pointing out over
 the shoulders, a grey tabard with a name badge, and segmented arms with
 joint rings. Its team-mates share the body and swap the badge and hat:
-the Scholar (COMPILER, mortarboard and bow tie) and the Nurse (LINTER,
-nurse cap and a first-aid patch).
+the Scholar (COMPILER, mortarboard and bow tie), the Nurse (LINTER,
+nurse cap and a first-aid patch) and Frankenbot (FRANKENBOT, the merged
+knowledge bases' agent, after Adriaen's drawing: a square head with a black
+flat-top, bolts sticking out above the ears, stitched scars on the face,
+down the chest and round the arms, a riveted patch).
 
     python characters/control_buddy/build_control_buddy.py [--form walker|hover|desk|all]
-                                                           [--role buddy|scholar|nurse|all]
+                                                           [--role buddy|scholar|nurse|franken|all]
 
 Forms (all kept; FORM picks the live one):
     walker  full size on legs, a crew member who walks and sits
@@ -37,7 +40,7 @@ FORM = "hover"
 # following the arm)
 # or "flaps" (the earlier collar wedges)
 SHOULDERS = "sleeves"
-FORMS, ROLES = ("walker", "hover", "desk"), ("buddy", "scholar", "nurse")
+FORMS, ROLES = ("walker", "hover", "desk"), ("buddy", "scholar", "nurse", "franken")
 DESK_SCALE, DESK_HEAD = 0.3, 1.6
 
 # Colours
@@ -52,6 +55,8 @@ HEAD = [(1.470, 0.105, 0.098, 0.0, "head"),
         (1.805, 0.108, 0.100, 0.0, "head"),
         (1.850, 0.072, 0.068, 0.0, "head"),
         (1.868, 0.030, 0.028, 0.0, "head")]
+# Frankenbot's head: the dome sawn off flat
+HEAD_FLAT = HEAD[:3] + [(1.800, 0.122, 0.112, 0.0, "head"), (1.808, 0.112, 0.102, 0.0, "head")]
 FACE_Y = 0.112          # the flat front of the head
 EYE_Z, MOUTH_Z = 1.640, 1.548
 TORSO = [(0.84, 0.150, 0.098, 0.0, "pelvis"),
@@ -59,8 +64,22 @@ TORSO = [(0.84, 0.150, 0.098, 0.0, "pelvis"),
          (1.18, 0.180, 0.112, 0.0, "torso"),
          (1.34, 0.190, 0.105, 0.0, "torso"),
          (1.42, 0.110, 0.080, 0.0, "torso")]
+# "box": a plain rectangular box torso (Adriaen, 2026-10-30), flat front and
+# back for the painted badge; "tapered": the earlier eight-sided torso that
+# widens to the shoulders
+TORSO_SHAPE = "box"
+BOX_W, BOX_D = 0.150, 0.100        # half width and half depth of the box
+RECT4 = (45, 135, 225, 315)
 TABARD_W, TABARD_TOP, TABARD_BOTTOM = 0.135, 1.40, 0.78
 BADGE_Z = 1.31          # name badge high on the chest, as drawn
+# Roles whose tabard is painted on: no 14 mm slab standing off the body, the
+# badge, V-neck and first-aid pocket painted straight onto the torso. The
+# others keep the slab tabard.
+PAINTED = {"buddy", "scholar", "nurse", "franken"}
+# Frankenbot's green: "all" tints every grey part (head, arms, body, sleeves,
+# thruster), "skin" only the head and arms, "none" keeps him grey
+FRANKEN_GREEN = "all"
+GREEN = {"light_grey": "franken_green", "grey": "franken_green_dark"}
 # 8-sided rings with wide flat faces front, back and sides: boxy metal
 BOX8 = (25, 65, 115, 155, 205, 245, 295, 335)
 
@@ -73,8 +92,10 @@ FONT = {
     "O": ["###", "#.#", "#.#", "#.#", "###"], "P": ["##.", "#.#", "##.", "#..", "#.."],
     "R": ["##.", "#.#", "##.", "#.#", "#.#"], "T": ["###", ".#.", ".#.", ".#.", ".#."],
     "U": ["#.#", "#.#", "#.#", "#.#", "###"], "Y": ["#.#", "#.#", ".#.", ".#.", ".#."],
+    "A": [".#.", "#.#", "###", "#.#", "#.#"], "F": ["###", "#..", "##.", "#..", "#.."],
+    "K": ["#.#", "#.#", "##.", "#.#", "#.#"],
 }
-BADGE = {"buddy": "CTRLBUDDY", "scholar": "COMPILER", "nurse": "LINTER"}
+BADGE = {"buddy": "CTRLBUDDY", "scholar": "COMPILER", "nurse": "LINTER", "franken": "FRANKENBOT"}
 
 
 def box(m, lo, hi, swatch, region):
@@ -83,8 +104,20 @@ def box(m, lo, hi, swatch, region):
     return m.hull([(x, y, z) for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)], swatch, region)
 
 
+# While set to (bvh, y0), quad_y paints onto that surface instead of
+# standing a flat plate at depth y: lifted y - y0 + PAINT_LIFT off it,
+# following its facets (see PAINTED)
+SURF = None
+PAINT_LIFT = 0.0015
+
+
 def quad_y(m, x0, x1, z0, z1, y, swatch, region):
     """Flat rectangle facing +Y at depth y: badge plates and letters."""
+    if SURF:
+        bvh, y0 = SURF
+        m.decal_band(bvh, [min(z0, z1), max(z0, z1)], lambda z: min(x0, x1), lambda z: max(x0, x1), swatch, region,
+                     lift=PAINT_LIFT + (y - y0))
+        return
     m.face([(x0, y, z0), (x0, y, z1), (x1, y, z1), (x1, y, z0)], swatch, region)
 
 
@@ -124,12 +157,99 @@ def text(m, word, cx, cz, height, y, swatch="black", region="letters"):
 
 
 # ---------------------------------------------------------------- the head
+def flat_bar(m, a, b, w, y, region):
+    """A dark strip painted on a flat front at depth y (no relief): a quad
+    from a to b (x, z), w wide."""
+    d = (b - a).normalized()
+    n = Vector((-d.y, d.x)) * (w / 2)
+    pts = [a - n, a + n, b + n, b - n]
+    m.face([(p.x, y, p.y) for p in pts][::-1], INK, region)
+
+
+def scar(m, a, b, stitches, y=FACE_Y + 0.0012, region="scar"):
+    """A stitched scar painted on a flat front: a dark seam from a to b
+    (x, z) at depth y, with short crossing stitches. Flat quads, like the
+    badge letters, so it reads as a texture rather than raised geometry."""
+    from mathutils import Vector as V2
+    a, b = V2((a[0], a[1])), V2((b[0], b[1]))
+    flat_bar(m, a, b, 0.006, y, region)
+    d = (b - a).normalized()
+    n = V2((-d.y, d.x)) * 0.013
+    for i in range(stitches):
+        c = a + (b - a) * ((i + 0.5) / stitches)
+        flat_bar(m, c - n, c + n, 0.0045, y + 0.0004, region)
+
+
+def face_scar(m, bvh, a, b, stitches, w=0.006, region="scar"):
+    """A stitched scar painted onto the head: the seam cut into short pieces
+    and each piece, like each stitch, projected onto the surface from the
+    front, so it lies on the facets as it crosses them."""
+    from mathutils import Vector as V2
+    a, b = V2(a), V2(b)
+    d = (b - a).normalized()
+    n = V2((-d.y, d.x))
+
+    def strip(p, q, width, lift):
+        k = (q - p).normalized()
+        k = V2((-k.y, k.x)) * (width / 2)
+        pts = [p - k, q - k, q + k, p + k]
+        m.decal_poly(bvh, [(v.x, v.y) for v in pts], INK, region, lift=lift)
+    pieces = max(1, round((b - a).length / 0.02))
+    for i in range(pieces):
+        strip(a + (b - a) * (i / pieces), a + (b - a) * ((i + 1) / pieces), w, 0.002)
+    for i in range(stitches):
+        c = a + (b - a) * ((i + 0.5) / stitches)
+        strip(c - n * 0.013, c + n * 0.013, 0.0045, 0.0026)
+
+
+def arm_seam(m, o, u, v, w, t, r, region):
+    """A stitched seam painted round a hex arm at t: on each of the six flat
+    faces a thin band across and two stitches along the arm."""
+    ap = r * math.cos(math.radians(30)) + 0.0012     # just off the face
+    half = r * math.sin(math.radians(30))            # half a face's width
+    for k in range(6):
+        a = math.radians(30 + 60 * k)
+        nrm, tan = u * math.cos(a) + v * math.sin(a), -u * math.sin(a) + v * math.cos(a)
+        c = o + w * t + nrm * ap
+        quad = lambda along, across, wa, wc: [c + w * along + tan * across + w * da * wa + tan * dc * wc  # noqa: E731
+                                              for da, dc in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+        m.face(quad(0, 0, 0.003, half), INK, region)
+        for s in (-0.45, 0.45):
+            m.face([p + nrm * 0.0004 for p in quad(0, s * half, 0.016, 0.0025)], INK, region)
+
+
+def frankenstein(m):
+    """As in Adriaen's drawing: a black flat-top with a jagged fringe, a bolt
+    through the head sticking out above each ear, a stitched seam across the
+    forehead and another down the cheek from the shades."""
+    bvh = m.bvh()          # the bare head, for painting the scars onto
+    # the flat-top: round in plan like the head, flat on top, its lower
+    # edge cut into a jagged fringe all the way round
+    top, z0, n = HEAD_FLAT[-1][0] + 0.030, 1.752, 20
+    angles = [360 * i / n for i in range(n)]
+    m.tube([(z0, 0.130, 0.120, 0.0, "hair"), (top, 0.130, 0.120, 0.0, "hair")], angles=angles,
+           swatch="hair_black", cap_start=False)
+    for i in range(n):
+        a0, a1 = (math.radians(d) for d in (angles[i], angles[(i + 1) % n]))
+        am = (a0 + a1) / 2
+        rim = lambda a, z, k=1.0: (0.130 * k * math.cos(a), 0.120 * k * math.sin(a), z)  # noqa: E731
+        m.face([rim(a0, z0), rim(am, z0 - 0.024, 0.985), rim(a1, z0)], "hair_black", "hair")
+    for sx in (1, -1):
+        m.bar((sx * 0.100, 0.0, 1.715), (sx * 0.178, 0.0, 1.715), 0.020, "steel", "ear_bolt")
+        box(m, (sx * 0.162, -0.024, 1.691), (sx * 0.186, 0.024, 1.739), DARK, "ear_bolt")
+    face_scar(m, bvh, (-0.108, 1.712), (0.090, 1.700), 7)
+    face_scar(m, bvh, (-0.092, 1.612), (-0.080, 1.512), 4)
+
+
 def head(role):
-    m = Mesh().tube(HEAD, angles=BOX8, swatch=METAL)
-    # ear bolts: flat boxes on the sides at eye height, a dark ring under each
-    for s in (1, -1):
-        box(m, (s * 0.118, -0.045, 1.575), (s * 0.150, 0.035, 1.680), METAL, "ear_bolt")
-        box(m, (s * 0.150, -0.030, 1.595), (s * 0.160, 0.020, 1.660), DARK, "ear_bolt")
+    m = Mesh().tube(HEAD_FLAT if role == "franken" else HEAD, angles=BOX8, swatch=METAL)
+    if role == "franken":
+        frankenstein(m)
+    else:
+        # ear bolts: flat boxes on the sides at eye height, a dark ring under each
+        for s in (1, -1):
+            box(m, (s * 0.118, -0.045, 1.575), (s * 0.150, 0.035, 1.680), METAL, "ear_bolt")
+            box(m, (s * 0.150, -0.030, 1.595), (s * 0.160, 0.020, 1.660), DARK, "ear_bolt")
     # shades: two wide rectangular lenses on a bridge, standing off the face
     y0, y1 = FACE_Y, FACE_Y + 0.018
     for s in (1, -1):
@@ -178,7 +298,12 @@ def head(role):
 # ------------------------------------------------------------------ the body
 def torso(role, form):
     rings = TORSO if form == "walker" else TORSO[1:]
-    m = Mesh().tube(rings, angles=BOX8, swatch=METAL)
+    angles = BOX8
+    if TORSO_SHAPE == "box":
+        k = 1 / math.cos(math.radians(45))      # the tube's corners land on the box's corners
+        rings = [(z, BOX_W * k, BOX_D * k, 0.0, reg) for z, *_, reg in rings]
+        angles = RECT4
+    m = Mesh().tube(rings, angles=angles, swatch=METAL)
     m.tube([(1.38, 0.058, 0.055, 0, "neck"), (1.50, 0.050, 0.048, 0, "neck")], angles=base.HEX6,
            swatch=DARK, cap_start=False, cap_end=False)
     if SHOULDERS == "flaps":
@@ -195,14 +320,19 @@ def torso(role, form):
         for sd in (1, -1):
             m.extend(sleeve(sd))
     # tabard: a flat white panel front and back with a black name badge
+    global SURF
     front = 0.118
     bottom = TABARD_BOTTOM if form == "walker" else 0.92
-    for side in (1, -1):
-        y0 = side * front
-        y1 = side * (front + 0.014)
-        box(m, (-TABARD_W, min(y0, y1), bottom), (TABARD_W, max(y0, y1), TABARD_TOP), TABARD, "tabard")
+    if role in PAINTED:
+        shell = Mesh().tube(rings, angles=angles, swatch=METAL)
+        SURF = (shell.bvh(), front + 0.0145)
+    else:
+        for side in (1, -1):
+            y0 = side * front
+            y1 = side * (front + 0.014)
+            box(m, (-TABARD_W, min(y0, y1), bottom), (TABARD_W, max(y0, y1), TABARD_TOP), TABARD, "tabard")
     fy = front + 0.0145
-    bw = {"buddy": 0.205, "scholar": 0.19, "nurse": 0.14}[role]
+    bw = {"buddy": 0.205, "scholar": 0.19, "nurse": 0.14, "franken": 0.225}[role]
     # the Linter wears scrubs: a V-neck, the badge off to its right (the
     # viewer's left) under the V, and a first-aid pocket on the other side
     bx, bz = (0.048, 1.262) if role == "nurse" else (0.0, BADGE_Z)
@@ -210,17 +340,38 @@ def torso(role, form):
     quad_y(m, bx - bw / 2, bx + bw / 2, bz - 0.022, bz + 0.022, fy + 0.0015, "white", "badge")
     text(m, BADGE[role], bx, bz, 0.026, fy + 0.003)
     if role == "nurse":
-        m.face([(0.0, fy, 1.312), (-0.062, fy, TABARD_TOP), (0.062, fy, TABARD_TOP)], NOSE, "tabard")
+        if SURF:   # the V-neck, painted as a band narrowing to its point
+            m.decal_band(SURF[0], [1.312 + 0.0088 * i for i in range(11)], lambda z: -0.062 * (z - 1.312) / 0.088,
+                         lambda z: 0.062 * (z - 1.312) / 0.088, NOSE, "tabard", lift=PAINT_LIFT)
+        else:
+            m.face([(0.0, fy, 1.312), (-0.062, fy, TABARD_TOP), (0.062, fy, TABARD_TOP)], NOSE, "tabard")
         px0, px1, pz0, pz1 = -0.118, -0.042, 1.168, 1.258    # first-aid pocket
         quad_y(m, px0, px1, pz0, pz1, fy, INK, "badge")
         quad_y(m, px0 + 0.005, px1 - 0.005, pz0 + 0.005, pz1 - 0.005, fy + 0.0015, "white", "badge")
         cx, cz = (px0 + px1) / 2, (pz0 + pz1) / 2
         quad_y(m, cx - 0.007, cx + 0.007, cz - 0.026, cz + 0.026, fy + 0.003, "signal_red", "badge")
         quad_y(m, cx - 0.026, cx + 0.026, cz - 0.007, cz + 0.007, fy + 0.003, "signal_red", "badge")
+    if role == "franken":
+        # a stitched seam down the chest and a riveted patch, as drawn
+        if SURF:
+            face_scar(m, SURF[0], (-0.122, TABARD_TOP - 0.01), (-0.118, 0.96), 9, region="tabard")
+        else:
+            scar(m, (-0.122, TABARD_TOP - 0.01), (-0.118, 0.94), 9, y=fy + 0.0012, region="tabard")
+        px0, px1, pz0, pz1 = 0.050, 0.118, 1.000, 1.068
+        quad_y(m, px0, px1, pz0, pz1, fy + 0.002, "grey", "tabard")
+        for x in (px0 + 0.009, px1 - 0.009):
+            for z in (pz0 + 0.009, pz1 - 0.009):
+                quad_y(m, x - 0.004, x + 0.004, z - 0.004, z + 0.004, fy + 0.003, DARK, "tabard")
     if role == "scholar":  # bow tie at the collar
-        m.hull([(0, 0.112, 1.385), (0.055, 0.118, 1.415), (0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
-        m.hull([(0, 0.112, 1.385), (-0.055, 0.118, 1.415), (-0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
-        box(m, (-0.012, 0.115, 1.373), (0.012, 0.130, 1.397), INK, "bowtie")
+        # without the slab it sits back on the chest itself
+        dy = SURF[0].ray_cast(Vector((0, 1, 1.385)), -Y)[0].y - 0.112 if SURF else 0.0
+        bow = Mesh()
+        bow.hull([(0, 0.112, 1.385), (0.055, 0.118, 1.415), (0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
+        bow.hull([(0, 0.112, 1.385), (-0.055, 0.118, 1.415), (-0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
+        box(bow, (-0.012, 0.115, 1.373), (0.012, 0.130, 1.397), INK, "bowtie")
+        bow.verts = [v + Vector((0, dy, 0)) for v in bow.verts]
+        m.extend(bow)
+    SURF = None
     return m
 
 
@@ -246,9 +397,10 @@ def sleeve(side):
     return m if side > 0 else m.mirrored()
 
 
-def arm(side):
+def arm(side, role="buddy"):
     """Segmented arm in the A-pose with a dark ring at shoulder, elbow and
-    wrist, and a blocky hand with a thumb."""
+    wrist, and a blocky hand with a thumb. Frankenbot's are sewn on: a
+    stitched seam round the upper arm and the forearm."""
     u, v, w = base.frame(base.arm_dir(1))
     o = base.SHOULDER
     m = Mesh()
@@ -267,6 +419,9 @@ def arm(side):
             for sv in (-1, 1):
                 pts.append(c + w * t + u * (su * hw) + v * (sv * hd))
     m.hull(pts, METAL, "hand")
+    if role == "franken":
+        arm_seam(m, o, u, v, w, 0.12, 0.0635, "upper_arm")
+        arm_seam(m, o, u, v, w, 0.37, 0.0545, "forearm")
     tb = c + w * 0.03 + v * 0.050
     m.hull([tb - u * 0.014, tb + u * 0.014, tb - w * 0.02 - u * 0.012, tb - w * 0.02 + u * 0.012,
             tb + w * 0.05 + v * 0.025], METAL, "hand")
@@ -335,7 +490,7 @@ def bone_for(region, co, form):
         return region
     if region == "mouth":
         return "jaw"
-    if region in ("head", "ear_bolt", "lens", "nose", "hat"):
+    if region in ("head", "ear_bolt", "lens", "nose", "hat", "scar", "hair"):
         return "head"
     if region == "neck":
         return "neck" if co.z > 1.43 else "chest"
@@ -388,7 +543,7 @@ def akimbo(arm_ob):
 # ------------------------------------------------------------------- build
 def build(form, role, out, renders=True):
     base.reset()
-    parts = {"head": head(role), "torso": torso(role, form), "arm.R": arm(1), "arm.L": arm(-1)}
+    parts = {"head": head(role), "torso": torso(role, form), "arm.R": arm(1, role), "arm.L": arm(-1, role)}
     if form == "walker":
         parts["leg.R"], parts["leg.L"] = leg(1), leg(-1)
     elif form == "hover":
@@ -398,6 +553,10 @@ def build(form, role, out, renders=True):
         # a desk toy gets a bobble head
         parts["head"].verts = [Vector((p.x * DESK_HEAD, p.y * DESK_HEAD, 1.47 + (p.z - 1.47) * DESK_HEAD))
                                for p in parts["head"].verts]
+    if role == "franken" and FRANKEN_GREEN != "none":
+        green = parts if FRANKEN_GREEN == "all" else ("head", "arm.R", "arm.L")
+        for p in green:
+            parts[p].faces = [(ids, GREEN.get(sw, sw), r) for ids, sw, r in parts[p].faces]
     name = "control_buddy" if role == "buddy" else f"control_buddy_{role}"
     sfx = "" if form == FORM else f"_{form}"
     obs = [m.to_object(f"{name}{sfx}_{p}") for p, m in parts.items()]
@@ -460,7 +619,9 @@ if __name__ == "__main__":
     ap.add_argument("--role", default="all", choices=[*ROLES, "all"])
     ap.add_argument("--out", default=HERE)
     ap.add_argument("--no-renders", action="store_true")
+    ap.add_argument("--green", choices=("all", "skin", "none"), help="Frankenbot's tint (default FRANKEN_GREEN)")
     a = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
+    FRANKEN_GREEN = a.green or FRANKEN_GREEN
     for form in (FORMS if a.form == "all" else [a.form]):
         for role in (ROLES if a.role == "all" else [a.role]):
             build(form, role, a.out, not a.no_renders)
