@@ -48,7 +48,9 @@ export class Tw {
 const loader = new GLTFLoader();
 const gltfs = {};
 function loadGlb(base, name) {
-  gltfs[name] ??= new Promise((ok) => loader.load(`${base}chars/${name}.glb`, ok, undefined, () => ok(null)));
+  // a crew name, or a path under story/ for a prop (props/workstation.glb)
+  const url = name.includes('/') ? base + name : `${base}chars/${name}.glb`;
+  gltfs[name] ??= new Promise((ok) => loader.load(url, ok, undefined, () => ok(null)));
   return gltfs[name];
 }
 
@@ -79,6 +81,27 @@ function makeFigure(g, { tint } = {}) {
       cur = a;
     },
   };
+}
+
+// Sit a figure down at a control-room workstation (blender/story_props_export.py:
+// the room's monitor and chair, chair 0.75 m behind the screen). It hangs off
+// the figure's own root, in metres, so it scales and turns with the person; a
+// birch desk top like the room's goes under the monitor. Play 'typing' or
+// 'seated_idle' on the figure.
+const SEAT = { chair: 0.75, ahead: 0.06, desk: 0.74 };
+function seat(fig, g) {
+  const root = fig.holder.children[0];
+  const ws = g.scene.clone();
+  ws.position.z = SEAT.ahead - SEAT.chair;          // the chair just behind the hips, the screen ahead
+  ws.getObjectByName('Monitor').position.y += SEAT.desk;
+  for (const n of ['MonitorFoot', 'MonitorNeck', 'MonitorMount']) ws.getObjectByName(n).position.y += SEAT.desk;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.04, 0.75), mat('#b08a5c'));
+  top.position.set(0, SEAT.desk - 0.02, 0.05);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(1.26, SEAT.desk - 0.04, 0.05), mat('#202225'));
+  body.position.set(0, (SEAT.desk - 0.04) / 2, -0.28);
+  ws.add(top, body);
+  ws.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+  root.add(ws);
 }
 
 // Low-poly props built from boxes: a stack of books (the knowledge base),
@@ -234,7 +257,7 @@ export class LiveSlide {
     this.html.innerHTML = '';
     this.el.dataset.slide = def.id;
     // load the figures first, then build the elements
-    const names = [...new Set(def.elements.filter((e) => e.kind === 'figure').map((e) => e.glb))];
+    const names = [...new Set(def.elements.filter((e) => e.kind === 'figure').flatMap((e) => [e.glb, e.seat].filter(Boolean)))];
     const loaded = await Promise.all(names.map((n) => loadGlb(this.base, n)));
     if (token !== this.token) return;
     const G = Object.fromEntries(names.map((n, i) => [n, loaded[i]]));
@@ -272,6 +295,7 @@ export class LiveSlide {
     const it = { e, tw: new Tw({ a: 0, s: 0 }) };
     if (e.kind === 'figure' && G[e.glb]) {
       it.fig = makeFigure(G[e.glb], e);
+      if (e.seat && G[e.seat]) seat(it.fig, G[e.seat]);
       it.obj = it.fig.holder;
       this.scene.add(it.obj);
     }

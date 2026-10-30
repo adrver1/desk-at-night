@@ -131,8 +131,7 @@ const H08 = {
     draw((ctx) => stream(ctx, [0, -2.7], [0, -0.3], { kind: 'read', lift: 0, speed: 0.9 }), 3),
     arrow([3.9, -3.3], [1.0, -3.5], T('Korrigerer', 'Corrects'), 4, { bend: -0.25, labelOff: [0, -0.45] }),
     draw((ctx) => stream(ctx, [4.3, -2.3], [0.5, -3.3], { kind: 'tick', n: 2, speed: 0.5 }), 4),
-    prop(desk, 5.9, 1.25, 5, { scale: 1.1, rot: -0.35 }),
-    fig(OLA, 6.7, 1.25, 2.2, 5, { rot: -0.9, tag: 'Ola' }),
+    fig(OLA, 6.3, 1.1, 2.5, 5, { seat: 'props/workstation.glb', rot: -1.05, act: () => 'typing', tag: 'Ola', tagDy: -0.45 }),
     arrow([1.6, 2.4], [4.7, 2.75], T('Samhandler med', 'Works with'), 5, { bend: -0.25, both: true, labelOff: [0, 0.35] }),
   ],
 };
