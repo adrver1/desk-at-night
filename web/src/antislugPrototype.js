@@ -81,8 +81,10 @@ const earth = new THREE.Mesh(mergeGeometries(notched(BOTTOM, SEABED, true)), new
 const water = new THREE.Mesh(mergeGeometries(notched(SEABED, SEA, false)),
   new THREE.MeshStandardMaterial({ color: 0x1f6f8a, transparent: true, opacity: 0.38, roughness: 0.15, metalness: 0, depthWrite: false }));
 water.renderOrder = 1;
-const deck = new THREE.Mesh(new THREE.BoxGeometry(28, 0.25, 9), new THREE.MeshStandardMaterial({ color: 0x55606a, roughness: 0.8, metalness: 0.2 }));
-deck.position.set(-4, -0.125, -3.5);
+// deck plate with the wellbay opening around the well (open to the cut side)
+const deck = new THREE.Mesh(mergeGeometries([
+  block(-18, NOTCH[0], -0.25, 0, -8, 1), block(NOTCH[1], 10, -0.25, 0, -8, 1), block(NOTCH[0], NOTCH[1], -0.25, 0, -8, NOTCH[2]),
+]), new THREE.MeshStandardMaterial({ color: 0x55606a, roughness: 0.8, metalness: 0.2 }));
 scene.add(earth, water, deck);
 
 // jacket: four battered legs from the deck to the seabed, braced on every
@@ -101,11 +103,21 @@ const jacketMat = new THREE.MeshStandardMaterial({ color: 0xc9b23a, roughness: 0
   for (let k = 0; k < 4; k++) tubeAB(top[k], bot[k], 0.5, 10);
   const levels = [0.02, 0.5, 0.98];
   for (let k = 0; k < 4; k++) {
+    if (k === 2) continue; // the front face (legs 2-3) is left open: it would cross the well
     const n = (k + 1) % 4;
     for (const f of levels) tubeAB(at(k, f), at(n, f), 0.18, 6); // horizontal frames
     for (let j = 0; j < levels.length - 1; j++) { // X braces between frames
       tubeAB(at(k, levels[j]), at(n, levels[j + 1]), 0.14, 5); tubeAB(at(n, levels[j]), at(k, levels[j + 1]), 0.14, 5);
     }
+  }
+  // conductor guides: at each frame level, beams from the back face and from
+  // the two front legs to the conductor, which they hold
+  const cr = WS * (D.rc + 0.16);
+  for (const f of levels.slice(1)) {
+    const b0 = at(0, f), b1 = at(1, f), back = b0.clone().lerp(b1, (WELL_X - b0.x) / (b1.x - b0.x));
+    tubeAB(back, V(WELL_X, back.y, -cr), 0.15, 6);
+    tubeAB(at(3, f), V(WELL_X - cr, back.y, at(3, f).z), 0.15, 6);
+    tubeAB(at(2, f), V(WELL_X + cr, back.y, at(2, f).z), 0.15, 6);
   }
   const cond = new THREE.CylinderGeometry(WS * (D.rc + 0.16), WS * (D.rc + 0.16), -0.25 - SEABED + 0.6, 14, 1, true, Math.PI / 2, Math.PI);
   cond.translate(WELL_X, (-0.25 + SEABED - 0.6) / 2, 0); parts.push(cond);
