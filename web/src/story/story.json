@@ -330,7 +330,7 @@
      "Modell: Auto / Opus 5.5",
      "Instruksjoner: Oppfører seg som en erfaren automasjonsingeniør",
      "Verktøy: Kobler seg til datakilder via API-er: CDF, ABB LoopInsight",
-     "Kunnskapsbase: Nordhav Energi-spesifikk fagkunnskap"
+     "Kunnskapsbase: Nordhav Energi-spesifikk fagkunnskap | Mer om dette senere"
     ]
    },
    "en": {
@@ -340,7 +340,7 @@
      "Model: Auto / Opus 5.5",
      "Instructions: Behaves like an advanced automation engineer",
      "Tools: Connects to data sources through APIs: CDF, ABB LoopInsight",
-     "Knowledge base: Nordhav Energi-specific domain knowledge"
+     "Knowledge base: Nordhav Energi-specific domain knowledge | More about this later"
     ]
    }
   }
@@ -760,21 +760,6 @@
     },
     "x": 12,
     "y": 30
-   }
-  ],
-  "m.what5": [
-   {
-    "target": "band",
-    "label": {
-     "no": "",
-     "en": ""
-    },
-    "text": {
-     "no": "Mer om dette senere",
-     "en": "More about this later"
-    },
-    "x": 67,
-    "y": 74
    }
   ]
  },
