@@ -169,9 +169,6 @@ export class SlugWell {
     // downhole pressure, shown as a big dial next to the well with a lead to the tubing
     this.gauge = new Gauge({ tag: 'PT · BHP', unit: 'bar', min: 60, max: 180, major: 20, size: 0.95, damping: 0.25 });
     this.gauge.group.position.copy(D.gauge);
-    // the face, needle and bezel sit millimetres apart: seen from far out they
-    // z-fight (flicker). Pull the face and needle forward in depth instead.
-    this.gauge.group.children.forEach((m, i) => { if (i > 0 && m.material) Object.assign(m.material, { polygonOffset: true, polygonOffsetFactor: -2 * i, polygonOffsetUnits: -4 * i }); });
     this.group.add(this.gauge.group);
     const lead = new THREE.Mesh(hTube(0.03, D.gauge.x + 0.3, -D.rt, D.gauge.y, 5), steel);
     this.group.add(lead);
