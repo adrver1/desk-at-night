@@ -9,7 +9,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OVERRIDES, PRIVATE_BASE } from '../privateNames.js';
-import { CoilCord } from '../coilCord.js';
 
 const BASE = 'story/chars/';
 // Who is who: the speaker ids of content.js, plus the CEO's silent cameo.
@@ -74,13 +73,11 @@ const PHONE_AT = [0.14, 0.785, -0.42], PHONE_GRAB = 12 / 24, PHONE_DROP = 16 / 2
 // rolls it over until the handset is at PHONE_DESK in his space
 const DESK_PHONE = { chair: 0, at: [-2.2668, 0.805, -1.2322], yaw: 1.0243, tilt: 0.489, turn: 0.5 };
 const PHONE_DESK = [-0.36, 0.82, -0.58], ROLL = [0, 0.45, 0.8, 1.3];   // s: roll over from, to; back from, to
-// The live desk phone over the baked one (blender/desk_phone.py; Adriaen, 2026-10-30: C office in the
-// show, rotary and push-button kept: ?phone=rotary|pushbutton). Its base sits where the baked phone's
-// does, so its handset rests where DESK_PHONE.at is. Held across the palm (hand-bone space), then near
+// The live desk phone (blender/desk_phone.py, placed by deskPhones.js where the bake leaves it out;
+// Adriaen, 2026-10-30: C office in the show, rotary and push-button kept: ?phone=rotary|pushbutton).
+// Its handset rests where DESK_PHONE.at is. Held across the palm (hand-bone space), then near
 // the ear it eases to lie along the head from ear to mouth (head-bone space), and near the cradle back
 // into it, as in the Animation Lab.
-const PHONE_LOOK = new URLSearchParams(location.search).get('phone') ?? 'office';
-const PHONE_BASE = { at: [-2.2226, 0.740, -1.3048], yaw: DESK_PHONE.yaw };
 const PALM = new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -1, 0)).setPosition(0, 0.065, -0.03);
 const EAR = new THREE.Vector3(-0.165, 0.11, 0), MOUTH = new THREE.Vector3(-0.05, -0.035, -0.10);
 const EAR_NEAR = [0.32, 0.18], CRADLE_NEAR = [0.26, 0.12];   // m: blend from, to
@@ -171,7 +168,9 @@ export class Cast {
     this.chairHomes = this.game.chairs.map(({ obj: c }) => [c.position.x, c.position.z, c.rotation.y]);
     const { jug, stream } = makeJug();
     this.jug = jug; this.stream = stream;
-    this.deskPhone = await this.loadDeskPhone().catch((e) => { console.warn('desk phone', e); return null; });
+    // The left desk's live phone (deskPhones.js), lit like the cast
+    this.game.room.phones?.lit();
+    this.deskPhone = this.game.room.phones?.phones[DESK_PHONE.chair] ?? null;
     jug.visible = false;
     this.scene.add(jug, stream);
     this.mugsRest = {};
@@ -569,40 +568,6 @@ export class Cast {
     p.root.position.set(c.position.x + f[0] * 0.06, 0, c.position.z + f[1] * 0.06);
     p.root.rotation.set(0, c.rotation.y, 0);
   }
-  async loadDeskPhone() {
-    const gltf = await loadGltf(`story/props/desk_phone_${PHONE_LOOK}.glb`);
-    const group = new THREE.Group();
-    group.name = 'deskPhone';
-    group.position.set(...PHONE_BASE.at);
-    group.rotation.y = PHONE_BASE.yaw;
-    const nodes = {};
-    // it sits exactly over the baked phone: drawn a hair nearer, so the two never fight (it flickered, Adriaen 2026-10-30)
-    gltf.scene.traverse((o) => {
-      nodes[o.name] = o;
-      if (!o.isMesh) return;
-      o.frustumCulled = false;
-      o.material = o.material.clone();
-      Object.assign(o.material, { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
-    });
-    const base = nodes.DeskPhone, handset = nodes.Handset;
-    group.add(base, handset);
-    const cord = new CoilCord({ color: base.userData.cordColor ?? '#1c1e20' });
-    group.add(cord.mesh);
-    this.scene.add(group);
-    const ph = { group, base, handset, socket: nodes.CordSocket, plug: nodes.CordPlug, cord, earOffset: handset.userData.earOffset ?? 0.08,
-      rest: { pos: handset.position.clone(), quat: handset.quaternion.clone() }, a: new THREE.Vector3(), b: new THREE.Vector3() };
-    this.stepCord(ph, 0, true);
-    return ph;
-  }
-  // The coiled cord between the base's socket and the handset's plug, in the phone's own space
-  stepCord(ph, dt, reset = false) {
-    ph.group.updateMatrixWorld(true);
-    const inv = new THREE.Matrix4().copy(ph.group.matrixWorld).invert();
-    ph.a.setFromMatrixPosition(ph.socket.matrixWorld).applyMatrix4(inv);
-    ph.b.setFromMatrixPosition(ph.plug.matrixWorld).applyMatrix4(inv);
-    if (reset) ph.cord.reset?.();
-    ph.cord.step(ph.a, ph.b, Math.min(dt, 1 / 30));
-  }
   // The live handset in his left hand: across the palm, along the head at the ear, back in the cradle near it
   holdHandset(p, hand) {
     const ph = this.deskPhone, head = p.bones.head;
@@ -808,6 +773,6 @@ export class Cast {
       if (p.armK) this.carryArm(p, smooth(p.armK));
       if (p.carry === 'jug') this.holdJug(p);
     }
-    if (this.deskPhone) this.stepCord(this.deskPhone, dt);
+    this.game.room.phones?.update(dt);
   }
 }
