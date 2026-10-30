@@ -70,6 +70,10 @@ BADGE_Z = 1.31          # name badge high on the chest, as drawn
 # badge, V-neck and first-aid pocket painted straight onto the torso. The
 # others keep the slab tabard.
 PAINTED = {"scholar", "nurse"}
+# Frankenbot's green: "all" tints every grey part (head, arms, body, sleeves,
+# thruster), "skin" only the head and arms, "none" keeps him grey
+FRANKEN_GREEN = "all"
+GREEN = {"light_grey": "franken_green", "grey": "franken_green_dark"}
 # 8-sided rings with wide flat faces front, back and sides: boxy metal
 BOX8 = (25, 65, 115, 155, 205, 245, 295, 335)
 
@@ -535,6 +539,10 @@ def build(form, role, out, renders=True):
         # a desk toy gets a bobble head
         parts["head"].verts = [Vector((p.x * DESK_HEAD, p.y * DESK_HEAD, 1.47 + (p.z - 1.47) * DESK_HEAD))
                                for p in parts["head"].verts]
+    if role == "franken" and FRANKEN_GREEN != "none":
+        green = parts if FRANKEN_GREEN == "all" else ("head", "arm.R", "arm.L")
+        for p in green:
+            parts[p].faces = [(ids, GREEN.get(sw, sw), r) for ids, sw, r in parts[p].faces]
     name = "control_buddy" if role == "buddy" else f"control_buddy_{role}"
     sfx = "" if form == FORM else f"_{form}"
     obs = [m.to_object(f"{name}{sfx}_{p}") for p, m in parts.items()]
@@ -597,7 +605,9 @@ if __name__ == "__main__":
     ap.add_argument("--role", default="all", choices=[*ROLES, "all"])
     ap.add_argument("--out", default=HERE)
     ap.add_argument("--no-renders", action="store_true")
+    ap.add_argument("--green", choices=("all", "skin", "none"), help="Frankenbot's tint (default FRANKEN_GREEN)")
     a = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
+    FRANKEN_GREEN = a.green or FRANKEN_GREEN
     for form in (FORMS if a.form == "all" else [a.form]):
         for role in (ROLES if a.role == "all" else [a.role]):
             build(form, role, a.out, not a.no_renders)

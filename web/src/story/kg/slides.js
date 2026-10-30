@@ -463,7 +463,7 @@ const H14 = {
     fig('glasses_engineer', -6.25, 0.05, 2.4, 0, { rot: 0.45, tag: T('Brønnteamet', 'The well team'), tagDx: -0.55 }),
     fig(OLA, 6.75, 0.05, 2.4, 0, { rot: -0.5, tag: 'Ola', act: (b) => (b === 4 ? 'point' : 'idle') }),
     fig(ROBOT.nurse, -6.75, -4.4, 2.4, 2, { rot: 0.5, tag: 'Linter', act: (b) => (b === 3 || b === 6 ? 'point' : 'idle') }),
-    fig(ROBOT.franken, ...AGENT14, 2.4, 4, { rot: -0.5, tag: 'Frankenbot', tint: '#8fd19e', act: (b) => (b === 5 ? 'point' : 'idle') }),
+    fig(ROBOT.franken, ...AGENT14, 2.4, 4, { rot: -0.5, tag: 'Frankenbot', act: (b) => (b === 5 ? 'point' : 'idle') }),
     arrow([-3.3, 0.0], [-0.5, -0.12], '', 1, { bend: -0.25, at: (b) => ({ fade: b >= 3 ? 0.35 : 1 }) }),
     arrow([3.3, 0.0], [0.5, -0.12], T('slå sammen', 'merge'), 1, { bend: 0.25, at: (b) => ({ fade: b >= 3 ? 0.35 : 1 }) }),
     arrow([-6.1, -2.25], [-5.35, -1.55], T('rydder', 'tidies'), 3, { bend: -0.3, labelOff: [0.1, 0.45] }),
