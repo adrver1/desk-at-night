@@ -18,7 +18,7 @@ export const WELL_DIM = {
   top: 0, inj: -9, packer: -9.45, bot: -12.2, res: [-13.6, -11.6], // depths (scene m)
   rc: 0.62, rt: 0.3, // casing and tubing radius
   tree: 1.6, wing: 1.05, // christmas tree height, wing outlet height
-  chokeX: 1.15, flowY: 0.45, flowEnd: 2.6, gasX: -1.7, gasY: -0.2,
+  chokeX: 1.15, flowY: 0.45, flowEnd: 2.6, gasX: -2.6, gasY: -0.2,
   gauge: new THREE.Vector3(-1.35, -10.9, 0.25),
 };
 const D = WELL_DIM;
@@ -73,8 +73,9 @@ export function contentsMaterial({ liq = 0x9a6424, gas = 0xbcd3dc, len = 12, inj
   });
 }
 
-// Gas in the annulus: brighter and denser the higher its pressure, drifting
-// down toward the injection valve while gas goes in; liquid below the packer.
+// Gas in the annulus: brighter and denser the higher its pressure, chevrons
+// running down toward the gas-lift valve (fast while gas goes in); liquid
+// below the packer.
 function annulusMaterial(packerV) {
   return new THREE.ShaderMaterial({
     uniforms: { uP: { value: 0.5 }, uScroll: { value: 0 }, uPacker: { value: packerV }, uFlow: { value: 0 } },
@@ -86,7 +87,44 @@ function annulusMaterial(packerV) {
         vec3 lo = vec3(0.10, 0.16, 0.20), hi = vec3(0.55, 0.78, 0.88);
         float n = noise(vec2(vUv.x * 6.0, vUv.y * 40.0 + uScroll));
         vec3 col = mix(lo, hi, uP) * (0.8 + 0.35 * n * (0.3 + uFlow));
+        // downward chevrons: lift gas heading for the gas-lift valve
+        float ch = fract(vUv.y * 34.0 + uScroll * 0.6 + (0.5 - abs(fract(vUv.x * 3.0) - 0.5)) * 0.9);
+        col = mix(col, vec3(0.75, 0.97, 1.0) * 1.3, (1.0 - smoothstep(0.0, 0.16, ch)) * (0.45 + 0.55 * uFlow));
         if (vUv.y < uPacker) col = vec3(0.34, 0.22, 0.10) * (0.85 + 0.15 * n);
+        gl_FragColor = vec4(col, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  });
+}
+
+// Lift gas line: pale chevrons running along the pipe (uv.y) toward the well.
+function gasLineMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uScroll: { value: 0 } },
+    vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */`
+      uniform float uScroll; varying vec2 vUv;
+      void main() {
+        float ch = fract(vUv.y * 9.0 - uScroll + abs(fract(vUv.x * 2.0) - 0.5) * 0.7);
+        vec3 col = mix(vec3(0.32, 0.45, 0.52), vec3(0.88, 0.97, 1.0), 1.0 - smoothstep(0.0, 0.18, ch));
+        gl_FragColor = vec4(col, 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  });
+}
+// Perforation tunnels: oil streaks running from the rock (uv.y 0) into the
+// casing (uv.y 1), faster and brighter the more the well draws.
+function perforationMaterial() {
+  return new THREE.ShaderMaterial({
+    uniforms: { uScroll: { value: 0 }, uOn: { value: 0.5 } }, side: THREE.DoubleSide,
+    vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */`
+      uniform float uScroll, uOn; varying vec2 vUv;
+      void main() {
+        float st = fract(vUv.y * 4.0 - uScroll + fract(vUv.x * 3.0) * 0.5);
+        vec3 col = mix(vec3(0.16, 0.11, 0.06), vec3(0.95, 0.62, 0.2), (1.0 - smoothstep(0.0, 0.35, st)) * uOn);
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -104,13 +142,13 @@ export class SlugWell {
 
     // steel: casing and tubing back halves, gas line, flowline back half, separator stub
     const sg = [backTube(D.rc, D.bot - 0.4, D.top - 0.4), backTube(D.rt, D.bot, D.top), backTube(D.rc + 0.06, D.top - 0.4, D.top, 14)]; // casing, tubing, casing head
-    sg.push(hTube(0.09, D.gasX, -D.rc, D.gasY, 8)); // lift gas into the casing head
     if (flowline) { // a short flowline to a stub (scenes with a separator lay their own with pipeRun)
       sg.push(hTube(0.17, D.chokeX + 0.05, D.flowEnd, D.flowY, 10, true));
       const end = new THREE.SphereGeometry(0.5, 12, 8, Math.PI, Math.PI, 0, Math.PI); end.scale(0.5, 1, 1); end.translate(D.flowEnd + 0.05, D.flowY + 0.1, 0); sg.push(end);
     }
-    // perforations: short stubs through the casing into the reservoir
-    for (let i = 0; i < 5; i++) for (const sx of [-1, 1]) { const p = hTube(0.035, 0, 0.45, 0, 5); p.translate(sx > 0 ? D.rc : -D.rc - 0.45, -11.95 - i * 0.22, -0.05); sg.push(p); }
+    // side-pocket mandrel: a bulge in the tubing that carries the gas-lift valve
+    { const m = new THREE.CylinderGeometry(D.rt + 0.08, D.rt + 0.08, 0.9, 12, 1, true, Math.PI / 2, Math.PI); m.translate(0, D.inj + 0.1, 0); sg.push(m);
+      for (const [y, rTop, rBot] of [[D.inj - 0.4, D.rt + 0.08, D.rt], [D.inj + 0.6, D.rt, D.rt + 0.08]]) { const c = new THREE.CylinderGeometry(rTop, rBot, 0.1, 12, 1, true, Math.PI / 2, Math.PI); c.translate(0, y, 0); sg.push(c); } } // tapered ends
     this.group.add(new THREE.Mesh(merge(sg), steel));
 
     // christmas tree, bottom up: wellhead spool, lower and upper master
@@ -139,8 +177,27 @@ export class SlugWell {
     this.group.add(new THREE.Mesh(merge(tg), paint), new THREE.Mesh(merge(wheels), steel));
     // packer between tubing and casing, gas-lift valve on the tubing
     const pk = new THREE.CylinderGeometry(D.rc - 0.02, D.rc - 0.02, 0.28, 14, 1, false, Math.PI / 2, Math.PI); pk.translate(0, D.packer, 0);
-    const glv = new THREE.CylinderGeometry(0.07, 0.07, 0.5, 6); glv.translate(D.rt + 0.07, D.inj + 0.1, 0);
-    this.group.add(new THREE.Mesh(merge([pk, glv]), rubber));
+    this.group.add(new THREE.Mesh(pk, rubber));
+    // gas-lift valve in the mandrel's pocket, on the annulus side: a brass
+    // body with a nose and a port into the tubing; it glows while gas goes in
+    { const body = new THREE.CylinderGeometry(0.075, 0.075, 0.55, 10); body.translate(-D.rt - 0.13, D.inj + 0.15, 0.04);
+      const nose = new THREE.ConeGeometry(0.075, 0.14, 10); nose.rotateX(Math.PI); nose.translate(-D.rt - 0.13, D.inj - 0.19, 0.04);
+      const port = new THREE.CylinderGeometry(0.035, 0.035, 0.16, 6); port.rotateZ(Math.PI / 2); port.translate(-D.rt - 0.02, D.inj - 0.05, 0.04);
+      this.glvMat = new THREE.MeshStandardMaterial({ color: 0xc8a24a, metalness: 0.6, roughness: 0.35, emissive: 0x7fd8ff, emissiveIntensity: 0 });
+      this.group.add(new THREE.Mesh(merge([body, nose, port]), this.glvMat)); }
+    // lift gas line into the casing head, with a small control valve on it
+    this.gasLine = new THREE.Mesh(hTube(0.09, D.gasX, -D.rc, D.gasY, 10), gasLineMaterial());
+    this.gasValve = new Valve({ body: 'globe', actuator: 'linear', r: 0.1, fluid: 'gas', name: 'lift gas valve', speed: 1 });
+    this.gasValve.group.position.set(D.gasX + 0.6, D.gasY, 0); this.gasValve.set(0.5); this.gasValve.setCut({ style: 'glass', amount: 1 });
+    this.group.add(this.gasLine, this.gasValve.group);
+    // perforations: tapered tunnels through the casing into the reservoir,
+    // oil streaming in along them
+    { const tun = [];
+      for (let i = 0; i < 5; i++) for (const sx of [-1, 1]) {
+        const t = new THREE.CylinderGeometry(0.08, 0.025, 0.7, 6, 1, true); // top (uv.y 1) = casing end
+        t.rotateZ(sx < 0 ? -Math.PI / 2 : Math.PI / 2); t.translate(sx * (D.rc + 0.33), -11.9 - i * 0.24, 0.02); tun.push(t);
+      }
+      this.perfs = new THREE.Mesh(merge(tun), perforationMaterial()); this.group.add(this.perfs); }
 
     // contents
     const len = D.top - D.bot;
@@ -199,8 +256,8 @@ export class SlugWell {
     // label anchors (local)
     this.anchors = {
       pic: pic.clone().add(new THREE.Vector3(0, 0.45, 0)), choke: new THREE.Vector3(D.chokeX + 0.7, D.wing + 0.2, 0),
-      tree: new THREE.Vector3(-0.75, 1.2, 0), gasIn: new THREE.Vector3(D.gasX + 0.1, D.gasY + 0.35, 0),
-      glv: new THREE.Vector3(0.95, D.inj + 0.1, 0), packer: new THREE.Vector3(1.05, D.packer - 0.15, 0),
+      tree: new THREE.Vector3(-0.75, 1.2, 0), gasIn: new THREE.Vector3(D.gasX + 0.05, D.gasY - 0.3, 0),
+      glv: new THREE.Vector3(-1.15, D.inj + 0.15, 0), gasValve: new THREE.Vector3(D.gasX + 0.6, D.gasY + 0.45, 0), packer: new THREE.Vector3(1.05, D.packer - 0.15, 0),
       tubing: new THREE.Vector3(0, -4.5, D.rt + 0.05), annulus: new THREE.Vector3(-D.rc - 0.6, -4.5, 0),
       res: new THREE.Vector3(1.6, -12.6, 0), toSep: new THREE.Vector3(D.flowEnd, D.flowY + 0.75, 0),
       gauge: D.gauge.clone().add(new THREE.Vector3(0, -0.75, 0)),
@@ -220,7 +277,13 @@ export class SlugWell {
     if (fu) flowUpdate(fu, dt, sim);
     au.uP.value = THREE.MathUtils.clamp((sim.pab - 90) / 80, 0, 1);
     au.uFlow.value = THREE.MathUtils.smoothstep(sim.wiv, 0, 0.6);
-    au.uScroll.value += dt * (0.1 + 3 * au.uFlow.value);
+    au.uScroll.value += dt * (0.25 + 2.5 * au.uFlow.value);
+    this.gasLine.material.uniforms.uScroll.value += dt * 1.2 * sim.p.wGc / 0.35; // lift gas rate is fixed
+    this.gasValve.update(dt);
+    this.glvMat.emissiveIntensity = 1.6 * au.uFlow.value;
+    const pu = this.perfs.material.uniforms, draw = sim.wro / 15;
+    pu.uOn.value = THREE.MathUtils.clamp(0.25 + 0.75 * draw, 0, 1);
+    pu.uScroll.value += dt * (0.2 + 1.4 * draw);
     this.choke.set(sim.uOut); this.choke.update(dt);
     this.gauge.set(sim.pbh); this.gauge.update(dt);
     const on = sim.auto ? 1 : 0;

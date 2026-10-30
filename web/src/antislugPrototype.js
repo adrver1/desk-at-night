@@ -173,7 +173,7 @@ const VIEWS = { // centre and half extents (m)
   whole: { c: [-4, -10.9], h: [12.5, 17.6] },
   topside: { c: [-4.4, 3.4], h: [9.6, 4.6] },
   separator: { c: [0, 3.6], h: [5.6, 3.6] },
-  bottom: { c: [WELL_X - 0.6, wy(-11.2)], h: [4.4, 4.4] },
+  bottom: { c: [WELL_X - 0.6, wy(-10.6)], h: [4.6, 5.4] },
 };
 const hud = document.getElementById('hud'), dock = document.getElementById('dock');
 function frame() {
@@ -198,12 +198,12 @@ addEventListener('resize', frame);
 // labels: [text, world position, views (w whole, t topside, s separator, b bottom)]
 const wl = (key) => () => well.group.localToWorld(well.anchors[key].clone());
 const LABELS = [
-  ['Lift gas in', wl('gasIn'), 't'], ['Christmas tree', wl('tree'), 't'], ['Production choke', wl('choke'), 'tw'], ['Controller (PIC)', wl('pic'), 't'],
+  ['Lift gas in', wl('gasIn'), 't'], ['Lift gas valve', wl('gasValve'), 't'], ['Christmas tree', wl('tree'), 't'], ['Production choke', wl('choke'), 'tw'], ['Controller (PIC)', wl('pic'), 't'],
   ['Flowline', () => new THREE.Vector3((chokeOut.x + inletStart.x) / 2, FY + 0.5, -4), 't'],
   ['Inlet separator', () => new THREE.Vector3(1.5, SEP.y + SDIM.R + 0.5, 0), 'tws'],
   ['Liquid level', () => new THREE.Vector3(-2.6, SEP.y + sepSim.hL + 0.2, 1.2), 's'], ['Weir', () => new THREE.Vector3(SDIM.weirX, SEP.y + SDIM.crest + 0.3, 1.2), 's'],
   ['Conductor (no riser)', () => new THREE.Vector3(WELL_X + WS * (D.rc + 0.2) + 0.2, -2.6, 0), 'w'], ['Seabed', () => new THREE.Vector3(-13.5, SEABED + 0.5, 0), 'w'], ['Sea', () => new THREE.Vector3(3, SEA - 0.8, 0), 'w'],
-  ['Tubing', wl('tubing'), 'w'], ['Annulus (lift gas)', wl('annulus'), 'w'], ['Gas-lift valve', wl('glv'), 'wb'], ['Packer', wl('packer'), 'b'],
+  ['Tubing', wl('tubing'), 'w'], ['Annulus (lift gas)', wl('annulus'), 'w'], ['Gas-lift valve', wl('glv'), 'wb'], ['Perforations', () => well.group.localToWorld(new THREE.Vector3(D.rc + 1.0, -12.15, 0)), 'b'], ['Packer', wl('packer'), 'b'],
   ['Reservoir ≈ 2 km down', wl('res'), 'wb'], ['Bottom-hole pressure', wl('gauge'), 'wb'],
 ].map(([text, at, views]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at, views }; });
 
