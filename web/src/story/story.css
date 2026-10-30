@@ -520,3 +520,8 @@
 .kg-b .kg-bubble.think::after { border-color: #f7f5f0; box-shadow: -0.7em 0.8em 0 -0.18em #f7f5f0, -0.7em 0.8em 0 -0.05em #f7f5f0; }
 .kg-b .kg-bubble.agent { background: #d7fff0; color: #18202c; border-color: #5fe0b7; }
 .kg-b .kg-card { box-shadow: 0 0 0 1px #5fe0b766, 0 calc(var(--sw) * 0.8) calc(var(--sw) * 2.5) #000a; }
+.kg-card.note.wiki { display: block; font-size: calc(var(--sw) * 0.85); }
+.kg-card.note.wiki .path { color: #9aa3ae; font: 400 0.85em/1 var(--mono); margin-bottom: 0.8em; } .kg-card.note.wiki .path b { color: #e0d4ff; font-weight: 500; }
+.kg-card.note .links { border-top: 1px solid #ffffff1a; padding-top: 0.5em; }
+.kg-text.sub.wrap { white-space: normal; } .kg-text.sub.center { text-align: center; }
+.kg-card.note.wiki { font-size: calc(var(--sw) * 1.0); }

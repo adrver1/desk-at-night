@@ -242,40 +242,102 @@ const H01 = {
 };
 
 // ------------------------------------------------------------ slide 11: Wiki?
-const C11 = cloud({ n: 150, box: [-7.1, -4.0, -1.7, 0.9], seed: 11, hubs: 7 });
-const HUB11 = 0;
-const near11 = new Set([HUB11, ...C11.edges.filter(([a, b]) => a === HUB11 || b === HUB11).flat()]);
+// What the wiki is: one atomic article per idea, linked to related ideas.
+// Laid out by hand so related concepts sit together: control theory (purple)
+// around the PID hub, the applications on the platform (blue) to the right,
+// the equipment they act on (green) along the bottom. Faint unnamed notes
+// behind them stand for the rest of the 600-odd.
+const WIKI = [
+  // id, label no, label en, x, y, folder, hub
+  ['pid', 'PID-regulator', 'PID controller', -3.9, -1.3, 'E', 1],
+  ['model', 'Prosessmodeller', 'Process models', -5.9, -0.2, 'E'],
+  ['fb', 'Tilbakekobling', 'Feedback', -6.3, -1.9, 'E'],
+  ['disc', 'PID-diskretisering', 'PID discretisation', -2.3, 0.15, 'E'],
+  ['windup', 'Integratorvindup', 'Integrator windup', -5.4, -3.1, 'E'],
+  ['cascade', 'Kaskaderegulering', 'Cascade control', -2.2, -2.5, 'E'],
+  ['ff', 'Foroverkobling', 'Feedforward', -4.0, 0.55, 'E'],
+  ['step', 'Steptest', 'Step test', -3.9, -3.6, 'E'],
+  ['fopdt', 'FOPDT-modell', 'FOPDT model', -7.0, 0.55, 'E'],
+  ['bode', 'Bode-plott', 'Bode plot', -7.0, -3.4, 'E'],
+  ['slug', 'Anti-slug-regulering', 'Anti-slug control', -0.3, -1.1, 'P', 1],
+  ['level', 'Separatornivå', 'Separator level', 0.4, -3.2, 'P'],
+  ['surge', 'Antisurge', 'Anti-surge', 0.6, 0.45, 'P'],
+  ['choke', 'Strupeventil', 'Choke valve', 0.9, -2.0, 'S'],
+  ['sep', 'Separator', 'Separator', -1.4, -3.9, 'S'],
+  ['valve', 'Ventilkarakteristikk', 'Valve characteristic', -1.0, 0.95, 'S'],
+];
+const WIKI_LINKS = [
+  ['pid', 'model'], ['pid', 'fb'], ['pid', 'disc'], ['pid', 'windup'], ['pid', 'cascade'], ['pid', 'ff'], ['pid', 'step'],
+  ['model', 'fopdt'], ['model', 'step'], ['fb', 'bode'], ['fb', 'windup'], ['model', 'ff'], ['bode', 'windup'],
+  ['slug', 'pid'], ['slug', 'choke'], ['slug', 'cascade'], ['slug', 'model'], ['level', 'pid'], ['level', 'sep'], ['level', 'cascade'],
+  ['surge', 'pid'], ['surge', 'ff'], ['choke', 'valve'], ['valve', 'surge'], ['sep', 'step'], ['level', 'choke'], ['disc', 'valve'],
+];
+const PID_NEAR = new Set(['pid', ...WIKI_LINKS.filter((l) => l.includes('pid')).flat()]);
+const PID_BACK = new Set(WIKI_LINKS.filter(([, b]) => b === 'pid').map(([a]) => a));   // the notes that link here
+// the faint rest: seeded scatter clear of the named notes, each linked to its nearest named one
+const FILL = (() => {
+  let sd = 11;
+  const rnd = () => ((sd = (sd * 16807) % 2147483647) / 2147483647);
+  const nodes = [], edges = [];
+  while (nodes.length < 46) {
+    const x = -7.3 + rnd() * 8.4, y = -4.2 + rnd() * 5.3;
+    const near = WIKI.map((w) => [Math.hypot(w[3] - x, w[4] - y), w[0]]).sort((a, b) => a[0] - b[0])[0];
+    if (near[0] < 0.55 || nodes.some((n) => Math.hypot(n.x - x, n.y - y) < 0.45)) continue;
+    nodes.push({ i: nodes.length, x, y, near: near[1] });
+  }
+  return { nodes, edges };
+})();
 const G11 = new Graph({
-  nodes: C11.nodes.map((n) => ({ id: 'n' + n.i, c: n.i === HUB11 ? 'E' : 'grey', c2: 'E', small: n.i !== HUB11, label: n.i === HUB11 ? 'Anti-slug-regulering' : undefined, hideLabel: (b) => b < 3 })),
-  edges: C11.edges.map(([a, b]) => ['n' + a, 'n' + b]),
-  r: 0.07,
+  nodes: [
+    ...WIKI.map(([id, no, en, , , c, hub]) => ({ id, label: T(no, en), c, hub: !!hub })),
+    ...FILL.nodes.map((n) => ({ id: 'f' + n.i, c: 'grey', small: true })),
+  ],
+  edges: [
+    ...WIKI_LINKS.map(([a, b]) => [a, b, { c: WIKI.find((w) => w[0] === a)[5] }]),
+    ...FILL.nodes.map((n) => ['f' + n.i, n.near]),
+  ],
+  r: 0.12, hubR: 0.2,
   target: (n, b) => {
-    const i = +n.id.slice(1), p = C11.nodes[i], lit = b >= 3 && near11.has(i);
-    return { x: p.x, y: p.y, a: b >= 1 ? (b >= 3 && !lit ? 0.35 : 1) : 0, s: b >= 1 ? (lit ? 1.6 : 1) : 0, alt: lit ? 1 : 0, delay: (i % 50) * 0.012 };
+    const w = WIKI.find((x) => x[0] === n.id);
+    if (!w) {
+      const p = FILL.nodes[+n.id.slice(1)];
+      return { x: p.x, y: p.y, a: b >= 1 ? 0.3 : 0, s: b >= 1 ? 1 : 0, delay: 0.5 + (+n.id.slice(1) % 30) * 0.02 };
+    }
+    const i = WIKI.indexOf(w), dim = b >= 2 && !PID_NEAR.has(n.id);
+    const back = b >= 3 && PID_BACK.has(n.id);
+    return { x: w[3], y: w[4], a: b >= 1 ? (dim ? 0.3 : 1) : 0, s: b >= 1 ? (n.id === 'pid' && b >= 2 ? 1.5 : back ? 1.3 : 1) : 0, delay: i * 0.06 };
   },
+  edgeOn: ([a], bd) => (a.startsWith('f') ? (bd >= 2 ? 0.25 : 0.5) : 1),
+  hot: (id, t) => (G11.build === 3 && PID_BACK.has(id) ? 1 : G11.build >= 2 && id === 'pid' ? 0.5 + 0.5 * Math.sin(t * 4) : 0),
 });
+const NOTE_AT = { x: 1.55, y: 3.4 };
 const H11 = {
   id: 'ctrl-11', builds: 3,
-  focus: (b) => [[-4, 2, 2], [-4, -1.5, 3], [3, 0, 2], [-4, -1.5, 3]][b],
+  focus: (b) => [[-4, 2, 2], [-3, -1.5, 2], [2, 0, 2], [0, -1.5, 2]][b],
   elements: [
     title('Wiki?'),
-    prop(() => books(5), -6.3, 1.6, 0, { scale: 1.2, rot: 0.4 }),
-    prop(globe, -3.6, 1.6, 0, { scale: 0.95 }),
-    text('W', -3.6, 2.35, 1, 0, { cls: 'globe-w', anchor: [0.5, 0.5] }),
-    // the dark graph view (the diorama is dark already)
-    draw((ctx) => {
-      if (KG_LOOK === 'b') return;
-      const { under: c, slide: sl } = ctx, [x0, y0] = sl.P(-7.4, 1.2), [x1, y1] = sl.P(-1.4, -4.3);
-      c.save(); c.globalAlpha = 1; c.fillStyle = '#1e2229'; c.beginPath(); c.roundRect(x0, y0, x1 - x0, y1 - y0, sl.U(0.12)); c.fill(); c.restore();
-    }, 1),
+    prop(() => books(5), -3.2, -1.6, 0, { scale: 1.5, rot: 0.4, until: 1 }),
+    prop(globe, 2.4, -1.0, 0, { scale: 1.4, until: 1 }),
+    text('W', 2.4, -0.3, 1, 0, { cls: 'globe-w', anchor: [0.5, 0.5], until: 1 }),
+    text(T('Et oppslagsverk av korte artikler som lenker til hverandre', 'A reference work of short articles that link to each other'), 0, -3.3, 12, 0, { cls: 'sub center', anchor: [0.5, 0.5], until: 1 }),
     { kind: 'graph', graph: G11, from: 1 },
+    text(T('<b>●</b> Én node = én artikkel, én idé&nbsp;&nbsp;&nbsp;<b>—</b> én lenke mellom to beslektede', '<b>●</b> One node = one article, one idea&nbsp;&nbsp;&nbsp;<b>—</b> one link between two related ones'), -7.2, 2.6, 9.5, 1, { cls: 'sub', until: 2 }),
+    // the PID note, opened out of its node
+    draw((ctx) => {
+      const { under: c, slide: sl } = ctx, k = Math.min(1, ctx.since * 1.6);
+      const [x0, y0] = sl.P(-3.9, -1.3), [x1, y1] = sl.P(NOTE_AT.x, NOTE_AT.y - 0.9);
+      c.save(); c.globalAlpha = 0.8; c.strokeStyle = col('E'); c.lineWidth = sl.U(0.03); c.setLineDash([sl.U(0.08), sl.U(0.06)]);
+      c.beginPath(); c.moveTo(x0, y0); c.lineTo(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k); c.stroke(); c.restore();
+    }, 2),
     {
-      kind: 'card', cls: 'note', x: 3.2, y: 3.55, w: 8.4, anchor: [0.5, 0], from: 2,
-      html: `<div class="side"><b>wiki</b><div>▾ ${T('reguleringsteori', 'control-theory')}</div>${['Anti-slug-regulering', 'Bode-plott', 'Kaskaderegulering', 'Foroverkobling', 'Integratorvindup', 'Nyquist', 'PID-regulator', 'PID-diskretisering', 'Prosessmodeller', 'Robust regulering', 'Separatornivå', 'Steptest'].map((t) => `<div class="${t === 'PID-regulator' ? 'on' : ''}">${t}</div>`).join('')}</div>
-<div class="body"><h3>PID-regulator</h3><dl><dt>status</dt><dd>${T('aktiv', 'active')}</dd><dt>type</dt><dd>${T('begrep', 'concept')}</dd><dt>avhenger-av</dt><dd><a>Prosessmodeller</a> · <a>Tilbakekobling</a></dd><dt>tags</dt><dd><span>regulering</span><span>pid</span><span>hub</span></dd><dt>kilde</dt><dd>raw/${T('lærebok', 'textbook')}-kap11.pdf</dd></dl>
-<h4>PID-regulator — hub</h4><p>${T('En PID-regulator regner pådraget ut fra avviket e(t) = r − y med tre ledd: P (nåværende avvik), I (akkumulert avvik, fjerner stasjonært avvik) og D (endringsrate, demper). De fleste regulatorer i prosessindustrien er i praksis PI.', 'A PID controller computes its output from the error e(t) = r − y with three terms: P (present error), I (accumulated error, removes offset) and D (rate of change, damps). Most process-industry controllers are in practice PI.')}</p>
-<div class="formula">u(t) = Kp · ( e(t) + 1/Ti · ∫ e dτ + Td · de/dt )</div><p class="links">${T('Lenker hit', 'Linked from')}: <a>Anti-slug-regulering</a> <a>Separatornivå</a> <a>Steptest</a> <a>Kaskaderegulering</a></p></div>`,
+      kind: 'card', cls: 'note wiki', w: 6.3, anchor: [0, 0], from: 2,
+      at: (b) => (b >= 2 ? { x: NOTE_AT.x, y: NOTE_AT.y, zoom: 1 } : { x: -3.9, y: -1.3, zoom: 0.1 }),
+      html: `<div class="body"><div class="path">wiki / ${T('reguleringsteori', 'control-theory')} / <b>PID-${T('regulator', 'controller')}.md</b></div><h3>PID-${T('regulator', 'controller')}</h3><dl><dt>status</dt><dd>${T('aktiv', 'active')}</dd><dt>type</dt><dd>${T('begrep', 'concept')}</dd><dt>${T('avhenger-av', 'depends-on')}</dt><dd><a>${T('Prosessmodeller', 'Process models')}</a> · <a>${T('Tilbakekobling', 'Feedback')}</a></dd><dt>tags</dt><dd><span>${T('regulering', 'control')}</span><span>pid</span><span>hub</span></dd><dt>${T('kilde', 'source')}</dt><dd>raw/${T('lærebok', 'textbook')}-kap11.pdf</dd></dl>
+<p>${T('Regner pådraget ut fra avviket e = r − y med tre ledd: P (nåværende avvik), I (akkumulert avvik) og D (endringsrate). De fleste regulatorer i prosessindustrien er i praksis PI.', 'Computes the output from the error e = r − y with three terms: P (present error), I (accumulated error) and D (rate of change). Most process-industry controllers are in practice PI.')}</p>
+<div class="formula">u(t) = Kp · ( e + 1/Ti · ∫ e dτ + Td · de/dt )</div><p>${T('Se også', 'See also')}: <a>${T('Integratorvindup', 'Integrator windup')}</a> <a>${T('Kaskaderegulering', 'Cascade control')}</a> <a>${T('PID-diskretisering', 'PID discretisation')}</a></p>
+<p class="links">${T('Lenker hit', 'Linked from')}: <a>Anti-slug</a> <a>${T('Separatornivå', 'Separator level')}</a> <a>Antisurge</a></p></div>`,
     },
+    text(T('Agentene skriver og vedlikeholder artiklene. Lenkene gjør det til en graf de kan navigere.', 'The agents write and keep up the articles. The links make it a graph they can navigate.'), NOTE_AT.x, -2.4, 6.3, 3, { cls: 'sub wrap' }),
   ],
 };
 
