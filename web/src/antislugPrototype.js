@@ -177,11 +177,15 @@ const VIEWS = { // centre and half extents (m)
 };
 const hud = document.getElementById('hud'), dock = document.getElementById('dock');
 function frame() {
-  const w = innerWidth, h = innerHeight, top = hud.offsetHeight, bot = dock.offsetHeight, band = Math.max(120, h - top - bot);
+  const w = innerWidth, h = innerHeight, bot = dock.offsetHeight;
+  // the HUD sits on top (portrait) or as a column on the right (wide screens)
+  const sideHud = hud.offsetWidth < w - 1;
+  const top = sideHud ? 0 : hud.offsetHeight, right = sideHud ? hud.offsetWidth : 0;
+  const bandH = Math.max(120, h - top - bot), bandW = Math.max(120, w - right);
   renderer.setSize(w, h, false); camera.aspect = w / h;
-  camera.setViewOffset(w, h, 0, -(top - bot) / 2, w, h);
+  camera.setViewOffset(w, h, right / 2, -(top - bot) / 2, w, h);
   const v = VIEWS[state.view], t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const dist = Math.max(v.h[1] / (t * band / h), v.h[0] / (t * camera.aspect)) * (state.view === 'whole' ? 1.1 : 1.04);
+  const dist = Math.max(v.h[1] / (t * bandH / h), v.h[0] / (t * camera.aspect * bandW / w)) * (state.view === 'whole' ? 1.1 : 1.04);
   controls.target.set(v.c[0], v.c[1], 0);
   // three-quarter views from the front right and above, so the block, the
   // jacket and the deck read as 3D
@@ -306,7 +310,9 @@ let statT = 0, lvlT = 0, lastFeed = 1, waveCool = 0;
 function place(el, p, show) {
   v3.copy(p).project(camera);
   const y = ((1 - v3.y) / 2) * innerHeight; // hide behind the HUD and the dock
-  el.style.opacity = show && v3.z < 1 && y > hud.offsetHeight + 8 && y < innerHeight - dock.offsetHeight - 8 ? 1 : 0;
+  const x = ((v3.x + 1) / 2) * innerWidth, side = hud.offsetWidth < innerWidth - 1;
+  const clear = side ? x < innerWidth - hud.offsetWidth - 8 : y > hud.offsetHeight + 8;
+  el.style.opacity = show && v3.z < 1 && clear && y < innerHeight - dock.offsetHeight - 8 ? 1 : 0;
   el.style.left = `${((v3.x + 1) / 2) * innerWidth}px`; el.style.top = `${((1 - v3.y) / 2) * innerHeight}px`;
 }
 function tick() {
