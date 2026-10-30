@@ -779,12 +779,6 @@
    "notes": "Samme samtale som chat (versjon B): Nordhav Beta skriver, separatoren som video på skjermen ved siden av."
   },
   {
-   "after": "^money",
-   "id": "c.step",
-   "chat": "step",
-   "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."
-  },
-  {
    "after": "m.s3",
    "id": "c.sim",
    "chat": "sim",
@@ -849,6 +843,12 @@
    "id": "new.ctrl14",
    "slide": "ctrl-14",
    "notes": "Lysbilde 14."
+  },
+  {
+   "after": "new.ctrl14",
+   "id": "c.step",
+   "chat": "step",
+   "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."
   }
  ],
  "hidden": [
@@ -871,7 +871,9 @@
   "h.s3",
   "h.g3",
   "b.forward",
-  "b.room"
+  "b.room",
+  "m.docs",
+  "m.s5"
  ],
  "closing": {
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",

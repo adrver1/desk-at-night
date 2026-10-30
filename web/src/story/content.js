@@ -649,6 +649,8 @@ const SHORT_CHAPTERS = [
     key: 5, id: 'money', name: T('I dag · Verktøyene', 'Today · The tools'),
     base: { act: 2, time: 13.2, shot: 'desk', ...DESK, cast: { operator: { at: 'desk2' } }, screens: { Desk0Mon2Screen: 'stepTest', Desk0Mon3Screen: 'riser', Desk0Mon4Screen: 'govDocs' } },
     beats: [
+      // multi-agent work opens today's tools (Adriaen, 2026-10-30), its deck slides with it
+      { id: 'h.s2', set: { overlay: 'slide:h-02' }, notes: 'Multi-agent work.' },
       { id: 'm.riser', set: { overlay: null, shot: 'monitor:Desk0Mon3Screen', tool: 'riser', screens: { Desk0Mon3Screen: 'riser' } }, notes: 'The riser simulator, open loop: it fills and blows through.' },
       { id: 'm.antislug', set: { tool: 'antiSlug', screens: { Desk0Mon3Screen: 'antiSlug' } }, notes: 'Anti-slug control tuned on the model. Seeing is believing.' },
       { id: 'm.s3', set: { overlay: 'slide:m-03' } },
@@ -664,7 +666,6 @@ const SHORT_CHAPTERS = [
     beats: [
       { id: 'h.s1', set: { overlay: 'slide:h-01' }, notes: 'Knowledge graphs.' },
       { id: 'h.g1', set: { overlay: null }, do: [{ graph: 2 }, { wait: 2 }, { graph: 3 }], end: { graph: 3 }, notes: 'The graph grows on the band as knowledge is added.' },
-      { id: 'h.s2', set: { overlay: 'slide:h-02' }, notes: 'Multi-agent work.' },
       { id: 'h.g2', set: { overlay: null }, do: [{ graph: 4 }], end: { graph: 4 }, notes: 'More agents on the same graph.' },
       { id: 'h.s3', set: { overlay: 'slide:h-03' }, notes: 'MCP tools.' },
       { id: 'h.g3', set: { overlay: null, graphOn: 'overlay' }, do: [{ graph: 5 }], end: { graph: 5 }, notes: 'The whole graph, full screen.' },
