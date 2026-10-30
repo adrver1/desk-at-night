@@ -137,7 +137,7 @@ function chatStep(dir) {
 }
 function chatTo(id, n, typing) {
   const show = CHATS[id].messages[n - 1][0] === 'show';
-  apply(merge(state, { chats: { ...state.chats, [id]: n }, shot: `monitor:${show ? REPORT_SCREEN : CHAT_SCREEN}` }));
+  apply(merge(state, { chats: { ...state.chats, [id]: n }, shot: show ? `monitor:${REPORT_SCREEN}` : CHATS[id].shot ?? `monitor:${CHAT_SCREEN}` }));
   if (typing) S.chatAt[id] = S.now + typed(id, n);
 }
 

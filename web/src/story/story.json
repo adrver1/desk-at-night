@@ -494,53 +494,8 @@
     [
      "ai",
      {
-      "no": "Her er en simulator for slugging i stigerøret, og en for innløpsseparatoren.",
-      "en": "Here is a simulator of riser slugging, and one of the inlet separator."
-     }
-    ],
-    [
-     "show",
-     {
-      "no": "Simulator for slugging i stigerøret",
-      "en": "Riser slugging simulator",
-      "file": "sim-1.mp4"
-     }
-    ],
-    [
-     "show",
-     {
-      "no": "Simulator for innløpsseparatoren",
-      "en": "Inlet separator simulator",
-      "file": "sim-2.webp"
-     }
-    ],
-    [
-     "ai",
-     {
-      "no": "Jeg er ganske sikker på at du parametriserte modellen feil. Jeg sjekket dokumentet på CDF, og det står at separatoren er 7 meter lang, ikke 8 meter…",
-      "en": "I'm fairly sure you parametrised the model wrong. I checked the document in CDF, and it says the separator is 7 metres long, not 8…"
-     }
-    ],
-    [
-     "ai",
-     {
-      "no": "… og forresten: du modellerte ventilen som en lineær ventil, men jeg analyserte nylige tidsseriedata, og den er mer kompatibel med en likeprosentlig karakteristikk.",
-      "en": "… and by the way: you modelled the valve as linear, but I analysed recent time series, and it fits an equal-percentage characteristic better."
-     }
-    ],
-    [
-     "me",
-     {
-      "no": "… jepp, jeg sjekket leverandørens datablad, og det står tydelig at den er likeprosentlig.",
-      "en": "… yep, I checked the vendor's datasheet, and it clearly says equal percentage."
-     }
-    ],
-    [
-     "show",
-     {
-      "no": "Verktøy for regulatortuning",
-      "en": "Controller tuning tool",
-      "file": "sim-3.webp"
+      "no": "Jeg innhenter fysikalske likninger fra oppgitt referansemateriale og bygger en generisk separatormodell som du kan leke deg med.",
+      "en": "I gather the physical equations from the reference material you gave me and build a generic separator model you can play with."
      }
     ]
    ],
@@ -684,6 +639,62 @@
     "me": "adriaen",
     "ai": "neighbour.svg"
    }
+  },
+  "sim2": {
+   "title": {
+    "no": "CtrlBuddy",
+    "en": "CtrlBuddy"
+   },
+   "who": "Ola",
+   "faces": {
+    "me": "adriaen",
+    "ai": "ctrlbuddy"
+   },
+   "set": {
+    "twin": "fix",
+    "shot": "pair:Desk0Mon1Screen,Desk0Mon2Screen",
+    "screens": {
+     "Desk0Mon2Screen": "twinFix"
+    }
+   },
+   "messages": [
+    [
+     "me",
+     {
+      "no": "Jeg har parametrisert modellen med data for sekundær innløpsseparator.",
+      "en": "I have parametrised the model with data for the secondary inlet separator."
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Jeg er ganske sikker på at du parametriserte modellen feil. Jeg sjekket dokumentet på CDF, og det står at separatoren er 7 meter lang, ikke 8 meter…",
+      "en": "I'm fairly sure you parametrised the model wrong. I checked the document in CDF, and it says the separator is 7 metres long, not 8…"
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "… og forresten: du modellerte ventilen som en lineær ventil, men jeg analyserte nylige tidsseriedata, og den er mer kompatibel med en likeprosentlig karakteristikk.",
+      "en": "… and by the way: you modelled the valve as linear, but I analysed recent time series, and it fits an equal-percentage characteristic better."
+     }
+    ],
+    [
+     "me",
+     {
+      "no": "… jepp, jeg sjekket leverandørens datablad, og det står tydelig at den er likeprosentlig.",
+      "en": "… yep, I checked the vendor's datasheet, and it clearly says equal percentage."
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Verktøy for regulatortuning",
+      "en": "Controller tuning tool",
+      "file": "sim-3.webp"
+     }
+    ]
+   ]
   }
  },
  "callouts": {
@@ -782,7 +793,13 @@
    "after": "m.s3",
    "id": "c.sim",
    "chat": "sim",
-   "notes": "Samtale: simulatorene, rettelsene og tuningverktøyet."
+   "notes": "Samtale: han vil lære ved å gjøre, CtrlBuddy bygger en generisk separatormodell."
+  },
+  {
+   "after": "m.twin",
+   "id": "c.sim2",
+   "chat": "sim2",
+   "notes": "Samtale: modellen parametrisert for den ekte separatoren; CtrlBuddy retter lengden (tvillingen endrer lengde) og ventilkarakteristikken (ventilen byttes, med kurvene), så tuningverktøyet."
   },
   {
    "after": "m.s3",

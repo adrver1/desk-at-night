@@ -10,14 +10,25 @@
 // The code follows our own CasADi separator model (Adriaen, 2026-10-30), in
 // generic form: no tags, no tuned numbers, none of its code (that stays private).
 //
+// After it, the chat about the real separator (c.sim2, Adriaen 2026-10-30)
+// shows the same twin beside the chat ('twinFix') and corrects it as
+// CtrlBuddy's messages come: the vessel takes the document's length (8 m to
+// 7 m), then the oil valve is swapped, the linear one lifted out and an
+// equal-percentage one put in, each with its valve curve beside it.
+//
 // State key (content.js): twin: true starts the build on entering the beat,
-// null hides it. Screens: CODE_SCREEN shows 'twinCode', TWIN_SCREEN 'twin'.
+// 'fix' the corrections (story.json chats.sim2.set), null hides it.
+// Screens: CODE_SCREEN shows 'twinCode', TWIN_SCREEN 'twin', and the chat's
+// report screen 'twinFix'.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CONTENT } from '../screens.js';
 import { LIVE } from '../controlScene.js';
 import { Separator, DIM } from '../separator.js';
 import { makeSeparatorSim } from '../separatorSim.js';
+import { Valve } from '../valve.js';
+import { S } from './storyScreens.js';
+import { CHATS } from './content.js';
 import { loadModel } from './cast.js';
 import { PRIVATE, OVERRIDES } from '../privateNames.js';
 import { drawVSCode, VS_COL } from './vscode.js';
@@ -28,6 +39,8 @@ const DUR = 12;   // s, the whole build
 const HOLD = new URLSearchParams(location.search).get('twinAt');   // ?twinAt=0..1 holds the build there (stills)
 const smooth = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
 const BLUE = 0x5fd6ff;
+const SHORT = 1 / 8;   // the correction: 8 m to 7 m
+const EQP = 30;        // rangeability of the equal-percentage curve
 
 // Python colours on top of the shared VS Code look
 Object.assign(VS_COL, { kw: '#c586c0', str: '#ce9178', num: '#b5cea8', fn: '#dcdcaa' });
@@ -138,6 +151,7 @@ export class Twin {
     this.target = new THREE.Vector3(0.5, 0.15, 0.6);
     this.camera.position.set(2.2, 1.9, 17);
     this.camera.lookAt(this.target);
+    this.home = { pos: this.camera.position.clone(), target: this.target.clone() };
     this.rt = new THREE.WebGLRenderTarget(640, 384, { samples: 4 });
     this.rt.texture.userData.raw = true;
     this.rt.texture.colorSpace = THREE.LinearSRGBColorSpace;
@@ -155,7 +169,9 @@ export class Twin {
     });
     CONTENT.twinCode = ['VS Code', (ctx, w, h) => this.drawCode(ctx, w, h)];
     CONTENT.twin = ['Digital twin', (ctx, w, h) => this.drawRing(ctx, w, h)];
-    for (const id of ['twinCode', 'twin']) if (!LIVE.includes(id)) LIVE.push(id);
+    CONTENT.twinFix = ['Digital twin', (ctx, w, h) => this.drawFix(ctx, w, h)];
+    for (const id of ['twinCode', 'twin', 'twinFix']) if (!LIVE.includes(id)) LIVE.push(id);
+    this.fix = { len: 0, valve: 0 };
   }
 
   // The blueprint floor, the separator (glass cut, as in the re-tuning beat), the beam
@@ -197,6 +213,15 @@ export class Twin {
     }
     sc.add(this.ghost);
     for (const o of Object.values(this.groups).flat()) o.userData.home = o.position.clone();
+    // the equal-percentage oil valve the correction puts in (another actuator, so it reads as a new valve)
+    const old = sep.valves.oil;
+    this.newValve = new Valve({ body: 'globe', actuator: 'linear', r: DIM.liquidR * 0.85, fluid: 'oil', name: 'LV oil (equal percentage)' });
+    this.newValve.group.position.copy(old.group.position);
+    this.newValve.group.rotation.copy(old.group.rotation);
+    this.newValve.group.userData.home = old.group.position.clone();
+    this.newValve.setCut({ style: 'glass', amount: 1 });
+    this.newValve.group.visible = false;
+    sep.group.add(this.newValve.group);
     // CtrlBuddy's beam: a cone of light from him to the part
     this.beam = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1, 24, 1, true).translate(0, -0.5, 0).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ color: BLUE, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, fog: false }));
@@ -236,13 +261,16 @@ export class Twin {
 
   // The story's state: twin or not (restarts on entering the beat)
   set(on) {
-    on = Boolean(on);
-    if (on === this.on) return;
-    this.on = on;
-    this.t = 0;   // its own clock: a jump between beats runs the story clock on fast
-    this.p = 0;
-    this.game.room?.setFeeds({ twin: this.rt.texture });
-    if (on) {
+    const mode = on === 'fix' ? 'fix' : on ? 'build' : null;
+    if (mode === this.mode) return;
+    const was = this.mode;
+    this.mode = mode;
+    this.on = Boolean(mode);
+    this.fix = { len: 0, valve: 0 };
+    this.game.room?.setFeeds({ twin: this.rt.texture, twinFix: this.rt.texture });
+    if (mode && !was) {
+      this.t = mode === 'fix' ? DUR : 0;   // its own clock: a jump between beats runs the story clock on fast
+      this.p = mode === 'fix' ? 1 : 0;
       this.sim = makeSeparatorSim('mass');
       const f = this.game.room?.screenFrame(TWIN_SCREEN, this.game.camera.position);
       if (f) {
@@ -258,7 +286,7 @@ export class Twin {
     if (!this.on || !this.ready) return;
     dt = Math.min(dt, 0.05);
     this.t += dt;
-    const p = this.p = HOLD != null ? +HOLD : Math.min(1, this.t / DUR);
+    const p = this.p = this.mode === 'fix' ? 1 : HOLD != null ? +HOLD : Math.min(1, this.t / DUR);
     const k = parts(p), keys = SECTIONS.map((s) => s.part);
     // each part drops in from above as its section is typed
     let placing = -1;
@@ -271,6 +299,7 @@ export class Twin {
         o.position.y += (1 - e) * 2.5;
       }
     });
+    this.correct(dt);
     const key = placing >= 0 ? keys[placing] : null;
     const first = key && this.groups[key][0];
     if (first) { first.updateMatrixWorld(true); new THREE.Box3().setFromObject(first).getCenter(this.at); }
@@ -317,14 +346,108 @@ export class Twin {
       const world = new THREE.Quaternion().setFromUnitVectors(now, want).multiply(qb);
       this.opHead.quaternion.copy(this.opHead.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(world));
     }
-    if (this.t < DUR + 1) this.game.room?.redrawNow?.();   // the typing and the ring, every frame while it builds
+    if (this.t < DUR + 1 || this.mode === 'fix') this.game.room?.redrawNow?.();   // the typing and the ring, every frame while it builds
+  }
+
+  // The corrections, as far as the chat has come: its 2nd message the length, its 3rd the valve
+  correct(dt) {
+    const f = this.fix, nv = this.newValve, oldG = this.sep.valves.oil.group;
+    const n = this.mode === 'fix' ? S.chats.sim2 ?? 0 : 0;
+    const toward = (v, to) => (to > v ? Math.min(to, v + dt * 0.6) : Math.max(to, v - dt * 0.6));
+    f.len = toward(f.len, n >= 2 ? 1 : 0);
+    f.valve = toward(f.valve, n >= 3 ? 1 : 0);
+    this.sep.group.scale.x = 1 - SHORT * smooth(f.len);
+    // the linear valve lifts out and hangs to the side; the new one drops into its place
+    const out = smooth(f.valve * 1.6);
+    oldG.position.copy(oldG.userData.home).add(new THREE.Vector3(-0.6 * out, 1.4 * out, -1.6 * out));
+    // the valves sit behind the vessel: the camera swings round to them for the swap
+    const swing = smooth(f.valve * 2.5), v = this.sep.group.localToWorld(oldG.userData.home.clone());
+    const target = this.home.target.clone().lerp(v.clone().add(new THREE.Vector3(-0.3, 0.6, -0.8)), swing);
+    this.camera.position.copy(this.home.pos).lerp(v.clone().add(new THREE.Vector3(4.5, 3.0, -10)), swing);
+    this.camera.lookAt(target);
+    const inn = smooth((f.valve - 0.35) / 0.65);
+    nv.group.visible = f.valve > 0.35;
+    nv.group.position.copy(nv.group.userData.home);
+    nv.group.position.y += (1 - inn) * 2.5;
+    nv.set(this.sim.z?.oil ?? this.sim.u?.oil ?? 0.5);
+    nv.update(dt);
+  }
+
+  // The twin beside the chat about the real separator, with the corrections pointed out;
+  // the report the chat hands over at the end (the tuning tool) takes the screen
+  drawFix(ctx, w, h) {
+    const n = S.chats.sim2 ?? 0, last = CHATS.sim2?.messages[n - 1];
+    if (last?.[0] === 'show') { CONTENT['report:sim2']?.[1](ctx, w, h); return; }
+    const s = w / 640, f = this.fix;
+    const at = (v) => { const p = v.clone().project(this.camera); return [(p.x + 1) / 2 * w, (1 - p.y) / 2 * h]; };
+    ctx.save();
+    ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+    ctx.font = `600 ${15 * s}px system-ui, sans-serif`;
+    ctx.fillText(T('Digital tvilling · sekundær innløpsseparator', 'Digital twin · secondary inlet separator'), 20 * s, 34 * s);
+    // the length, as a dimension line under the vessel
+    if (f.len > 0 && f.valve < 0.3) {
+      const g = this.sep.group, half = DIM.L / 2 + DIM.R / 2, y = DIM.ground + 0.2, z = 2.2;
+      const [x0, y0] = at(g.localToWorld(new THREE.Vector3(-half, y, z))), [x1, y1] = at(g.localToWorld(new THREE.Vector3(half, y, z)));
+      ctx.globalAlpha = Math.min(1, f.len * 3, (0.3 - f.valve) * 6);
+      ctx.strokeStyle = '#ffd27a'; ctx.fillStyle = '#ffd27a'; ctx.lineWidth = 2 * s;
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+      for (const [x, yy] of [[x0, y0], [x1, y1]]) { ctx.moveTo(x, yy - 8 * s); ctx.lineTo(x, yy + 8 * s); }
+      ctx.stroke();
+      const m = 8 - smooth(f.len);
+      ctx.font = `700 ${16 * s}px system-ui, sans-serif`; ctx.textAlign = 'center';
+      const label = f.len < 1 ? `${m.toFixed(1).replace('.', T(',', '.'))} m` : T('7 m (dokumentet i CDF)', '7 m (the document in CDF)');
+      const tw = ctx.measureText(label).width + 14 * s;
+      ctx.fillStyle = '#0b141c'; ctx.fillRect((x0 + x1) / 2 - tw / 2, (y0 + y1) / 2 - 12 * s, tw, 22 * s);
+      ctx.fillStyle = '#ffd27a'; ctx.textBaseline = 'middle'; ctx.fillText(label, (x0 + x1) / 2, (y0 + y1) / 2);
+      ctx.globalAlpha = 1;
+    }
+    // each valve with its curve
+    if (f.valve > 0) {
+      const old = at(this.sep.valves.oil.group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.4, 0)));
+      const neu = at(this.newValve.group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.4, 0)));
+      ctx.globalAlpha = Math.min(1, f.valve * 3);
+      this.curveCard(ctx, s, old, [old[0] - 150 * s, old[1] - 110 * s], T('Lineær', 'Linear'), '#ff7a7a', (z) => z, true);
+      if (f.valve > 0.5) {
+        ctx.globalAlpha = Math.min(1, (f.valve - 0.5) * 4);
+        this.curveCard(ctx, s, neu, [neu[0] + 50 * s, neu[1] - 30 * s], T('Likeprosentlig', 'Equal percentage'), '#7fdc9a', (z) => (EQP ** (z - 1) - 1 / EQP) / (1 - 1 / EQP), false);
+      }
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  }
+
+  // A small valve-curve card (flow against opening) at [x, y], with a leader to the valve at `to`
+  curveCard(ctx, s, to, [x, y], title, colour, curve, crossed) {
+    const cw = 112 * s, ch = 80 * s, pad = 8 * s;
+    x = Math.max(4 * s, Math.min(ctx.canvas.width - cw - 4 * s, x));
+    y = Math.max(46 * s, y);   // under the title
+    ctx.strokeStyle = colour; ctx.lineWidth = 1.5 * s;
+    ctx.beginPath(); ctx.moveTo(x + cw / 2, y + ch); ctx.lineTo(to[0], to[1]); ctx.stroke();
+    ctx.beginPath(); ctx.arc(to[0], to[1], 3.5 * s, 0, 7); ctx.fillStyle = colour; ctx.fill();
+    ctx.fillStyle = '#0b141ce6'; ctx.fillRect(x, y, cw, ch);
+    ctx.strokeRect(x, y, cw, ch);
+    ctx.fillStyle = colour; ctx.font = `700 ${12 * s}px system-ui, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(title, x + pad, y + 7 * s);
+    const px = x + pad + 4 * s, py = y + 26 * s, pw = cw - 2 * pad - 4 * s, ph = ch - 26 * s - pad;
+    ctx.strokeStyle = '#ffffff55'; ctx.lineWidth = 1 * s;
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py + ph); ctx.lineTo(px + pw, py + ph); ctx.stroke();
+    ctx.strokeStyle = colour; ctx.lineWidth = 2.2 * s;
+    ctx.beginPath();
+    for (let i = 0; i <= 24; i++) { const z = i / 24, cx = px + z * pw, cy = py + ph * (1 - curve(z)); if (i) ctx.lineTo(cx, cy); else ctx.moveTo(cx, cy); }
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff99'; ctx.font = `${9 * s}px system-ui, sans-serif`;
+    ctx.fillText(T('åpning →', 'opening →'), px + pw - 44 * s, py + ph + 1 * s);
+    if (crossed) {
+      ctx.strokeStyle = '#ff7a7a'; ctx.lineWidth = 3 * s;
+      ctx.beginPath(); ctx.moveTo(x + cw - 26 * s, y + 6 * s); ctx.lineTo(x + cw - 10 * s, y + 22 * s); ctx.moveTo(x + cw - 10 * s, y + 6 * s); ctx.lineTo(x + cw - 26 * s, y + 22 * s); ctx.stroke();
+    }
   }
 
   // VS Code with the model as far as it is typed (the last rows, as it scrolls), and the chat that asked for it
   drawCode(ctx, w, h) {
     const p = this.on ? this.p : 1;
-    const chat = [{ t: T('Bygg en digital tvilling av innløpsseparatoren i CasADi, fra tegningen og tidsseriene i CDF.', 'Build a digital twin of the inlet separator in CasADi, from the drawing and the time series in CDF.'), me: true }];
-    if (p > 0.04) chat.push({ t: T('Setter opp geometri, massebalanser, overløp og ventiler …', 'Setting up the geometry, mass balances, weir and valves …') });
+    const chat = [{ t: T('Bygg en generisk separatormodell i CasADi fra referansematerialet.', 'Build a generic separator model in CasADi from the reference material.'), me: true }];
+    if (p > 0.04) chat.push({ t: T('Henter de fysikalske likningene: geometri, massebalanser, overløp og ventiler …', 'Gathering the physical equations: geometry, mass balances, weir and valves …') });
     if (p >= 1) chat.push({ t: T('Ferdig. Tvillingen kjører.', 'Done. The twin is running.') });
     const fs = w / 64, rows = Math.max(4, Math.floor((h / fs - 4.2) / 1.4));
     const lines = typed(p);
