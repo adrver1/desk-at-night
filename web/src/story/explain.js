@@ -49,7 +49,7 @@ export class Explain {
     this.el.innerHTML = `<h2>${esc(real(s.title))}</h2><ol>` + (s.bullets ?? []).map((b, i) => {
       const [t, note] = real(b).split(' | '), at = t.indexOf(': ');
       const head = at < 0 ? t : t.slice(0, at), line = at < 0 ? '' : t.slice(at + 2);
-      return `<li><svg viewBox="0 0 48 48" aria-hidden="true">${ICONS[i % ICONS.length]}</svg><div><b>${esc(head)}</b><span>${esc(line)}</span>${note ? `<i>${esc(note)} →</i>` : ''}</div></li>`;
+      return `<li><svg viewBox="0 0 48 48" aria-hidden="true">${ICONS[i % ICONS.length]}</svg><div><b>${esc(head)}</b><span>${esc(line)}</span>${note ? `<i>${esc(note)}</i>` : ''}</div></li>`;
     }).join('') + '</ol>';
     this.parts = [...this.el.querySelectorAll('li')];
   }
