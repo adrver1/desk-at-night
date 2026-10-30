@@ -333,6 +333,9 @@ export class Trondheim {
     cam.rotateY(0.004 * Math.sin(t * 0.37));
     cam.rotateX(0.003 * Math.sin(t * 0.51 + 1));
     if (cam.fov !== p.fov) cam.fov = p.fov;
+    // The near plane follows the glide: at a fixed 0.3 m the drone view 140 m out has
+    // too little depth precision for the Føniks window layers 1 cm off the wall
+    cam.near = Math.max(0.3, p.pos.distanceTo(p.at) * 0.03);
     cam.updateProjectionMatrix();
     this.flags?.update(t, cam, { speed: flagWind(t), dir: FLAG_DOWNWIND, sunDir: this.sunDir, sunColor: this.sunColor });
     r.render(this.scene, cam);

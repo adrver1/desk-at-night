@@ -1,0 +1,48 @@
+# Deletes old claude/project-thread-* branches on request. Cloud sessions may only
+# push their own branch, so they can't delete others; this runs with the repo token.
+# Run it from the Actions tab: pick "Delete old branches", Run workflow.
+name: Delete old branches
+
+on:
+  workflow_dispatch:
+    inputs:
+      branches:
+        description: Space-separated branch suffixes after claude/project-thread-
+        default: >-
+          3uh5o4 4x6m6n 8m2yc0 91bbed ckdpds cuh8cj cwavu3 g1ul33 ijl69a irzlvs
+          j5m7jj mop8d3 nx0z49 oqxx3p pm8mcd pt1y2z qixla9 r4ufpt sgjyfl tqxnqz
+          ycaxcm 8o983q bi88o9 7dugxv icfhpr 5emi13
+      dry_run:
+        description: Only list what would be deleted
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCHES: ${{ inputs.branches }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          for s in $BRANCHES; do
+            b="claude/project-thread-$s"
+            if ! gh api "repos/$REPO/branches/$b" --silent 2>/dev/null; then
+              echo "skip  $b (not found)"; continue
+            fi
+            open=$(gh api "repos/$REPO/pulls?state=open&head=${REPO%%/*}:$b" --jq length)
+            if [ "$open" != "0" ]; then
+              echo "keep  $b (has an open PR)"; continue
+            fi
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "would delete $b"
+            else
+              gh api -X DELETE "repos/$REPO/git/refs/heads/$b" && echo "deleted $b"
+            fi
+          done
