@@ -22,9 +22,11 @@ scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnviron
 scene.environmentIntensity = 0.55;
 const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(-6, 12, 9);
 scene.add(sun, new THREE.HemisphereLight(0xcfe3ff, 0x30302c, 0.6));
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 40), new THREE.MeshLambertMaterial({ color: 0x3a4246 }));
+// floor and grid end together and fade into the background with fog
+scene.fog = new THREE.Fog(0x1a2329, 18, 32);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), new THREE.MeshLambertMaterial({ color: 0x3a4246 }));
 floor.rotation.x = -Math.PI / 2; floor.position.y = DIM.ground;
-const grid = new THREE.GridHelper(60, 60, 0x55626a, 0x465157); grid.position.y = DIM.ground + 0.005;
+const grid = new THREE.GridHelper(24, 24, 0x55626a, 0x465157); grid.position.y = DIM.ground + 0.005;
 scene.add(floor, grid);
 
 const sep = new Separator();
