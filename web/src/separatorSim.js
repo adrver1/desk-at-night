@@ -90,6 +90,32 @@ export class PIDF {
   }
 }
 
+/**
+ * Oil level controller settings (gains %/%, times in game seconds).
+ * 'gap' is the re-tuned gap controller: a wide band that lets the level use the
+ * compartment as a buffer so the outflow stays nearly constant, with enough gain
+ * inside the band to keep authority. 'gap-old' is the tuning it replaces: a
+ * narrow band with a weak gain inside, hard switch at its edges; under sustained
+ * slugging the level rides the band edges and the gain flips back and forth
+ * (saw-tooth level, jumpy outflow).
+ */
+export const OIL_TUNINGS = {
+  gap: { kp: 0.6, ti: 300, gap: { width: 20, blend: 6, kpOut: 2.5 } },
+  'gap-old': { kp: 0.5, ti: 300, gap: { width: 5, blend: 0, kpOut: 2.5 } },
+  tight: { kp: 4, ti: 30, gap: null },
+  averaging: { kp: 0.6, ti: 90, gap: null },
+};
+
+/**
+ * Sustained slugging, as a well-stream multiplier for sim.feed: liquid surges of
+ * `high` x normal for 35 % of each period, a lean stream in between, mean 1.
+ */
+export function slugFeed(t, period = 80, high = 1.8) {
+  const on = 0.35 * period, low = (1 - 0.35 * high) / 0.65, u = ((t % period) + period) % period;
+  const s = (x) => 1 / (1 + Math.exp(-x)), edge = 0.75; // ~3 s ramps
+  return low + (high - low) * (s((u - 1.5) / edge) - s((u - on) / edge));
+}
+
 export class SeparatorSimMass extends SeparatorSim {
   constructor() {
     super();
@@ -111,7 +137,7 @@ export class SeparatorSimMass extends SeparatorSim {
     this.ctl = {
       gas: new PIDF({ kp: 4, ti: 20 }),
       water: new PIDF({ kp: 3, ti: 25 }),
-      oil: new PIDF({ kp: 0.6, ti: 90, gap: { width: 12, blend: 6, kpOut: 4 } }),
+      oil: new PIDF(OIL_TUNINGS.gap),
     };
     this.manualOut.gas = null;
     // states, from the levels the simple model starts at and the set pressure
@@ -147,12 +173,10 @@ export class SeparatorSimMass extends SeparatorSim {
   pv(loop) { return loop === 'gas' ? this.pct(this.P, this.range.P) : this.pct(loop === 'water' ? this.hW : this.hO, this.range[loop]); }
   spPct(loop) { return loop === 'gas' ? this.pct(this.sp.P, this.range.P) : this.pct(loop === 'water' ? this.sp.interface : this.sp.bucket, this.range[loop]); }
 
-  /** Oil level control: 'gap' (default), 'tight' (one high gain) or 'averaging' (one low gain). */
+  /** Oil level control, one of OIL_TUNINGS: 'gap' (default), 'gap-old', 'tight' or 'averaging'. */
   oilControl(kind) {
     const c = this.ctl.oil;
-    if (kind === 'tight') Object.assign(c, { kp: 4, ti: 30, gap: null });
-    else if (kind === 'averaging') Object.assign(c, { kp: 0.6, ti: 90, gap: null });
-    else Object.assign(c, { kp: 0.6, ti: 90, gap: { width: 12, blend: 6, kpOut: 4 } });
+    Object.assign(c, OIL_TUNINGS[kind] ?? OIL_TUNINGS.gap);
     c.track(c.out, this.pv('oil'), this.spPct('oil'));
     this.oilMode = kind;
   }
