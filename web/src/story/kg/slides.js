@@ -131,7 +131,7 @@ const H08 = {
     draw((ctx) => stream(ctx, [0, -2.7], [0, -0.3], { kind: 'read', lift: 0, speed: 0.9 }), 3),
     arrow([3.9, -3.3], [1.0, -3.5], T('Korrigerer', 'Corrects'), 4, { bend: -0.25, labelOff: [0, -0.45] }),
     draw((ctx) => stream(ctx, [4.3, -2.3], [0.5, -3.3], { kind: 'tick', n: 2, speed: 0.5 }), 4),
-    fig(OLA, 6.3, 1.1, 2.5, 5, { seat: 'props/workstation.glb', rot: -1.05, act: () => 'typing', tag: 'Ola', tagDy: -0.45 }),
+    fig(OLA, 6.3, 1.1, 2.5, 5, { seat: 'props/workstation.glb', rot: -1.05, act: () => 'typing' }),
     arrow([1.6, 2.4], [4.7, 2.75], T('Samhandler med', 'Works with'), 5, { bend: -0.25, both: true, labelOff: [0, 0.35] }),
   ],
 };
@@ -360,7 +360,7 @@ const H12 = {
   focus: (b) => [[-3, 0, 2], [2, -1, 2], [3, -1, 1]][b],
   elements: [
     title(T('Hver gang Compiler tar inn <b>informasjon</b>, vokser wikien', 'Every time Compiler takes in <b>information</b>, the wiki grows')),
-    fig(OLA, -3.0, -0.75, 1.8, 0, { seat: 'props/workstation.glb', rot: 0.9, act: () => 'typing', tag: 'Ola', tagDy: -0.3 }),
+    fig(OLA, -3.0, -0.75, 1.8, 0, { seat: 'props/workstation.glb', rot: 0.9, act: () => 'typing' }),
     bubble(T('Les denne artikkelen', 'Read this article'), -4.6, 1.6, 0, { cls: 'think' }),
     fig(ROBOT.scholar, -5.6, -4.4, 3.4, 0, { rot: 0.55, act: (b) => (b ? 'point' : 'idle') }),
     draw((ctx) => stream(ctx, [-3.0, 0.2], [-5.0, -1.6], { kind: 'page', n: 2, speed: 0.45, lift: 0.4 })),
@@ -378,7 +378,7 @@ const H13 = {
   id: 'ctrl-13', builds: 5,
   focus: (b) => [[-5, -2, 2], [0, 0, 1], [-4, -1.5, 2], [4.5, -2, 2], [-3, -1, 2], [-5, 2.5, 2]][b],
   elements: [
-    fig(OLA, -6.3, -4.4, 2.4, 0, { rot: 0.55, tag: 'Ola', tagDy: 0.15 }),
+    fig(OLA, -6.3, -4.4, 2.4, 0, { rot: 0.55 }),
     fig(ROBOT.nurse, -0.4, -3.6, 6.2, 1, { act: (b) => (b === 5 ? 'point' : 'idle') }),
     bubble(T('Hvorfor eksisterer du?', 'Why do you exist?'), -6.2, -1.15, 2, { cls: 'think', w: 2.6 }),
     ...THINKERS.map(([g, name], i) => fig(g, 2.6 + i * 1.05, -4.45, 1.85, 3, { rot: -0.15 + (i - 2) * 0.12, tag: name, tagDy: 0.08 + (i % 2) * 0.3, cls: 'small', delay: 0.1 * i })),
@@ -461,7 +461,7 @@ const H14 = {
     { kind: 'graph', graph: G14 },
     fig('grey_beard_lead', -7.35, 0.05, 2.4, 0, { rot: 0.55 }),
     fig('glasses_engineer', -6.25, 0.05, 2.4, 0, { rot: 0.45, tag: T('Brønnteamet', 'The well team'), tagDx: -0.55 }),
-    fig(OLA, 6.75, 0.05, 2.4, 0, { rot: -0.5, tag: 'Ola', act: (b) => (b === 4 ? 'point' : 'idle') }),
+    fig(OLA, 6.75, 0.05, 2.4, 0, { rot: -0.5, act: (b) => (b === 4 ? 'point' : 'idle') }),
     fig(ROBOT.nurse, -6.75, -4.4, 2.4, 2, { rot: 0.5, tag: 'Linter', act: (b) => (b === 3 || b === 6 ? 'point' : 'idle') }),
     fig(ROBOT.franken, ...AGENT14, 2.4, 4, { rot: -0.5, tag: 'Frankenbot', act: (b) => (b === 5 ? 'point' : 'idle') }),
     arrow([-3.3, 0.0], [-0.5, -0.12], '', 1, { bend: -0.25, at: (b) => ({ fade: b >= 3 ? 0.35 : 1 }) }),
