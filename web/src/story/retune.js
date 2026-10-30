@@ -3,7 +3,7 @@
 // screen: the cut-open separator live on the left, the trends of both tunings
 // on the right (dashed = old, solid = new) for pressure, the oil compartment
 // level with the gap bands, the oil valve and oil in water. Both run the new
-// model on the slugging well at 3x. S swaps which tuning the vessel shows.
+// model on the slugging well at 5x. S swaps which tuning the vessel shows.
 // No end card: the presenter moves on when the point is made.
 //
 // State key (content.js): retune: true shows it, null hides it. It has its
@@ -15,7 +15,7 @@ import { Separator, DIM } from '../separator.js';
 import { SeparatorCompare, drawTrend } from '../separatorCompare.js';
 import { T } from './lang.js';
 
-const SPEED = 3;
+const SPEED = 5;
 const NAMES = { a: T('Gammel innstilling', 'Old tuning'), b: T('Ny innstilling', 'New tuning') };
 const TITLES = [T('Trykk, barg', 'Pressure, barg'), T('Nivå i oljekammeret, %', 'Oil compartment level, %'),
   T('Oljeventil, åpning %', 'Oil valve position, %'), T('Olje i vann, ppm', 'Oil in water, ppm')];
@@ -85,7 +85,7 @@ export class Retune {
   }
 
   label() {
-    this.tag.innerHTML = `${NAMES[this.show]} <small>${T('Sluggende brønn · 3x tid', 'Slugging well · 3x time')}</small>`;
+    this.tag.innerHTML = `${NAMES[this.show]} <small>${T('Sluggende brønn · 5x tid', 'Slugging well · 5x time')}</small>`;
   }
 
   resize() {
