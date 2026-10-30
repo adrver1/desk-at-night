@@ -606,7 +606,12 @@ const SHORT_CHAPTERS = [
           { set: { phone: null } }, { wait: 0.65 }, { sound: 'hangup' }, { wait: 0.9 }, { set: { call: null } }, { wait: 0.6 }],
         end: { call: null, phone: null },
         notes: 'Separatoren deres slugger, og de spør den nye operatøren om råd. Han legger på.' },
-      { id: 'm.buddy1', set: { curve: null, thoughts: null, call: null, phone: null, explain: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
+      // (Adriaen, 2026-10-30) how he was made: VS Code on one monitor, his agent file typed in section by
+      // section, and on the one beside it Ola fitting him together part by part (workshop.js)
+      { id: 'm.build', set: { curve: null, thoughts: null, call: null, phone: null, explain: null, build: true, shot: 'pair:Desk0Mon0Screen,Desk0Mon1Screen',
+        screens: { Desk0Mon0Screen: 'buildCode', Desk0Mon1Screen: 'workshop' } },
+        notes: 'Jeg bygde CtrlBuddy i VS Code: instruksjoner, verktøy og kunnskap, bit for bit. Ringen viser hvor langt agenten er kommet.' },
+      { id: 'm.buddy1', set: { build: null, curve: null, thoughts: null, call: null, phone: null, explain: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
         notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
       // (Adriaen, 2026-10-29) what he is, one part per beat, while he waves; then the click
       { id: 'm.what1', set: { shot: 'side:Desk0Mon1Screen', explain: 1 }, notes: 'Hva CtrlBuddy er: en AI-agent bygget i VS Code, med GitHub Copilot som harness.' },

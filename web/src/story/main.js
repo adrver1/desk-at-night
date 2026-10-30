@@ -27,6 +27,7 @@ import { Sola, LENGTH as SOLA_LENGTH } from './sola.js';
 import { Trondheim } from './trondheim.js';
 import { ClockFace } from './clockFace.js';
 import { Buddy } from './buddy.js';
+import { Workshop } from './workshop.js';
 import { Thoughts } from './thoughts.js';
 import { Explain } from './explain.js';
 import { Caller } from './caller.js';
@@ -48,7 +49,7 @@ if (NAV !== '0') ui.nav(CHAPTERS, NAV, (c, i) => { sound.wake(); return c === 'n
 const sound = new Sound();
 const call = new Call(ui.el.call);
 const trondheim = new Trondheim(host);
-let cast = null, shots = null, epilogue = null, clockFace = null, buddy = null;
+let cast = null, shots = null, epilogue = null, clockFace = null, buddy = null, workshop = null;
 const thoughts = new Thoughts();
 const explain = new Explain();
 const caller = new Caller();
@@ -178,6 +179,7 @@ function apply(s, { instant = false } = {}) {
   else if (trondheim.on) { trondheim.hide(); game.hooks.hidden = false; }
   cast?.place(s.cast);
   buddy?.set(s);
+  workshop?.set(s.build);
   thoughts.set(s.thoughts);
   explain.set(s.explain);
   caller.set(s.call, s.callStage);
@@ -539,7 +541,7 @@ function startPrologue(pro = 'takeoff', { carry = false, at = 0 } = {}) {
   game.hooks.hidden = true;
   ui.clipboard(null); ui.stars(null); ui.banner(null); ui.overlay(null, { call }); ui.org(null); ui.clearNotices();
   // The room's own overlays too (a jump from the call, the curve or the explainer straight into the prologue)
-  buddy?.set({}); thoughts.set(null); explain.set(null); caller.set(null); sound.hangUp(); cast?.phone(null, true);
+  buddy?.set({}); workshop?.set(null); thoughts.set(null); explain.set(null); caller.set(null); sound.hangUp(); cast?.phone(null, true);
   host.classList.remove(`grade-${lastGrade}`); lastGrade = 0;
   showHud();
   if (pro === 'sola' && sola?.open) {
@@ -701,6 +703,7 @@ function frame(dt, now) {
   if (Object.entries(S.chatAt).some(([id, at]) => at > S.now && S.chatType[id])) game.room?.redrawFocus?.();
   cast?.update(dt, game.camera, S.now);
   buddy?.update(dt, S.now);
+  workshop?.update(dt);
   epilogue?.update(dt);
   // a report's video plays only while its screen is drawn
   for (const v of Object.values(S.videos)) if (!v.paused && S.now - v.seen > 0.5) v.pause();
@@ -737,10 +740,11 @@ game.ready.then(async () => {
   shots = new Shots(game);
   cast = new Cast(game);
   buddy = new Buddy(game, CHAT_SCREEN);
+  workshop = new Workshop(game);
   clockFace = new ClockFace(game);
   shots.cast = cast;
   game.hooks.frame.push(frame);
-  await Promise.all([cast.load(), buddy.load(), sound.loadIndex()]);
+  await Promise.all([cast.load(), buddy.load(), workshop.load(), sound.loadIndex()]);
   go.disabled = false;
   go.textContent = T('Start', 'Begin');
   if (!begin.parentNode) enter(chapter, beat, { instant: true });
