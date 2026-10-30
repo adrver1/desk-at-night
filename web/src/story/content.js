@@ -512,6 +512,8 @@ const SLUG_SCREEN = 'Desk1Mon2Screen';
 const ADR_SCREENS = (id) => ({ ...PLAN_SCREENS('chatPlan'), [SLUG_SCREEN]: id });
 const TOMORROW_CAST = { supervisor: { at: 'desk0typing' }, operator: { at: 'desk2typing' } };
 export const CLOSING = tx(STORY.closing);
+// The card before the prologue (main.js), editable in the story editor
+export const DISCLAIMER = tx(STORY.disclaimer ?? { no: 'Laget av landkrabber som aldri har vært offshore. Kunstnerisk frihet benyttet i design og historiefortelling, men teknologien er reell :)', en: 'Made by landlubbers who have never been offshore. Artistic licence taken in design and storytelling, but the technology is real :)' });
 
 const SHORT_CHAPTERS = [
   {
@@ -654,7 +656,11 @@ const SHORT_CHAPTERS = [
       { id: 'm.riser', set: { overlay: null, shot: 'monitor:Desk0Mon3Screen', tool: 'riser', screens: { Desk0Mon3Screen: 'riser' } }, notes: 'The riser simulator, open loop: it fills and blows through.' },
       { id: 'm.antislug', set: { tool: 'antiSlug', screens: { Desk0Mon3Screen: 'antiSlug' } }, notes: 'Anti-slug control tuned on the model. Seeing is believing.' },
       { id: 'm.s3', set: { overlay: 'slide:m-03' } },
-      { id: 'm.scd', set: { overlay: null, shot: 'monitor:Desk0Mon2Screen', tool: 'scd', screens: { Desk0Mon2Screen: 'scd' } }, notes: 'The I-005 logic tester: a missing interlock found on a laptop.' },
+      // the re-tuning outcome, after the step test and the separator model chats (c.step, c.sim, inserted
+      // after h.s2's slides and m.s3): old and new oil level tuning side by side (Adriaen, 2026-10-30)
+      { id: 'm.retune', set: { overlay: null, retune: true },
+        notes: 'Gammel og ny innstilling av nivåregulatoren side om side, på den nye modellen: strømningen holdes jevn, nivået får drive innenfor båndet. S bytter hvilken separatoren viser.' },
+      { id: 'm.scd', set: { overlay: null, retune: null, shot: 'monitor:Desk0Mon2Screen', tool: 'scd', screens: { Desk0Mon2Screen: 'scd' } }, notes: 'The I-005 logic tester: a missing interlock found on a laptop.' },
       { id: 'm.s4', set: { overlay: 'slide:m-04' } },
       { id: 'm.docs', set: { overlay: null, shot: 'monitor:Desk0Mon4Screen', tool: 'govDocs' }, notes: 'A governing-document agent answers with its sources. TODO(Adriaen): screenshot in private/tools/govDocs.png.' },
       { id: 'm.s5', set: { overlay: 'slide:m-05' } },

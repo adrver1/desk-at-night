@@ -248,9 +248,9 @@ export class Buddy {
       <polyline class="plot2" points="${pts(0.08, 1.04)}" />
       <defs><clipPath id="learnerClip"><circle r="24" /></clipPath></defs>
       <g class="learner"><circle class="ring" r="27" /><image href="story/faces/adriaen.png" x="-24" y="-24" width="48" height="48" clip-path="url(#learnerClip)" /></g>
-      <g class="learner2"><rect class="ring" x="-51" y="-27" width="102" height="54" rx="27" />
-        <g transform="translate(-24 0)"><image href="story/faces/adriaen.png" x="-24" y="-24" width="48" height="48" clip-path="url(#learnerClip)" /></g>
-        <g transform="translate(24 0)"><image href="story/faces/ctrlbuddy.png" x="-24" y="-24" width="48" height="48" clip-path="url(#learnerClip)" /></g></g>
+      <g class="learner2"><rect class="ring" x="-64" y="-27" width="128" height="54" rx="27" />
+        <g transform="translate(-37 0)"><image href="story/faces/adriaen.png" x="-24" y="-24" width="48" height="48" clip-path="url(#learnerClip)" /></g>
+        <text class="plus" x="-1" y="1">+</text><text class="ki" x="31" y="1">${T('KI', 'AI')}</text></g>
       <text x="230" y="285" text-anchor="middle">${T('Tid', 'Time')}</text>
       <text x="0" y="0" transform="translate(36 140) rotate(-90)" text-anchor="middle">${T('Læring', 'Learning')}</text>
     </svg>`;

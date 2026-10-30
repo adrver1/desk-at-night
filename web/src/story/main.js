@@ -11,7 +11,7 @@
 // ?story=full (the three-act version), ?lang=en|no (on-screen language).
 import * as THREE from 'three';
 import '../play.js';
-import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN, CREW_NAMES } from './content.js';
+import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN, CREW_NAMES, DISCLAIMER } from './content.js';
 import { FULL, T, SPEECH, cycleSpeech } from './lang.js';
 import lines from './lines.json';
 import { PRIVATE as PRIVATE_ON, OVERRIDES, realDeep } from '../privateNames.js';
@@ -28,6 +28,7 @@ import { Trondheim } from './trondheim.js';
 import { ClockFace } from './clockFace.js';
 import { Buddy } from './buddy.js';
 import { Workshop } from './workshop.js';
+import { Retune } from './retune.js';
 import { Thoughts } from './thoughts.js';
 import { Explain } from './explain.js';
 import { Caller } from './caller.js';
@@ -52,6 +53,7 @@ const trondheim = new Trondheim(host);
 let cast = null, shots = null, epilogue = null, clockFace = null, buddy = null, workshop = null;
 const thoughts = new Thoughts();
 const explain = new Explain();
+const retune = new Retune();
 const caller = new Caller();
 // The Sola opening (off since 2026-10-29, Adriaen: "Remove Sola beat"; kept,
 // on with ?sola=1) and its callback stills in Acts 1 and 3 of the full
@@ -182,6 +184,7 @@ function apply(s, { instant = false } = {}) {
   workshop?.set(s.build);
   thoughts.set(s.thoughts);
   explain.set(s.explain);
+  retune.set(s.retune);
   caller.set(s.call, s.callStage);
   if (!s.call || s.callStage !== 'ring') sound.hangUp();   // the phone stops ringing once the call is over or answered
   cast?.phone(s.phone, instant);
@@ -482,6 +485,7 @@ function speechToast(k) {
 
 addEventListener('keydown', (e) => {
   if (begin.parentNode) { if (e.code === 'Space' || e.code === 'Enter') start(); return; }
+  if (disclaimer.go) { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowRight' || e.code === 'PageDown') { e.preventDefault(); disclaimer.go(); } return; }
   handleKey(e);
 });
 function handleKey(e) {
@@ -541,7 +545,7 @@ function startPrologue(pro = 'takeoff', { carry = false, at = 0 } = {}) {
   game.hooks.hidden = true;
   ui.clipboard(null); ui.stars(null); ui.banner(null); ui.overlay(null, { call }); ui.org(null); ui.clearNotices();
   // The room's own overlays too (a jump from the call, the curve or the explainer straight into the prologue)
-  buddy?.set({}); workshop?.set(null); thoughts.set(null); explain.set(null); caller.set(null); sound.hangUp(); cast?.phone(null, true);
+  buddy?.set({}); workshop?.set(null); thoughts.set(null); explain.set(null); retune.set(null); caller.set(null); sound.hangUp(); cast?.phone(null, true);
   host.classList.remove(`grade-${lastGrade}`); lastGrade = 0;
   showHud();
   if (pro === 'sola' && sola?.open) {
@@ -704,6 +708,7 @@ function frame(dt, now) {
   cast?.update(dt, game.camera, S.now);
   buddy?.update(dt, S.now);
   workshop?.update(dt);
+  retune.update(dt);
   epilogue?.update(dt);
   // a report's video plays only while its screen is drawn
   for (const v of Object.values(S.videos)) if (!v.paused && S.now - v.seen > 0.5) v.pause();
@@ -723,6 +728,29 @@ requestAnimationFrame(loop);
 
 // ---------------------------------------------------------------- start
 
+// The disclaimer card before the prologue (Adriaen, 2026-10-30): black, its text, then a circle opens onto the show
+const disclaimer = {
+  go: null,
+  show(then) {
+    const el = this.el = document.createElement('div');
+    el.className = 'disclaimer';
+    el.innerHTML = `<p>${DISCLAIMER}</p>`;
+    (document.getElementById('game') ?? document.body).append(el);
+    el.addEventListener('click', () => this.go?.());
+    this.go = () => {
+      this.go = null;
+      el.classList.add('open');
+      then();
+      const t0 = performance.now(), D = 1400, R = Math.hypot(innerWidth, innerHeight) / 2 + 40;
+      const step = (now) => {
+        const k = Math.min(1, (now - t0) / D), r = R * k * k * (3 - 2 * k);
+        el.style.setProperty('--r', `${r}px`);
+        if (k < 1) requestAnimationFrame(step); else el.remove();
+      };
+      requestAnimationFrame(step);
+    };
+  },
+};
 const begin = document.createElement('div');
 begin.className = 'begin';
 begin.innerHTML = `<div class="inner"><p class="eyebrow">${T('Fortellermodus', 'Story mode')}</p><h1>${TITLE}</h1>
@@ -772,7 +800,9 @@ function start() {
   // ?beat=<beat id> (the story script editor's ▶ links): that beat, wherever it is now
   const want = wantBeat ?? q.get('beat');
   if (want) CHAPTERS.forEach((ch, ci) => { const bi = ch.beats.findIndex((b) => b.id === want); if (bi >= 0) { chapter = ci; beat = bi; } });
-  if (CHAPTERS[chapter].prologue || game.room) enter(chapter, beat, { instant: true, at: wantBeat ? wantAt : 0 });
+  const run = () => { if (CHAPTERS[chapter].prologue || game.room) enter(chapter, beat, { instant: true, at: wantBeat ? wantAt : 0 }); };
+  // The whole show from the top opens on the disclaimer; the next key opens it like an iris onto the prologue
+  if (chapter === 0 && beat === 0 && !want && q.get('disclaimer') !== '0') disclaimer.show(run); else run();
   if (q.get('mode') === 'free') game.ready.then(() => setTimeout(toggleFree, 300));
 }
 
