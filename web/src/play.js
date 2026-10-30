@@ -47,6 +47,7 @@ const ui = {
 const controls = new RoomControls({
   scenes: [...document.querySelectorAll('[data-scene]')], light: $('tpLight'), lightOut: $('tpLightOut'),
   screens: [...document.querySelectorAll('[data-screens]')],
+  curtains: [...document.querySelectorAll('[data-curtains]')],
   volume: $('tpVolume'), volumeOut: $('tpVolumeOut'), setpoint: $('tpSetpoint'), temp: $('tpTemp'),
   warmer: $('tpWarmer'), cooler: $('tpCooler'),
 });
@@ -113,6 +114,10 @@ async function load() {
   // Not in story mode, where a gull darting past distracts from the talk
   // (Adriaen, 2026-10-29); the prologue's flight keeps its own flock. ?birds= brings them back
   const storyPage = /story\.html$/.test(location.pathname) && !new URLSearchParams(location.search).has('birds');
+  // The curtains start open: midday, and always in story mode (Adriaen,
+  // 2026-10-30). ?curtainsclosed=1 starts the walk-around with them closed
+  if (!/story\.html$/.test(location.pathname) && new URLSearchParams(location.search).get('curtainsclosed') === '1') controls.setCurtains(false);
+  room.curtains?.set(controls.curtains, true);
   if (!storyPage) addSeabirds({ scene, room, outdoor, cctv: cctvReady, vessel: () => vessel })
     .then((b) => { birds = b; }).catch((e) => console.warn('birds', e));
   const root = room.root;
@@ -729,6 +734,10 @@ renderer.setAnimationLoop((now) => {
   if (birds) perfStep('seabirds', () => birds.tick(dt, outdoor));
   renderer.toneMappingExposure = outdoor.light.exposure;
   room.setLights(controls.ceiling * FULL_LIGHT, controls.screens ? 1 : 0);
+  if (room.curtains) {
+    if (room.curtains.open !== controls.curtains) room.curtains.set(controls.curtains);
+    room.curtains.step(dt);
+  }
   for (const [name, l] of Object.entries(lamps)) {
     l.w += ((l.on ? 1 : 0) - l.w) * Math.min(1, dt * 12); // a quick fade, like a bulb
     room.setLamp(name, l.w);

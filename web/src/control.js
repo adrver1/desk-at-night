@@ -116,6 +116,7 @@ renderer.setAnimationLoop((now) => {
   if (birds) perfStep('seabirds', () => birds.tick(dt, outdoor));
   renderer.toneMappingExposure = 2 ** userEv * outdoor.light.exposure;
   room.setLights(state.ceiling, state.screens, state.mode);
+  room.curtains?.step(dt);
   perfStep('daylight + sun shadow', () => room.setDaylight(outdoor.light, now / 1000));
   room.setClock(outdoor.state.time);
   perfStep('screens', () => room.updateScreens(now / 1000, outdoor.cctv));

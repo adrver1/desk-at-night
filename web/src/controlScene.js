@@ -13,6 +13,7 @@ import { drawSlots, assign, contentOf, setOutside, setFeeds, isFeed } from './sc
 import { SunShadow } from './sunShadow.js';
 import { clock } from './outdoor.js';
 import { OVERRIDES, PRIVATE_BASE } from './privateNames.js';
+import { makeCurtains, LOOKS as CURTAIN_LOOKS } from './curtains.js';
 
 const SCENE = 'control/';
 // GitHub Pages lets browsers reuse files for ten minutes without asking. After
@@ -145,6 +146,8 @@ const roomFragment = /* glsl */ `
   uniform mat4 uShadowMatrix;
   uniform float uShadowTexel;  // one texel of the map, in metres
   uniform vec3 uWindowLo, uWindowHi; // the window opening (x is the wall), for the sun inside
+  uniform vec3 uOpenLo, uOpenHi;     // the part of it the curtains leave clear (curtains.js)
+  uniform float uSunPass, uSkyPass;  // and how much of the sun and the baked sky light gets in
   varying vec3 vNormal;
   varying vec3 vWorld;
   #ifdef OUTSIDE
@@ -174,7 +177,7 @@ const roomFragment = /* glsl */ `
     if (uSunDir.x >= -1e-4) return 0.0;
     float k = (uWindowLo.x - vWorld.x) / uSunDir.x;
     vec3 at = vWorld + uSunDir * k;
-    if (k < 0.0 || at.y < uWindowLo.y || at.y > uWindowHi.y || at.z < uWindowLo.z || at.z > uWindowHi.z) return 0.0;
+    if (k < 0.0 || at.y < uOpenLo.y || at.y > uOpenHi.y || at.z < uOpenLo.z || at.z > uOpenHi.z) return 0.0;
     #endif
     vec4 p = uShadowMatrix * vec4(vWorld + n * uShadowTexel * 2.0, 1.0);
     vec3 c = p.xyz / p.w * 0.5 + 0.5;
@@ -197,10 +200,18 @@ const roomFragment = /* glsl */ `
     vec3 eCeiling = uCeiling * decode(uLightCeiling, uScaleCeiling);
     vec3 eScreens = uScreens * decode(uLightScreens, uScaleScreens);
     vec3 eSky = uSky * decode(uLightSky, uScaleSky);
+    #ifndef OUTSIDE
+    eSky *= uSkyPass;
+    #endif
     vec3 eLamps = uLamp0 * decode(uLightLamp0, uScaleLamp0) + uLamp1 * decode(uLightLamp1, uScaleLamp1);
     vec3 n = normalize(vNormal);
     float facing = dot(n, uSunDir);
-    if (facing > 0.0 && dot(uSun, uSun) > 1e-8) eSky += uSun * facing * sunlit(n);
+    #ifdef OUTSIDE
+    float sunPass = 1.0;
+    #else
+    float sunPass = uSunPass;
+    #endif
+    if (facing > 0.0 && dot(uSun, uSun) > 1e-8 && sunPass > 0.0) eSky += uSun * facing * sunPass * sunlit(n);
     vec3 color = albedo * (eCeiling + eScreens + eSky + eLamps);
     if (uMode == 2) color = eCeiling;
     if (uMode == 3) color = eScreens;
@@ -288,8 +299,22 @@ export async function loadControlRoom(renderer) {
       uScaleLamp0: { value: lamps[0]?.[1].scale ?? 0 }, uScaleLamp1: { value: lamps[1]?.[1].scale ?? 0 },
       uLamp0: { value: 1 }, uLamp1: { value: 1 },
       uWindowLo: { value: new THREE.Vector3(...windowLo) }, uWindowHi: { value: new THREE.Vector3(...windowHi) },
+      uOpenLo: { value: new THREE.Vector3(...windowLo) }, uOpenHi: { value: new THREE.Vector3(...windowHi) },
+      uSunPass: { value: 1 }, uSkyPass: { value: 1 },
     },
   });
+  // Curtains on the window (?curtains=a|b|c, 0 for none), open to start with
+  const curtainLook = new URLSearchParams(location.search).get('curtains') ?? 'a';
+  const curtains = CURTAIN_LOOKS.includes(curtainLook)
+    ? makeCurtains(new THREE.Vector3(...windowLo), new THREE.Vector3(...windowHi), curtainLook) : null;
+  const letIn = () => {
+    const o = curtains.opening, u = material.uniforms;
+    u.uOpenLo.value.copy(o.lo);
+    u.uOpenHi.value.copy(o.hi);
+    u.uSunPass.value = o.sun;
+    u.uSkyPass.value = o.sky;
+  };
+  if (curtains) { gltf.scene.add(curtains.group); letIn(); }
   // The platform outside the window: the same atlas, plus the sun
   const outsideMesh = gltf.scene.getObjectByName('Outside');
   let outside = null;
@@ -453,6 +478,15 @@ export async function loadControlRoom(renderer) {
     sizes: { glb: glb.byteLength, maps: [albedoBuf, ceilBuf, scrBuf, skyBuf, ...boardBufs].reduce((n, b) => n + (b?.byteLength ?? 0), 0) },
     seaLevel: meta.seaLevel ?? -69.2,
     window: { lo: new THREE.Vector3(...windowLo), hi: new THREE.Vector3(...windowHi) },
+    // The window's curtains: set(open, now) and step(dt) every frame; null
+    // with ?curtains=0
+    curtains: curtains && {
+      look: curtains.look,
+      meshes: curtains.meshes,
+      get open() { return curtains.open; },
+      set(open, now = false) { curtains.set(open, now); letIn(); },
+      step(dt) { if (curtains.step(dt)) letIn(); },
+    },
     // Daylight from outdoor.js: the sky's average radiance, and the sun (or
     // moon) for the platform
     // and the shadows it casts (re-rendered when the sun moves, and now and
@@ -463,6 +497,7 @@ export async function loadControlRoom(renderer) {
       u.uSun.value.copy(sun);
       u.uSunDir.value.copy(sunDir);
       if (sun.r + sun.g + sun.b > 1e-5) shadows.update(sunDir, casters, gltf.scene, t);
+      curtains?.setDaylight({ sky, sun, sunDir });
       if (!outside) return;
       outside.uniforms.uFogColor.value.copy(fog);
       outside.uniforms.uFogDistance.value = fogDistance;
@@ -473,6 +508,7 @@ export async function loadControlRoom(renderer) {
       u.uCeiling.value = ceiling;
       u.uScreens.value = screens;
       u.uMode.value = mode;
+      curtains?.setLights(ceiling);
       lampOff.copy(LAMP_OFF).multiplyScalar(ceiling);
       for (const e of emitters) {
         if (e.lamp >= 0) continue; // see setLamp
