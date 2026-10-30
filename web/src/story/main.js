@@ -669,7 +669,7 @@ function prologueFrame() {
   cue('p4', intro.T_LAND + 1.5, () => say('pro.pilot4', token));
   cue('end', intro.T_END - 1, () => {
     prologue.ended = true;
-    ui.title({ text: T('Klikk eller trykk mellomrom for å fortsette', 'Click or press Space to continue'), small: true });
+    // no "press Space" prompt: the presenter knows (Adriaen, 2026-10-30)
     showHudWaiting();
   });
 }

@@ -586,11 +586,13 @@ const SHORT_CHAPTERS = [
       { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
       // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
       { id: 'm.think', set: { curve: null, thoughts: true }, notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
+      // (Adriaen, 2026-10-30) the curve again, and a second one over it: him and CtrlBuddy together, steeper and higher
+      { id: 'm.curve3', set: { thoughts: null, curve: 'both', shot: 'curveDesk' }, notes: 'Med CtrlBuddy: brattere, og høyere. Menneske + AI får gjort mer, raskere.' },
       // (Adriaen, 2026-10-29) and then the neighbouring platform calls about its separator
       // (Adriaen, 2026-10-29) the phone rings, in its own beat (it rings on while the presenter talks);
       // then the call: he picks up in the room behind, his portrait moves aside for the caller's,
       // and the separator comes up once the caller has said who it is
-      { id: 'm.ring', set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' }, do: [{ sound: 'ringtone', times: 6 }],
+      { id: 'm.ring', set: { thoughts: null, curve: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' }, do: [{ sound: 'ringtone', times: 6 }],
         notes: 'Telefonen ringer. Space: han tar den.' },
       { id: 'm.call', set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' },
         do: [{ set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },

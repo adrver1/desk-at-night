@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OVERRIDES, PRIVATE_BASE } from '../privateNames.js';
+import { CoilCord } from '../coilCord.js';
 
 const BASE = 'story/chars/';
 // Who is who: the speaker ids of content.js, plus the CEO's silent cameo.
@@ -73,6 +74,16 @@ const PHONE_AT = [0.14, 0.785, -0.42], PHONE_GRAB = 12 / 24, PHONE_DROP = 16 / 2
 // rolls it over until the handset is at PHONE_DESK in his space
 const DESK_PHONE = { chair: 0, at: [-2.2668, 0.805, -1.2322], yaw: 1.0243, tilt: 0.489, turn: 0.5 };
 const PHONE_DESK = [-0.36, 0.82, -0.58], ROLL = [0, 0.45, 0.8, 1.3];   // s: roll over from, to; back from, to
+// The live desk phone over the baked one (blender/desk_phone.py; Adriaen, 2026-10-30: C office in the
+// show, rotary and push-button kept: ?phone=rotary|pushbutton). Its base sits where the baked phone's
+// does, so its handset rests where DESK_PHONE.at is. Held across the palm (hand-bone space), then near
+// the ear it eases to lie along the head from ear to mouth (head-bone space), and near the cradle back
+// into it, as in the Animation Lab.
+const PHONE_LOOK = new URLSearchParams(location.search).get('phone') ?? 'office';
+const PHONE_BASE = { at: [-2.2226, 0.740, -1.3048], yaw: DESK_PHONE.yaw };
+const PALM = new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -1, 0)).setPosition(0, 0.065, -0.03);
+const EAR = new THREE.Vector3(-0.165, 0.11, 0), MOUTH = new THREE.Vector3(-0.05, -0.035, -0.10);
+const EAR_NEAR = [0.32, 0.18], CRADLE_NEAR = [0.26, 0.12];   // m: blend from, to
 const IDLES = new URLSearchParams(location.search).get('idles') !== '0';
 const IDLE_FIRST = [2, 5], IDLE_GAP = [6, 14];   // s before the first idle, and between one and the next
 const wrap = (a) => ((a % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
@@ -160,6 +171,7 @@ export class Cast {
     this.chairHomes = this.game.chairs.map(({ obj: c }) => [c.position.x, c.position.z, c.rotation.y]);
     const { jug, stream } = makeJug();
     this.jug = jug; this.stream = stream;
+    this.deskPhone = await this.loadDeskPhone().catch((e) => { console.warn('desk phone', e); return null; });
     jug.visible = false;
     this.scene.add(jug, stream);
     this.mugsRest = {};
@@ -527,18 +539,21 @@ export class Cast {
         p.root.parent.add(p.mobile);
         const clip = desk ? 'phone_left' : 'phone';
         p.call = { on: true, t: instant ? 9 : 0, clip, desk, back: p.pose?.startsWith('phone') ? 'seated_idle' : p.pose };
-        p.mobile.visible = true;
+        p.mobile.visible = !(desk && this.deskPhone);   // the live desk phone's own handset instead
         this.mobileOnDesk(p);
         if (instant) { this.pose(p, clip); p.act[clip].time = p.act[clip].getClip().duration; this.rollChair(p, 1); } else this.fade(p, clip, 0.3);
       } else {
         p.call = { ...p.call, on: false, t: 0, back: p.call?.back ?? 'seated_idle' };
+        // a jump away from the call: hung up already, the chair back home (else the
+        // next beat finds him rolled over to the phone, in the camera's way)
+        if (instant) { this.rollChair(p, 0); this.mobileOnDesk(p); const back = p.call.back; p.call = null; this.pose(p, back); continue; }
         this.fade(p, p.call.clip + '_down', 0.25);
       }
     }
   }
   // Where his chair goes to reach the desk phone: [from, to] as [x, z, yaw]
   deskPhoneRoll(p) {
-    const c = this.game.chairs[DESK_PHONE.chair].obj, from = [c.position.x, c.position.z, c.rotation.y];
+    const from = this.chairHomes[DESK_PHONE.chair];   // from its home, never from where a cut-off call left it
     const yaw = from[2] + DESK_PHONE.turn, [cs, sn] = [Math.cos(yaw), Math.sin(yaw)];
     const [lx, , lz] = PHONE_DESK;
     // the root (0.06 m ahead of the chair) with the handset at PHONE_DESK in its space
@@ -554,7 +569,62 @@ export class Cast {
     p.root.position.set(c.position.x + f[0] * 0.06, 0, c.position.z + f[1] * 0.06);
     p.root.rotation.set(0, c.rotation.y, 0);
   }
+  async loadDeskPhone() {
+    const gltf = await loadGltf(`story/props/desk_phone_${PHONE_LOOK}.glb`);
+    const group = new THREE.Group();
+    group.name = 'deskPhone';
+    group.position.set(...PHONE_BASE.at);
+    group.rotation.y = PHONE_BASE.yaw;
+    const nodes = {};
+    gltf.scene.traverse((o) => { nodes[o.name] = o; if (o.isMesh) o.frustumCulled = false; });
+    const base = nodes.DeskPhone, handset = nodes.Handset;
+    group.add(base, handset);
+    const cord = new CoilCord({ color: base.userData.cordColor ?? '#1c1e20' });
+    group.add(cord.mesh);
+    this.scene.add(group);
+    const ph = { group, base, handset, socket: nodes.CordSocket, plug: nodes.CordPlug, cord, earOffset: handset.userData.earOffset ?? 0.08,
+      rest: { pos: handset.position.clone(), quat: handset.quaternion.clone() }, a: new THREE.Vector3(), b: new THREE.Vector3() };
+    this.stepCord(ph, 0, true);
+    return ph;
+  }
+  // The coiled cord between the base's socket and the handset's plug, in the phone's own space
+  stepCord(ph, dt, reset = false) {
+    ph.group.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(ph.group.matrixWorld).invert();
+    ph.a.setFromMatrixPosition(ph.socket.matrixWorld).applyMatrix4(inv);
+    ph.b.setFromMatrixPosition(ph.plug.matrixWorld).applyMatrix4(inv);
+    if (reset) ph.cord.reset?.();
+    ph.cord.step(ph.a, ph.b, Math.min(dt, 1 / 30));
+  }
+  // The live handset in his left hand: across the palm, along the head at the ear, back in the cradle near it
+  holdHandset(p, hand) {
+    const ph = this.deskPhone, head = p.bones.head;
+    p.root.updateMatrixWorld(true);
+    ph.group.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(ph.group.matrixWorld).invert();
+    const pose = (m) => { const pos = new THREE.Vector3(), q = new THREE.Quaternion(); m.decompose(pos, q, new THREE.Vector3()); return { pos, q }; };
+    const h = pose(inv.clone().multiply(hand.matrixWorld).multiply(PALM));
+    if (head) {
+      const x = EAR.clone().sub(MOUTH).normalize();
+      const y = new THREE.Vector3(-1, 0, 0).addScaledVector(x, x.x).normalize();   // (-1,0,0) made square to x
+      const z = x.clone().cross(y);
+      const at = EAR.clone().addScaledVector(x, -ph.earOffset).addScaledVector(y, 0.01);
+      const e = pose(inv.clone().multiply(head.matrixWorld).multiply(new THREE.Matrix4().makeBasis(x, y, z).setPosition(at)));
+      const ear = EAR.clone().applyMatrix4(head.matrixWorld).applyMatrix4(inv);
+      const w = smooth((EAR_NEAR[0] - h.pos.distanceTo(ear)) / (EAR_NEAR[0] - EAR_NEAR[1]));
+      h.pos.lerp(e.pos, w); h.q.slerp(e.q, w);
+    }
+    const w = smooth((CRADLE_NEAR[0] - h.pos.distanceTo(ph.rest.pos)) / (CRADLE_NEAR[0] - CRADLE_NEAR[1]));
+    h.pos.lerp(ph.rest.pos, w); h.q.slerp(ph.rest.quat, w);
+    ph.handset.position.copy(h.pos); ph.handset.quaternion.copy(h.q);
+  }
   mobileOnDesk(p) {
+    if (p.call?.desk && this.deskPhone) {
+      p.mobile.visible = false;
+      this.deskPhone.handset.position.copy(this.deskPhone.rest.pos);
+      this.deskPhone.handset.quaternion.copy(this.deskPhone.rest.quat);
+      return;
+    }
     if (p.call?.desk) {
       p.mobile.position.set(...DESK_PHONE.at);
       p.mobile.parent.worldToLocal(p.mobile.position);
@@ -574,6 +644,7 @@ export class Cast {
     const held = c.on ? t >= PHONE_GRAB : t < PHONE_DROP;
     const hand = c.desk ? p.bones.handL ?? p.bones['hand.L'] : p.bones.handR ?? p.bones['hand.R'];
     if (!held || !hand) this.mobileOnDesk(p);
+    else if (c.desk && this.deskPhone) this.holdHandset(p, hand);
     else {
       p.root.updateMatrixWorld(true);
       const at = hand.localToWorld(new THREE.Vector3(0, 0.07, 0.02));
@@ -730,5 +801,6 @@ export class Cast {
       if (p.armK) this.carryArm(p, smooth(p.armK));
       if (p.carry === 'jug') this.holdJug(p);
     }
+    if (this.deskPhone) this.stepCord(this.deskPhone, dt);
   }
 }

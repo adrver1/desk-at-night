@@ -373,7 +373,11 @@
 .learning.on .axis { stroke-dashoffset: 0; transition: stroke-dashoffset 0.9s ease-out 0.3s; }
 .learning.on .arrow { opacity: 1; }
 .learning.plot .plot { stroke-dashoffset: 0; transition: stroke-dashoffset 3.6s cubic-bezier(.25,.6,.35,1) 0.4s; }   /* (Adriaen, 2026-10-29: a slower reveal) */
-.learning .learner { opacity: 0; transition: opacity 0.3s; }
+.learning .plot2 { fill: none; stroke: #ffc35a; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 700; stroke-dashoffset: 700; }
+.learning.both .plot { stroke-dashoffset: 0; transition: none; opacity: 0.55; }   /* the first one, as it was: already there */
+.learning.both .plot2 { stroke-dashoffset: 0; transition: stroke-dashoffset 3s cubic-bezier(.25,.6,.35,1) 0.6s; }
+.learning .learner, .learning .learner2 { opacity: 0; transition: opacity 0.3s; }
+.learning .learner2 .ring { fill: #ffc35a; }
 .learning .learner .ring { fill: #e8eef2; }
 .learning text { fill: #e8eef2; font: 600 22px var(--display, system-ui); }
 

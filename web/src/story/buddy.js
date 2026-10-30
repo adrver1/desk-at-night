@@ -234,40 +234,52 @@ export class Buddy {
   makeCurve() {
     const el = document.createElement('div');
     el.className = 'learning';
-    // a first-order response: steep at first, then levelling off
-    const pts = Array.from({ length: 61 }, (_, i) => {
-      const t = i / 60, y = 1 - Math.exp(-t / 0.18);
+    // a first-order response: steep at first, then levelling off. The second (Adriaen, 2026-10-30:
+    // him with CtrlBuddy) rises faster and levels off higher: together they get further, sooner
+    const pts = (tau, top) => Array.from({ length: 61 }, (_, i) => {
+      const t = i / 60, y = top * (1 - Math.exp(-t / tau));
       return `${(60 + t * 320).toFixed(1)},${(250 - y * 200).toFixed(1)}`;
     }).join(' ');
     el.innerHTML = `<svg viewBox="0 0 420 300" aria-hidden="true">
       <path class="axis" d="M60 30 V250 H400" />
       <path class="arrow" d="M54 40 L60 28 L66 40 M390 244 L402 250 L390 256" />
-      <polyline class="plot" points="${pts}" />
+      <polyline class="plot" points="${pts(0.18, 0.72)}" />
+      <polyline class="plot2" points="${pts(0.08, 1.04)}" />
       <defs><clipPath id="learnerClip"><circle r="24" /></clipPath></defs>
       <g class="learner"><circle class="ring" r="27" /><image href="story/faces/adriaen.png" x="-24" y="-24" width="48" height="48" clip-path="url(#learnerClip)" /></g>
+      <g class="learner2"><rect class="ring" x="-51" y="-27" width="102" height="54" rx="27" />
+        <g transform="translate(-24 0)"><image href="story/faces/adriaen.png" x="-24" y="-24" width="48" height="48" clip-path="url(#learnerClip)" /></g>
+        <g transform="translate(24 0)"><image href="story/faces/ctrlbuddy.png" x="-24" y="-24" width="48" height="48" clip-path="url(#learnerClip)" /></g></g>
       <text x="230" y="285" text-anchor="middle">${T('Tid', 'Time')}</text>
       <text x="0" y="0" transform="translate(36 140) rotate(-90)" text-anchor="middle">${T('Læring', 'Learning')}</text>
     </svg>`;
     (document.getElementById('game') ?? document.body).append(el);
     // (Adriaen, 2026-10-29) his portrait rides the tip of the curve as it draws: he is the one learning
-    const plot = el.querySelector('.plot'), learner = el.querySelector('.learner'), len = plot.getTotalLength();
-    const follow = () => {
+    const ride = (plot, learner, shown) => {
+      const len = plot.getTotalLength();
       const drawn = Math.min(len, Math.max(0, 700 - parseFloat(getComputedStyle(plot).strokeDashoffset)));
       // the curve gone (it snaps back undrawn): the portrait goes at once, where it is
-      const on = el.classList.contains('plot') && drawn > 1;
+      const on = shown && drawn > 1;
       learner.style.transition = on ? '' : 'none';
       learner.style.opacity = on ? 1 : 0;
       if (on) { const p = plot.getPointAtLength(drawn); learner.setAttribute('transform', `translate(${p.x} ${p.y})`); }
+    };
+    const follow = () => {
+      const both = el.classList.contains('both');
+      ride(el.querySelector('.plot'), el.querySelector('.learner'), el.classList.contains('plot') || both);
+      ride(el.querySelector('.plot2'), el.querySelector('.learner2'), both);
       if (el.classList.contains('on')) requestAnimationFrame(follow); else this.following = false;
     };
     this.followCurve = () => { if (!this.following) { this.following = true; requestAnimationFrame(follow); } };
     return el;
   }
 
-  // 'axes' shows the panel and its axes, 'plot' draws the curve in as well
+  // 'axes' shows the panel and its axes, 'plot' draws the curve in as well, 'both' shows that one
+  // drawn and draws the second (with CtrlBuddy) over it
   curve(step) {
     this.curveEl.classList.toggle('on', Boolean(step));
     this.curveEl.classList.toggle('plot', step === 'plot');
+    this.curveEl.classList.toggle('both', step === 'both');
     if (step) this.followCurve();
   }
 }
