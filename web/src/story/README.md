@@ -36,7 +36,7 @@ WASD and the mouse, for questions and for debugging.
 
 URL options: `?chapter=N` (or `#chapter.beat`), `?mode=free`, `?nofs` (no
 fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
-`?sola=0` (skips the Sola apron opening, on by default; see below), `?tags=a|b|c|0` (how the crew's first names and BU show as they board at Sola: lower third, default; tags over heads; roll call; off), `?ceo=1` (Trondheim: the CEO welcomes Adriaen at the Føniks steps and they shake hands; off by default, he walks straight in), `?story=full`, `?lang=en|no`, `?grade=1` (the old colour grades per act, off by default).
+`?sola=0` (skips the Sola apron opening, on by default; see below), `?tags=a|b|c|0` (how the crew's first names and BU show as they board at Sola: lower third, default; tags over heads; roll call; off), `?ceo=1` (Trondheim: the CEO welcomes Adriaen at the Føniks steps and they shake hands; off by default, he walks straight in), `?story=full`, `?lang=en|no`, `?grade=1` (the old colour grades per act, off by default). `?kglook=c|b|deck`: how the knowledge-graph slides of chapter 6 (deck slides 7 to 14) look: `c` drawn live as a light slide with the game's figures (default), `b` the same as a hologram over a low-poly deck, `deck` the PowerPoint pictures.
 
 ## Files
 
@@ -54,6 +54,7 @@ fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
 - `cast.js`, `shots.js`, `call.js`: people, the camera, the video and phone
   window. `epilogue.js`: the fly-out to the whole platform. `clockFace.js`:
   the rest corner's station clock, big over the picture during the rewind.
+- `kg/`: the knowledge-graph slides drawn live (`engine.js` the slide, `graph.js` the graphs, `slides.js` the eight slides click by click). Screenshots of every click: `node qa/kg-slides.mjs http://localhost:5173/ <out dir> [c|b]`.
 - `ui.js`, `story.css`: overlays. `storyScreens.js`, `graph.js`: what the
   room's monitors and the display band show in story mode.
 - `sola.js`: the opening on the apron at Sola (on by default).
