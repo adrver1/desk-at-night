@@ -190,10 +190,10 @@ const H09 = {
     ...['buddy', 'scholar', 'nurse'].flatMap((k, i) => {
       const x = -5.2 + i * 5.2;
       return [
-        // the robot steps aside, small, when his file shows
-        fig(ROBOT[k], x, -1.75, 3.6, 0, { rot: [0.25, 0, -0.25][i], at: (b) => (b > i ? { x: x + 1.75, y: -4.35, s: 0.42 } : { x, y: -1.75 }), until: 5 }),
+        // the robot shrinks a little and moves down under his file when it shows
+        fig(ROBOT[k], x, -1.75, 3.6, 0, { rot: [0.25, 0, -0.25][i], at: (b) => (b > i ? { x, y: -4.4, s: 0.68 } : { x, y: -1.75 }), until: 5 }),
         text(ROBOT_TEXT9[k], x, -2.05, 4.3, 0, { cls: 'robot', anchor: [0.5, 0], until: i + 1 }),
-        { kind: 'card', cls: 'md', html: `<div class="fn">${['CtrlBuddy', 'Compiler', 'Linter'][i]}.agent.md</div><pre>${AGENT_MD[k]}</pre>`, x, y: 4.15, w: 4.95, h: 3.1, anchor: [0.5, 0], from: i + 1, until: 5 },
+        { kind: 'card', cls: 'md', html: `<div class="fn">${['CtrlBuddy', 'Compiler', 'Linter'][i]}.agent.md</div><pre>${AGENT_MD[k]}</pre>`, x, y: 4.15, w: 4.95, h: 4.75, anchor: [0.5, 0], from: i + 1, until: 5 },
       ];
     }),
     // the project in an editor: the agents folder and the chat that uses them
