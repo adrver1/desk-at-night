@@ -552,10 +552,12 @@ const SHORT_CHAPTERS = [
         do: [{ wait: 0.8 }, { set: { screens: ADR_SCREENS('buddy'), buddy: 'splash', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
           { set: { screens: ADR_SCREENS('chatSlug'), shot: `monitor:${SLUG_SCREEN}` } }, { wait: 0.4 },
           { chat: 'slug' }, { say: 't.adr1' }, { chat: 'slug' }, { wait: 0.6 }, { say: 't.ai3' },
+          // (Adriaen, 2026-10-30) it won't touch the controller itself (no OT access), but proposes a tuning
+          { chat: 'slug' }, { wait: 0.4 }, { say: 't.ai3b' },
           { set: { shot: 'monitor:Desk1Mon3Screen', tool: 'antiSlug', screens: { Desk1Mon3Screen: 'antiSlug' } } }, { wait: 3.2 },
           { set: { shot: 'adriaenDesk' } }, { chat: 'slug' }, { say: 't.adr2' }, { chat: 'slug' }, { set: { shot: 'monitor:Desk1Mon2Screen' } }, { wait: 0.6 }, { say: 't.ai4' },
           { set: { shot: 'adriaen' } }, { wait: 0.4 }, { say: 't.adr3' }],
-        end: { shot: 'adriaen', tool: 'antiSlug', screens: { ...ADR_SCREENS('chatSlug'), Desk1Mon3Screen: 'antiSlug' }, chats: { plan: 4, slug: 4 }, buddy: null },
+        end: { shot: 'adriaen', tool: 'antiSlug', screens: { ...ADR_SCREENS('chatSlug'), Desk1Mon3Screen: 'antiSlug' }, chats: { plan: 4, slug: 5 }, buddy: null },
         notes: 'Ola works with his agent on the anti-slug controller; the agent answers out loud. The camera settles on him.' },
       { id: 't.question', auto: true, set: { shot: 'adriaen' }, do: [{ wait: 0.5 }, { card: { text: T('Hvordan kom vi hit?', 'How did we get here?') } }, { wait: 3.2 }, { card: null }],
         notes: 'The question. Let it hang for a moment.' },
@@ -667,7 +669,7 @@ const SHORT_CHAPTERS = [
   },
   {
     key: 7, id: 'back', name: T('I morgen · Tilbake', 'Tomorrow · Back'),
-    base: { act: 3, time: 11.5, shot: 'wideRoom', ...DESK, cast: TOMORROW_CAST, graph: 5, graphOn: 'band', chats: { plan: 4, slug: 4 }, tool: 'antiSlug', screens: { ...TOMORROW_SCREENS, Desk1Mon3Screen: 'antiSlug' } },
+    base: { act: 3, time: 11.5, shot: 'wideRoom', ...DESK, cast: TOMORROW_CAST, graph: 5, graphOn: 'band', chats: { plan: 4, slug: 5 }, tool: 'antiSlug', screens: { ...TOMORROW_SCREENS, Desk1Mon3Screen: 'antiSlug' } },
     beats: [
       { id: 'b.forward', do: [{ forward: 3 }], notes: 'Fast forward to tomorrow\'s room again.' },
       { id: 'b.room', set: { shot: 'adriaen' }, notes: 'Where we are heading. Bridge to the epilogue.' },

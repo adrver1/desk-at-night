@@ -576,7 +576,14 @@ export class Cast {
     group.position.set(...PHONE_BASE.at);
     group.rotation.y = PHONE_BASE.yaw;
     const nodes = {};
-    gltf.scene.traverse((o) => { nodes[o.name] = o; if (o.isMesh) o.frustumCulled = false; });
+    // it sits exactly over the baked phone: drawn a hair nearer, so the two never fight (it flickered, Adriaen 2026-10-30)
+    gltf.scene.traverse((o) => {
+      nodes[o.name] = o;
+      if (!o.isMesh) return;
+      o.frustumCulled = false;
+      o.material = o.material.clone();
+      Object.assign(o.material, { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
+    });
     const base = nodes.DeskPhone, handset = nodes.Handset;
     group.add(base, handset);
     const cord = new CoilCord({ color: base.userData.cordColor ?? '#1c1e20' });

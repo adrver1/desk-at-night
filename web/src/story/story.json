@@ -397,15 +397,22 @@
     [
      "me",
      {
-      "no": "Nordfeltet begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?",
-      "en": "Nordfeltet started slugging again overnight. Can you retune the anti-slug controller?"
+      "no": "Nordfeltet begynte å slugge i natt. Kan du justere nivåregulatoren til innløpsseparatoren?",
+      "en": "Nordfeltet started slugging overnight. Can you adjust the inlet separator level controller?"
      }
     ],
     [
      "ai",
      {
-      "no": "Ny modell tilpasset fra nattens data. Den foreslåtte innstillingen holder stigerøret stabilt i simulatoren.",
-      "en": "New model fitted from last night's data. The proposed tuning holds the riser steady in the simulator."
+      "no": "Nei. Som KI-agent har jeg ikke lov til å røre OT-systemer direkte. Men jeg foreslår en løsning for deg.",
+      "en": "No. As an AI agent I am not permitted to touch OT systems directly. But I'll propose a solution for you."
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Jeg kjenner igjen denne oppførselen fra Nordhav Beta. Ny modell tilpasset fra nattens data: den foreslåtte innstillingen holder stigerøret stabilt i simulatoren.",
+      "en": "I recognise this behaviour from Nordhav Beta. New model fitted from last night's data: the proposed tuning holds the riser steady in the simulator."
      }
     ],
     [
