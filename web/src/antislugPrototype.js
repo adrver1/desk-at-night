@@ -14,6 +14,7 @@ import { SlugSim } from './slugSim.js';
 import { SlugWell, WELL_DIM as D, pipeRun, flowUpdate } from './slugWell.js';
 import { Separator, SeparatorSim, DIM as SDIM } from './separator.js';
 import { perfPanel, perfWatch } from './perf.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 perfPanel();
 const q = new URLSearchParams(location.search);
@@ -58,6 +59,28 @@ backdrop.position.set(-4, (-0.25 + BOTTOM) / 2, -6.5);
 const deck = new THREE.Mesh(new THREE.BoxGeometry(28, 0.25, 9), new THREE.MeshStandardMaterial({ color: 0x55606a, roughness: 0.8, metalness: 0.2 }));
 deck.position.set(-4, -0.125, -2);
 scene.add(backdrop, deck);
+
+// Platform well, not subsea (Adriaen 2026-10-30): the well goes straight
+// down from the wellbay through a conductor inside the jacket, so there is
+// no riser between the tree and the choke. Conductor (back half, the cut
+// faces the viewer), two jacket legs behind and the seabed line.
+const SEABED = -5; // compressed: the sea is ~110 m deep
+const jacketMat = new THREE.MeshStandardMaterial({ color: 0xc9b23a, roughness: 0.7, metalness: 0.2, side: THREE.DoubleSide });
+{
+  const parts = [];
+  const cond = new THREE.CylinderGeometry(WS * (D.rc + 0.16), WS * (D.rc + 0.16), -0.25 - SEABED + 0.6, 14, 1, true, Math.PI / 2, Math.PI);
+  cond.translate(WELL_X, (-0.25 + SEABED - 0.6) / 2, 0); parts.push(cond);
+  for (const [x0, x1] of [[-15.5, -16.6], [6.5, 7.6]]) { // battered legs
+    const a = new THREE.Vector3(x0, -0.25, -5), b = new THREE.Vector3(x1, SEABED, -5.6);
+    const leg = new THREE.CylinderGeometry(0.55, 0.55, a.distanceTo(b), 10);
+    leg.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()));
+    leg.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2); parts.push(leg);
+  }
+  for (const y of [-1.8, -3.6]) { const br = new THREE.CylinderGeometry(0.2, 0.2, 22.6, 6); br.rotateZ(Math.PI / 2); br.translate(-4.5, y, -5.2); parts.push(br); }
+  scene.add(new THREE.Mesh(mergeGeometries(parts.map((g) => g.toNonIndexed())), jacketMat));
+  const bed = new THREE.Mesh(new THREE.BoxGeometry(60, 0.12, 12), new THREE.MeshLambertMaterial({ color: 0x5a5140 }));
+  bed.position.set(-4, SEABED - 0.06, -0.5); scene.add(bed);
+}
 
 // the well, its choke and controller
 const well = new SlugWell({ name: 'well', flowline: false });
@@ -113,11 +136,11 @@ for (const s of [sim, ghost]) { s.u = 0.7; s.step(8000); }
 applyModes(); advance(KEEP * DT_S);
 
 // camera: fit the chosen view into the band between the HUD and the dock
-const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 400);
+const camera = new THREE.PerspectiveCamera(32, 1, 0.5, 400); // near 0.5: more depth precision for the far views
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 const VIEWS = { // centre and half extents (m)
-  whole: { c: [-4, -12.6], h: [12.5, 15.6] },
+  whole: { c: [-4, -10.9], h: [12.5, 17.6] },
   topside: { c: [-4.4, 3.4], h: [9.6, 4.6] },
   separator: { c: [0, 3.6], h: [5.6, 3.6] },
   bottom: { c: [WELL_X - 0.6, wy(-11.2)], h: [4.4, 4.4] },
@@ -143,6 +166,7 @@ const LABELS = [
   ['Flowline', () => new THREE.Vector3((chokeOut.x + inletStart.x) / 2, FY + 0.5, -4), 't'],
   ['Inlet separator', () => new THREE.Vector3(1.5, SEP.y + SDIM.R + 0.5, 0), 'tws'],
   ['Liquid level', () => new THREE.Vector3(-2.6, SEP.y + sepSim.hL + 0.2, 1.2), 's'], ['Weir', () => new THREE.Vector3(SDIM.weirX, SEP.y + SDIM.crest + 0.3, 1.2), 's'],
+  ['Conductor inside the jacket (no riser)', () => new THREE.Vector3(WELL_X + WS * (D.rc + 0.2) + 0.2, -2.6, 0), 'w'], ['Seabed', () => new THREE.Vector3(-14.5, SEABED + 0.4, 0), 'w'],
   ['Tubing', wl('tubing'), 'w'], ['Annulus (lift gas)', wl('annulus'), 'w'], ['Gas-lift valve', wl('glv'), 'wb'], ['Packer', wl('packer'), 'b'],
   ['Reservoir ≈ 2 km down', wl('res'), 'wb'], ['Bottom-hole pressure', wl('gauge'), 'wb'],
 ].map(([text, at, views]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at, views }; });
