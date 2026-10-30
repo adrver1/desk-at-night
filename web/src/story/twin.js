@@ -12,8 +12,8 @@
 //
 // After it, the chat about the real separator (c.sim2, Adriaen 2026-10-30)
 // shows the same twin beside the chat ('twinFix') and corrects it as
-// CtrlBuddy's messages come: the vessel takes the document's length (8 m to
-// 7 m), then the oil valve is swapped, the linear one lifted out and an
+// the chat goes: after the drawing from CDF the vessel takes its length (the
+// main separation zone, 8 m to 7 m), then the oil valve is swapped, the linear one lifted out and an
 // equal-percentage one put in, each with its valve curve beside it.
 //
 // State key (content.js): twin: true starts the build on entering the beat,
@@ -349,13 +349,14 @@ export class Twin {
     if (this.t < DUR + 1 || this.mode === 'fix') this.game.room?.redrawNow?.();   // the typing and the ring, every frame while it builds
   }
 
-  // The corrections, as far as the chat has come: its 2nd message the length, its 3rd the valve
+  // The corrections, as far as the chat has come: the messages marked twin: 'len' and 'valve' (story.json chats.sim2)
   correct(dt) {
     const f = this.fix, nv = this.newValve, oldG = this.sep.valves.oil.group;
-    const n = this.mode === 'fix' ? S.chats.sim2 ?? 0 : 0;
+    const shown = this.mode === 'fix' ? (CHATS.sim2?.messages ?? []).slice(0, S.chats.sim2 ?? 0) : [];
+    const has = (k) => shown.some(([, , m]) => m?.twin === k);
     const toward = (v, to) => (to > v ? Math.min(to, v + dt * 0.6) : Math.max(to, v - dt * 0.6));
-    f.len = toward(f.len, n >= 2 ? 1 : 0);
-    f.valve = toward(f.valve, n >= 3 ? 1 : 0);
+    f.len = toward(f.len, has('len') ? 1 : 0);
+    f.valve = toward(f.valve, has('valve') ? 1 : 0);
     this.sep.group.scale.x = 1 - SHORT * smooth(f.len);
     // the linear valve lifts out and hangs to the side; the new one drops into its place
     const out = smooth(f.valve * 1.6);
@@ -395,7 +396,7 @@ export class Twin {
       ctx.stroke();
       const m = 8 - smooth(f.len);
       ctx.font = `700 ${16 * s}px system-ui, sans-serif`; ctx.textAlign = 'center';
-      const label = f.len < 1 ? `${m.toFixed(1).replace('.', T(',', '.'))} m` : T('7 m (dokumentet i CDF)', '7 m (the document in CDF)');
+      const label = `${T('Hovedseparasjonssone', 'Main separation zone')}: ${f.len < 1 ? m.toFixed(1).replace('.', T(',', '.')) : '7'} m`;
       const tw = ctx.measureText(label).width + 14 * s;
       ctx.fillStyle = '#0b141c'; ctx.fillRect((x0 + x1) / 2 - tw / 2, (y0 + y1) / 2 - 12 * s, tw, 22 * s);
       ctx.fillStyle = '#ffd27a'; ctx.textBaseline = 'middle'; ctx.fillText(label, (x0 + x1) / 2, (y0 + y1) / 2);

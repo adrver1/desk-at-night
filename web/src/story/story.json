@@ -668,15 +668,32 @@
     [
      "ai",
      {
-      "no": "Jeg er ganske sikker på at du parametriserte modellen feil. Jeg sjekket dokumentet på CDF, og det står at separatoren er 7 meter lang, ikke 8 meter…",
-      "en": "I'm fairly sure you parametrised the model wrong. I checked the document in CDF, and it says the separator is 7 metres long, not 8…"
+      "no": "Jeg hentet GA-tegningen av separatoren fra CDF. Den viser at hovedseparasjonssonen er 7 m, du modellerte den som 8 m. Vil du at jeg justerer modellen?",
+      "en": "I pulled the separator's general arrangement drawing from CDF. It shows that the main separation zone is 7 m; you modelled it as 8 m. Do you want me to adjust the model?"
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "GA-tegning av separatoren",
+      "en": "Separator general arrangement drawing",
+      "file": "ga-drawing.webp"
+     }
+    ],
+    [
+     "me",
+     {
+      "no": "Ja, juster modellen.",
+      "en": "Yes, adjust the model.",
+      "twin": "len"
      }
     ],
     [
      "ai",
      {
       "no": "… og forresten: du modellerte ventilen som en lineær ventil, men jeg analyserte nylige tidsseriedata, og den er mer kompatibel med en likeprosentlig karakteristikk.",
-      "en": "… and by the way: you modelled the valve as linear, but I analysed recent time series, and it fits an equal-percentage characteristic better."
+      "en": "… and by the way: you modelled the valve as linear, but I analysed recent time series, and it fits an equal-percentage characteristic better.",
+      "twin": "valve"
      }
     ],
     [
