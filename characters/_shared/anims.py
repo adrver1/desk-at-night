@@ -15,6 +15,21 @@ into every character's .glb as named glTF animations:
     step_down    two 0.5 m steps down and 0.6 m forward, as out
                  of a helicopter cabin; ends with the hips 1 m lower,
                  so move the root there when it finishes      (1.75 s)
+    sip          seated: leans over to a mug on the desk to the
+                 right (SIP_MUG), lifts it to the mouth, sips and puts
+                 it back; the hand holds it from SIP_HOLD[0] to [1] s,
+                 so a player moves the mug with hand.R then  (3.8 s)
+    sip_left     the same with the left hand, a mug to the left
+    mouse        seated: right hand onto a mouse on the desk
+                 (MOUSE_AT), small wiggles, back to the lap     (4 s)
+    mouse_far    the same for the second desk's mouse (MOUSE_FAR)
+    phone        seated: picks a mobile up from the desk (PHONE_AT) and
+                 holds it at the ear, and stays there; the hand has it
+                 from PHONE_GRAB s                              (1.5 s)
+    phone_down   puts it back on the desk (there from PHONE_DROP s) (1.2 s)
+    phone_left, phone_left_down   the same with the left hand, for the
+                 desk phone's handset (PHONE_DESK) to the left; the chair
+                 is swivelled and rolled toward it by the player
     fart         standing: a sneaky glance round, leans forward with
                  the right knee lifted and the hip popped, a little
                  shudder, then straightens up (neutral face); the puff is
@@ -224,6 +239,155 @@ def pointing(f):
     return r
 
 
+# ------------------------------------------------- reaching from the seat
+# Character space, metres, seated (hips at SEAT_DROP): the station mug and
+# mouse as they stand on the control room desks from the chair
+SIP_MUG = (0.52, 0.58, 0.80)          # the right hand's grip on the mug handle
+MOUSE_AT = (0.40, 0.48, 0.78)         # the right wrist over the mouse
+MOUSE_FAR = (0.54, 0.48, 0.78)        # the same on the second desk, whose mouse sits 14 cm further right
+SIP_HOLD = (20 / FPS, 76 / FPS)       # seconds: the hand has the mug from, until
+PHONE_AT = (0.14, 0.42, 0.785)        # a mobile lying on the desk edge, in front of the keyboard
+PHONE_EAR = (0.12, -0.07, 1.03)       # the right wrist with the phone at the ear
+PHONE_EAR_DESK = (0.15, -0.01, 1.08)  # the wrist gripping a desk handset at the ear: out from the cheek, below the ear
+PHONE_DESK = (-0.36, 0.58, 0.82)       # the desk phone's handset, once the chair has turned toward it
+PHONE_GRAB = 12 / FPS                 # phone: the hand has it from here on
+PHONE_DROP = 16 / FPS                 # phone_down: the phone is back on the desk from here
+
+
+def shoulder_seated(r, side):
+    """Where the shoulder joint is in a seated pose r, from its spine and
+    chest bends about X (the bones' heads at 1.0 and 1.18 m standing)."""
+    def ang(bone):
+        spec = r.get(bone, (X, 0))
+        spec = spec if isinstance(spec, list) else [spec]
+        return sum(a for ax, a in spec if ax == X)
+    drop = Vector(r.get("hips_offset", (0, 0, 0)))
+    spine, chest = ang("spine"), ang("chest")
+    rs = Matrix.Rotation(math.radians(spine), 3, X)
+    rc = Matrix.Rotation(math.radians(spine + chest), 3, X)
+    s = Vector((side * base.SHOULDER.x, base.SHOULDER.y, base.SHOULDER.z))
+    p = Vector((0, 0, 1.0)) + rs @ Vector((0, 0, 0.18)) + rc @ (s - Vector((0, 0, 1.18)))
+    return p + drop, rc
+
+
+def reach(r, side, wrist, hand_dir, palm=None, elbow_out=0.6, elbow_fwd=-0.2):
+    """Two-bone reach: put the side's wrist at `wrist` (character space)
+    with the elbow dropped down and out, and the hand pointing along
+    hand_dir; palm is the world direction the palm should face."""
+    s, rc = shoulder_seated(r, side)
+    t = Vector(wrist)
+    a, b = base.UPPER_ARM, base.FOREARM
+    v = t - s
+    d = min(v.length, a + b - 0.004)
+    u = v.normalized()
+    along = (a * a - b * b + d * d) / (2 * d)
+    h = math.sqrt(max(0.0, a * a - along * along))
+    pole = Vector((side * elbow_out, elbow_fwd, -1.0))
+    pole = (pole - u * pole.dot(u)).normalized()
+    e = s + u * along + pole * h
+    d0, tag = _arm(side), _tag(side)
+    rest_palm = (-side * 0.707, 0, -0.707)
+    fore = [f"forearm.{tag}", d0, tuple(s + u * d - e)]
+    if palm:
+        fore.append((rest_palm, palm))
+    aim(r, [(f"upper_arm.{tag}", d0, tuple(e - s)), tuple(fore), (f"hand.{tag}", d0, hand_dir)], rc)
+    return r
+
+
+def sipping(side, stage, sip=0.0):
+    """Seated with a mug: stage 0 resting, 1 leaning over with the hand on
+    the mug on the desk, 2 the mug at the mouth; sip tips the head back."""
+    r = seated(look_down=8 * min(stage, 1.0) * (2 - max(stage, 1.0)))
+    mug = Vector((side * SIP_MUG[0], SIP_MUG[1], SIP_MUG[2]))
+    lean_desk = min(stage, 1.0) * (2 - max(stage, 1.0))   # 0 at rest and at the mouth, 1 at the desk
+    r["spine"] = (X, 6 - 26 * lean_desk - 4 * max(0.0, stage - 1.0))
+    r["chest"] = [(X, 2 - 6 * lean_desk), (Z, -side * 12 * lean_desk)]
+    r["neck"] = (X, -5 + 4 * sip)
+    r["head"] = [(Z, -side * 14 * lean_desk), (X, -3 - 8 * lean_desk + 14 * sip)]
+    if stage <= 0:
+        return r
+    # the wrist by the cheek, so the cup in the hand (beside it, inside) is at the lips
+    mouth = Vector((side * 0.12, 0.20, 1.12 - 0.02 * sip))
+    if stage <= 1:
+        lap = Vector((side * 0.20, 0.30, 0.62))
+        w = lap.lerp(mug, stage)
+    else:
+        w = mug.lerp(mouth, stage - 1)
+    # the hand reaches round the mug's handle: fingers forward and in
+    up = max(0.0, stage - 1)
+    reach(r, side, tuple(w + Vector((0, -0.06 * (1 - up), 0))), (-side * (0.35 - 0.1 * up), 0.9, 0.15 + 0.1 * up),
+          palm=(-side, 0, 0))
+    return r
+
+
+def mousing(f, wiggle=(0.0, 0.0), at=MOUSE_AT):
+    """Seated, f = 0 resting to 1 the right hand on the mouse, moved by
+    wiggle (x, y metres); a little lean toward the desk."""
+    r = seated(look_down=4 * f)
+    r["spine"] = (X, 6 - 10 * f)
+    r["chest"] = (X, 2 - 2 * f)
+    if f <= 0:
+        return r
+    lap = Vector((0.20, 0.30, 0.62))
+    m = Vector(at) + Vector((wiggle[0], wiggle[1], 0))
+    w = lap.lerp(m, f)
+    reach(r, 1, tuple(w), (-0.10, 0.97, -0.20), palm=(-0.25, 0, -1.0), elbow_out=0.9)
+    return r
+
+
+def sip_keys(side):
+    """Reach, lift, two sips, put it back, settle (SIP_HOLD frames 20, 76)."""
+    p = lambda st, sip=0.0: sipping(side, st, sip)
+    return [(0, p(0)), (10, p(0.6)), (18, p(1)), (22, p(1)), (32, p(1.85)), (36, p(2)),
+            (44, p(2, 1)), (50, p(2, 0.6)), (56, p(2, 1)), (62, p(2)), (70, p(1.1)), (74, p(1)),
+            (78, p(1)), (86, p(0.4)), (92, p(0))]
+
+
+def phoning(stage, side=1, at=PHONE_AT):
+    """Seated, one hand (side 1 right, -1 left): stage 0 resting, 1 on the
+    phone on the desk (at), 2 holding it at that side's ear (head tilted
+    into it a little). Further out on the desk he leans further."""
+    down = min(stage, 1.0) * (2 - max(stage, 1.0))   # 1 at the desk
+    up = max(0.0, stage - 1.0)
+    far = max(0.0, at[1] - PHONE_AT[1]) / 0.26        # 0 for the mobile in front, 1 for the desk phone
+    r = seated(look_down=(6 + 6 * far) * down)
+    r["spine"] = (X, 6 - (14 + 14 * far) * down)
+    r["chest"] = [(X, 2 - 3 * down), (Z, -side * 10 * far * down)]
+    r["head"] = [(Z, -side * 8 * up), (X, -3 - 6 * down)]
+    if stage <= 0:
+        return r
+    phone = Vector(at)
+    # a mobile lies flat in the hand against the cheek; a desk handset is gripped round its
+    # handle, ear to mouth, so the hand sits further out and its fingers point forward
+    desk = far > 0.5
+    e = PHONE_EAR_DESK if desk else PHONE_EAR
+    ear = Vector((side * e[0], e[1], e[2]))
+    lap = Vector((side * 0.20, 0.30, 0.62))
+    grip = phone + Vector((0, -0.07, 0.02))
+    w = lap.lerp(grip, stage) if stage <= 1 else grip.lerp(ear, up)
+    hand = Vector((0.0, 0.95, -0.3)).lerp(Vector((-side * 0.1, -0.05, 1.0)) if desk else Vector((-side * 0.1, 0.25, 1.0)), up)
+    palm = Vector((0.0, 0.0, -1.0)).lerp(Vector((-side * 1.0, 0.0, 0.0)), up)
+    # with a desk handset at the ear the elbow drops forward, in front of the chest, as when resting it
+    reach(r, side, tuple(w), tuple(hand), palm=tuple(palm), elbow_out=0.7 - 0.5 * up,
+          elbow_fwd=-0.2 + (1.0 * up if desk else 0.0))
+    return r
+
+
+def phone_keys(side=1, at=PHONE_AT):
+    """Pick up and hold at the ear; put back down."""
+    p = lambda st: phoning(st, side, at)
+    return ([(0, p(0)), (10, p(1)), (14, p(1)), (26, p(1.8)), (30, p(2)), (36, p(2))],
+            [(0, p(2)), (8, p(1.2)), (12, p(1)), (18, p(1)), (28, p(0))])
+
+
+def mouse_keys(at=MOUSE_AT):
+    """Hand on the mouse, a few small strokes and a pause, back to the lap."""
+    w = [(0, 0), (0.025, 0.01), (-0.01, 0.02), (0.02, -0.015), (0.0, 0.0), (-0.02, 0.01), (0.015, 0.02), (0, 0)]
+    keys = [(0, mousing(0, at=at)), (12, mousing(1, at=at))]
+    keys += [(12 + 8 * (k + 1), mousing(1, xy, at)) for k, xy in enumerate(w)]
+    return keys + [(84, mousing(1, at=at)), (96, mousing(0, at=at))]
+
+
 # When the puff comes out in the fart clips, seconds from the clip start:
 # a player adds its cloud (and any sound) then
 FART_PUFF = (0.75, 1.25)
@@ -313,6 +477,12 @@ def clips():
     c["flying"] = [(k * 12, flying(k / 8)) for k in range(9)]
     c["point"] = [(0, pointing(0)), (10, pointing(1)), (36, pointing(1)), (48, pointing(0))]
     c["step_down"] = stepping_down()
+    c["sip"] = sip_keys(1)
+    c["sip_left"] = sip_keys(-1)
+    c["mouse"] = mouse_keys()
+    c["mouse_far"] = mouse_keys(MOUSE_FAR)
+    c["phone"], c["phone_down"] = phone_keys()
+    c["phone_left"], c["phone_left_down"] = phone_keys(-1, PHONE_DESK)
     c["fart"] = fart_keys(farting)
     c["fart_seated"] = fart_keys(farting_seated)
     c["hug"] = [(0, hugging(0, 1)), (24, hugging(1, 0.4)), (48, hugging(0, 1)), (72, hugging(-1, 0.4)),

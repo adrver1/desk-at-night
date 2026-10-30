@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- The neighbouring platform on the phone (story caller.js): a platform on the sea at dusk -->
+  <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2c4a66"/><stop offset="0.62" stop-color="#d98a4b"/><stop offset="0.62" stop-color="#1f3b52"/><stop offset="1" stop-color="#132636"/></linearGradient></defs>
+  <rect width="200" height="200" fill="url(#sky)"/>
+  <g fill="#1a2128">
+    <rect x="52" y="96" width="96" height="10"/>
+    <rect x="58" y="78" width="40" height="18"/><rect x="100" y="70" width="34" height="26"/>
+    <rect x="104" y="58" width="22" height="12"/>
+    <polygon points="140,70 172,44 174,47 144,74"/>
+    <rect x="66" y="50" width="4" height="28"/><rect x="62" y="44" width="12" height="7"/>
+    <rect x="60" y="106" width="7" height="22"/><rect x="133" y="106" width="7" height="22"/>
+    <rect x="96" y="106" width="7" height="22"/>
+  </g>
+  <path d="M68 44 q4 -9 1 -16 q6 6 3 16z" fill="#f2b84b"/>
+  <g fill="#f2d16b"><rect x="62" y="84" width="3" height="3"/><rect x="72" y="84" width="3" height="3"/><rect x="106" y="78" width="3" height="3"/><rect x="116" y="78" width="3" height="3"/><rect x="124" y="84" width="3" height="3"/></g>
+</svg>

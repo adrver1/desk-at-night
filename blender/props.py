@@ -1291,7 +1291,7 @@ def _photo_mats(m):
 
 def make_photo_frame(m, name="PhotoFrame", style="stickers", face=None):
     """Small desk photo frame leaning back on an easel leg, for the portrait
-    of Ivar Aasen (boards.photo_print). Front toward -Y, standing on z = 0,
+    (boards.photo_print). Front toward -Y, standing on z = 0,
     origin under the middle of its front edge. The print is a child object
     named <name>Face, upright in its own frame (x across, z up, facing -Y),
     so the bake can give it a sharp image of its own, like the whiteboards.

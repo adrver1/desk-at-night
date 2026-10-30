@@ -41,7 +41,7 @@ Seeding replaces the editor's beats: sync first.
 ## Sync (editor to game)
 
 When Adriaen says "sync": save the database with ArtifactData `list` and
-`out_dir` (collections `beats` and `notes`), then
+`out_dir` (collections `beats`, `notes` and `chapters`, the chapter names edited with ✎), then
 
     python scripts/story-editor/sync.py <that dir>
 
@@ -56,11 +56,12 @@ the editor shows what the game now does.
 A slide with `builds: N` in story.json has N clicks: the presenter's Space shows
 the next click before moving to the next beat, and ← steps back. The pictures,
 one per click, are `<slide id>.b00.webp` (before the first click) to
-`.b<N>.webp` in `public/story/slides/` (Adriaen's CtrlBuddy deck is cleared
-for publication; with `?private=1` a PNG of the same name in the git-ignored
-`public/story/private/slides/` wins). Make them from the deck with
-`pptx_anim_parse.py` and `pptx_anim_build.py` (PNGs), then convert to WebP at
-most 1920 wide. In the editor a slide's `frames` lists the same pictures, and
+`.b<N>.webp` in `public/story/slides/`. The deck shows real names, logos
+and tags, so the public pictures are blurred copies: the sharp PNGs go in the
+git-ignored `public/story/private/slides/` (they win with `?private=1`), and
+`scripts/blur_public.py` writes the public WebPs from them (the report
+pictures and videos in `reports/` likewise). Make the PNGs from the deck with
+`pptx_anim_parse.py` and `pptx_anim_build.py`, at most 1920 wide. In the editor a slide's `frames` lists the same pictures, and
 sync writes `builds` from it.
 
 ## Chat beats
@@ -92,5 +93,7 @@ this after each sync that changes the game.
 The editor talks to the game through `window.__story` (same origin):
 `override()` hands it the beat's wording as edited (lines, chat messages,
 text slides, presenter notes, pointers) and `goto(id)` plays the beat; it
-follows the game when a beat moves on by itself or on Space in the game. New
+follows the game when a beat moves on by itself or on Space in the game. With Live on, clicking a line, chat message, camera cue or person's move
+on the timeline plays its beat from that moment (`goto(id, { at })`): the
+steps before it happen at once, timed the way `seed.py` places them. New
 beats, order, timing and hidden beats need a sync first.

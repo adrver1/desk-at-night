@@ -50,7 +50,8 @@ ROWS = [
      ("signal_red", "#d8261c"), ("screen_green", "#4cd17a"), ("plastic_black", "#2a2c2f"),
      ("glass_clear", "#cfe2e8")],
     # 7 logos and badges
-    [("logo_magenta", "#c42a72"), ("logo_orange", "#ec8a3c"), ("logo_green", "#2e9a52")],
+    [("logo_magenta", "#c42a72"), ("logo_orange", "#ec8a3c"), ("logo_green", "#2e9a52"),
+     ("logo_sky", "#7cc6dc"), ("logo_teal", "#1f8a96"), ("logo_navy", "#1f3a5f")],
     # 8 animals and soft toys
     [("sloth_fur", "#8f7c62"), ("sloth_fur_dark", "#6a5844"), ("sloth_face", "#e4d6bc"),
      ("sloth_mask", "#3a2a1f"), ("claw", "#d8cbb0"), ("sloth_tan", "#b49670")],

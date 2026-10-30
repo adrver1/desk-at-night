@@ -46,7 +46,7 @@ M = {k: b.mat_flat("Trd" + k, srgb(v), r) for k, (v, r) in {
     "c3": ("#e2ddcf", 0.8), "c4": ("#8f9b8a", 0.8), "c5": ("#c7b07a", 0.8),
     "brick": ("#8a5442", 0.85), "brick_dark": ("#6e3d31", 0.85), "pink": ("#c9776a", 0.8),
     "torg": ("#cdbf9f", 0.8), "glass_block": ("#4d5f6a", 0.4), "red": ("#d8262c", 0.5), "verdigris": ("#4f9a8f", 0.5), "hill": ("#3d5235", 1.0), "wood": ("#6b3f26", 0.6), "steel": ("#7d8488", 0.4), "flag": ("#f4f4f1", 0.8),
-    "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3e3738", 0.7), "roof_light": ("#8f9498", 0.8),
+    "logo_magenta": ("#c42a72", 0.6), "logo_orange": ("#ec8a3c", 0.6), "logo_green": ("#2e9a52", 0.6), "logo_sky": ("#7cc6dc", 0.6), "logo_teal": ("#1f8a96", 0.6), "logo_navy": ("#1f3a5f", 0.6), "tile": ("#2b3a3c", 0.5), "water": ("#2f7f86", 0.1), "frame": ("#efede6", 0.6), "slate": ("#3e3738", 0.7), "roof_light": ("#8f9498", 0.8),
     "canvas": ("#e4dac2", 0.9), "copper": ("#7f4c45", 0.55), "blind": ("#a9aeb0", 0.7), "blind_green": ("#8fb3a3", 0.7), "plinth": ("#59625d", 0.8), "amber": ("#61798a", 0.08), "glass_curve": ("#86a3b8", 0.06), "skylight": ("#c9cdcf", 0.5), "door": ("#4a2c1e", 0.5),
     "bronze_dark": ("#2f3a33", 0.45), "gold": ("#b8913a", 0.35), "travertine": ("#dcd2bf", 0.8), "orange": ("#c9583a", 0.8),
 }.items()}
@@ -225,7 +225,7 @@ TOP = 14.1
 
 
 def _logo():
-    """The Aker BP ribbon logo, read from the PPE outfit so there is one source."""
+    """The company logo, read from the PPE outfit so there is one source."""
     import ast
     src = open(os.path.join(ROOT, "characters", "_shared", "outfits.py")).read()
     node = next(n for n in ast.parse(src).body if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "LOGO")
@@ -715,9 +715,9 @@ def wing(name, centre, side):
 
 
 def phoenix_fountain(cx, cy, z0=0.15):
-    """The phoenix fountain in front of the Føniks entrance (Adriaen's photo): a low
-    round basin with a thick stone rim, a dark tiled column, three globe lamps at the
-    front and the bronze phoenix rising from its nest, wings half folded and pointing down."""
+    """The phoenix fountain in front of the Føniks entrance (Adriaen's photos): a low
+    round basin with a thick stone rim, a dark tiled column and on it the bronze phoenix
+    on its gilded stand (blender/phoenix_sculpture.py, TRD_PHOENIX picks the variant)."""
     before = set(bpy.data.objects)
     cyl("Water", (cx, cy, 0), 3.0, 0.32, "water", 20)
     bpy.ops.mesh.primitive_torus_add(major_radius=3.0, minor_radius=0.3, major_segments=20, minor_segments=4,
@@ -726,6 +726,20 @@ def phoenix_fountain(cx, cy, z0=0.15):
     bpy.context.object.data.materials.append(M["granite"])
     cyl("Column", (cx, cy, 0), 0.3, 1.45, "tile", 12)
     cyl("Collar", (cx, cy, 1.45), 0.36, 0.12, "dark", 12)
+    variant = os.environ.get("TRD_PHOENIX", "C")
+    if variant == "old":
+        old_phoenix(cx, cy)
+    else:
+        import phoenix_sculpture
+        phoenix_sculpture.build(M, cx, cy, 1.57, variant)   # on the collar
+    for o in set(bpy.data.objects) - before:   # raised on a stone drum to the terrace's height
+        o.location.z += z0
+    cyl("Drum", (cx, cy, 0), 3.25, z0 + 0.3, "granite", 24)
+
+
+def old_phoenix(cx, cy):
+    """The 2026-10-24 bird (TRD_PHOENIX=old): wings half folded and pointing down, three
+    globe lamps on short arms at the front."""
     cyl("Nest", (cx, cy, 1.57), 0.3, 0.28, "bronze_dark", 10, 0.5)
     for k in (-1, 0, 1):
         a = math.radians(-90 + k * 32)
@@ -756,9 +770,6 @@ def phoenix_fountain(cx, cy, z0=0.15):
             bpy.ops.mesh.primitive_uv_sphere_add(segments=4, ring_count=2, radius=0.06,
                                                  location=(cx + side * u, cy + 0.02 - 0.3 * (u - 0.2) ** 2 - 0.06, 2.3 + v))
             bpy.context.object.data.materials.append(M["steel"])
-    for o in set(bpy.data.objects) - before:   # raised on a stone drum to the terrace's height
-        o.location.z += z0
-    cyl("Drum", (cx, cy, 0), 3.25, z0 + 0.3, "granite", 24)
 
 
 # café furniture shared by the restaurant terrace and the annex's Frati terrace
@@ -1024,7 +1035,7 @@ for (x0_, y0_), (x1_, y1_) in (((tx0 + 0.1, CE - 4.0), (tx0 + 0.1, ty0 + 0.1)), 
                                ((tx1 - 0.1, ty0 + 0.1), (tx1 - 0.1, US))):
     box("RoofBarEdgeFence", ((x0_ + x1_) / 2, (y0_ + y1_) / 2, TT + 0.55), (abs(x1_ - x0_) + 0.06, abs(y1_ - y0_) + 0.06, 1.1), "copper")   # the same rusty copper as the annex cladding (Adriaen)
 # a flag pole on the roof's south-east corner, outside the bar (Adriaen)
-# with the Aker BP banner like the masts out front (Adriaen)
+# with the company banner like the masts out front (Adriaen)
 _pre = set(bpy.data.objects)
 flag_mast(tx1 - 1.5, ty0 + 1.2, 7.0, TT)
 bpy.context.view_layer.update()

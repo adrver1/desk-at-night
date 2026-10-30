@@ -17,11 +17,11 @@ import { FlagField, loadCloth } from '../flags.js';
 import flagCloth from '../flag-cloth/flag.bin?url';
 
 const BASE = 'story/trondheim/';
-const GLIDE = 14;   // s from the drone view down to the door
+const GLIDE = 8;   // s from the drone view down to the door (14 until Adriaen asked for a faster opening, 2026-10-29)
 const SKY = 0xf1f3f4;
 // Blender's frame (x east, y north, z up) to three's (y up, north along -z)
 const V = (x, y, z) => new THREE.Vector3(x, z, -y);
-// The Aker BP flags on Føniks's five masts fly south along the front, as on
+// The company flags on Føniks's five masts fly south along the front, as on
 // Adriaen's photo of the entrance, in a breeze between a light and a fresh one
 // (flags.js option C: the baked cloth). Hoists from flags.json, written by the
 // Føniks export.
@@ -40,9 +40,9 @@ const CAM = {
 // steps south of the fountain (not over the ramp's rail) and across the
 // terrace to the foot of the platform steps (Adriaen, 2026-10-25). Heights
 // follow the ground and steps under people.
-const WALK = { at: GLIDE - 3, speed: 1.15, path: [CAM.ME, V(-34.6, 34.6, 0), V(-39.6, 35.3, 0), V(-40.6, 36.2, 0), V(-40.97, 38.15, 0)] };
+const WALK = { at: GLIDE - 3, speed: 1.3, path: [CAM.ME, V(-34.6, 34.6, 0), V(-39.6, 35.3, 0), V(-40.6, 36.2, 0), V(-40.97, 38.15, 0)] };
 // The CEO comes out of the left-hand door while Adriaen is still on the steps
-// by the fountain, welcomes him to Aker BP on the way down to meet him (the
+// by the fountain, welcomes him to the company on the way down to meet him (the
 // beat's { torvet: 'meet' } step waits for MEET before the line), and they
 // shake hands at the foot of the platform steps while the camera closes in
 // beside them ({ torvet: 'shake' } waits for the end of it). Then
@@ -59,11 +59,13 @@ const IN = { ceo: [CEO.path.at(-1), V(-42.6, 38.4, 0), V(-43.6, 38.4, 0), DOOR],
 // too long) Adriaen walks on from the foot of the steps straight in at the
 // door; ?ceo=1 brings back the CEO, the welcome and the handshake
 export const CEO_MEET = new URLSearchParams(location.search).get('ceo') === '1';
-// He walks the whole glide: in from the south-east of the square, past the
-// fountain and up the steps, in shot all the way down (Adriaen, 2026-10-27).
-// He comes through the gap between the planters at (-29, 18) and (-29, 27)
-// (trondheim_surroundings.py PLANTER_SPOTS), not through their trees
-const SOLO = [V(-26.5, 22.5, 0), V(-31, 23, 0), ...WALK.path, ...IN.me.slice(1)];
+// He walks the whole glide, in shot all the way down (Adriaen, 2026-10-27),
+// but from just short of the fountain, not in from the south-east of the
+// square: a shorter way to the door (2026-10-29). The longer way came
+// through the gap between the planters at (-29, 18) and (-29, 27)
+// (trondheim_surroundings.py PLANTER_SPOTS); ?walk=long brings it back
+const SOLO_LONG = [V(-26.5, 22.5, 0), V(-31, 23, 0), ...WALK.path, ...IN.me.slice(1)];
+const SOLO = new URLSearchParams(location.search).get('walk') === 'long' ? SOLO_LONG : [V(-33, 28.5, 0), ...WALK.path, ...IN.me.slice(1)];
 const pathLength = (pts) => pts.slice(1).reduce((n, q, i) => n + q.distanceTo(pts[i]), 0);
 const CUES = { meet: MEET, shake: SHAKE.at + SHAKE.len, door: pathLength(SOLO) / WALK.speed };
 // Where someone is d metres along a path: the point, the way they face, still walking or not
@@ -146,24 +148,37 @@ export class Trondheim {
     return this.loaded;
   }
 
-  async show() {
-    if (this.on) return;
-    this.on = true;
+  // Load the scene and compile its shaders ahead (main.js, a while before the
+  // rewind), so show() has nothing to wait for
+  async prepare() {
     await this.load();
-    if (!this.on) return;
     if (!this.renderer) {
       this.renderer = new THREE.WebGLRenderer({ antialias: true });
       this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
       this.renderer.outputColorSpace = THREE.SRGBColorSpace;
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
       this.renderer.domElement.className = 'trondheim';
+      if (this.scene && this.camera) this.renderer.compile(this.scene, this.camera);
     }
-    this.host.insertBefore(this.renderer.domElement, this.host.querySelector('.tint'));   // over the game, under the story's overlays
+  }
+
+  async show() {
+    if (this.on) return;
+    this.on = true;
+    // Black until its first frame: the room behind stops drawing (hooks.hidden)
+    // and would otherwise show its last frame while this loads (Adriaen, 2026-10-29)
+    this.cover ??= Object.assign(document.createElement('div'), { className: 'trondheim-cover' });
+    this.host.insertBefore(this.cover, this.host.querySelector('.tint'));
+    await this.prepare();
+    if (!this.on) return;
+    this.host.insertBefore(this.renderer.domElement, this.cover);
     this.t0 = performance.now();
     this.last = this.t0;
     this.tIn = null;
     for (const p of [this.me, this.ceo]) if (p) p.mouth = null;
     this.place(0);
+    this.frame(this.t0);   // drawn now, in the same task that puts the canvas up
+    this.cover.remove();
     const loop = (now) => {
       if (!this.on) return;
       this.frame(now);
@@ -177,6 +192,7 @@ export class Trondheim {
     this.on = false;
     cancelAnimationFrame(this.raf);
     this.renderer?.domElement.remove();
+    this.cover?.remove();
     for (const w of this.waits ?? []) w.r();
     this.waits = [];
   }
@@ -317,6 +333,9 @@ export class Trondheim {
     cam.rotateY(0.004 * Math.sin(t * 0.37));
     cam.rotateX(0.003 * Math.sin(t * 0.51 + 1));
     if (cam.fov !== p.fov) cam.fov = p.fov;
+    // The near plane follows the glide: at a fixed 0.3 m the drone view 140 m out has
+    // too little depth precision for the Føniks window layers 1 cm off the wall
+    cam.near = Math.max(0.3, p.pos.distanceTo(p.at) * 0.03);
     cam.updateProjectionMatrix();
     this.flags?.update(t, cam, { speed: flagWind(t), dir: FLAG_DOWNWIND, sunDir: this.sunDir, sunColor: this.sunColor });
     r.render(this.scene, cam);

@@ -7,7 +7,7 @@ Textures for the control room's whiteboards, drawn with PIL:
                    for who is on shift, who is on call, and open work
     notes_board()  a mobile whiteboard with a hand-drawn process sketch
     esd_panel()    the printed front of the hardwired ESD matrix panel
-    photo_print()  the Ivar Aasen portrait in the desk photo frame, plain
+    photo_print()  the picture in the desk photo frame, plain
                    or with hearts doodled around it in marker
 
 Everything is generic and seeded, so the same image comes out every build.
@@ -521,12 +521,21 @@ def binder_spines(size, shelves, seed=4, ppm=1100):
 
 # ------------------------------------------------------------ photo frame
 
-# The pictures the frame can hold: image file, and the point (fractions of
-# the image) a crop is centred on
+# The pictures the frame can hold: a source (an image file in assets/, or a
+# function drawing the picture at a size) and the point (fractions of the
+# image) a crop is centred on. The public pictures are drawn here; the private
+# build's portraits live outside the repo (PRIVATE_PICTURES, a folder of
+# <key>.jpg, e.g. /mnt/project-files/control-room-game/private-assets/pictures)
+# and join this list when that folder is there.
 PORTRAITS = {
-    "drawing": ("ivar_aasen_rusti.jpg", (0.5, 0.5)),  # charcoal drawing, signed Olav Rusti
-    "photo": ("ivar_aasen_photo.jpg", (0.5, 0.40)),   # studio photograph in a dark coat
+    "coast": ("coast", (0.5, 0.5)),       # a lighthouse on a rocky point, a grey print
+    "boat": ("boat", (0.5, 0.5)),         # a small sailing boat off the same coast
 }
+PRIVATE_PICTURES = os.environ.get("PRIVATE_PICTURES", "/mnt/project-files/control-room-game/private-assets/pictures")
+if os.path.isdir(PRIVATE_PICTURES):
+    for f in sorted(os.listdir(PRIVATE_PICTURES)):
+        if f.endswith(".jpg"):
+            PORTRAITS.setdefault(f[:-4], (os.path.join(PRIVATE_PICTURES, f), (0.5, 0.42)))
 HEART_RED, HEART_PINK = (200, 30, 55), (232, 96, 150)
 
 
@@ -551,12 +560,54 @@ def _heart_doodle(d, rng, x, y, s, color, filled):
     d.line(pts + pts[:2], fill=color, width=max(3, int(s * 0.09)), joint="curve")
 
 
-def _portrait(w, h, picture="drawing", centre=None):
+def _drawn(kind, W=800, H=1000, seed=3):
+    """A made-up grey print for the public frames: sky, sea and a rocky point,
+    with a lighthouse ("coast") or a sailing boat ("boat")."""
+    rng = random.Random(seed)
+    im = Image.new("L", (W, H))
+    d = ImageDraw.Draw(im)
+    hz = int(H * 0.55)
+    for y in range(hz):                      # sky, lighter towards the horizon
+        d.line([(0, y), (W, y)], fill=int(150 + 70 * y / hz))
+    sx, sy = (W * 0.7, H * 0.3) if kind == "coast" else (W * 0.3, H * 0.33)
+    for r in range(160, 0, -4):              # the sun's glow
+        d.ellipse([sx - r, sy - r, sx + r, sy + r], fill=min(255, int(222 + 30 * (1 - r / 160))))
+    for y in range(hz, H):                   # sea, darker towards the viewer, with glints
+        v = int(130 - 70 * (y - hz) / (H - hz))
+        d.line([(0, y), (W, y)], fill=v)
+    for _ in range(420):
+        y = rng.uniform(hz + 4, H)
+        x, L = rng.uniform(0, W), rng.uniform(8, 40) * (1 + (y - hz) / (H - hz))
+        d.line([(x, y), (x + L, y)], fill=int(170 - 60 * (y - hz) / (H - hz)), width=2)
+    flip = (lambda x: W - x) if kind == "boat" else (lambda x: x)
+    rock = [(0, hz - 60), (W * 0.12, hz - 110), (W * 0.22, hz - 95), (W * 0.34, hz - 30), (W * 0.42, hz + 40),
+            (W * 0.30, H * 0.78), (0, H * 0.86)]
+    d.polygon([(flip(x), y) for x, y in rock], fill=48)
+    if kind == "coast":                      # a white tower with a dark lantern
+        x0 = W * 0.13
+        d.polygon([(x0 - 26, hz - 104), (x0 + 26, hz - 104), (x0 + 16, hz - 330), (x0 - 16, hz - 330)], fill=232)
+        for k in (0, 1):
+            y = hz - 160 - k * 90
+            d.polygon([(x0 - 24 + 2 * k, y), (x0 + 24 - 2 * k, y), (x0 + 22 - 2 * k, y - 26), (x0 - 22 + 2 * k, y - 26)], fill=70)
+        d.rectangle([x0 - 20, hz - 372, x0 + 20, hz - 330], fill=60)
+        d.polygon([(x0 - 24, hz - 372), (x0 + 24, hz - 372), (x0, hz - 400)], fill=40)
+    else:                                    # a small boat out on the water
+        bx, by = W * 0.42, hz + 70
+        d.polygon([(bx - 70, by), (bx + 80, by), (bx + 60, by + 24), (bx - 55, by + 24)], fill=40)
+        d.polygon([(bx, by - 4), (bx, by - 190), (bx + 75, by - 8)], fill=238)
+        d.polygon([(bx - 6, by - 6), (bx - 6, by - 150), (bx - 60, by - 8)], fill=205)
+    return im
+
+
+DRAWN = ("coast", "boat")
+
+
+def _portrait(w, h, picture="coast", centre=None):
     """A picture from PORTRAITS cropped to w:h around `centre` (fractions of
     the image), printed: a touch warm, the paper a little lighter."""
     path, default = PORTRAITS[picture]
     centre = centre or default
-    im = Image.open(os.path.join(HERE, "assets", path)).convert("L")
+    im = _drawn(path) if path in DRAWN else Image.open(os.path.join(HERE, "assets", path)).convert("L")
     iw, ih = im.size
     cw, ch = (iw, iw * h / w) if iw / ih < w / h else (ih * w / h, ih)
     cx, cy = centre[0] * iw, centre[1] * ih
@@ -566,7 +617,7 @@ def _portrait(w, h, picture="drawing", centre=None):
     return Image.merge("RGB", [im.point(lambda v, k=k: int(v * k)) for k in (1.0, 0.97, 0.91)])
 
 
-def photo_print(style="stickers", size=(0.105, 0.132), picture="drawing", ppm=5000, seed=14):
+def photo_print(style="stickers", size=(0.105, 0.132), picture="coast", ppm=5000, seed=14):
     """The print behind the glass, size (w, h) in metres. "doodle": on a
     cream card mount with red and pink marker hearts all round it; "heart":
     cropped tighter on the face, for a heart-shaped window; otherwise the

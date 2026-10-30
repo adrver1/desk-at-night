@@ -462,10 +462,10 @@ BOARDS = {
     "Binders": (binders_board, props.shelving_face(SHELVING)[:2], (-1.05, ROOM_Y0, 0.0), 0.0, "shelf"),
 }
 
-# Desk photo frames of Ivar Aasen with hearts, one per desk: (frame style
+# Desk photo frames with hearts, one per desk: (frame style
 # from props.PHOTO_STYLES, picture from boards.PORTRAITS). Every style and
 # picture stays available; this picks what stands in the room.
-PHOTO_FRAMES = [("stickers", "drawing"), ("doodle", "photo")]
+PHOTO_FRAMES = [("stickers", "coast"), ("doodle", "boat")]   # the private build: ("stickers", "drawing"), ("doodle", "photo")
 PHOTO_SPOT = (-0.55, 0.33, 28)  # x right, y ahead of the operator edge, yaw in degrees; mirrored like the extras
 
 

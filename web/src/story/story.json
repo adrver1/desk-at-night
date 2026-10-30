@@ -20,90 +20,90 @@
   },
   "y-02": {
    "no": {
-    "title": "Onboarding er bratt",
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Nytt anlegg, nye systemer, nye forkortelser",
      "Tusenvis av styrende dokumenter",
      "Hvem vet hva, og hvor står det?"
-    ]
+    ],
+    "title": "Onboarding er bratt"
    },
    "en": {
-    "title": "Onboarding is steep",
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "New plant, new systems, new acronyms",
      "Thousands of governing documents",
      "Who knows what, and where is it written?"
-    ]
+    ],
+    "title": "Onboarding is steep"
    },
    "placeholder": true
   },
   "d-01": {
    "no": {
-    "title": "Et bevisst valg",
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "KI inn i min egen onboarding",
      "Bygge verktøy for det, og for daglige reguleringsoppgaver"
-    ]
+    ],
+    "title": "Et bevisst valg"
    },
    "en": {
-    "title": "A deliberate choice",
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "AI in my own onboarding",
      "Build tools for it, and for daily control-engineering tasks"
-    ]
+    ],
+    "title": "A deliberate choice"
    },
    "placeholder": true
   },
   "d-02": {
    "no": {
-    "title": "Fra spørsmål til verktøy",
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Hva spurte jeg om de første ukene?",
      "Hva ble til verktøy?"
-    ]
+    ],
+    "title": "Fra spørsmål til verktøy"
    },
    "en": {
-    "title": "From questions to tools",
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "What did I ask about in the first weeks?",
      "What became a tool?"
-    ]
+    ],
+    "title": "From questions to tools"
    },
    "placeholder": true
   },
   "m-01": {
    "no": {
-    "title": "Hva er mulig",
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Steptest-finner",
      "Simulatorer",
      "I-005 logikktester",
      "Agenter for styrende dokumenter"
-    ]
+    ],
+    "title": "Hva er mulig"
    },
    "en": {
-    "title": "What is possible",
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Step-test finder",
      "Simulators",
      "I-005 logic tester",
      "Governing-document agents"
-    ]
+    ],
+    "title": "What is possible"
    },
    "placeholder": true
   },
   "m-02": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Finner brukbare strekk i historikken",
      "Ingen tapte fat"
     ],
@@ -111,7 +111,7 @@
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Finds usable stretches in history",
      "No lost barrels"
     ],
@@ -122,7 +122,7 @@
   "m-03": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Fysikkmodeller (Python, CasADi) som snakker OPC UA",
      "Prøv regulatoren før anlegget gjør det"
     ],
@@ -130,7 +130,7 @@
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Physics models (Python, CasADi) that talk OPC UA",
      "Try the controller before the plant does"
     ],
@@ -141,7 +141,7 @@
   "m-04": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "SCD etter I-005, kjørt i en interaktiv logikktester",
      "Feil funnet på en laptop, ikke under igangkjøring"
     ],
@@ -149,7 +149,7 @@
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "SCD to I-005, run in an interactive logic tester",
      "Mistakes found on a laptop, not at commissioning"
     ],
@@ -159,27 +159,27 @@
   },
   "m-05": {
    "no": {
-    "title": "Styrende dokumenter, med kilde",
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Agenter som svarer med henvisning",
      "Sjekker endringer mot kravene"
-    ]
+    ],
+    "title": "Styrende dokumenter, med kilde"
    },
    "en": {
-    "title": "Governing documents, with sources",
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Agents that answer with a citation",
      "Check changes against the requirements"
-    ]
+    ],
+    "title": "Governing documents, with sources"
    },
    "placeholder": true
   },
   "h-01": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Utstyr, dokumenter, krav og lærdom, koblet sammen",
      "Én kunnskapsbase, mange agenter"
     ],
@@ -187,7 +187,7 @@
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Equipment, documents, requirements and lessons, linked",
      "One knowledge base, many agents"
     ],
@@ -198,7 +198,7 @@
   "h-02": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Hver agent har sitt fag og sitt mandat",
      "Mennesker leder dem"
     ],
@@ -206,7 +206,7 @@
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Each agent has its subject and its mandate",
      "People lead them"
     ],
@@ -217,7 +217,7 @@
   "h-03": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Agentene bruker de samme verktøyene som oss",
      "Historikk, simulatorer, logikktester, dokumenter"
     ],
@@ -225,7 +225,7 @@
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "The agents use the same tools we do",
      "History, simulators, logic tester, documents"
     ],
@@ -236,14 +236,14 @@
   "h-04": {
    "no": {
     "bullets": [
-     "TODO(Adriaen): ditt lysbilde",
+     "TODO(Ola): ditt lysbilde",
      "Inn i idédugnaden"
     ],
     "title": "Hva betyr det for oss?"
    },
    "en": {
     "bullets": [
-     "TODO(Adriaen): your slide",
+     "TODO(Ola): your slide",
      "Into the brainstorm"
     ],
     "title": "What does it mean for us?"
@@ -321,15 +321,37 @@
     "title": "Deck slide 14"
    },
    "builds": 6
+  },
+  "cb-what": {
+   "no": {
+    "title": "CtrlBuddy – hva er det?",
+    "bullets": [
+     "AI-agent: Bygget i VS Code, med GitHub Copilot som harness",
+     "Modell: Kjører stort sett på Claude 5.5",
+     "Instruksjoner: Oppfører seg som en erfaren automasjonsingeniør",
+     "Verktøy: Kobler seg til datakilder via API-er: CDF, ABB LoopInsight",
+     "Kunnskapsbase: Nordhav Energi-spesifikk fagkunnskap for oppgavene"
+    ]
+   },
+   "en": {
+    "title": "CtrlBuddy – what is it?",
+    "bullets": [
+     "AI agent: Built in VS Code, with GitHub Copilot as the harness",
+     "Model: Running mostly Claude 5.5",
+     "Instructions: Behaves like an advanced automation engineer",
+     "Tools: Connects to data sources through APIs: CDF, ABB LoopInsight",
+     "Knowledge base: Nordhav Energi-specific domain knowledge for its tasks"
+    ]
+   }
   }
  },
  "chats": {
   "plan": {
    "title": {
-    "no": "Forretningsplan-agent",
-    "en": "Business-plan agent"
+    "no": "PlanBuddy · forretningsplan",
+    "en": "PlanBuddy · business plan"
    },
-   "who": "Brage",
+   "who": "Per",
    "messages": [
     [
      "me",
@@ -361,21 +383,22 @@
     ]
    ],
    "faces": {
-    "me": "brage"
+    "me": "supervisor",
+    "ai": "ctrlbuddy"
    }
   },
   "slug": {
    "title": {
-    "no": "Reguleringsagent · anti-slug",
-    "en": "Control agent · anti-slug"
+    "no": "CtrlBuddy · anti-slug",
+    "en": "CtrlBuddy · anti-slug"
    },
-   "who": "Adriaen",
+   "who": "Ola",
    "messages": [
     [
      "me",
      {
-      "no": "Stigerøret begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?",
-      "en": "The riser started slugging again overnight. Can you retune the anti-slug controller?"
+      "no": "Nordfeltet begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?",
+      "en": "Nordfeltet started slugging again overnight. Can you retune the anti-slug controller?"
      }
     ],
     [
@@ -401,7 +424,8 @@
     ]
    ],
    "faces": {
-    "me": "adriaen"
+    "me": "adriaen",
+    "ai": "ctrlbuddy"
    }
   },
   "step": {
@@ -413,8 +437,8 @@
     [
      "me",
      {
-      "no": "Å lete etter steptester tar tid. Kan du finne perioder i historikken der regulatoren sto i manuell og noen steppet ventilen?",
-      "en": "Hunting for step tests takes time. Can you find stretches in the history where the controller was in manual and someone stepped the valve?"
+      "no": "Å lete etter historiske steptester er tidkrevende. Bruk CDF for å se etter perioder der det ble gjennomført steptester på nivåregulatoren.",
+      "en": "Hunting for historical step tests takes time. Use CDF to look for periods when step tests were run on the level controller."
      }
     ],
     [
@@ -441,7 +465,7 @@
      }
     ]
    ],
-   "who": "Adriaen",
+   "who": "Ola",
    "faces": {
     "me": "adriaen",
     "ai": "ctrlbuddy"
@@ -513,7 +537,7 @@
      }
     ]
    ],
-   "who": "Adriaen",
+   "who": "Ola",
    "faces": {
     "me": "adriaen",
     "ai": "ctrlbuddy"
@@ -550,12 +574,12 @@
     [
      "ai",
      {
-      "no": "… og det ble til et nytt APC-grensesnitt på Ivar Aasen.",
-      "en": "… and it turned into a new APC interface on Ivar Aasen."
+      "no": "… og det ble til et nytt APC-grensesnitt på Nordhav Alfa.",
+      "en": "… and it turned into a new APC interface on Nordhav Alfa."
      }
     ]
    ],
-   "who": "Adriaen",
+   "who": "Ola",
    "faces": {
     "me": "adriaen",
     "ai": "ctrlbuddy"
@@ -606,29 +630,56 @@
      }
     ]
    ],
-   "who": "Adriaen",
+   "who": "Ola",
    "faces": {
     "me": "adriaen",
     "ai": "ctrlbuddy"
    }
+  },
+  "neighbour": {
+   "title": {
+    "no": "Nordhav Beta",
+    "en": "Nordhav Beta"
+   },
+   "messages": [
+    [
+     "ai",
+     {
+      "no": "Hei, det er Nordhav Beta. Separatoren vår har slugget hele natta, og nivåene går opp og ned som en jojo.",
+      "en": "Hi, it's Nordhav Beta. Our separator has been slugging all night, the levels are going up and down like a yo-yo."
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Separatoren vår i natt",
+      "en": "Our separator last night",
+      "file": "neighbour-1.mp4"
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Dere har vel samme type separator? Har dere noen gode ideer?",
+      "en": "You've got the same kind of separator, haven't you? Any good ideas?"
+     }
+    ],
+    [
+     "me",
+     {
+      "no": "Eh... jeg skal se hva jeg finner ut.",
+      "en": "Eh... let me see what I can find out."
+     }
+    ]
+   ],
+   "who": "Ola",
+   "faces": {
+    "me": "adriaen",
+    "ai": "neighbour.svg"
+   }
   }
  },
  "callouts": {
-  "t.brage": [
-   {
-    "target": "Wall3Screen",
-    "label": {
-     "no": "Forretningsplan-agent",
-     "en": "Business-plan agent"
-    },
-    "text": {
-     "no": "Brage spør, agenten svarer på båndet",
-     "en": "Brage asks, the agent answers on the band"
-    },
-    "x": 61,
-    "y": 38
-   }
-  ],
   "m.step": [
    {
     "target": "Desk0Mon2Screen",
@@ -706,15 +757,22 @@
   ]
  },
  "beats": {
-  "ep.line": {
-   "cards": [
-    false
-   ]
+  "t.plan": {
+   "notes": "Per works on the business plan with CtrlBuddy, on his own screen; the agent answers out loud in its robot voice."
+  },
+  "y.trondheim": {
+   "notes": "Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the fountain, the titles fade as it closes in, and you walk up the steps and in at the Føniks door. Your first week on the job. (optional: ?ceo=1: the CEO welcomes you at the steps.)"
   }
  },
  "inserted": [
   {
-   "after": "m.s2",
+   "after": "m.call",
+   "id": "c.call",
+   "chat": "neighbour",
+   "notes": "Samme samtale som chat (versjon B): Nordhav Beta skriver, separatoren som video på skjermen ved siden av."
+  },
+  {
+   "after": "^money",
    "id": "c.step",
    "chat": "step",
    "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."
@@ -787,10 +845,16 @@
   }
  ],
  "hidden": [
+  "c.call",
+  "y.steep",
   "d.s1",
   "d.wake",
   "d.s2",
+  "m.s1",
+  "m.step",
   "m.s2",
+  "m.riser",
+  "m.antislug",
   "m.s3",
   "new.ctrl06",
   "m.s4",
@@ -798,10 +862,13 @@
   "h.g1",
   "h.g2",
   "h.s3",
-  "h.g3"
+  "h.g3",
+  "b.forward",
+  "b.room"
  ],
  "closing": {
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",
   "en": "This part isn't ours to decide. It's yours."
- }
+ },
+ "chapterNames": {}
 }

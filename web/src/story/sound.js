@@ -2,7 +2,14 @@
 // on the spot with Web Audio so they cost no downloads: the two-tone process
 // alarm that builds through the Act 1 cascade, radio squelch, a desk phone
 // ringing, and the soft chime of an agent's notification.
+import { PRIVATE, PRIVATE_BASE } from '../privateNames.js';
+import { SPEECH } from './lang.js';
+// English takes in story/voice/, Norwegian ones (once there are any) in
+// story/voice/no/, each with its own voice.json
 const VOICE = 'story/voice/';
+// The private build's own takes of the lines that say a real name
+// (voices.py --private), over the public ones with the stand-ins
+const PRIVATE_VOICE = PRIVATE ? `${PRIVATE_BASE}voice/` : null;
 
 // The rotor's two mixes, tuned by ear in a Web Audio test page (the Rotor Sound Lab):
 // blade passes in Hz (5 blades), beat depth, blade slap (harmonics), air
@@ -11,6 +18,12 @@ const ROTOR = {
   inside: { rate: 22, depth: 0.35, sharp: 3, cutoff: 420, noise: 0.9, thump: 0.35, tailHz: 105, tail: 0.02, whineHz: 1350, whine: 0.005 },
   outside: { rate: 22, depth: 0.85, sharp: 8, cutoff: 1500, noise: 0.8, thump: 0.6, tailHz: 105, tail: 0.05, whineHz: 1350, whine: 0.006 },
 };
+
+// The ringtone's tune: semitones from B, and lengths (s). B C# D E F# D F#,
+// F D F, E C E: the theme's first bars, quick
+const Q = 0.105, L = 0.27;
+const TUNE = [[0, Q], [2, Q], [3, Q], [5, Q], [7, Q], [3, Q], [7, L], [6, Q], [3, Q], [6, L], [5, Q], [1, Q], [5, L]];
+const TUNE_GAP = 0.7, TUNE_LEN = TUNE.reduce((a, [, d]) => a + d, 0) + TUNE_GAP;
 
 export class Sound {
   constructor() {
@@ -31,14 +44,29 @@ export class Sound {
   }
 
   async loadIndex() {
-    this.index = await fetch(`${VOICE}voice.json`).then((r) => r.json()).catch(() => ({}));
+    const get = (dir) => (dir ? fetch(`${dir}voice.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})) : {});
+    const [en, own, no, ownNo] = await Promise.all([get(VOICE), get(PRIVATE_VOICE), get(`${VOICE}no/`), get(PRIVATE_VOICE && `${PRIVATE_VOICE}no/`)]);
+    this.index = Object.assign(en, own);
+    this.indexNo = Object.assign(no, ownNo);
+    this.own = own; this.ownNo = ownNo;
   }
+  // The take a line is heard in: Norwegian when asked for and there is one,
+  // else English; null when the voice is off
+  take(id) {
+    if (SPEECH.voice === 'off') return null;
+    if (SPEECH.voice === 'no' && this.indexNo?.[id]) return { ...this.indexNo[id], url: `${this.ownNo[id] ? `${PRIVATE_VOICE}no/` : `${VOICE}no/`}${id}.mp3` };
+    return this.index[id] && { ...this.index[id], url: `${this.own?.[id] ? PRIVATE_VOICE : VOICE}${id}.mp3` };
+  }
+  // A line's length (s) and mouth track, whichever take is heard
+  entry(id) { return this.take(id) ?? this.index[id]; }
 
   async buffer(id) {
-    if (this.buffers[id]) return this.buffers[id];
-    const p = fetch(`${VOICE}${id}.mp3`).then((r) => { if (!r.ok) throw new Error(id); return r.arrayBuffer(); })
+    const url = this.take(id)?.url;
+    if (!url) return null;
+    if (this.buffers[url]) return this.buffers[url];
+    const p = fetch(url).then((r) => { if (!r.ok) throw new Error(id); return r.arrayBuffer(); })
       .then((b) => this.ctx.decodeAudioData(b)).catch(() => null);
-    this.buffers[id] = p;
+    this.buffers[url] = p;
     return p;
   }
   preload(ids) { if (this.ctx) for (const id of ids) this.buffer(id); }
@@ -48,7 +76,7 @@ export class Sound {
   // (a phone may suspend it) never fires 'ended', so the line's own length,
   // plus a little, ends it too: a silent line must not stall the beat.
   async line(id, { gain = 1 } = {}) {
-    const dur = this.index[id]?.dur;
+    const dur = this.entry(id)?.dur;
     if (this.ctx?.state === 'suspended') this.ctx.resume?.();
     const buf = this.ctx ? await this.buffer(id) : null;
     if (!buf) { await new Promise((r) => setTimeout(r, (dur ?? 3) * 1000)); return; }
@@ -102,11 +130,98 @@ export class Sound {
     this.tone(1318.5, t + 0.12, 0.3, 0.04);
   }
 
+  // A short knock of filtered noise: one key or mouse button
+  tick(t0, freq, level, len = 0.03) {
+    const n = Math.floor(this.ctx.sampleRate * len), buf = this.ctx.createBuffer(1, n, this.ctx.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (n * 0.18));   // a sharp attack, quick decay
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 1.6;
+    const g = this.ctx.createGain();
+    g.gain.value = level;
+    src.connect(bp).connect(g).connect(this.out);
+    src.start(t0);
+    this.live.add(src);
+    src.onended = () => this.live.delete(src);
+  }
+
+  // A mouse click: the button going down, then up
+  click() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.tick(t, 3200, 0.5, 0.025);
+    this.tick(t + 0.075, 2600, 0.3, 0.02);
+  }
+
+  // Someone typing for `secs`: uneven keystrokes, now and then the space bar's deeper knock
+  typing(secs = 0.9) {
+    if (!this.ctx) return;
+    let t = this.ctx.currentTime + 0.02;
+    const end = t + secs;
+    while (t < end) {
+      const space = Math.random() < 0.15;
+      this.tick(t, space ? 900 : 1700 + Math.random() * 900, space ? 0.32 : 0.18 + Math.random() * 0.1, space ? 0.045 : 0.025);
+      t += 0.07 + Math.random() * 0.09;
+    }
+  }
+
   // A desk phone: two rings of 440 + 480 Hz
   ring(times = 2) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     for (let k = 0; k < times; k++) for (const f of [440, 480]) this.tone(f, t + k * 1.2, 0.8, 0.035);
+  }
+
+  // A mobile ringing with the opening of "In the Hall of the Mountain
+  // King" (Adriaen, 2026-10-29: the neighbouring platform's call), sped up and
+  // played through a small phone speaker. Returns its length (s).
+  ringtone(times = 2) {
+    if (!this.ctx) return TUNE_LEN * times;
+    const ctx = this.ctx, spk = ctx.createBiquadFilter(), g = ctx.createGain();
+    spk.type = 'bandpass'; spk.frequency.value = 1500; spk.Q.value = 0.8;
+    g.gain.value = 1;
+    spk.connect(g).connect(this.out);
+    this.ringBus?.disconnect();
+    this.ringBus = g;
+    let t = ctx.currentTime + 0.05;
+    const before = this.live.size;
+    for (let k = 0; k < times; k++) {
+      for (const [n, d] of TUNE) {
+        const f = 987.77 * 2 ** (n / 12);
+        this.tone(f, t, d * 0.85, 0.05, 'square', spk);
+        this.tone(f * 2, t, d * 0.6, 0.012, 'sine', spk);
+        t += d;
+      }
+      t += TUNE_GAP;
+    }
+    // it rings on into the next beat (cut() leaves it) until picked up or hung up
+    for (const o of [...this.live].slice(before)) this.live.delete(o);
+    return TUNE_LEN * times;
+  }
+
+  // The ringtone stops (the call is over, or never answered)
+  hangUp() {
+    const bus = this.ringBus;
+    if (!bus) return;
+    bus.gain.setTargetAtTime(0, this.ctx.currentTime, 0.02); setTimeout(() => bus.disconnect(), 200); this.ringBus = null;
+  }
+
+  // Answering the phone: the ringtone stops, the handset's click
+  pickup() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.hangUp();
+    this.tick(t + 0.03, 700, 0.5, 0.05);
+    this.tick(t + 0.12, 2400, 0.25, 0.02);
+  }
+
+  // Hanging up: the handset back in its cradle, a plastic knock and the hook switch
+  hangupClick() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this.tick(t, 300, 0.6, 0.06);
+    this.tick(t + 0.05, 1800, 0.35, 0.02);
   }
 
   // The process alarm: a two-tone horn every 1.1 s, louder over `build`

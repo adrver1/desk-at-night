@@ -394,6 +394,21 @@
   "col": 2,
   "hex": "#2e9a52"
  },
+ "logo_sky": {
+  "row": 7,
+  "col": 3,
+  "hex": "#7cc6dc"
+ },
+ "logo_teal": {
+  "row": 7,
+  "col": 4,
+  "hex": "#1f8a96"
+ },
+ "logo_navy": {
+  "row": 7,
+  "col": 5,
+  "hex": "#1f3a5f"
+ },
  "sloth_fur": {
   "row": 8,
   "col": 0,

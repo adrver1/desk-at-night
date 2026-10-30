@@ -215,4 +215,4 @@ def _save(im, name):
 if __name__ == "__main__":
     for f in (busy, clad_busy, quarters, truss):
         print(f())
-    print(sign(("IVAR AASEN", "16/1-D", "AKER BP"), 10.0, 4.6))
+    print(sign(("NORDHAV ALFA", "25/1-A", "NORDHAV ENERGI"), 10.0, 4.6))

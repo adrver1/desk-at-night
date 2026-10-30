@@ -16,14 +16,23 @@ Kokoro does calm talk well and stress badly (thread "Character voices"). The
 main speakers are meant to move to a paid voice later; this script is the
 placeholder pass, and a recorded mp3 dropped in with the same id works too
 (add "keep": true to its line so it is not overwritten).
+
+The lines say the public stand-in names (Ola, Nordhav Energi...). With
+--private, the lines that change under the private name map
+(public/story/private/overrides.json "names", git-ignored) are rendered with
+the real names into public/story/private/voice/, which ?private=1 plays
+instead:
+
+    python web/scripts/voices.py --private
 """
-import argparse, hashlib, json, os, subprocess, tempfile
+import argparse, hashlib, json, os, re, subprocess, tempfile
 import numpy as np
 import soundfile as sf
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LINES = os.path.join(HERE, '..', 'src', 'story', 'lines.json')
 OUT = os.path.join(HERE, '..', 'public', 'story', 'voice')
+PRIVATE = os.path.join(HERE, '..', 'public', 'story', 'private')
 SR, FPS = 24000, 30
 
 # Speaker -> (Kokoro voice, speed).
@@ -38,6 +47,7 @@ CAST = {
     'tech': ('am_liam', 1.05),          # curly_fade_tech, on the radio
     'crew': ('bf_emma', 1.0),           # ground crew at Sola (the optional opening)
     'ceo': ('am_onyx', 0.95),           # glasses_ceo, welcomes Adriaen at Føniks one year ago
+    'neighbour': ('bm_daniel', 0.97),   # the neighbouring platform on the phone (caller.js)
     'agent': ('af_nova', 1.05),         # the AI agents on the screens, through the robot filter
 }
 
@@ -88,17 +98,26 @@ def main():
     ap.add_argument('--model', default='/tmp/tts')
     ap.add_argument('--only', nargs='*')
     ap.add_argument('--force', action='store_true')
+    ap.add_argument('--private', action='store_true', help='render the lines with real names into public/story/private/voice')
     args = ap.parse_args()
     from kokoro_onnx import Kokoro
     k = Kokoro(os.path.join(args.model, 'kokoro-v1.0.int8.onnx'), os.path.join(args.model, 'voices-v1.0.bin'))
     lines = {i: l for i, l in json.load(open(LINES)).items() if not i.startswith('_')}
-    os.makedirs(OUT, exist_ok=True)
-    index_path = os.path.join(OUT, 'voice.json')
+    out = OUT
+    if args.private:
+        names = json.load(open(os.path.join(PRIVATE, 'overrides.json'))).get('names', {})
+        keys = sorted(names, key=len, reverse=True)
+        pat = re.compile(r'(?<![\w])(' + '|'.join(map(re.escape, keys)) + r')(?![\w])')
+        real = lambda t: pat.sub(lambda m: names[m.group(1)], t)
+        lines = {i: {**l, 'text': real(l['text'])} for i, l in lines.items() if keys and real(l['text']) != l['text']}
+        out = os.path.join(PRIVATE, 'voice')
+    os.makedirs(out, exist_ok=True)
+    index_path = os.path.join(out, 'voice.json')
     index = json.load(open(index_path)) if os.path.exists(index_path) else {}
     for lid, line in lines.items():
         voice, speed = CAST[line['who']]
         key = hashlib.sha1(json.dumps([line['text'], line['who'], voice, speed, line.get('fx')]).encode()).hexdigest()[:12]
-        mp3 = os.path.join(OUT, f'{lid}.mp3')
+        mp3 = os.path.join(out, f'{lid}.mp3')
         if line.get('keep') or (args.only and lid not in args.only):
             continue
         if not args.force and index.get(lid, {}).get('hash') == key and os.path.exists(mp3):

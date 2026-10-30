@@ -1,5 +1,5 @@
 """
-Medium-detail model of Ivar Aasen, a North Sea PDQ platform (production,
+Medium-detail model of a North Sea PDQ platform (production,
 drilling, quarters), traced from reference views of a scale model and public figures
 (~110 m water, a 108 x 38 m topsides, ~230 m from seabed to flare tip),
 with heights checked against a long-lens side photo.
@@ -548,7 +548,7 @@ def build_topsides(g, m):
     g.span(m["white"], x0 + 0.05, END_X0 - 0.05, -TOP_Y - 1.5, TOP_Y + 0.25, UTIL_TOP - 0.6, UTIL_TOP + 0.08)
 
 
-def name_board(g, m, plane, out, uc, zc, w, h, lines=("IVAR AASEN", "16/1-D", "AKER BP")):
+def name_board(g, m, plane, out, uc, zc, w, h, lines=("NORDHAV ALFA", "25/1-A", "NORDHAV ENERGI")):
     """Yellow board with the platform's name, licence block and operator,
     standing proud of the facade bracing: one quad with its lettering drawn
     into a small image (platform_textures.sign)."""
@@ -609,7 +609,7 @@ def _quarters_v5(g, m):
     g.span(m["lq"], x0, x1, -y, y, UTIL_TOP, LQ_TOP)
     # End tower: full height, from under the deck to the roof
     g.span(m["lq"], END_X0, TOP_X + 0.3, -TOP_Y - 0.25, TOP_Y + 0.25, DECK_BOT - 2, LQ_TOP + 1)
-    name_board(g, m, ("x", TOP_X + 0.3), 1, 0.0, 36.5, 11.6, 2.6, ("IVAR AASEN", "16/1-D AKER BP"))  # over the lifeboats
+    name_board(g, m, ("x", TOP_X + 0.3), 1, 0.0, 36.5, 11.6, 2.6, ("NORDHAV ALFA", "25/1-A NORDHAV ENERGI"))  # over the lifeboats
     # Two free-fall lifeboats side by side on the end face, on skids sloping out
     for yy in (-3.3, 3.3):
         g.beam(m["white"], (TOP_X + 0.3, yy, 31.0), (TOP_X + 7.0, yy, 24.5), 0.5)
@@ -724,7 +724,7 @@ def _quarters(g, m, terraced):
                 g.beam(m["white"], (ex - 0.2, -bay, zz + 1.1), (ex - 0.2, bay, zz + 1.1), 0.1)
     else:
         g.span(m["lq"], END_X0, ex - 0.6, -bay, bay, DECK_BOT - 2, LQ_TOP - 0.2)
-    name_board(g, m, ("x", ex), 1, 0.0, 39.3, 11.6, 2.6, ("IVAR AASEN", "16/1-D AKER BP"))  # over the lifeboats
+    name_board(g, m, ("x", ex), 1, 0.0, 39.3, 11.6, 2.6, ("NORDHAV ALFA", "25/1-A NORDHAV ENERGI"))  # over the lifeboats
     # Two free-fall lifeboats side by side in a white frame, sloping steeply
     # out of the end bay under the name board
     for yy in (-5.4, 0.0, 5.4):
