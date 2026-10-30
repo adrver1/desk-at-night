@@ -198,7 +198,7 @@ const H09 = {
     }),
     // the project in an editor: the agents folder and the chat that uses them
     {
-      kind: 'card', cls: 'vscode', x: 0, y: 0, w: 15.2, anchor: [0.5, 0.5], from: 5, at: (b) => ({ zoom: b === 5 ? 1 : 0.92 }),
+      kind: 'card', cls: 'vscode full', x: 0, y: 0, w: 16, h: 9, anchor: [0.5, 0.5], from: 5,
       html: vscodeHTML({
         title: T('kontrollrom-agent — VS Code', 'control-room-agent — VS Code'),
         tree: [{ t: '.github', dir: 'open' }, { t: 'agents', lvl: 1, dir: 'open' }, ...['CtrlBuddy', 'Compiler', 'Linter'].map((n) => ({ t: `${n}.agent.md`, lvl: 2, hl: true })),
@@ -209,8 +209,8 @@ const H09 = {
         pick: 'CtrlBuddy',
       }),
     },
-    { kind: 'text', cls: 'plaque', html: T('Dette er bare <code>.agent.md</code>-filer i «agents»-mappen i VS Code-prosjektet', 'These are just <code>.agent.md</code> files in the “agents” folder of the VS Code project'), x: 0, y: 0.6, w: 12, anchor: [0.5, 0.5], from: 4 },
-    draw((ctx) => { const k = Math.min(1, ctx.since * 1.2); ring(ctx, -6.4, 1.45, 1.15, 0.5, k); ring(ctx, 3.85, 1.24, 0.75, 0.32, Math.max(0, k * 1.5 - 0.5)); }, 5, { delay: 0.8 }),
+    { kind: 'text', cls: 'plaque', html: T('Dette er bare <code>.agent.md</code>-filer i «agents»-mappen i VS Code-prosjektet', 'These are just <code>.agent.md</code> files in the “agents” folder of the VS Code project'), x: 0, y: 0.6, w: 12, anchor: [0.5, 0.5], from: 4, until: 5 },
+    draw((ctx) => { const k = Math.min(1, ctx.since * 1.2); ring(ctx, -6.45, 2.38, 1.25, 0.6, k); ring(ctx, 4.37, 1.64, 0.95, 0.36, Math.max(0, k * 1.5 - 0.5)); }, 5, { delay: 0.8 }),
   ],
 };
 
