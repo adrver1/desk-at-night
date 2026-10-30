@@ -24,6 +24,8 @@ build none) and "glasses": False (goggles instead).
 default; a pilot has none).
 `ears` scales how far the ears stick out (1.0 is the base body) and
 `ear_flare` swings their back edges away from the head (metres).
+`figure` picks the body proportions (base_body.FIGURES: "default" or the
+slimmer female "slim"); the rig and the clips are the same for every figure.
 """
 import argparse
 import sys
@@ -32,23 +34,26 @@ import accessories
 import base_body as base
 import outfits
 
-HEAD_PARTS = ("hair", "stubble", "beard", "smile", "glasses", "headset", "beanie", "goggles")
+HEAD_PARTS = ("hair", "stubble", "beard", "smile", "glasses", "headset", "beanie", "goggles", "earrings", "lashes")
 
 
 class Look:
     def __init__(self, name, skin, brow, trousers, shoes, hair, top, office, face=None, glasses=None,
-                 headset=False, notes=(), extra=None, ears=1.0, ear_flare=0.0, shared=None):
+                 headset=False, notes=(), extra=None, ears=1.0, ear_flare=0.0, shared=None,
+                 figure="default"):
         self.name, self.skin, self.brow, self.top = name, skin, brow, top
         self.trousers, self.shoes = trousers, shoes
         self.hair, self.office, self.face = hair, office, face or (lambda body: {})
         self.glasses, self.headset, self.notes = glasses, headset, list(notes)
         self.extra = extra or {}
         self.ears, self.ear_flare = ears, ear_flare
+        self.figure = figure
         self.outfits = list(outfits.OUTFITS if shared is None else shared)
 
 
 def build(look, outfit, out, reference=None, private_dir=None):
     base.reset()
+    base.set_figure(look.figure)
     legs = {"hips": look.trousers, "thigh": look.trousers, "shin": look.trousers, "shoe": look.shoes}
     if outfit == "office":
         body = base.body(skin=look.skin, brow=look.brow, colors={**legs, **look.top}, ear_scale=look.ears, ear_flare=look.ear_flare)

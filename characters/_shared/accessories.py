@@ -9,6 +9,7 @@ Each returns a Mesh in its own region; a character passes
     headset()        over-ear headset with a band over the hair and a cable
     beanie(color)    knitted hat with a turned-up cuff
     goggles()        ski goggles with a wide lens and a strap round the hat
+    earrings()       pearl studs under the ear lobes
 """
 import math
 
@@ -172,4 +173,19 @@ def goggles(lens="hivis_orange", frame="plastic_black", strap="plastic_black", r
         ru, rv, dv = base.ring_at(base.HEAD, z)
         rings.append((z, ru, rv, dv, region))
     m.tube(rings, swatch=strap, offset=0.026, cap_start=False, cap_end=False)
+    return m
+
+
+def earrings(swatch="pearl", r=0.0085, drop=0.009, region="earrings"):
+    """Pearl stud earrings: a small rounded bead under each ear lobe, a
+    hexagonal bipyramid with a middle ring (24 triangles a pearl). Ears
+    that are hidden (ear defenders) hide them too: leave them out then."""
+    m = base.Mesh()
+    for s in (1, -1):
+        c = Vector((s * 0.122, -0.006, 1.565 - drop))
+        ring_hi = [c + Vector((math.cos(math.radians(a)) * r * 0.8, math.sin(math.radians(a)) * r * 0.8, r * 0.55))
+                   for a in base.HEX6]
+        ring_lo = [c + Vector((math.cos(math.radians(a + 30)) * r, math.sin(math.radians(a + 30)) * r, -r * 0.15))
+                   for a in base.HEX6]
+        m.hull(ring_hi + ring_lo + [c + Vector((0, 0, r * 1.05)), c - Vector((0, 0, r * 0.95))], swatch, region)
     return m

@@ -42,7 +42,8 @@ ROWS = [
      ("turquoise", "#4cc0cc"), ("turquoise_dark", "#2f98a4"), ("pale_blue", "#d7e3ee")],
     # 5 neutrals
     [("white", "#f1f1ee"), ("light_grey", "#c4c6c6"), ("grey", "#8b8f92"), ("slate", "#73838d"),
-     ("charcoal", "#3c4145"), ("black", "#16181a"), ("undersuit", "#9aa0a4")],
+     ("charcoal", "#3c4145"), ("black", "#16181a"), ("undersuit", "#9aa0a4"),
+     ("pearl", "#efe8da")],
     # 6 leather, rubber, metal, glass, plastic
     [("leather_brown", "#5a3a26"), ("leather_tan", "#a0714a"), ("rubber", "#26282a"),
      ("steel", "#9ea7ad"), ("gold", "#c9a24a"), ("glass", "#9fc4d2"), ("lens", "#202a33"),
@@ -51,6 +52,9 @@ ROWS = [
     # 7 logos and badges
     [("logo_magenta", "#c42a72"), ("logo_orange", "#ec8a3c"), ("logo_green", "#2e9a52"),
      ("logo_sky", "#7cc6dc"), ("logo_teal", "#1f8a96"), ("logo_navy", "#1f3a5f")],
+    # 8 animals and soft toys
+    [("sloth_fur", "#8f7c62"), ("sloth_fur_dark", "#6a5844"), ("sloth_face", "#e4d6bc"),
+     ("sloth_mask", "#3a2a1f"), ("claw", "#d8cbb0"), ("sloth_tan", "#b49670")],
 ]
 
 SWATCHES = {}

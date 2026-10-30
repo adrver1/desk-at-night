@@ -5,7 +5,8 @@ top. Hairlines are a height per head ring angle (base.BOXY8), so receding
 temples or a bald crown are just different numbers.
 
     cap(color, hairline)             the cropped shell on its own (also: under a helmet)
-    side_sweep, swept_up, quiff, curly_top, swept_back, curly_mullet, crop_top, buzz
+    side_sweep, swept_up, quiff, curly_top, swept_back, curly_mullet, crop_top, buzz,
+    ponytail
                                       styles; each takes helmet=True to keep
                                       only what shows under a hard hat
 """
@@ -367,3 +368,47 @@ def crop_top(color, temples, hairline=FULL, helmet=False):
 def buzz(color, hairline=RECEDING, helmet=False):
     """Very short all over: just the cap, close to the scalp."""
     return cap(color, hairline, offsets=(0.009, 0.009, 0.010), lifts=(0.0, 0.003, 0.008))
+
+
+TIE = "charcoal"
+# The ponytail's path down the back of the head, (y, z, half width, half
+# depth) from inside the tie down to the tip between the shoulder blades
+TAIL = [(-0.108, 1.668, 0.024, 0.021), (-0.142, 1.648, 0.036, 0.030), (-0.160, 1.592, 0.040, 0.032),
+        (-0.160, 1.510, 0.036, 0.028), (-0.150, 1.425, 0.028, 0.021), (-0.140, 1.350, 0.016, 0.013),
+        (-0.134, 1.300, 0.004, 0.004)]
+
+
+def ponytail(color, tie=TIE, hairline=FULL, helmet=False, length=1.0):
+    """Long hair pulled back smooth from the forehead into a ponytail: one
+    shell over the head with a little lift on top, a hair tie at the back
+    of the head and a tapered tail hanging to between the shoulder blades
+    (length < 1 cuts it shorter). Under a helmet only the shell's lowest
+    rows stay and the tail still hangs out at the back."""
+    rows = [(0.0, 0.007, 0.0),
+            (per(0.25, 0.3, 0.3, 0.3), per(0.012, 0.012, 0.012, 0.013), per(0.003, 0.002, 0.002, 0.002)),
+            (per(0.55, 0.6, 0.6, 0.62), per(0.016, 0.015, 0.015, 0.016), per(0.010, 0.008, 0.007, 0.006)),
+            (per(0.85, 0.88, 0.88, 0.9), per(0.015, 0.014, 0.014, 0.014), per(0.018, 0.015, 0.013, 0.012))]
+    m = cap(color, hairline) if helmet else shell(hairline, rows, [color] * 4, (0.0, -0.01, CROWN + 0.024))
+    # hair tie: a short band round the root of the tail
+    y0, z0 = TAIL[0][:2]
+    y1, z1 = TAIL[1][:2]
+    c0, c1 = Vector((0, y0, z0)), Vector((0, y1, z1))
+    axis = (c1 - c0).normalized()
+    u, v, w = base.frame(axis, base.X)
+    tie_at = (c0 + (c1 - c0) * 0.25, c0 + (c1 - c0) * 0.5)
+    m.loft([[p + v * math.cos(math.radians(a)) * 0.032 + u * math.sin(math.radians(a)) * 0.028
+             for a in base.HEX6] for p in tie_at], tie, "hair_tie")
+    # the tail: hexagonal sections along the path, wider than deep
+    keep = max(3, round(len(TAIL) * length))
+    path = TAIL[:keep - 1] + TAIL[-1:] if keep < len(TAIL) else TAIL
+    if keep < len(TAIL):  # pull the tip up to the shorter end
+        path[-1] = (path[-2][0] + 0.006, path[-2][1] - 0.05, 0.003, 0.003)
+    secs = []
+    for k, (y, z, hw, hd) in enumerate(path):
+        c = Vector((0, y, z))
+        a = Vector((0, *path[max(k - 1, 0)][:2])), Vector((0, *path[min(k + 1, len(path) - 1)][:2]))
+        u, v, w = base.frame(a[1] - a[0], base.X)
+        secs.append([c + v * math.cos(math.radians(t)) * hw + u * math.sin(math.radians(t)) * hd
+                     for t in base.HEX6])
+    m.loft(secs, color, "ponytail")
+    return m
