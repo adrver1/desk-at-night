@@ -40,46 +40,76 @@ const wy = (local) => WELL_Y + WS * local; // well-local height -> world
 const SEP = new THREE.Vector3(0, -SDIM.ground, 0); // skid feet on the deck
 const BOTTOM = wy(D.res[0]) - 1.5;
 
-// backdrop: sea under the deck, rock strata, the reservoir band at the bottom
-function strataTexture() {
+// The ground and the sea as a 3D block diagram, cut on the well's plane
+// (z = 0) with a notch around the well so its cut-open half stays in view.
+// Platform well, not subsea (Adriaen 2026-10-30): the well goes straight
+// down from the wellbay through a conductor inside the jacket, so there is
+// no riser between the tree and the choke. Depths are squeezed: the sea is
+// ~110 m deep, the reservoir ~2 km down.
+const SEA = -1.4, SEABED = -6, BACK = -9, NOTCH = [WELL_X - 1.9, WELL_X + 1.9, -1.9];
+const BX0 = -17, BX1 = 9;
+function strataTexture() { // rows run from the seabed (top) to the bottom of the block
   const c = document.createElement('canvas'); c.width = 64; c.height = 512;
-  const g = c.getContext('2d'), y = (m) => ((-0.25 - m) / (-0.25 - BOTTOM)) * 512; // world y -> pixel row
-  const grd = g.createLinearGradient(0, 0, 0, y(-5)); grd.addColorStop(0, '#1d4a5e'); grd.addColorStop(1, '#0f2a38');
-  g.fillStyle = grd; g.fillRect(0, 0, 64, y(-5));
+  const g = c.getContext('2d'), y = (m) => ((SEABED - m) / (SEABED - BOTTOM)) * 512;
+  g.fillStyle = '#6d6248'; g.fillRect(0, 0, 64, 10); // seabed sediment
   const bands = ['#3b3a35', '#45423a', '#34332f', '#4a463c', '#3a3832', '#433f37'];
-  for (let i = 0, yy = y(-5); yy < y(wy(D.res[1])); i++) { const h = 18 + (i * 37) % 30; g.fillStyle = bands[i % bands.length]; g.fillRect(0, yy, 64, h); yy += h; }
+  for (let i = 0, yy = 10; yy < y(wy(D.res[1])); i++) { const h = 18 + (i * 37) % 30; g.fillStyle = bands[i % bands.length]; g.fillRect(0, yy, 64, h); yy += h; }
   const r0 = y(wy(D.res[1])), r1 = y(wy(D.res[0]));
   g.fillStyle = '#7a6236'; g.fillRect(0, r0, 64, r1 - r0);
   for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(30,20,8,${0.25 + 0.3 * Math.random()})`; g.fillRect(Math.random() * 64, r0 + Math.random() * (r1 - r0), 1.5, 1.5); }
   g.fillStyle = '#2b2925'; g.fillRect(0, r1, 64, 512);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = THREE.RepeatWrapping; return t;
 }
-const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(60, -0.25 - BOTTOM), new THREE.MeshBasicMaterial({ map: strataTexture() }));
-backdrop.position.set(-4, (-0.25 + BOTTOM) / 2, -6.5);
+// a box x0..x1, y0..y1, z0..z1; with `earth`, uv follows world height (strata
+// line up across every face) and the top gets a gentle seabed swell
+function block(x0, x1, y0, y1, z0, z1, earth) {
+  const g = new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0, earth ? Math.ceil(x1 - x0) : 1, 1, earth ? Math.ceil(z1 - z0) : 1);
+  g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+  if (earth) {
+    const p = g.attributes.position, uv = g.attributes.uv;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), z = p.getZ(i);
+      if (p.getY(i) > y1 - 1e-3) p.setY(i, y1 + 0.12 * Math.sin(x * 0.7 + z * 0.4) + 0.08 * Math.sin(z * 1.3 - x * 0.3));
+      uv.setXY(i, (x + z) / 9, 1 - (SEABED - p.getY(i)) / (SEABED - BOTTOM));
+    }
+    g.computeVertexNormals();
+  }
+  return g.toNonIndexed();
+}
+const notched = (y0, y1, earth) => [block(BX0, NOTCH[0], y0, y1, BACK, 0, earth), block(NOTCH[1], BX1, y0, y1, BACK, 0, earth), block(NOTCH[0], NOTCH[1], y0, y1, BACK, NOTCH[2], earth)];
+const earth = new THREE.Mesh(mergeGeometries(notched(BOTTOM, SEABED, true)), new THREE.MeshLambertMaterial({ map: strataTexture() }));
+const water = new THREE.Mesh(mergeGeometries(notched(SEABED, SEA, false)),
+  new THREE.MeshStandardMaterial({ color: 0x1f6f8a, transparent: true, opacity: 0.38, roughness: 0.15, metalness: 0, depthWrite: false }));
+water.renderOrder = 1;
 const deck = new THREE.Mesh(new THREE.BoxGeometry(28, 0.25, 9), new THREE.MeshStandardMaterial({ color: 0x55606a, roughness: 0.8, metalness: 0.2 }));
-deck.position.set(-4, -0.125, -2);
-scene.add(backdrop, deck);
+deck.position.set(-4, -0.125, -3.5);
+scene.add(earth, water, deck);
 
-// Platform well, not subsea (Adriaen 2026-10-30): the well goes straight
-// down from the wellbay through a conductor inside the jacket, so there is
-// no riser between the tree and the choke. Conductor (back half, the cut
-// faces the viewer), two jacket legs behind and the seabed line.
-const SEABED = -5; // compressed: the sea is ~110 m deep
+// jacket: four battered legs from the deck to the seabed, braced on every
+// face, and the conductor around the well (back half, cut like the well)
 const jacketMat = new THREE.MeshStandardMaterial({ color: 0xc9b23a, roughness: 0.7, metalness: 0.2, side: THREE.DoubleSide });
 {
-  const parts = [];
+  const parts = [], V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const tubeAB = (a, b, r, seg = 8) => {
+    const t = new THREE.CylinderGeometry(r, r, a.distanceTo(b), seg, 1, true);
+    t.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), b.clone().sub(a).normalize()));
+    t.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2); parts.push(t);
+  };
+  const top = [V(-15.5, -0.25, -6.5), V(6.5, -0.25, -6.5), V(6.5, -0.25, -0.5), V(-15.5, -0.25, -0.5)];
+  const bot = [V(-16.6, SEABED, -7.6), V(7.6, SEABED, -7.6), V(7.6, SEABED, -0.3), V(-16.6, SEABED, -0.3)];
+  const at = (k, f) => top[k].clone().lerp(bot[k], f);
+  for (let k = 0; k < 4; k++) tubeAB(top[k], bot[k], 0.5, 10);
+  const levels = [0.02, 0.5, 0.98];
+  for (let k = 0; k < 4; k++) {
+    const n = (k + 1) % 4;
+    for (const f of levels) tubeAB(at(k, f), at(n, f), 0.18, 6); // horizontal frames
+    for (let j = 0; j < levels.length - 1; j++) { // X braces between frames
+      tubeAB(at(k, levels[j]), at(n, levels[j + 1]), 0.14, 5); tubeAB(at(n, levels[j]), at(k, levels[j + 1]), 0.14, 5);
+    }
+  }
   const cond = new THREE.CylinderGeometry(WS * (D.rc + 0.16), WS * (D.rc + 0.16), -0.25 - SEABED + 0.6, 14, 1, true, Math.PI / 2, Math.PI);
   cond.translate(WELL_X, (-0.25 + SEABED - 0.6) / 2, 0); parts.push(cond);
-  for (const [x0, x1] of [[-15.5, -16.6], [6.5, 7.6]]) { // battered legs
-    const a = new THREE.Vector3(x0, -0.25, -5), b = new THREE.Vector3(x1, SEABED, -5.6);
-    const leg = new THREE.CylinderGeometry(0.55, 0.55, a.distanceTo(b), 10);
-    leg.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize()));
-    leg.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2); parts.push(leg);
-  }
-  for (const y of [-1.8, -3.6]) { const br = new THREE.CylinderGeometry(0.2, 0.2, 22.6, 6); br.rotateZ(Math.PI / 2); br.translate(-4.5, y, -5.2); parts.push(br); }
-  scene.add(new THREE.Mesh(mergeGeometries(parts.map((g) => g.toNonIndexed())), jacketMat));
-  const bed = new THREE.Mesh(new THREE.BoxGeometry(60, 0.12, 12), new THREE.MeshLambertMaterial({ color: 0x5a5140 }));
-  bed.position.set(-4, SEABED - 0.06, -0.5); scene.add(bed);
+  scene.add(new THREE.Mesh(mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g))), jacketMat));
 }
 
 // the well, its choke and controller
@@ -151,10 +181,12 @@ function frame() {
   renderer.setSize(w, h, false); camera.aspect = w / h;
   camera.setViewOffset(w, h, 0, -(top - bot) / 2, w, h);
   const v = VIEWS[state.view], t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-  const dist = Math.max(v.h[1] / (t * band / h), v.h[0] / (t * camera.aspect)) * 1.04;
+  const dist = Math.max(v.h[1] / (t * band / h), v.h[0] / (t * camera.aspect)) * (state.view === 'whole' ? 1.1 : 1.04);
   controls.target.set(v.c[0], v.c[1], 0);
-  const lift = state.view === 'topside' || state.view === 'separator' ? 0.22 : 0.05; // look down a little on the deck
-  camera.position.set(controls.target.x + dist * 0.12, controls.target.y + dist * lift, dist);
+  // three-quarter views from the front right and above, so the block, the
+  // jacket and the deck read as 3D
+  const [side, lift] = { whole: [0.55, 0.32], topside: [0.3, 0.24], separator: [0.15, 0.22], bottom: [0.35, 0.1] }[state.view];
+  camera.position.set(controls.target.x + dist * side, controls.target.y + dist * lift, dist);
   camera.updateProjectionMatrix();
 }
 addEventListener('resize', frame);
@@ -166,7 +198,7 @@ const LABELS = [
   ['Flowline', () => new THREE.Vector3((chokeOut.x + inletStart.x) / 2, FY + 0.5, -4), 't'],
   ['Inlet separator', () => new THREE.Vector3(1.5, SEP.y + SDIM.R + 0.5, 0), 'tws'],
   ['Liquid level', () => new THREE.Vector3(-2.6, SEP.y + sepSim.hL + 0.2, 1.2), 's'], ['Weir', () => new THREE.Vector3(SDIM.weirX, SEP.y + SDIM.crest + 0.3, 1.2), 's'],
-  ['Conductor inside the jacket (no riser)', () => new THREE.Vector3(WELL_X + WS * (D.rc + 0.2) + 0.2, -2.6, 0), 'w'], ['Seabed', () => new THREE.Vector3(-14.5, SEABED + 0.4, 0), 'w'],
+  ['Conductor (no riser)', () => new THREE.Vector3(WELL_X + WS * (D.rc + 0.2) + 0.2, -2.6, 0), 'w'], ['Seabed', () => new THREE.Vector3(-13.5, SEABED + 0.5, 0), 'w'], ['Sea', () => new THREE.Vector3(3, SEA - 0.8, 0), 'w'],
   ['Tubing', wl('tubing'), 'w'], ['Annulus (lift gas)', wl('annulus'), 'w'], ['Gas-lift valve', wl('glv'), 'wb'], ['Packer', wl('packer'), 'b'],
   ['Reservoir ≈ 2 km down', wl('res'), 'wb'], ['Bottom-hole pressure', wl('gauge'), 'wb'],
 ].map(([text, at, views]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at, views }; });
