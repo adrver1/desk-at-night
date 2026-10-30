@@ -3,8 +3,9 @@
 // written line by line; on the other, the same thing as a little 3D workshop
 // where Ola fits him together part by part, with a spanner, sparks and a weld
 // light, over a blueprint of the finished robot, and a progress ring.
-// Ola faces him and works on the part being fitted: kneeling at the base, then
-// standing, with a spanner (round and round) or a hammer (up slowly, down hard),
+// Ola faces him and works on the part being fitted, in one half-crouch
+// throughout (Adriaen, 2026-10-30: no rising and sinking); his back, head and
+// arms follow the part's height, with a spanner (round and round) or a hammer (up slowly, down hard),
 // posed bone by bone over his idle clip (Adriaen, 2026-10-30: not one lifted hand).
 // Adriaen picked the two monitors in the room (A) over a full-screen split (B)
 // and the workshop full screen (C), 2026-10-30.
@@ -32,8 +33,9 @@ const DUR = 8;   // s, the whole build (Adriaen, 2026-10-30: twice as fast)
 const HOLD = new URLSearchParams(location.search).get('buildAt');   // ?buildAt=0..1 holds the build there (stills)
 const smooth = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
 
-// What Ola does at each part: kneel or stand, and the tool
-const WORK = [{ kneel: true, tool: 'wrench' }, { kneel: true, tool: 'hammer' }, { tool: 'wrench' }, { tool: 'hammer' }, { tool: 'wrench' }];
+// The tool Ola works each part with
+const WORK = [{ tool: 'wrench' }, { tool: 'hammer' }, { tool: 'wrench' }, { tool: 'hammer' }, { tool: 'wrench' }];
+const CROUCH = 0.08;   // m his hips sit lower than standing, the whole build
 const UP = new THREE.Vector3(0, 1, 0);
 
 // Turn a bone so its length (+Y) points along a world direction, blended by w
@@ -177,13 +179,15 @@ export class Workshop {
     const ob = bones(this.op), b = (n) => ob[n.replace('.', '')] ?? ob[n];
     this.ob = Object.fromEntries(['hips', 'spine', 'upper_arm.L', 'forearm.L', 'hand.L', 'upper_arm.R', 'forearm.R', 'hand.R', 'thigh.L', 'shin.L', 'foot.L', 'thigh.R', 'shin.R', 'foot.R'].map((n) => [n, b(n)]));
     for (const tool of [this.spanner, this.hammer]) { this.ob['hand.R']?.add(tool); tool.position.set(0, 0.08, 0.02); }
-    // how far down he goes to kneel: his hips to one knee on the floor
+    // his leg, to bend the knees so the hips sit CROUCH lower with the feet where they were
     this.opMix.update(0);
     this.op.updateMatrixWorld(true);
     const at = (n) => this.ob[n]?.getWorldPosition(new THREE.Vector3()) ?? new THREE.Vector3();
-    this.drop = Math.max(0, at('hips').y - at('thigh.R').distanceTo(at('shin.R')) - 0.08);
-    this.kneel = 0;
+    const thigh = at('thigh.R').distanceTo(at('shin.R')), shin = at('shin.R').distanceTo(at('foot.R'));
+    this.knee = Math.acos(Math.min(1, (thigh + shin - CROUCH) / (thigh + shin)));
     this.reach = 0;
+    this.aimAt = new THREE.Vector3(0.4, 1.0, 0);
+    this.ob.head = b('head'); this.ob.neck = b('neck');
     // him on his stand, and his blueprint: a wireframe of the finished robot the parts fill in
     this.bud = bud.scene;
     this.bud.position.set(0.4, -0.3, 0);
@@ -255,27 +259,31 @@ export class Workshop {
   // Ola at work on the part being fitted (null: done, he stands back)
   work(job, dt) {
     const B = this.ob, ease = (v, to, rate) => v + (to - v) * Math.min(1, dt * rate);
-    this.kneel = ease(this.kneel, job?.kneel ? 1 : 0, 5);
     this.reach = ease(this.reach, job ? 1 : 0, 6);
     this.spanner.visible = job?.tool !== 'hammer';
     this.hammer.visible = job?.tool === 'hammer';
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.op.quaternion), side = new THREE.Vector3().crossVectors(fwd, UP);
-    // kneel on the right knee: right thigh down, shin back along the floor; left thigh forward, shin down
-    const k = smooth(this.kneel);
-    this.op.position.y = -this.drop * k;
-    if (k > 0.001) {
-      aim(B['spine'], UP.clone().addScaledVector(fwd, 0.35).normalize(), k);
-      aim(B['thigh.R'], UP.clone().negate(), k);
-      aim(B['shin.R'], fwd.clone().negate().addScaledVector(UP, -0.1).normalize(), k);
-      aim(B['foot.R'], fwd.clone().negate().addScaledVector(UP, -0.6).normalize(), k);
-      aim(B['thigh.L'], fwd.clone().addScaledVector(UP, -0.05).normalize(), k);
-      aim(B['shin.L'], UP.clone().negate().addScaledVector(fwd, 0.1).normalize(), k);
-      aim(B['foot.L'], fwd, k);
+    // where he works, eased so a new part doesn't jerk him round
+    this.aimAt.lerp(this.weldAt, Math.min(1, dt * 4));
+    // the half-crouch: knees forward, shins back to the feet, the same all the way through
+    const c = Math.cos(this.knee), sn = Math.sin(this.knee);
+    this.op.position.y = -CROUCH;
+    for (const s of ['L', 'R']) {
+      aim(B[`thigh.${s}`], UP.clone().multiplyScalar(-c).addScaledVector(fwd, sn).normalize());
+      aim(B[`shin.${s}`], UP.clone().multiplyScalar(-c).addScaledVector(fwd, -sn).normalize());
+      aim(B[`foot.${s}`], fwd);
     }
+    // bent over as far as the part is low: none at chest height, a deep bow at his knees
+    const chest = B['upper_arm.R']?.getWorldPosition(new THREE.Vector3()).y ?? 1.3;
+    const bow = THREE.MathUtils.clamp((chest - 0.1 - this.aimAt.y) / 0.8, 0, 1) * smooth(this.reach);
+    aim(B['spine'], UP.clone().addScaledVector(fwd, 1.1 * bow).normalize());
+    // and his head turned to it
+    const head = B.head;
+    if (head) aim(head, UP.clone().add(this.aimAt.clone().sub(head.getWorldPosition(new THREE.Vector3())).normalize().multiplyScalar(0.8)).normalize(), 0.7 * smooth(this.reach));
     // both hands to the part: the left holds it, the right works the tool
     const w = smooth(this.reach), t = this.t;
     if (w < 0.001) return;
-    const to = (bone) => this.weldAt.clone().sub(bone.getWorldPosition(new THREE.Vector3())).normalize();
+    const to = (bone) => this.aimAt.clone().sub(bone.getWorldPosition(new THREE.Vector3())).normalize();
     if (B['upper_arm.L']) {
       aim(B['upper_arm.L'], to(B['upper_arm.L']).addScaledVector(UP, -0.5).addScaledVector(side, -0.2).normalize(), w);
       aim(B['forearm.L'], to(B['forearm.L']).addScaledVector(side, -0.15).normalize(), w);
@@ -285,7 +293,7 @@ export class Workshop {
     let d = to(B['forearm.R']);
     if (job?.tool === 'hammer') {
       // up slowly, down hard: a beat of 0.55 s
-      const ph = (t / 0.55) % 1, a = ph < 0.75 ? 1.2 * smooth(ph / 0.75) : 1.2 * (1 - (ph - 0.75) / 0.25);
+      const ph = (t / 0.55) % 1, a = ph < 0.75 ? 0.7 * smooth(ph / 0.75) : 0.7 * (1 - (ph - 0.75) / 0.25);
       d = d.multiplyScalar(Math.cos(a)).addScaledVector(UP, Math.sin(a)).normalize();
     } else {
       // round and round with the spanner
