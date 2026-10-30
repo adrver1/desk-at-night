@@ -128,6 +128,7 @@ export class Buddy {
     // the pointer only in the beat that clicks him (state buddyPointer; Adriaen, 2026-10-29: not while he waves)
     if (!look || !s.buddyPointer) { this.pointer.visible = false; this.click = null; S.buddy.clickAt = -99; }
     this.curve(s.curve);
+    this.curveEl.classList.toggle('late', Boolean(s.curveLate));
   }
 
   // The pointer comes in, goes to him and clicks; resolves once he has been clicked
@@ -274,7 +275,7 @@ export class Buddy {
     return el;
   }
 
-  // 'axes' shows the panel and its axes, 'plot' draws the curve in as well, 'both' shows that one
+  // 'axes' shows the panel and its axes (state curveLate: a moment later, after the thoughts), 'plot' draws the curve in as well, 'both' shows that one
   // drawn and draws the second (with CtrlBuddy) over it
   curve(step) {
     this.curveEl.classList.toggle('on', Boolean(step));

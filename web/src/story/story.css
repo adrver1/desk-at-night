@@ -365,6 +365,10 @@
 .learning { position: absolute; left: 44%; top: 50%; width: 52%; aspect-ratio: 420 / 300; transform: translate(0, -48%); opacity: 0; transition: opacity 0.6s, transform 0.6s; z-index: 6; pointer-events: none;
   background: #0d1418d9; border-radius: calc(1.2 * var(--u)); padding: calc(1.6 * var(--u)); box-sizing: border-box; }
 .learning.on { opacity: 1; transform: translate(0, -50%); }
+/* after the thoughts (curveLate): once the face and the bubbles have gone */
+.learning.late.on { transition-delay: 0.6s; }
+.learning.late.on .axis { transition-delay: 0.9s; }
+.learning.late.on .arrow { transition-delay: 1.5s; }
 .learning svg { width: 100%; height: 100%; overflow: visible; }
 .learning .axis, .learning .arrow { fill: none; stroke: #e8eef2; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .learning .plot { fill: none; stroke: #5fe0b7; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 700; stroke-dashoffset: 700; }
@@ -390,6 +394,8 @@
 .thoughts .bubble { position: absolute; display: flex; flex-direction: column; align-items: center; gap: calc(0.8 * var(--u)); transform: translate(-50%, -50%) scale(0.4); opacity: 0;
   transition: opacity 0.35s, transform 0.45s cubic-bezier(.3,1.6,.5,1); background: #f4f1e8; color: #1c2730; border-radius: 50%; width: min(27vh, 21vw); aspect-ratio: 1.4; justify-content: center; box-shadow: 0 0.6vh 2.5vh #0007; }
 .thoughts .bubble.in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.thoughts .face { transition: opacity 0.5s; }
+.thoughts.bare .face, .thoughts.bare .bubble { opacity: 0; transition: opacity 0.5s; }   /* thoughts: 'dim', only the dark stays */
 .thoughts .bubble svg { width: 34%; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .thoughts .bubble .letters { font: 800 calc(3.4 * var(--u)) var(--display, system-ui); letter-spacing: 0.04em; }
 .thoughts .bubble span { font: 600 calc(1.6 * var(--u)) var(--display, system-ui); text-align: center; padding: 0 9%; line-height: 1.15; }

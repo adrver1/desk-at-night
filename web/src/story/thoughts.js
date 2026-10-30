@@ -6,7 +6,9 @@
 //
 // State key (content.js): thoughts: true shows his face; Space (main.js
 // next) brings in the next bubble before the story moves on, ← takes one
-// away, and a beat stepped back into shows them all.
+// away, and a beat stepped back into shows them all. thoughts: 'dim' keeps
+// only the dark behind them (Adriaen, 2026-10-30: the learning curve again,
+// over the same dark): the face and the bubbles fade away.
 import { T } from './lang.js';
 
 // Line-drawn icons, 48 units square: stroke only, so they take the bubble's colour
@@ -23,7 +25,7 @@ const THINGS = [
   [T('TBF', 'TLA'), 'Forkortelser', 'Acronyms'],
   ['oil', 'Petroleumsfag', 'Petroleum engineering'],
   ['assets', 'Assetene', 'The assets'],
-  ['AI', 'Kunstig intelligens', 'Artificial intelligence'],   // (Adriaen, 2026-10-29)
+  [T('KI', 'AI'), 'Kunstig intelligens', 'Artificial intelligence'],   // (Adriaen, 2026-10-29; KI in Norwegian, 2026-10-30)
 ];
 // Where the bubbles sit round the face, as % of the overlay (x, y of their centre)
 const SPOTS = [[24, 20], [76, 20], [12, 52], [88, 52], [30, 84], [70, 84]];
@@ -48,11 +50,13 @@ export class Thoughts {
 
   // The story's state: shown or not; a fresh showing starts with no bubbles
   // (or all of them, stepping back into the beat)
-  set(on, all = false) {
-    on = Boolean(on);
+  set(mode, all = false) {
+    const on = Boolean(mode);
     if (on && !this.on) this.show(all ? this.bubbles.length : 0);
     this.on = on;
+    this.bare = mode === 'dim';
     this.el.classList.toggle('on', on);
+    this.el.classList.toggle('bare', this.bare);
   }
 
   show(n) {
@@ -62,7 +66,7 @@ export class Thoughts {
 
   // Space / ←: one bubble more or less; false when there is none left to step
   step(dir) {
-    if (!this.on) return false;
+    if (!this.on || this.bare) return false;
     const n = this.n + dir;
     if (n < 0 || n > this.bubbles.length) return false;
     this.show(n);

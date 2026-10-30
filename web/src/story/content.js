@@ -586,13 +586,31 @@ const SHORT_CHAPTERS = [
       { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
       // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
       { id: 'm.think', set: { curve: null, thoughts: true }, notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
-      // (Adriaen, 2026-10-30) the curve again, and a second one over it: him and CtrlBuddy together, steeper and higher
-      { id: 'm.curve3', set: { thoughts: null, curve: 'both', shot: 'curveDesk' }, notes: 'Med CtrlBuddy: brattere, og høyere. Menneske + AI får gjort mer, raskere.' },
+      // (Adriaen, 2026-10-30) the curve again, and a second one over it: him and CtrlBuddy together, steeper
+      // and higher. Over the thoughts' dark, once his face and the bubbles have gone, in three clicks: the axes,
+      // the curve as before, then the new one
+      { id: 'm.curve3', set: { thoughts: 'dim', curve: 'axes', curveLate: true, shot: 'curveDesk' }, notes: 'Læringskurven igjen.' },
+      { id: 'm.curve4', set: { curve: 'plot' }, notes: 'Den bratte kurven, som før.' },
+      { id: 'm.curve5', set: { curve: 'both' }, notes: 'Med CtrlBuddy: brattere, og høyere. Menneske + KI får gjort mer, raskere.' },
+      // (Adriaen, 2026-10-30) how he was made: VS Code on one monitor, his agent file typed in section by
+      // section, and on the one beside it Ola fitting him together part by part (workshop.js)
+      { id: 'm.build', set: { curve: null, thoughts: null, call: null, phone: null, explain: null, build: true, shot: 'pair:Desk0Mon0Screen,Desk0Mon1Screen',
+        screens: { Desk0Mon0Screen: 'buildCode', Desk0Mon1Screen: 'workshop' } },
+        notes: 'Jeg bygde CtrlBuddy i VS Code: instruksjoner, verktøy og kunnskap, bit for bit. Ringen viser hvor langt agenten er kommet.' },
+      { id: 'm.buddy1', set: { build: null, curve: null, thoughts: null, call: null, phone: null, explain: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
+        notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
+      // (Adriaen, 2026-10-29) what he is, one part per beat, while he waves; the click comes after the call
+      // (Adriaen, 2026-10-30: the build and these before the call)
+      { id: 'm.what1', set: { shot: 'side:Desk0Mon1Screen', explain: 1 }, notes: 'Hva CtrlBuddy er: en KI-agent bygget i VS Code, med GitHub Copilot som harness.' },
+      { id: 'm.what2', set: { explain: 2 }, notes: 'Modellen: Auto / Opus 5.5.' },
+      { id: 'm.what3', set: { explain: 3 }, notes: 'Instruksjonene: oppfører seg som en erfaren automasjonsingeniør.' },
+      { id: 'm.what4', set: { explain: 4 }, notes: 'Verktøyene: datakilder via API-er (CDF, ABB LoopInsight).' },
+      { id: 'm.what5', set: { explain: 5 }, notes: 'Kunnskapsbasen: selskaps- og fagspesifikk kunnskap for oppgavene.' },
       // (Adriaen, 2026-10-29) and then the neighbouring platform calls about its separator
       // (Adriaen, 2026-10-29) the phone rings, in its own beat (it rings on while the presenter talks);
       // then the call: he picks up in the room behind, his portrait moves aside for the caller's,
       // and the separator comes up once the caller has said who it is
-      { id: 'm.ring', set: { thoughts: null, curve: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' }, do: [{ sound: 'ringtone', times: 6 }],
+      { id: 'm.ring', set: { thoughts: null, curve: null, explain: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' }, do: [{ sound: 'ringtone', times: 6 }],
         notes: 'Telefonen ringer. Space: han tar den.' },
       { id: 'm.call', set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' },
         do: [{ set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
@@ -606,19 +624,7 @@ const SHORT_CHAPTERS = [
           { set: { phone: null } }, { wait: 0.65 }, { sound: 'hangup' }, { wait: 0.9 }, { set: { call: null } }, { wait: 0.6 }],
         end: { call: null, phone: null },
         notes: 'Separatoren deres slugger, og de spør den nye operatøren om råd. Han legger på.' },
-      // (Adriaen, 2026-10-30) how he was made: VS Code on one monitor, his agent file typed in section by
-      // section, and on the one beside it Ola fitting him together part by part (workshop.js)
-      { id: 'm.build', set: { curve: null, thoughts: null, call: null, phone: null, explain: null, build: true, shot: 'pair:Desk0Mon0Screen,Desk0Mon1Screen',
-        screens: { Desk0Mon0Screen: 'buildCode', Desk0Mon1Screen: 'workshop' } },
-        notes: 'Jeg bygde CtrlBuddy i VS Code: instruksjoner, verktøy og kunnskap, bit for bit. Ringen viser hvor langt agenten er kommet.' },
-      { id: 'm.buddy1', set: { build: null, curve: null, thoughts: null, call: null, phone: null, explain: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
-        notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
-      // (Adriaen, 2026-10-29) what he is, one part per beat, while he waves; then the click
-      { id: 'm.what1', set: { shot: 'side:Desk0Mon1Screen', explain: 1 }, notes: 'Hva CtrlBuddy er: en AI-agent bygget i VS Code, med GitHub Copilot som harness.' },
-      { id: 'm.what2', set: { explain: 2 }, notes: 'Modellen: stort sett Claude 5.5.' },
-      { id: 'm.what3', set: { explain: 3 }, notes: 'Instruksjonene: oppfører seg som en erfaren automasjonsingeniør.' },
-      { id: 'm.what4', set: { explain: 4 }, notes: 'Verktøyene: datakilder via API-er (CDF, ABB LoopInsight).' },
-      { id: 'm.what5', set: { explain: 5 }, notes: 'Kunnskapsbasen: selskaps- og fagspesifikk kunnskap for oppgavene.' },
+      // (Adriaen, 2026-10-29) after the call he turns to CtrlBuddy, still waving on his screen: the click
       { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen', explain: null, buddyPointer: true }, do: [{ wait: 0.8 }, { buddy: 'click' }],
         notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
     ],
