@@ -64,6 +64,12 @@ TORSO = [(0.84, 0.150, 0.098, 0.0, "pelvis"),
          (1.18, 0.180, 0.112, 0.0, "torso"),
          (1.34, 0.190, 0.105, 0.0, "torso"),
          (1.42, 0.110, 0.080, 0.0, "torso")]
+# "box": a plain rectangular box torso (Adriaen, 2026-10-30), flat front and
+# back for the painted badge; "tapered": the earlier eight-sided torso that
+# widens to the shoulders
+TORSO_SHAPE = "box"
+BOX_W, BOX_D = 0.150, 0.100        # half width and half depth of the box
+RECT4 = (45, 135, 225, 315)
 TABARD_W, TABARD_TOP, TABARD_BOTTOM = 0.135, 1.40, 0.78
 BADGE_Z = 1.31          # name badge high on the chest, as drawn
 # Roles whose tabard is painted on: no 14 mm slab standing off the body, the
@@ -292,7 +298,12 @@ def head(role):
 # ------------------------------------------------------------------ the body
 def torso(role, form):
     rings = TORSO if form == "walker" else TORSO[1:]
-    m = Mesh().tube(rings, angles=BOX8, swatch=METAL)
+    angles = BOX8
+    if TORSO_SHAPE == "box":
+        k = 1 / math.cos(math.radians(45))      # the tube's corners land on the box's corners
+        rings = [(z, BOX_W * k, BOX_D * k, 0.0, reg) for z, *_, reg in rings]
+        angles = RECT4
+    m = Mesh().tube(rings, angles=angles, swatch=METAL)
     m.tube([(1.38, 0.058, 0.055, 0, "neck"), (1.50, 0.050, 0.048, 0, "neck")], angles=base.HEX6,
            swatch=DARK, cap_start=False, cap_end=False)
     if SHOULDERS == "flaps":
@@ -313,7 +324,7 @@ def torso(role, form):
     front = 0.118
     bottom = TABARD_BOTTOM if form == "walker" else 0.92
     if role in PAINTED:
-        shell = Mesh().tube(rings, angles=BOX8, swatch=METAL)
+        shell = Mesh().tube(rings, angles=angles, swatch=METAL)
         SURF = (shell.bvh(), front + 0.0145)
     else:
         for side in (1, -1):
