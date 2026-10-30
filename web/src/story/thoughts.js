@@ -52,9 +52,10 @@ export class Thoughts {
   // (or all of them, stepping back into the beat)
   set(mode, all = false) {
     const on = Boolean(mode);
-    if (on && !this.on) this.show(all ? this.bubbles.length : 0);
+    // a fresh showing, or the face coming in over the bare dark: the bubbles start again
+    if (on && (!this.on || (this.bare && mode !== 'dim'))) this.show(all ? this.bubbles.length : 0);
     this.on = on;
-    this.bare = mode === 'dim';
+    if (on) this.bare = mode === 'dim';   // going, it stays as it was (a bare dark doesn't flash the face back in)
     this.el.classList.toggle('on', on);
     this.el.classList.toggle('bare', this.bare);
   }

@@ -580,8 +580,9 @@ const SHORT_CHAPTERS = [
       { id: 'm.step', set: { overlay: null, shot: 'monitor:Desk0Mon2Screen', tool: 'stepTest', screens: { Desk0Mon2Screen: 'stepTest' } }, notes: 'Step-test finder on history. TODO(Adriaen): screenshot of the real tool in private/tools/stepTest.png.' },
       { id: 'm.s2', set: { overlay: 'slide:m-02' } },
       // CtrlBuddy's first appearance (Adriaen, 2026-10-29), before his first chat (c.step):
-      // the learning curve in two clicks (axes, then the curve), then he appears on the screen beside the operator
-      { id: 'm.curve1', set: { overlay: null, curve: 'axes', shot: 'curveDesk', buddyAt: CHAT_SCREEN, buddyWho: 'buddy', screens: null, cast: { operator: { at: 'desk0typing' } } },
+      // the learning curve in two clicks (axes, then the curve), then he appears on the screen beside the operator;
+      // all over the thoughts' dark, like the curve beats after them (Adriaen, 2026-10-30)
+      { id: 'm.curve1', set: { overlay: null, thoughts: 'dim', curve: 'axes', shot: 'curveDesk', buddyAt: CHAT_SCREEN, buddyWho: 'buddy', screens: null, cast: { operator: { at: 'desk0typing' } } },
         notes: 'Ett år siden, kontrollrommet. Aksene: tid og læring.' },
       { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
       // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
