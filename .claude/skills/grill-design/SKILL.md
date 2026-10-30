@@ -42,7 +42,7 @@ Pick the ones that apply; don't run through them as a checklist.
 
 Capture each decision the moment it settles, not in one batch at the end:
 
-- **Game design, story, audience, anything platform-specific:** the private design record `/mnt/project-files/control-room-game/design.md`. Never put platform-specific content in the repo.
+- **Game design, story, audience, anything platform-specific:** the private design record `/mnt/project-files/control-room-game/design.md` (an index; write to the matching topic file in `design/`, or add a new file and an index line). Never put platform-specific content in the repo.
 - **Words:** when a term gets pinned down (a "station", the "band", a "light map"), add it to `GLOSSARY.md` at the repo root: one or two sentences each, what it _is_, with rejected synonyms under `_Avoid_`. Generic terms only, no platform names. Create the file when the first term settles.
 - **Hard technical decisions:** add a short ADR in `docs/adr/NNNN-slug.md` (next free number; a single paragraph of context, decision and why is enough) only when the decision is hard to reverse, would surprise a future reader, and came from a real trade-off. Examples: baking strategy, how screens get their content, where private content is hosted.
 
