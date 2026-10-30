@@ -25,23 +25,27 @@ export class Gauge {
     // bezel and hub share a material: one mesh (3 draw calls per gauge, 4 with glass)
     const bezelGeo = new THREE.CylinderGeometry(r * 1.12, r * 1.12, r * 0.32, 16);
     bezelGeo.rotateX(Math.PI / 2); bezelGeo.translate(0, 0, -r * 0.16);
-    const hubGeo = new THREE.CircleGeometry(r * 0.07, 6); hubGeo.translate(0, 0, 0.016);
+    const hubGeo = new THREE.CircleGeometry(r * 0.07, 6); hubGeo.translate(0, 0, r * 0.1);
     const bezel = new THREE.Mesh(mergeGeometries([bezelGeo.toNonIndexed(), hubGeo.toNonIndexed()]), steel);
     this.texture = new THREE.CanvasTexture(this.drawFace());
     this.texture.colorSpace = THREE.SRGBColorSpace;
     this.texture.anisotropy = 4;
     const face = new THREE.Mesh(new THREE.CircleGeometry(r, 20), new THREE.MeshStandardMaterial({ map: this.texture, roughness: 0.6 }));
-    face.position.z = 0.002;
+    // layers stand off the bezel front in proportion to the size (tiny fixed gaps
+    // z-fight when seen from far away), and the face is pulled forward in depth
+    face.position.z = r * 0.03;
+    face.material.polygonOffset = true; face.material.polygonOffsetFactor = -1; face.material.polygonOffsetUnits = -1;
     // needle: a long thin triangle with a short tail, pointing +y at angle 0
     const s = new THREE.Shape();
     s.moveTo(-r * 0.035, -r * 0.18); s.lineTo(0, r * 0.84); s.lineTo(r * 0.035, -r * 0.18); s.closePath();
     this.needle = new THREE.Mesh(new THREE.ShapeGeometry(s), new THREE.MeshStandardMaterial({ color: 0xc8261e, roughness: 0.5 }));
-    this.needle.position.z = 0.012;
+    this.needle.position.z = r * 0.07;
+    Object.assign(this.needle.material, { polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     this.group.add(bezel, face, this.needle);
     if (glass) { // a faint transparent cover: costs a sorted, blended draw
       const cover = new THREE.Mesh(new THREE.CircleGeometry(r * 1.02, 20),
         new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.08, roughness: 0.05, metalness: 0, depthWrite: false }));
-      cover.position.z = 0.03; this.group.add(cover);
+      cover.position.z = r * 0.14; this.group.add(cover);
     }
     this.update(1);
   }
