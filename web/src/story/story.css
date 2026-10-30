@@ -457,8 +457,6 @@
 .retune .legend span { white-space: nowrap; display: flex; align-items: center; gap: 0.5em; }
 .retune .legend i { width: 2em; border-top: 0.18em solid #f2b544; }
 .retune .legend i.a { border-top: 0.18em dashed #9fb3ba; }
-/* The disclaimer before the prologue (main.js): black, one line, then a circle opens from the middle onto the show */
-.disclaimer { --r: 0px; position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; background: #000; cursor: pointer;
-  -webkit-mask: radial-gradient(circle at 50% 50%, transparent var(--r), #000 calc(var(--r) + 1px)); mask: radial-gradient(circle at 50% 50%, transparent var(--r), #000 calc(var(--r) + 1px)); }
-.disclaimer p { max-width: 34em; margin: 0; padding: 0 calc(4 * var(--u)); text-align: center; font: 500 calc(2.3 * var(--u))/1.45 var(--display, system-ui); color: #e8e4da; transition: opacity 0.35s; }
-.disclaimer.open p { opacity: 0; }
+/* Start (main.js irisOpen): the Begin screen opens from the middle onto the show */
+.begin.iris { pointer-events: none; -webkit-mask: radial-gradient(circle at 50% 50%, transparent var(--r, 0px), #000 calc(var(--r, 0px) + 1px)); mask: radial-gradient(circle at 50% 50%, transparent var(--r, 0px), #000 calc(var(--r, 0px) + 1px)); }
+.begin p.disclaimer { font-style: italic; color: #e8e4da; max-width: 46ch; justify-self: center; }   /* Adriaen, 2026-10-30 */

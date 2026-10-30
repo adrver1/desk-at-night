@@ -485,7 +485,6 @@ function speechToast(k) {
 
 addEventListener('keydown', (e) => {
   if (begin.parentNode) { if (e.code === 'Space' || e.code === 'Enter') start(); return; }
-  if (disclaimer.go) { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'ArrowRight' || e.code === 'PageDown') { e.preventDefault(); disclaimer.go(); } return; }
   handleKey(e);
 });
 function handleKey(e) {
@@ -728,35 +727,30 @@ requestAnimationFrame(loop);
 
 // ---------------------------------------------------------------- start
 
-// The disclaimer card before the prologue (Adriaen, 2026-10-30): black, its text, then a circle opens onto the show
-const disclaimer = {
-  go: null,
-  show(then) {
-    const el = this.el = document.createElement('div');
-    el.className = 'disclaimer';
-    el.innerHTML = `<p>${DISCLAIMER}</p>`;
-    (document.getElementById('game') ?? document.body).append(el);
-    el.addEventListener('click', () => this.go?.());
-    this.go = () => {
-      this.go = null;
-      el.classList.add('open');
-      then();
-      const t0 = performance.now(), D = 1400, R = Math.hypot(innerWidth, innerHeight) / 2 + 40;
-      const step = (now) => {
-        const k = Math.min(1, (now - t0) / D), r = R * k * k * (3 - 2 * k);
-        el.style.setProperty('--r', `${r}px`);
-        if (k < 1) requestAnimationFrame(step); else el.remove();
-      };
-      requestAnimationFrame(step);
-    };
-  },
-};
+// Start opens the Begin screen (with the disclaimer, Adriaen 2026-10-30) like an iris onto the show:
+// a copy of it stays on top while a circle opens from the middle
+function irisOpen(el) {
+  const veil = el.cloneNode(true);
+  veil.classList.add('iris');
+  el.replaceWith(veil);
+  // its own clock, a frame at most 1/30 s: entering the first beat can stall a frame or two, and the circle should still open
+  const D = 1.4, R = Math.hypot(innerWidth, innerHeight) / 2 + 40;
+  let k = 0, last = null;
+  const step = (now) => {
+    if (last != null) k = Math.min(1, k + Math.min((now - last) / 1000, 1 / 30) / D);
+    last = now;
+    veil.style.setProperty('--r', `${R * k * k * (3 - 2 * k)}px`);
+    if (k < 1) requestAnimationFrame(step); else veil.remove();
+  };
+  requestAnimationFrame(step);
+}
 const begin = document.createElement('div');
 begin.className = 'begin';
 begin.innerHTML = `<div class="inner"><p class="eyebrow">${T('Fortellermodus', 'Story mode')}</p><h1>${TITLE}</h1>
   <p>${FULL ? 'A day on the platform, three times: yesterday, today and tomorrow. It waits for you at every step.'
     : T('Kontrollrommet i morgen, og veien dit. Den venter på deg ved hvert steg.', 'The control room of tomorrow, and the road there. It waits for you at every step.')}</p>
   <dl class="keys"><dt>${T('Mellomrom', 'Space')} / →</dt><dd>${T('neste', 'next')}</dd><dt>←</dt><dd>${T('tilbake', 'back')}</dd><dt>1 – ${CHAPTERS.length}</dt><dd>${T('hopp til et kapittel', 'jump to a chapter')}</dd><dt>F</dt><dd>${T('fri modus og tilbake', 'free mode and back')}</dd><dt>P</dt><dd>${T('presentatørnotater', 'presenter notes')}</dd></dl>
+  <p class="disclaimer">${DISCLAIMER}</p>
   <button type="button" id="storyGo" disabled>${T('Laster kontrollrommet…', 'Loading the control room…')}</button></div>`;
 host.append(begin);
 ui.onCover = (on) => { game.hooks.covered = on; };   // solid act titles: nothing to draw behind them
@@ -785,7 +779,7 @@ function start() {
   if (go.disabled && !q.has('chapter')) {
     // The prologue can start before the room is ready: it loads underneath
   }
-  begin.remove();
+  irisOpen(begin);
   game.hooks.hidden = false;   // the prologue hides it again
   if (!q.has('nofs') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
   game.controls.startAudio();
@@ -800,9 +794,7 @@ function start() {
   // ?beat=<beat id> (the story script editor's ▶ links): that beat, wherever it is now
   const want = wantBeat ?? q.get('beat');
   if (want) CHAPTERS.forEach((ch, ci) => { const bi = ch.beats.findIndex((b) => b.id === want); if (bi >= 0) { chapter = ci; beat = bi; } });
-  const run = () => { if (CHAPTERS[chapter].prologue || game.room) enter(chapter, beat, { instant: true, at: wantBeat ? wantAt : 0 }); };
-  // The whole show from the top opens on the disclaimer; the next key opens it like an iris onto the prologue
-  if (chapter === 0 && beat === 0 && !want && q.get('disclaimer') !== '0') disclaimer.show(run); else run();
+  if (CHAPTERS[chapter].prologue || game.room) enter(chapter, beat, { instant: true, at: wantBeat ? wantAt : 0 });
   if (q.get('mode') === 'free') game.ready.then(() => setTimeout(toggleFree, 300));
 }
 
