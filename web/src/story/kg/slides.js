@@ -5,6 +5,7 @@
 import { T } from '../lang.js';
 import { Graph } from './graph.js';
 import { books, desk, globe, col, KG_LOOK } from './engine.js';
+import { vscodeHTML } from '../vscode.js';
 
 // ------------------------------------------------------------ helpers
 const title = (html, from = 0) => ({ kind: 'title', html, x: -7.2, y: 4.0, from });
@@ -198,10 +199,15 @@ const H09 = {
     // the project in an editor: the agents folder and the chat that uses them
     {
       kind: 'card', cls: 'vscode', x: 0, y: 0, w: 15.2, anchor: [0.5, 0.5], from: 5, at: (b) => ({ zoom: b === 5 ? 1 : 0.92 }),
-      html: `<div class="bar"><span></span><span></span><span></span><em>${T('kontrollrom-agent — VS Code', 'control-room-agent — VS Code')}</em></div>
-<div class="cols"><div class="tree"><b>EXPLORER</b><div>▾ .github</div><div class="in">▾ agents</div><div class="in2 hl">CtrlBuddy.agent.md</div><div class="in2 hl">Compiler.agent.md</div><div class="in2 hl">Linter.agent.md</div><div class="in">▸ instructions</div><div class="in">▸ prompts</div><div>▸ raw</div><div>▸ wiki</div><div>▸ scripts</div><div>▸ tests</div></div>
-<div class="code"><div class="tab">Compiler.agent.md</div><pre>${AGENT_MD.scholar}</pre></div>
-<div class="chat"><b>CHAT</b><p class="me">${T('Del notatene om tuning i to, og kompiler den nye rapporten.', 'Split the tuning notes in two, and compile the new report.')}</p><p>${T('Jeg oppdaterer terskelen først, så setter jeg @Compiler i gang.', 'I\'ll update the threshold first, then set @Compiler going.')}</p><div class="pick hl">CtrlBuddy ▾</div></div></div>`,
+      html: vscodeHTML({
+        title: T('kontrollrom-agent — VS Code', 'control-room-agent — VS Code'),
+        tree: [{ t: '.github', dir: 'open' }, { t: 'agents', lvl: 1, dir: 'open' }, ...['CtrlBuddy', 'Compiler', 'Linter'].map((n) => ({ t: `${n}.agent.md`, lvl: 2, hl: true })),
+          ...['instructions', 'prompts'].map((t) => ({ t, lvl: 1, dir: 'closed' })), ...['raw', 'wiki', 'scripts', 'tests'].map((t) => ({ t, dir: 'closed' }))],
+        tab: 'Compiler.agent.md',
+        code: AGENT_MD.scholar,
+        chat: [{ t: T('Del notatene om tuning i to, og kompiler den nye rapporten.', 'Split the tuning notes in two, and compile the new report.'), me: true }, { t: T('Jeg oppdaterer terskelen først, så setter jeg @Compiler i gang.', 'I\'ll update the threshold first, then set @Compiler going.') }],
+        pick: 'CtrlBuddy',
+      }),
     },
     { kind: 'text', cls: 'plaque', html: T('Dette er bare <code>.agent.md</code>-filer i «agents»-mappen i VS Code-prosjektet', 'These are just <code>.agent.md</code> files in the “agents” folder of the VS Code project'), x: 0, y: 0.6, w: 12, anchor: [0.5, 0.5], from: 4 },
     draw((ctx) => { const k = Math.min(1, ctx.since * 1.2); ring(ctx, -6.4, 1.45, 1.15, 0.5, k); ring(ctx, 3.85, 1.24, 0.75, 0.32, Math.max(0, k * 1.5 - 0.5)); }, 5, { delay: 0.8 }),

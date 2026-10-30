@@ -473,23 +473,29 @@
 .kg-card.md { background: var(--code); color: #d4d4d4; }
 .kg-card.md .fn { font: 600 calc(var(--sw) * 0.9)/1 var(--mono); color: #fff; background: #2d323b; padding: 0.6em 0.9em; border-bottom: 2px solid var(--magenta); }
 .kg-card.md pre { padding: 0.8em 0.9em 1em; }
-.kg-card.vscode { background: var(--code); color: #d4d4d4; font: 400 calc(var(--sw) * 0.85)/1.4 var(--mono); }
-.kg-card.vscode .bar { display: flex; gap: 0.4em; align-items: center; background: #2d323b; padding: 0.5em 0.8em; }
-.kg-card.vscode .bar span { width: 0.75em; height: 0.75em; border-radius: 50%; background: #ff5f57; }
-.kg-card.vscode .bar span:nth-child(2) { background: #febc2e; } .kg-card.vscode .bar span:nth-child(3) { background: #28c840; }
-.kg-card.vscode .bar em { font-style: normal; margin-left: auto; margin-right: auto; color: #9aa3ae; }
-.kg-card.vscode .cols { display: grid; grid-template-columns: 1fr 2.2fr 1.3fr; min-height: calc(var(--sw) * 32); }
-.kg-card.vscode .tree { background: #252a32; padding: 0.7em 0.8em; display: grid; align-content: start; gap: 0.25em; }
-.kg-card.vscode .tree b, .kg-card.vscode .chat b { color: #9aa3ae; font-size: 0.85em; letter-spacing: 0.08em; }
-.kg-card.vscode .in { padding-left: 1em; } .kg-card.vscode .in2 { padding-left: 2em; }
-.kg-card.vscode .hl { color: #fff; }
-.kg-card.vscode .code { padding: 0; border-left: 1px solid #ffffff14; border-right: 1px solid #ffffff14; }
-.kg-card.vscode .code .tab { background: #2d323b; padding: 0.4em 0.9em; color: #fff; border-bottom: 2px solid var(--magenta); display: inline-block; }
-.kg-card.vscode .code pre { padding: 0.8em 1em; font-size: calc(var(--sw) * 0.85); }
-.kg-card.vscode .chat { padding: 0.7em 0.8em; display: grid; align-content: start; gap: 0.6em; }
-.kg-card.vscode .chat p { margin: 0; font-family: var(--body); }
-.kg-card.vscode .chat p.me { background: #2d323b; padding: 0.5em 0.7em; border-radius: 6px; }
-.kg-card.vscode .chat .pick { justify-self: start; border: 1px solid #ffffff33; padding: 0.2em 0.6em; border-radius: 4px; }
+/* VS Code window (vscode.js), shared by the agent files slide and the build beat */
+.kg-card.vscode { --vs-size: calc(var(--sw) * 0.85); border-radius: calc(var(--sw) * 0.5); }
+.vscode { background: #1e2229; color: #d4d4d4; font: 400 var(--vs-size, 14px)/1.4 var(--mono); border-radius: 6px; overflow: hidden; }
+.vscode .bar { display: flex; gap: 0.4em; align-items: center; background: #2d323b; padding: 0.5em 0.8em; }
+.vscode .bar span { width: 0.75em; height: 0.75em; border-radius: 50%; background: #ff5f57; }
+.vscode .bar span:nth-child(2) { background: #febc2e; } .vscode .bar span:nth-child(3) { background: #28c840; }
+.vscode .bar em { font-style: normal; margin-left: auto; margin-right: auto; color: #9aa3ae; }
+.vscode .cols { display: grid; grid-template-columns: 1fr 2.2fr 1.3fr; min-height: 37.6em; }
+.vscode .tree { background: #252a32; padding: 0.7em 0.8em; display: grid; align-content: start; gap: 0.25em; }
+.vscode .tree b, .vscode .chat b { color: #9aa3ae; font-size: 0.85em; letter-spacing: 0.08em; }
+.vscode .lvl1 { padding-left: 1em; } .vscode .lvl2 { padding-left: 2em; } .vscode .lvl3 { padding-left: 3em; }
+.vscode .hl { color: #fff; }
+.vscode .code { padding: 0; border-left: 1px solid #ffffff14; border-right: 1px solid #ffffff14; }
+.vscode .code .tab { background: #2d323b; padding: 0.4em 0.9em; color: #fff; border-bottom: 2px solid var(--magenta, #d1345b); display: inline-block; }
+.vscode .code pre { margin: 0; padding: 0.8em 1em; font: inherit; white-space: pre-wrap; }
+.vscode pre b { color: #9cdcfe; font-weight: 500; } .vscode pre i { color: #6a9955; font-style: normal; }
+.vscode pre h4 { margin: 0.5em 0 0.2em; color: #dcdcaa; font: inherit; font-weight: 700; }
+.vscode .ln.typing::after { content: '▏'; color: #fff; animation: vs-caret 1s steps(1) infinite; }
+@keyframes vs-caret { 50% { opacity: 0; } }
+.vscode .chat { padding: 0.7em 0.8em; display: grid; align-content: start; gap: 0.6em; }
+.vscode .chat p { margin: 0; font-family: var(--body); }
+.vscode .chat p.me { background: #2d323b; padding: 0.5em 0.7em; border-radius: 6px; }
+.vscode .chat .pick { justify-self: start; border: 1px solid #ffffff33; padding: 0.2em 0.6em; border-radius: 4px; }
 .kg-card.note { background: var(--code); color: #d4d4d4; display: grid; grid-template-columns: 1fr 2.4fr; font: 400 calc(var(--sw) * 0.8)/1.4 var(--body); }
 .kg-card.note .side { background: #252a32; padding: 0.8em; display: grid; align-content: start; gap: 0.2em; color: #9aa3ae; }
 .kg-card.note .side b { color: #d4d4d4; } .kg-card.note .side .on { color: #fff; background: #8a6ad855; border-radius: 3px; padding: 0 0.3em; }
