@@ -1,4 +1,4 @@
-"""Quick Cycles stills of the desk photo frame styles (Ivar Aasen with
+"""Quick Cycles stills of the desk photo frame styles (pictures with
 hearts), on a strip of desk with the station's other props, before the
 frame goes into the room and before any baking.
 

@@ -15,6 +15,7 @@ import { Wake } from './wake.js';
 import { Helicopter } from './helicopter.js';
 import { Seabirds, PlatformMap } from './gulls.js';
 import { perfPanel, perfWatch, perfRow, perfStep } from './perf.js';
+import { privateSigns } from './privateNames.js';
 
 perfPanel(); // frame rate readout; tap it or press ` for the performance panel (see perf.js)
 
@@ -122,6 +123,7 @@ const [platform, vessel, heliModel, pilotModel, anims, ...people] = await Promis
 // The cast's clips, kept once in anims.glb (web/scripts/pack_chars.mjs); a model with its own plays those
 for (const m of [pilotModel, ...people]) if (m && !m.animations.length) m.animations = anims?.animations ?? [];
 
+privateSigns(platform.scene);
 scene.add(platform.scene);
 const glowing = [];
 platform.scene.traverse((o) => {

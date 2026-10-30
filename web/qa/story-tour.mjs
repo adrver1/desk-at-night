@@ -4,7 +4,7 @@
 // HIDE_UI=1 hides the overlays (stills for scripts/story-editor/seed.py).
 import { chromium } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
-const [out, keys = '2', secs = '5', url = 'http://127.0.0.1:5173/story.html?nofs', vw = '1280', vh = '720'] = process.argv.slice(2);
+const [out, keys = '2', secs = '5', url = 'http://127.0.0.1:5173/story.html?nofs&idles=0', vw = '1280', vh = '720'] = process.argv.slice(2);
 mkdirSync(out, { recursive: true });
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/opt/pw-browsers/chromium', args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'] });
 const page = await browser.newPage({ viewport: { width: +vw, height: +vh } });

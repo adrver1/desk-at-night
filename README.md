@@ -105,7 +105,7 @@ screens draw their old 2D camera instead.
 .venv/bin/python blender/offshore_platform.py --jackup     # with a jack-up rig over the wellbay
 ```
 
-A medium-detail model of Ivar Aasen, a North Sea production platform,
+A medium-detail model of a North Sea production platform,
 checked against photos: a sturdy four-leg jacket with its conductors, an
 open-framed process block, a laydown deck over the wellbay, a pedestal crane,
 the plant module and the living quarters (terraced on the crane side, an open

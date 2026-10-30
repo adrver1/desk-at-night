@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { reflectable } from '../outdoor.js';
+import { privateSigns } from '../privateNames.js';
 
 const FLIGHT = 16;   // s from the chair to the last frame
 const FLOOD = new THREE.Color(0xffd9a0).multiplyScalar(0.22), FLOOD_LOW = new THREE.Color(0xffd9a0).multiplyScalar(0.08);   // the platform's lights, overall
@@ -61,6 +62,7 @@ export class Epilogue {
         fetch('control/vessel.json').then((r) => r.json()),
       ]);
       const root = gltf.scene;
+      privateSigns(root);
       root.matrixAutoUpdate = false;
       // toRoom takes Blender's platform axes (z up); the glb is y up
       const yUp = new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 1);

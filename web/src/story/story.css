@@ -78,8 +78,6 @@
 .hud .next { color: var(--paper); opacity: 0; transition: opacity 0.4s; }
 .hud .next.on { opacity: 1; animation: blink 1.6s ease-in-out infinite; }
 @keyframes blink { 50% { opacity: 0.35; } }
-.clockbadge { position: absolute; left: calc(1.6 * var(--u)); top: calc(1.4 * var(--u)); font: 500 max(12px, calc(1.5 * var(--u)))/1 var(--mono); color: var(--paper); background: #0008; padding: 6px 10px; border-radius: 6px; z-index: 9; opacity: 0; transition: opacity 0.6s; }
-.clockbadge.on { opacity: 1; }
 .notes { position: absolute; left: 0; right: 0; top: 0; padding: 10px 16px; background: #000c; font: 14px/1.45 var(--body); color: var(--paper); z-index: 30; }
 .notes[hidden] { display: none; }
 .notes b { color: var(--tungsten); }
@@ -296,14 +294,14 @@
 .nav-a .nav-fill { position: absolute; inset: 0 auto 0 0; background: var(--paper); transition: width 0.4s; }
 .nav-a .nav-ch.now { box-shadow: 0 0 0 1px var(--paper); }
 
-/* b: tabs under their acts */
+/* b: a box per chapter, its full name, dots for the beats */
 .nav-b .nav-ch { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 1px 6px; align-items: center; text-align: left;
   padding: 4px 6px; border-radius: 6px; background: #0007; border-top: 2px solid #ffffff22; }
 .nav-b .nav-ch:hover { background: #fff2; }
 .nav-b .nav-ch.done { border-top-color: #ffffff77; }
 .nav-b .nav-ch.now { border-top-color: var(--tungsten); background: #000a; color: #fff; }
-.nav-b .nav-key { font-weight: 600; color: var(--tungsten); }
-.nav-b .nav-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-b .nav-key { font-weight: 600; color: var(--tungsten); align-self: start; }
+.nav-b .nav-label { line-height: 1.2; text-wrap: balance; }   /* full chapter names: they wrap rather than clip */
 .nav-b .nav-dots { grid-column: 1 / -1; display: flex; gap: 3px; flex-wrap: wrap; }
 .nav-b .nav-dot { width: 7px; height: 7px; border-radius: 50%; background: #ffffff40; }
 .nav-b .nav-dot.done { background: #ffffffaa; }
@@ -324,6 +322,7 @@
 
 /* One year ago: Trondheim on its own canvas over the game (trondheim.js) */
 .trondheim { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.trondheim-cover { position: absolute; inset: 0; background: #000; }
 
 /* ------------------------------------------- pointers (story script editor) */
 .callouts { position: absolute; inset: 0; z-index: 9; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
@@ -361,3 +360,73 @@
 .solatags-c .row.on { opacity: 0.75; }
 .solatags-c .row.now { opacity: 1; }
 .solatags-c .row.now small { color: var(--tungsten); }
+
+/* One year ago, the operator's learning curve (buddy.js): on the right half, beside him */
+.learning { position: absolute; left: 44%; top: 50%; width: 52%; aspect-ratio: 420 / 300; transform: translate(0, -48%); opacity: 0; transition: opacity 0.6s, transform 0.6s; z-index: 6; pointer-events: none;
+  background: #0d1418d9; border-radius: calc(1.2 * var(--u)); padding: calc(1.6 * var(--u)); box-sizing: border-box; }
+.learning.on { opacity: 1; transform: translate(0, -50%); }
+.learning svg { width: 100%; height: 100%; overflow: visible; }
+.learning .axis, .learning .arrow { fill: none; stroke: #e8eef2; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.learning .plot { fill: none; stroke: #5fe0b7; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 700; stroke-dashoffset: 700; }
+.learning .axis { stroke-dasharray: 600; stroke-dashoffset: 600; }
+.learning .arrow { opacity: 0; transition: opacity 0.3s 0.9s; }
+.learning.on .axis { stroke-dashoffset: 0; transition: stroke-dashoffset 0.9s ease-out 0.3s; }
+.learning.on .arrow { opacity: 1; }
+.learning.plot .plot { stroke-dashoffset: 0; transition: stroke-dashoffset 3.6s cubic-bezier(.25,.6,.35,1) 0.4s; }   /* (Adriaen, 2026-10-29: a slower reveal) */
+.learning .learner { opacity: 0; transition: opacity 0.3s; }
+.learning .learner .ring { fill: #e8eef2; }
+.learning text { fill: #e8eef2; font: 600 22px var(--display, system-ui); }
+
+/* One year ago, what he had to learn (thoughts.js): his face, thought bubbles coming in round it */
+.thoughts { position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; transition: opacity 0.5s; background: radial-gradient(ellipse at 50% 52%, #0b1116cc 0 38%, #0b111699 70%); }
+.thoughts.on { opacity: 1; }
+/* going (into the call, which fades in over it): a beat later, so the dark stays even */
+.thoughts:not(.on) { transition-delay: 0.45s; }
+.thoughts .face { position: absolute; left: 50%; top: 52%; width: min(22vh, 18vw); aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; background: #1d2a33; border: calc(0.5 * var(--u)) solid #e8eef2; object-fit: cover; box-shadow: 0 1vh 4vh #0008; }
+.thoughts .bubble { position: absolute; display: flex; flex-direction: column; align-items: center; gap: calc(0.8 * var(--u)); transform: translate(-50%, -50%) scale(0.4); opacity: 0;
+  transition: opacity 0.35s, transform 0.45s cubic-bezier(.3,1.6,.5,1); background: #f4f1e8; color: #1c2730; border-radius: 50%; width: min(27vh, 21vw); aspect-ratio: 1.4; justify-content: center; box-shadow: 0 0.6vh 2.5vh #0007; }
+.thoughts .bubble.in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.thoughts .bubble svg { width: 34%; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.thoughts .bubble .letters { font: 800 calc(3.4 * var(--u)) var(--display, system-ui); letter-spacing: 0.04em; }
+.thoughts .bubble span { font: 600 calc(1.6 * var(--u)) var(--display, system-ui); text-align: center; padding: 0 9%; line-height: 1.15; }
+.thoughts .bubble em { font-style: normal; color: #d9822b; margin-left: 0.15em; font-weight: 800; }
+/* the little circles from the bubble toward his head */
+.thoughts .dot { position: absolute; background: #f4f1e8; border-radius: 50%; }
+.thoughts .dot.d1 { width: 16%; aspect-ratio: 1; }
+.thoughts .dot.d2 { width: 9%; aspect-ratio: 1; }
+/* One year ago, a call (caller.js): the caller left, a speech bubble with the separator, the operator right */
+.caller { position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; transition: opacity 0.5s; background: radial-gradient(ellipse at 50% 52%, #0b1116cc 0 38%, #0b111699 70%); }
+.caller.on { opacity: 1; }
+.caller .them { opacity: 0; transition: opacity 0.5s 0.4s; }
+.caller.talk .them, .caller.sep .them { opacity: 1; }
+.caller .me { transition: left 0.9s cubic-bezier(.4,0,.2,1), top 0.9s cubic-bezier(.4,0,.2,1), width 0.9s cubic-bezier(.4,0,.2,1); }
+/* ringing (and before): his face where the thoughts had it, so it stays put from m.think */
+.caller:not(.talk):not(.sep) .me { left: 50%; top: 52%; width: min(22vh, 18vw); }
+.caller .who { position: absolute; top: 46%; margin: 0; width: min(22vh, 15vw); transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: calc(1 * var(--u)); }
+.caller .who img { width: 100%; aspect-ratio: 1; border-radius: 50%; background: #1d2a33; border: calc(0.5 * var(--u)) solid #e8eef2; object-fit: cover; box-shadow: 0 1vh 4vh #0008; }
+.caller .who figcaption { color: #e8eef2; font: 700 calc(1.7 * var(--u)) var(--display, system-ui); white-space: nowrap; text-shadow: 0 0.3vh 1vh #000a; }
+.caller .them { left: 14%; }
+.caller .me { left: 88%; top: 58%; width: min(16vh, 11vw); }
+.caller .speech { position: absolute; left: 51%; top: 44%; width: min(56vw, 88vh); aspect-ratio: 16 / 9; transform: translate(-50%, -50%) scale(0.6); opacity: 0;
+  transition: opacity 0.35s 0.25s, transform 0.5s 0.25s cubic-bezier(.3,1.4,.5,1); background: radial-gradient(ellipse at 50% 40%, #f4f1e8, #d9dde0); border-radius: calc(4 * var(--u)); box-shadow: 0 0.6vh 2.5vh #0007; }
+.caller.sep .speech { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.caller .speech canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; }
+/* the tail points back at the caller */
+.caller .speech .tail { position: absolute; left: calc(-3.2 * var(--u)); top: 46%; width: 0; height: 0; border-top: calc(2.2 * var(--u)) solid transparent; border-bottom: calc(2.2 * var(--u)) solid transparent; border-right: calc(3.4 * var(--u)) solid #e8e8e4; }
+/* One year ago, what CtrlBuddy is (explain.js): a half-slide in the deck's look (white, a light title,
+   magenta square bullets, line drawings), the right half of a full .slide (same height and right edge,
+   rounded, shadowed, the same margins: 5%/6%, which like the .slide's are of the stage's width) beside him, one part per beat */
+.explain { position: absolute; left: 50%; top: 50%; width: min(43vw, calc(150vh * 0.43)); aspect-ratio: 8 / 9; max-width: 100%; z-index: 6; pointer-events: none; opacity: 0; transform: translate(3%, -50%); transition: opacity 0.45s, transform 0.5s cubic-bezier(.3,1.1,.5,1);
+  background: #fff; color: #1d1d1f; border-radius: 6px; box-shadow: 0 20px 70px #000c; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 5% 6%; box-sizing: border-box; container-type: inline-size; font-family: Aptos, 'Segoe UI', Arial, system-ui, sans-serif; }
+.explain.on { opacity: 1; transform: translate(0, -50%); }
+.explain h2 { margin: 0 0 6.4cqw; font: 400 7.2cqw/1.1 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; letter-spacing: -0.01em; }
+.explain ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4.4cqw; }
+.explain li { display: grid; grid-template-columns: 10.4cqw 1fr; gap: 4cqw; align-items: center; opacity: 0; transform: translateY(2cqw); transition: opacity 0.4s, transform 0.45s cubic-bezier(.3,1.3,.5,1); }
+.explain li.in { opacity: 1; transform: none; }
+.explain li svg { width: 100%; aspect-ratio: 1; fill: none; stroke: #1d1d1f; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.explain li b { display: flex; align-items: center; gap: 0.5em; font: 700 5.3cqw/1.2 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; }
+.explain li b::before { content: ''; width: 0.42em; height: 0.42em; background: #c2185b; flex: none; }
+.explain li span { display: block; margin-left: calc(5.3cqw * 0.92); font: 400 4.2cqw/1.3 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; color: #333; }
+/* V / U: which voice and subtitles (main.js speechToast) */
+.speech-toast { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); z-index: 20; pointer-events: none; padding: 0.5em 1em; border-radius: 0.5em; background: #0b1116d9; color: #e8eef2; font: 600 calc(1.4 * var(--u)) var(--display, system-ui); opacity: 0; transition: opacity 0.3s; }
+.speech-toast.on { opacity: 1; }

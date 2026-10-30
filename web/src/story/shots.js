@@ -70,6 +70,7 @@ export class Shots {
     const headOf = (who) => this.cast?.head(who);
     switch (name) {
       case 'desk': return this.look(this.seat, new THREE.Vector3(-0.85, 1.32, -3.6), 70);
+      case 'roomBand': return this.look(new THREE.Vector3(0.5, 1.55, 0.2), new THREE.Vector3(-0.9, 1.6, -3.2), 62);   // the band and the left desk with the operator at it, from behind
       case 'band': return this.look(new THREE.Vector3(-0.4, 1.38, -0.4), new THREE.Vector3(0, 1.8, -4), 62);
       case 'clock': return this.look(this.seat, this.clock, 26);
       case 'boat': {
@@ -78,29 +79,51 @@ export class Shots {
       }
       case 'table': return this.look(new THREE.Vector3(-0.35, 1.62, 0.15), new THREE.Vector3(2.0, 1.3, 2.3), 62);
       case 'epilogue': return this.custom?.() ?? this.target('desk');
-      // Tomorrow's room: the whole room from the back corner; over Brage's
-      // shoulder at the band; Brage from the band side; over Adriaen's
+      // Tomorrow's room: the whole room from the back corner; over the supervisor's
+      // shoulder at the band; the supervisor from the band side; over Adriaen's
       // shoulder at his monitors; Adriaen side on
       case 'wideRoom': return this.look(new THREE.Vector3(3.3, 2.15, 2.6), new THREE.Vector3(-0.6, 1.2, -2.6), 68);
-      case 'brageBand': return this.look(new THREE.Vector3(2.8, 1.7, 2.6), new THREE.Vector3(-0.2, 1.6, -4), 45);
-      case 'brage': {
+      case 'planBand': return this.look(new THREE.Vector3(2.8, 1.7, 2.6), new THREE.Vector3(-0.2, 1.6, -4), 45);
+      case 'supervisor': {
         const head = headOf('supervisor');
         if (head) return this.look(new THREE.Vector3(0.15, 1.5, -2.4), head.clone().add(new THREE.Vector3(0, -0.15, 0)), 50);   // from the gap between the desks, his face lit by the band
-        return this.target('brageBand');
+        return this.target('planBand');
       }
-      // The morning: both desks from behind (the chitchat), and close on Brage's mug for the pour
+      // The morning: both desks from behind (the chitchat), and close on the supervisor's mug for the pour
       case 'pair': return this.look(new THREE.Vector3(2.3, 1.65, 0.7), new THREE.Vector3(-0.1, 1.0, -1.5), 55);
       case 'pour': return this.look(new THREE.Vector3(0.3, 1.65, -2.5), new THREE.Vector3(-0.55, 1.12, -1.65), 62);
       case 'adriaenDesk': return this.look(new THREE.Vector3(0.3, 1.8, -0.8), new THREE.Vector3(1.9, 1.0, -2.2), 45);
+      // one year ago: the operator at the left desk and the screen CtrlBuddy will appear on, both in the left half (the learning curve takes the right)
+      case 'buddyDesk': return this.look(new THREE.Vector3(-0.2, 1.75, -1.1), new THREE.Vector3(-2.15, 1.0, -2.0), 42);
+      // the same, mirrored: whoever sits at the right desk and his screens
+      case 'buddyDesk_right': return this.look(new THREE.Vector3(0.2, 1.75, -1.1), new THREE.Vector3(2.15, 1.0, -2.0), 42);
+      // the learning curve beside the operator: turned a little right, so he sits further left and the graph has room
+      case 'phoneDesk': return this.look(new THREE.Vector3(-2.5, 1.75, 0.55), new THREE.Vector3(-0.45, 0.9, -1.6), 58);   // the call: the left desk with its phone, left of the portrait
+      case 'curveDesk': return this.look(new THREE.Vector3(-0.2, 1.75, -1.1), new THREE.Vector3(-1.9, 1.0, -2.45), 42);
       case 'adriaen': return this.look(new THREE.Vector3(2.5, 1.45, -0.35), new THREE.Vector3(1.45, 1.1, -1.95), 55);   // his profile, the monitors beyond
       default: break;
     }
-    if (name.startsWith('monitor:')) {
-      const f = this.game.room.screenFrame(name.slice(8), this.seat);
+    // a screen filling the view (monitor:), or halfway there (half:, its neighbours and the desk around it),
+    // or straight on in the left half of the view (side:, room for a panel on the right: explain.js)
+    if (name.startsWith('side:')) {
+      const f = this.game.room.screenFrame(name.slice(5), this.seat);
       if (!f) return this.target('desk');
       const fov = 50, t = Math.tan(THREE.MathUtils.degToRad(fov) / 2) / 1.04;
-      const d = Math.max(f.height / 2 / t, f.width / 2 / (t * this.game.camera.aspect));
+      const d = Math.max(f.height / 2 / t, f.width / 2 / (t * this.game.camera.aspect)) * 1.7;
+      const right = new THREE.Vector3().crossVectors(f.up, f.normal).multiplyScalar(0.5 * d * t * this.game.camera.aspect);
+      const pos = f.center.clone().addScaledVector(f.normal, d).add(right);
+      const m = new THREE.Matrix4().lookAt(pos, f.center.clone().add(right), f.up);
+      return { pos, quat: new THREE.Quaternion().setFromRotationMatrix(m), fov };
+    }
+    if (name.startsWith('monitor:') || name.startsWith('half:')) {
+      const half = name.startsWith('half:');
+      const f = this.game.room.screenFrame(name.slice(name.indexOf(':') + 1), this.seat);
+      if (!f) return this.target('desk');
+      const fov = 50, t = Math.tan(THREE.MathUtils.degToRad(fov) / 2) / 1.04;
+      const d = Math.max(f.height / 2 / t, f.width / 2 / (t * this.game.camera.aspect)) * (half ? 2.2 : 1);
       const pos = f.center.clone().addScaledVector(f.normal, d);
+      // halfway: from a little to the screen's left, clear of whoever sits at it
+      if (half) pos.addScaledVector(new THREE.Vector3().crossVectors(f.up, f.normal), 0.4 * d);
       const m = new THREE.Matrix4().lookAt(pos, f.center, f.up);
       return { pos, quat: new THREE.Quaternion().setFromRotationMatrix(m), fov };
     }
@@ -124,7 +147,7 @@ export class Shots {
     cam.position.copy(this.pose.pos);
     cam.quaternion.copy(this.pose.quat);
     // A breath of life: the head never holds perfectly still
-    if (this.name !== 'epilogue' && !this.name.startsWith('monitor:')) {
+    if (this.name !== 'epilogue' && !this.name.startsWith('monitor:') && !this.name.startsWith('half:') && !this.name.startsWith('side:')) {
       cam.rotateY(0.004 * Math.sin(this.t * 0.37));
       cam.rotateX(0.003 * Math.sin(this.t * 0.51 + 1));
     }

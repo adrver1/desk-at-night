@@ -12,6 +12,7 @@ import { roomVertex } from './shaders.js';
 import { drawSlots, assign, contentOf, setOutside, setFeeds, isFeed } from './screens.js';
 import { SunShadow } from './sunShadow.js';
 import { clock } from './outdoor.js';
+import { OVERRIDES, PRIVATE_BASE } from './privateNames.js';
 
 const SCENE = 'control/';
 // GitHub Pages lets browsers reuse files for ten minutes without asking. After
@@ -316,7 +317,10 @@ export async function loadControlRoom(renderer) {
   // Whiteboards share its light too, with their own image as albedo. Drawn
   // once at bake time, so they cost one texture each and nothing per frame.
   const boards = Object.entries(meta.boards ?? {});
-  const boardBufs = await Promise.all(boards.map(([, png]) => bytes(png)));
+  // The private build (?private=1) swaps in its own pictures for the boards
+  // overrides.json `boards` lists (the desk photo frames' portraits)
+  const own = (png) => fetch(`${PRIVATE_BASE}control/${png}`).then((r) => (r.ok ? r.arrayBuffer() : bytes(png)));
+  const boardBufs = await Promise.all(boards.map(([, png]) => (OVERRIDES.boards?.includes(png) ? own(png) : bytes(png))));
   for (const [i, [name]] of boards.entries()) {
     const mesh = gltf.scene.getObjectByName(name);
     if (!mesh) continue;
@@ -390,6 +394,12 @@ export async function loadControlRoom(renderer) {
       for (const mesh of screens.meshes) {
         const geometry = sliceSlot(mesh.geometry, slot, meta.screens.canvas);
         if (!geometry) continue;
+        // lift it 2 mm off the glass: the polygon offset alone lost to the
+        // screen underneath close up, a triangle at a time (the camera's
+        // full zoom on a chat showed the atlas's older picture through half the quad)
+        if (!geometry.attributes.normal) geometry.computeVertexNormals();
+        const pos = geometry.attributes.position, nrm = geometry.attributes.normal;
+        for (let i = 0; i < pos.count; i++) pos.setXYZ(i, pos.getX(i) + nrm.getX(i) * 0.002, pos.getY(i) + nrm.getY(i) * 0.002, pos.getZ(i) + nrm.getZ(i) * 0.002);
         const mat = overlayMaterial(feedGain);
         o = { name, slot, mesh: new THREE.Mesh(geometry, mat), scale: 0, tex: null };
         o.mesh.visible = false; // until it has a texture and is wanted
@@ -419,8 +429,10 @@ export async function loadControlRoom(renderer) {
   function showFeed(o) {
     const m = o.mesh.material, id = contentOf(o.name), feed = isFeed(id) ? feeds[id] : null;
     m.uniforms.uFeed.value = feed;
-    if (Boolean(m.defines.FEED) !== Boolean(feed)) {
+    const raw = Boolean(feed?.userData.raw);
+    if (Boolean(m.defines.FEED) !== Boolean(feed) || Boolean(m.defines.FEED_RAW) !== raw) {
       if (feed) m.defines.FEED = ''; else delete m.defines.FEED;
+      if (raw) m.defines.FEED_RAW = ''; else delete m.defines.FEED_RAW;
       m.needsUpdate = true;
     }
   }
@@ -546,11 +558,13 @@ export async function loadControlRoom(renderer) {
       if (o) { showFeed(o); if (o.tex) draw(o, 0); o.mesh.visible = isLive(name) || o === screens.focus; }
     },
     // Live camera pictures from cctv.js (id -> texture) and the cameras' gain:
-    // those screens show the picture with only rain, noise and caption drawn
+    // those screens show the picture with only rain, noise and caption drawn.
+    // A texture with userData.raw is shown as it is, without the cameras' gain
+    // (story mode's CtrlBuddy, drawn in 3D under his screen's picture)
     setFeeds(textures, gain) {
       Object.assign(feeds, textures);
-      gainSource = gain;
-      setFeeds(Object.keys(textures));
+      if (gain) gainSource = gain;
+      setFeeds(Object.keys(feeds));
       if (!screens) return;
       for (const o of screens.overlays.values()) { showFeed(o); if (o.tex) draw(o, 0); }
     },
@@ -561,6 +575,16 @@ export async function loadControlRoom(renderer) {
       return shown;
     },
     // The camera on the screen shown sharp, if it shows one (for cctv.js)
+    // Redraw the live screens on the next frame, whatever their rate: what
+    // they show has just changed (a chat's messages), so the old picture
+    // mustn't stay up for a quarter of a second
+    redrawNow() {
+      if (screens) screens.drawn = screens.focusDrawn = -Infinity;
+    },
+    // ... or only the screen zoomed in on (letters typed into a chat)
+    redrawFocus() {
+      if (screens) screens.focusDrawn = -Infinity;
+    },
     focusedFeed() {
       const id = screens?.focus && contentOf(screens.focus.name);
       return id && isFeed(id) ? id : null;
@@ -595,8 +619,11 @@ function overlayMaterial(feedGain) {
         vec4 over = texture2D(uOver, vUv);
         vec3 col = over.rgb;
         #ifdef FEED
-          vec3 pic = texture2D(uFeed, vec2(vUv.x, 1.0 - vUv.y)).rgb * uFeedGain;  // render targets run bottom up
-          pic = pic / (1.0 + pic);
+          vec3 pic = texture2D(uFeed, vec2(vUv.x, 1.0 - vUv.y)).rgb;  // render targets run bottom up
+          #ifndef FEED_RAW
+            pic *= uFeedGain;   // a camera's picture: its exposure, and a soft shoulder
+            pic = pic / (1.0 + pic);
+          #endif
           col = mix(pic, over.rgb, over.a);
         #endif
         gl_FragColor = vec4(col * uColor, 1.0);
@@ -640,5 +667,5 @@ function faceFrame(mesh, from) {
   const center = O.clone().addScaledVector(U, 0.5).addScaledVector(V, 0.5);
   const normal = new THREE.Vector3().crossVectors(U, V).normalize();
   if (from && normal.dot(from.clone().sub(center)) < 0) normal.negate();
-  return { center, normal, up: V.clone().normalize().negate(), width: U.length(), height: V.length() };
+  return { center, normal, up: V.clone().normalize().negate(), width: U.length(), height: V.length(), at: (u, v) => O.clone().addScaledVector(U, u).addScaledVector(V, v) };
 }

@@ -109,8 +109,11 @@ async function load() {
   // The supply vessel: through the window, on the crane camera, and its row on the panel
   addVessel({ renderer, scene, room, outdoor, cctv: cctvReady, panel: $('tpOutdoor') })
     .then((v) => { vessel = v; }).catch((e) => console.warn('vessel', e));
-  // Seabirds round the platform: through the window and on the cameras (gulls.js)
-  addSeabirds({ scene, room, outdoor, cctv: cctvReady, vessel: () => vessel })
+  // Seabirds round the platform: through the window and on the cameras (gulls.js).
+  // Not in story mode, where a gull darting past distracts from the talk
+  // (Adriaen, 2026-10-29); the prologue's flight keeps its own flock. ?birds= brings them back
+  const storyPage = /story\.html$/.test(location.pathname) && !new URLSearchParams(location.search).has('birds');
+  if (!storyPage) addSeabirds({ scene, room, outdoor, cctv: cctvReady, vessel: () => vessel })
     .then((b) => { birds = b; }).catch((e) => console.warn('birds', e));
   const root = room.root;
   for (const name of room.meta.movable ?? []) {

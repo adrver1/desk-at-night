@@ -35,8 +35,8 @@ to also write a contact sheet next to the reference into a private folder.
   helmets follow one bone, and clothing shells copy the weights of the skin
   under them.
 - Outfits (`_shared/outfits.py`) are shells built from the base body's own
-  rings, so they fit every character: `ppe` (Aker BP hi-vis jacket with
-  the ribbon logo on the back and chest pocket, navy lower sleeves and
+  rings, so they fit every character: `ppe` (hi-vis jacket with
+  the company's wave logo on the back and chest pocket, navy lower sleeves and
   trousers, reflective bands, safety boots) and `ppe_deck` (adds a white
   helmet with logo sticker, blue ear defenders on black clip arms from the
   helmet's side slots, wraparound safety glasses drawn as frame and clear
@@ -66,13 +66,16 @@ to also write a contact sheet next to the reference into a private folder.
   deck instead of the clear safety specs. Each character ships one
   everyday look plus `ppe` and `ppe_deck`; kept extra outfits are behind
   `EXTRA_LOOKS = True` in their script.
-- `anims.py` keys eight clips on the shared rig and every .glb carries them
+- `anims.py` keys the body clips on the shared rig and every .glb carries them
   as named glTF animations: `idle`, `walk` (in place; move the root),
   `seated_idle` (0.45 m seat), `stand_up`, `typing` (0.74 m desk) and
   `point`, plus `step_down` (two 0.5 m steps down from a 1 m helicopter
   cabin floor, ending 1 m lower and 0.6 m ahead) and `flying` (seated,
   right hand on a cyclic between the knees, left on a collective by the
-  left thigh). One clip set plays on
+  left thigh), and the seated idles `sip` / `sip_left` (reach for the
+  desk mug at `SIP_MUG`, cup to the lips, put it back; the hand holds it
+  between `SIP_HOLD` seconds) and `mouse` (hand on the mouse, small
+  wiggles). One clip set plays on
   every character and outfit. Face clips move only the face bones, so they
   play on top of a body clip: `blink`, `brows_raise`, `brows_frown`, the
   expressions `happy`, `sad`, `surprised`, `angry` and `worried`, and
@@ -101,4 +104,6 @@ to also write a contact sheet next to the reference into a private folder.
 | `curly_analyst` | 1,200 | skin_3, hair_dark_brown, stubble, turquoise, turquoise_dark, hivis_orange, plastic_black, khaki, leather_brown | `ppe` 1,252, `ppe_deck` 1,386, `survival` 1,374. Curly mullet receding on top, dark glasses, dark goatee, turquoise polo, orange watch. `HEADSET = True` adds the shared headset; `EXTRA_LOOKS = True` adds an amber `jacket` (1,234) and `winter` with beanie and goggles (1,196) |
 | `glasses_ceo` | 1,063 | skin_2, hair_brown, hair_salt_pepper, blue, denim, navy, white, charcoal, black | `ppe` 1,050, `ppe_deck` 1,231, `survival` 1,172. Short crop greying at the sides, clean-shaven, ears that stand out (`ears=1.1`, `ear_flare=0.022`), heavy round black glasses (kept on deck), blue blazer over a white shirt. `EXTRA_LOOKS = True` adds `casual`, a charcoal overshirt over a light-blue tee and jeans (1,105) |
 | `heli_pilot` | 1,006 | skin_4, hair_dark_brown, hair_salt_pepper, coverall_navy, black, gold, rubber, helmet_white, lens, plastic_black, olive | Outfits: office (flight suit alone) 1,006, `flying_headset` (the cockpit pick: ear-defender headset) 1,134, `flying` (helmet) 1,128. The helicopter captain: an original character, no reference and no operator's colours or logo. Short crop greying at the sides, clean-shaven, gold aviator sunglasses (`glasses="aviator"`, dark lenses) |
-| `control_buddy` | 686 | light_grey, charcoal, lens, black, white, light_blue (scholar adds gold, nurse signal_red) | CtrlBuddy, the AI agent mascot from Adriaen's talk: a robot with a domed head, ear bolts, dark shades, frowning brows, metal collar flaps and a grey tabard with a white pixel-font name badge. Its own script, not the crew `Look`: every part is rigid on the shared rig (one bone per vertex), so all crew clips play. `FORM` picks the live body: `hover` (live, legs swapped for a thruster), `walker` 804 (legs, `control_buddy_walker.glb`) or `desk` 684 (30 cm bust with a bigger head on a puck, `control_buddy_desk.glb`). Team-mates `--role scholar` (COMPILER, mortarboard, bow tie, 758) and `nurse` (LINTER, nurse cap, first-aid patch, 702). Renders add a hands-on-hips pose |
+| `control_buddy` | 742 | light_grey, charcoal, lens, black, white, light_blue (scholar adds gold, nurse signal_red) | CtrlBuddy, the AI agent mascot from Adriaen's talk: a robot with a domed head, ear bolts, dark shades, frowning brows, short tabard sleeves pointing straight out sideways, opening slanted back to the armpit; their root stays on the chest and the rest follows the upper arm; a big grey triangle nose; the badge high on the chest (`SHOULDERS = "flaps"` keeps the earlier collar wedges) and a grey tabard with a white pixel-font name badge. Its own script, not the crew `Look`: every part is rigid on the shared rig (one bone per vertex), so all crew clips play. `FORM` picks the live body: `hover` (live, legs swapped for a thruster), `walker` 860 (legs, `control_buddy_walker.glb`) or `desk` 740 (30 cm bust with a bigger head on a puck, `control_buddy_desk.glb`). Team-mates `--role scholar` (COMPILER, mortarboard, bow tie, 814) and `nurse` (LINTER badge off-centre under a V-neck, flared nurse cap, first-aid pocket, 749). Renders add a hands-on-hips pose |
+| `composer` | 987 | skin_1, hair_white, hair_grey, charcoal, black, white | A 19th-century composer for the story's video calls: a big white mane swept back from a high forehead and bushing out over the ears to the collar, a heavy walrus moustache, clean chin, dark frock coat with a wing collar and a black bow tie. Office look only (`shared=()`); mane, moustache and bow tie are his own parts in the script. His call portrait goes to the private build (`web/qa/portraits.mjs composer`) |
+| `poet` | 923 | skin_2, hair_white, hair_grey, charcoal, black, white | A 19th-century language scholar and poet for the story's video calls: bald on top with a wispy white fringe round the back, a white chin-curtain beard without a moustache, dark frock coat and a black cravat tied high. Office look only; fringe, beard and cravat are his own parts. Portrait: `web/qa/portraits.mjs poet`, private build |

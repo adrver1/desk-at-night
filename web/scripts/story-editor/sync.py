@@ -8,8 +8,13 @@
 beats) and src/story/lines.json (spoken lines and subtitles, new lines), then
 prints what needs a hand: new or changed lines to voice, slide pictures to
 download into the build, and the open notes to Claude.
+
+The editor is private and may say the real names; the repo is public. Every
+string is turned back into the public stand-ins on the way in, by the
+private name map (public/story/private/overrides.json `names`, read in
+reverse), and anything that still looks like a real tag is reported.
 """
-import json, os, sys, glob
+import json, os, re, sys, glob
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WEB = os.path.dirname(os.path.dirname(HERE))
@@ -22,8 +27,25 @@ def load(kind):
         out.append(d.get('data', d) if isinstance(d, dict) and 'data' in d and 'id' in d else d)
     return out
 
-beats = sorted(load('beats'), key=lambda b: b['order'])
-notes = load('notes')
+PRIV = f'{WEB}/public/story/private/overrides.json'
+NAMES = {real: public for public, real in (json.load(open(PRIV)).get('names', {}) if os.path.exists(PRIV) else {}).items()}
+NAME_RE = re.compile(r'(?<![\w])(' + '|'.join(map(re.escape, sorted(NAMES, key=len, reverse=True))) + r')(?![\w])') if NAMES else None
+TAG_RE = re.compile(r'\b\d{2}-?[A-Z]{1,3}-?\d{3,4}\b')
+if not NAMES: print('!! no private name map (public/story/private/overrides.json): real names would go into the repo')
+tags = set()
+
+def public(o):
+    if isinstance(o, str):
+        s = NAME_RE.sub(lambda m: NAMES[m.group(1)], o) if NAME_RE else o
+        tags.update(TAG_RE.findall(s))
+        return s
+    if isinstance(o, list): return [public(v) for v in o]
+    if isinstance(o, dict): return {k: public(v) for k, v in o.items()}
+    return o
+
+beats = public(sorted(load('beats'), key=lambda b: b['order']))
+notes = public(load('notes'))
+chapter_names = public(load('chapters')) if os.path.isdir(f'{src}/chapters') else []
 story_p, lines_p = f'{WEB}/src/story/story.json', f'{WEB}/src/story/lines.json'
 story, lines = json.load(open(story_p)), json.load(open(lines_p))
 voice, pictures, changed = [], [], []
@@ -32,6 +54,10 @@ def same(a, b): return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=
 def both(o): return {'no': o.get('no', ''), 'en': o.get('en', '')}
 
 story['inserted'], story['hidden'], story['callouts'] = [], [], {}
+# chapter names edited in the editor, by a beat of the chapter (content.js applyStory)
+names = {c['beat']: both(c) for c in chapter_names if c.get('beat') and (c.get('no') or c.get('en'))}
+if names != story.get('chapterNames', {}): changed.append('chapter names')
+story['chapterNames'] = names
 for i, b in enumerate(beats):
     bid, base = b['id'], b.get('base') or {}
     o = {}
@@ -69,6 +95,10 @@ for i, b in enumerate(beats):
                 l = lines[it['id']]
                 if l['text'] != it.get('en', l['text']): l['text'] = it['en']; voice.append(it['id'])
                 if it.get('no') is not None and l.get('no', '') != it['no']: l['no'] = it['no']; changed.append(f'subtitle {it["id"]}')
+            l = lines[it['id']]
+            for f in ('voice', 'subs'):   # switched off in the editor; on is the default
+                if it.get(f) is False and l.get(f) is not False: l[f] = False; changed.append(f'{f} off {it["id"]}')
+                elif it.get(f) is not False and f in l: del l[f]; changed.append(f'{f} on {it["id"]}')
         elif k == 'chat':
             m = story['chats'][it['key']]['messages'][it['idx']]
             if not same({k: m[1].get(k, '') for k in ('no', 'en')}, both(it)): m[1] = {**m[1], **both(it)}; changed.append(f'chat {it["key"]} {it["idx"] + 1}')   # keeps a report's file
@@ -99,7 +129,8 @@ if new:
     out.append('}')
 open(lines_p, 'w').write('\n'.join(out) + '\n')
 print('changed:', ', '.join(changed) or 'nothing')
-if voice: print('voice these lines:  python web/scripts/voices.py --model <dir> --only', ' '.join(voice))
+if voice: print('voice these lines:  python web/scripts/voices.py --model <dir> --only', ' '.join(voice), '(then again with --private)')
 for sid, url in pictures: print(f'picture slide {sid}: download {url} to web/public/story/slides/{sid}.webp')
 for n in notes:
     if n.get('status') != 'done': print(f'NOTE [{n.get("beatId")} / {n.get("target")}] {n.get("text")}')
+if tags: print('!! tag-like strings, keep them out of the repo (private overrides chatText): ' + ', '.join(sorted(tags)))

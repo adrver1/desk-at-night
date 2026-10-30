@@ -5,6 +5,7 @@
 import { FULL, T } from './lang.js';
 import { PATHS } from './cast.js';
 import STORY from './story.json';
+import { PRIVATE, OVERRIDES, realDeep } from '../privateNames.js';
 import { CEO_MEET } from './trondheim.js';
 //
 // This repo is public: no real platform numbers, initiative names, or names
@@ -60,30 +61,32 @@ export const SPEAKERS = {
   crew: { name: 'Ground crew' },
   agent: { name: 'AI agent (on the screens)' },
   ceo: { name: 'CEO', model: 'glasses_ceo' },
+  neighbour: { name: 'Nordhav Beta' },   // the neighbouring platform, on the phone (caller.js)
 };
 
 export const TITLE = 'A day in the life of EIGA';
-// TODO(Adriaen): credit wording and Brage's role
+// TODO(Adriaen): credit wording and the supervisor's role
 // [role, name, who the camera turns to in the cabin, or 'descent' for the
 // outside camera as the helicopter comes down onto the deck]
 export const CREDITS = [
-  ['Story and engineering', 'Adriaen', 'bearded_operator'],
-  ['With', 'Brage', 'blazer_lead'],
+  ['Story and engineering', 'Ola', 'bearded_operator'],
+  ['With', 'Per', 'blazer_lead'],
   // CC BY 3.0 asks for this line wherever the recording plays (see story/README.md)
   ['Music · Wagner, Ride of the Valkyries', 'Philip Milman · CC BY 3.0', 'vessel'],
   ['Built with', 'Claude · GitHub Copilot', 'descent'],
 ];
 
-// The AI Catalyst Run 2026 crew as they board at Sola (sola.js): first name
-// and business unit, per cast model. Adriaen OK'd these for the public repo.
+// The crew as they board at Sola (sola.js): first name and department, per
+// cast model. Made-up stand-ins: the real names are private (overrides.json
+// `crew`, ?private=1).
 export const CREW_NAMES = {
-  bearded_operator: ['Adriaen', 'OPS'],
-  blazer_lead: ['Brage', 'FSP'],
-  grey_beard_lead: ['Tore', 'PROG'],
-  glasses_engineer: ['Idar', 'FSP'],
-  curly_fade_tech: ['Kristian', 'DIGE'],
-  crop_supervisor: ['Bjørn', 'People & Safety'],
-  curly_analyst: ['Daniel', 'D&W'],
+  bearded_operator: ['Ola', 'Operations'],
+  blazer_lead: ['Per', 'Engineering'],
+  grey_beard_lead: ['Knut', 'Projects'],
+  glasses_engineer: ['Arne', 'Engineering'],
+  curly_fade_tech: ['Lars', 'Digital'],
+  crop_supervisor: ['Geir', 'HSE'],
+  curly_analyst: ['Jonas', 'Drilling'],
 };
 
 export const ACTS = {
@@ -297,7 +300,7 @@ export const SEARCH = ['Lifting operations, general (rev 2, superseded)', 'Crane
 // frame), in subchapters the presenter can jump between (Adriaen,
 // 2026-10-25). `pro` names where each starts; main.js turns that into the
 // intro's clock (PRO_START) and moves the navigator along as it plays
-// through. The Sola one goes with ?sola=0.
+// through. The Sola one only comes with ?sola=1 (off by default since 2026-10-29).
 const PROLOGUE_BEATS = [
   { id: 'pro.sola', pro: 'sola', set: { act: 0 }, notes: 'Sola heliport: fade in from black on the apron, the title, the crew boards the helicopter.' },
   { id: 'pro.takeoff', pro: 'takeoff', set: { act: 0 }, notes: 'Up and away: the cabin, the title (when there is no Sola opening), the pilot on the intercom.' },
@@ -499,9 +502,14 @@ export const GOV_DOCS = {
 // Every screen, blanked for the rewind
 const ALL_SCREENS = [0, 1, 2, 3, 4, 5].flatMap((i) => [`Desk0Mon${i}Screen`, `Desk1Mon${i}Screen`]).concat([0, 1, 2, 3, 4, 5, 6].map((i) => `Wall${i}Screen`), ['LinkScreen', 'TvScreen']);
 const BLANK = Object.fromEntries(ALL_SCREENS.map((n) => [n, 'blank']));
-// Tomorrow's room: Brage's agent in the middle of the band with his plan on
+// Tomorrow's room: the supervisor's agent in the middle of the band with his plan on
 // either side, the graph at the ends; Adriaen's agent and the riser at his desk
 const TOMORROW_SCREENS = { Wall1Screen: 'graph', Wall2Screen: 'planChart', Wall3Screen: 'chatPlan', Wall4Screen: 'planChart', Wall5Screen: 'graph', Desk1Mon2Screen: 'chatSlug', Desk1Mon3Screen: 'riser' };
+// Per's own screen (the chat screen) during his business-plan chat: the agent first, then the chat
+const PLAN_SCREENS = (id) => ({ ...TOMORROW_SCREENS, [CHAT_SCREEN]: id });
+// Ola's desk tomorrow (Desk1): his agent's chat screen, CtrlBuddy first
+const SLUG_SCREEN = 'Desk1Mon2Screen';
+const ADR_SCREENS = (id) => ({ ...PLAN_SCREENS('chatPlan'), [SLUG_SCREEN]: id });
 const TOMORROW_CAST = { supervisor: { at: 'desk0typing' }, operator: { at: 'desk2typing' } };
 export const CLOSING = tx(STORY.closing);
 
@@ -518,27 +526,37 @@ const SHORT_CHAPTERS = [
         do: [{ wait: 0.5 }, { move: 'supervisor', walk: PATHS.doorToDesk0 }, { wait: 1.6 }, { say: 't.gm1' }, { say: 't.gm2' },
           { idle: 'supervisor' }, { move: 'supervisor', sit: 0, then: 'typing', to: 'desk0typing' }, { wait: 1.2 }, { say: 't.gm3' }, { idle: 'supervisor' },
           { set: { shot: 'pair' } }, { at: 2.6, move: 'operator', stand: 1, toward: [4, 3.6] }, { say: 't.gm4' },
-          { move: 'operator', walk: PATHS.desk2ToCoffee, to: 'coffee' }, { wait: 1.6 }, { set: { shot: 'wideRoom' } }, { idle: 'operator' }],
-        end: { shot: 'wideRoom', cast: { supervisor: { at: 'desk0typing' }, operator: { at: 'coffee' } } },
-        notes: 'Runs by itself. Tomorrow\'s control room: Brage comes in, turns his chair round and sits down. Good morning; is the coffee fresh? Adriaen goes to put on a new pot.' },
-      { id: 't.brage', auto: true, set: { shot: 'brageBand' },
-        do: [{ wait: 0.4 }, { chat: 'plan' }, { say: 't.brage1' }, { chat: 'plan' }, { set: { shot: 'monitor:Wall3Screen' } }, { wait: 0.6 }, { say: 't.ai1' }, { wait: 0.2 },
-          { set: { shot: 'brage' } }, { chat: 'plan' }, { say: 't.brage2' }, { chat: 'plan' }, { set: { shot: 'monitor:Wall3Screen' } }, { wait: 0.6 }, { say: 't.ai2' }, { set: { shot: 'band' } }, { wait: 0.8 }],
-        end: { shot: 'band', chats: { plan: 4, slug: 0 } },
-        notes: 'Brage works on the business plan with his agent on the wall band; the agent answers out loud in its robot voice. The plan on either side closes its gap once the drafts are in.' },
+          // (Adriaen, 2026-10-29) he walks on out of the picture while the camera already closes in on Per for t.plan
+          { move: 'operator', walk: PATHS.desk2ToCoffee, to: 'coffee' }, { wait: 1.2 }, { set: { shot: 'buddyDesk' } }, { wait: 2.2 }],
+        end: { shot: 'buddyDesk', cast: { supervisor: { at: 'desk0typing' }, operator: { at: 'coffee' } } },
+        notes: 'Runs by itself. Tomorrow\'s control room: Per comes in, turns his chair round and sits down. Good morning; is the coffee fresh? Ola goes to put on a new pot.' },
+      // (Adriaen, 2026-10-29) like CtrlBuddy's first appearance: Per and his screen, the agent appears there,
+      // the pointer clicks it and the chat opens on that screen at full zoom. It is the CtrlBuddy model, but
+      // CtrlBuddy is Ola's process-control agent: Per's has its own name (PlanBuddy, BUDDY_WHO.planner)
+      { id: 't.plan', auto: true, set: { shot: 'buddyDesk', buddyAt: CHAT_SCREEN, buddyWho: 'planner' },
+        do: [{ wait: 0.8 }, { set: { screens: PLAN_SCREENS('buddy'), buddy: 'splash', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
+          { set: { screens: PLAN_SCREENS('chatPlan'), shot: `monitor:${CHAT_SCREEN}` } }, { wait: 0.4 },
+          { chat: 'plan' }, { say: 't.plan1' }, { chat: 'plan' }, { wait: 0.6 }, { say: 't.ai1' }, { wait: 0.2 },
+          { set: { shot: 'supervisor' } }, { chat: 'plan' }, { say: 't.plan2' }, { chat: 'plan' }, { set: { shot: `monitor:${CHAT_SCREEN}` } }, { wait: 0.6 }, { say: 't.ai2' }, { set: { shot: 'band' } }, { wait: 0.8 }],
+        end: { shot: 'band', screens: PLAN_SCREENS('chatPlan'), chats: { plan: 4, slug: 0 }, buddy: null },
+        notes: 'Per works on the business plan with his agent, on his own screen; the agent answers out loud in its robot voice. The plan on either side closes its gap once the drafts are in.' },
       { id: 't.coffee', auto: true, set: { shot: 'wideRoom', chats: { plan: 4, slug: 0 } },
         do: [{ move: 'operator', carry: 'jug' }, { move: 'operator', walk: PATHS.coffeeToDesk0 }, { wait: 4.4 }, { set: { shot: 'pour' } }, { idle: 'operator' },
           { move: 'operator', pour: 'S0Mug' }, { wait: 2.2 }, { say: 't.gm5' }, { idle: 'operator' },
           { move: 'operator', walk: PATHS.desk0ToDesk2 }, { move: 'operator', carry: null, put: [1.36, 0.745, -2.3] }, { move: 'operator', sit: 1, then: 'typing', to: 'desk2typing' }, { wait: 0.6 }, { set: { shot: 'wideRoom' } }, { idle: 'operator' }],
         end: { shot: 'wideRoom', mugs: { S0Mug: [1, -0.45, -2.12] }, cast: { supervisor: { at: 'desk0typing' }, operator: { at: 'desk2typing' } } },
-        notes: 'Adriaen comes back with a fresh pot, fills Brage\'s mug and sits down at his own desk.' },
-      { id: 't.adriaen', auto: true, set: { shot: 'adriaenDesk' },
-        do: [{ wait: 0.4 }, { chat: 'slug' }, { say: 't.adr1' }, { chat: 'slug' }, { set: { shot: 'monitor:Desk1Mon2Screen' } }, { wait: 0.6 }, { say: 't.ai3' },
+        notes: 'Ola comes back with a fresh pot, fills Per\'s mug and sits down at his own desk.' },
+      // (Adriaen, 2026-10-29) the same template as Per's: Ola and his screen on the right (buddyDesk_right),
+      // CtrlBuddy appears and waves, the pointer clicks him, the chat opens at full zoom
+      { id: 't.adriaen', auto: true, set: { shot: 'buddyDesk_right', buddyAt: SLUG_SCREEN, buddyWho: 'buddy', buddy: null },
+        do: [{ wait: 0.8 }, { set: { screens: ADR_SCREENS('buddy'), buddy: 'splash', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
+          { set: { screens: ADR_SCREENS('chatSlug'), shot: `monitor:${SLUG_SCREEN}` } }, { wait: 0.4 },
+          { chat: 'slug' }, { say: 't.adr1' }, { chat: 'slug' }, { wait: 0.6 }, { say: 't.ai3' },
           { set: { shot: 'monitor:Desk1Mon3Screen', tool: 'antiSlug', screens: { Desk1Mon3Screen: 'antiSlug' } } }, { wait: 3.2 },
           { set: { shot: 'adriaenDesk' } }, { chat: 'slug' }, { say: 't.adr2' }, { chat: 'slug' }, { set: { shot: 'monitor:Desk1Mon2Screen' } }, { wait: 0.6 }, { say: 't.ai4' },
           { set: { shot: 'adriaen' } }, { wait: 0.4 }, { say: 't.adr3' }],
-        end: { shot: 'adriaen', tool: 'antiSlug', screens: { Desk1Mon3Screen: 'antiSlug' }, chats: { plan: 4, slug: 4 } },
-        notes: 'Adriaen works with his agent on the anti-slug controller; the agent answers out loud. The camera settles on him.' },
+        end: { shot: 'adriaen', tool: 'antiSlug', screens: { ...ADR_SCREENS('chatSlug'), Desk1Mon3Screen: 'antiSlug' }, chats: { plan: 4, slug: 4 }, buddy: null },
+        notes: 'Ola works with his agent on the anti-slug controller; the agent answers out loud. The camera settles on him.' },
       { id: 't.question', auto: true, set: { shot: 'adriaen' }, do: [{ wait: 0.5 }, { card: { text: T('Hvordan kom vi hit?', 'How did we get here?') } }, { wait: 3.2 }, { card: null }],
         notes: 'The question. Let it hang for a moment.' },
       { id: 't.rewind', auto: true, do: [{ rewind: 6 }], end: { act: 5, time: 8.5, screens: BLANK, chats: { plan: 0, slug: 0 }, cast: {}, tool: null, shot: 'desk', graph: 0 },
@@ -550,13 +568,52 @@ const SHORT_CHAPTERS = [
     base: { act: 5, time: 8.5, shot: 'desk', ...DESK, cast: {}, graph: 0, screens: BLANK },
     beats: [
       { id: 'y.card', card: { text: '', solid: true }, notes: 'A plain black screen after the question. From here on you talk; Space moves on.' },
-      { id: 'y.trondheim', set: { place: 'trondheim' },
-        do: [{ wait: 0.8 }, { card: { text: T('For et år siden', 'One year ago'), sub: T('I november 2025', 'November 2025') } }, { wait: 6 }, { card: null },
+      { id: 'y.trondheim', auto: true, set: { place: 'trondheim' },
+        do: [{ wait: 0.5 }, { card: { text: T('For et år siden', 'One year ago'), sub: T('I november 2025', 'November 2025') } }, { wait: 4 }, { card: null },
           ...(CEO_MEET ? [{ torvet: 'meet' }, { say: 'y.ceo1' }, { torvet: 'shake' }, { wait: 0.3 }, { torvet: 'in' }] : [{ torvet: 'door' }])],
-        notes: CEO_MEET ? 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the Føniks steps, the titles fade as it closes in. The CEO comes out as you climb the steps, welcomes you to Aker BP, you shake hands, and go in together. Your first week on the job.'
+        notes: CEO_MEET ? 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the Føniks steps, the titles fade as it closes in. The CEO comes out as you climb the steps, welcomes you to Nordhav Energi, you shake hands, and go in together. Your first week on the job.'
           : 'Torvet in Trondheim, as a dream: the drone glides down from over the square to you by the fountain, the titles fade as it closes in, and you walk up the steps and in at the Føniks door. Your first week on the job. (?ceo=1: the CEO welcomes you at the steps.)' },
       { id: 'y.steep', set: { overlay: 'slide:y-02' }, notes: 'Onboarding is steep. TODO(Adriaen): your talking points.' },
-      { id: 'y.room', set: { overlay: null, place: null, shot: 'band', screens: null }, notes: 'The room as it was to a newcomer: screens full of things you have yet to learn.' },
+      { id: 'y.room', set: { overlay: null, place: null, shot: 'roomBand', screens: null, cast: { operator: { at: 'desk0' } } }, notes: 'The room as it was to a newcomer: screens full of things you have yet to learn.' },
+      // (Adriaen, 2026-10-29) the learning curve and CtrlBuddy's first appearance belong to one year ago
+      { id: 'm.s1', set: { overlay: 'slide:m-01' }, notes: 'The money slides: what is possible.' },
+      { id: 'm.step', set: { overlay: null, shot: 'monitor:Desk0Mon2Screen', tool: 'stepTest', screens: { Desk0Mon2Screen: 'stepTest' } }, notes: 'Step-test finder on history. TODO(Adriaen): screenshot of the real tool in private/tools/stepTest.png.' },
+      { id: 'm.s2', set: { overlay: 'slide:m-02' } },
+      // CtrlBuddy's first appearance (Adriaen, 2026-10-29), before his first chat (c.step):
+      // the learning curve in two clicks (axes, then the curve), then he appears on the screen beside the operator
+      { id: 'm.curve1', set: { overlay: null, curve: 'axes', shot: 'curveDesk', buddyAt: CHAT_SCREEN, buddyWho: 'buddy', screens: null, cast: { operator: { at: 'desk0typing' } } },
+        notes: 'Ett år siden, kontrollrommet. Aksene: tid og læring.' },
+      { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
+      // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
+      { id: 'm.think', set: { curve: null, thoughts: true }, notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
+      // (Adriaen, 2026-10-29) and then the neighbouring platform calls about its separator
+      // (Adriaen, 2026-10-29) the phone rings, in its own beat (it rings on while the presenter talks);
+      // then the call: he picks up in the room behind, his portrait moves aside for the caller's,
+      // and the separator comes up once the caller has said who it is
+      { id: 'm.ring', set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' }, do: [{ sound: 'ringtone', times: 6 }],
+        notes: 'Telefonen ringer. Space: han tar den.' },
+      { id: 'm.call', set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' },
+        do: [{ set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
+          { set: { callStage: 'talk' } }, { wait: 1 }, { say: 'm.call0' }],
+        end: { callStage: 'talk', phone: 'operator' },
+        notes: 'Han tar telefonen: det er Nordhav Beta. (Chatversjonen, c.call, ligger skjult.)' },
+      // (Adriaen, 2026-10-29) the separator and the complaint in a beat of their own; at the end
+      // he hangs up (the pickup played backwards, a click) and the call goes
+      { id: 'm.slug', auto: true, set: { call: 'neighbour', callStage: 'sep', phone: 'operator', shot: 'phoneDesk' },
+        do: [{ wait: 1.2 }, { say: 'm.call1' }, { say: 'm.call2' }, { say: 'm.call3' }, { wait: 0.4 },
+          { set: { phone: null } }, { wait: 0.65 }, { sound: 'hangup' }, { wait: 0.9 }, { set: { call: null } }, { wait: 0.6 }],
+        end: { call: null, phone: null },
+        notes: 'Separatoren deres slugger, og de spør den nye operatøren om råd. Han legger på.' },
+      { id: 'm.buddy1', set: { curve: null, thoughts: null, call: null, phone: null, explain: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
+        notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
+      // (Adriaen, 2026-10-29) what he is, one part per beat, while he waves; then the click
+      { id: 'm.what1', set: { shot: 'side:Desk0Mon1Screen', explain: 1 }, notes: 'Hva CtrlBuddy er: en AI-agent bygget i VS Code, med GitHub Copilot som harness.' },
+      { id: 'm.what2', set: { explain: 2 }, notes: 'Modellen: stort sett Claude 5.5.' },
+      { id: 'm.what3', set: { explain: 3 }, notes: 'Instruksjonene: oppfører seg som en erfaren automasjonsingeniør.' },
+      { id: 'm.what4', set: { explain: 4 }, notes: 'Verktøyene: datakilder via API-er (CDF, ABB LoopInsight).' },
+      { id: 'm.what5', set: { explain: 5 }, notes: 'Kunnskapsbasen: selskaps- og fagspesifikk kunnskap for oppgavene.' },
+      { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen', explain: null, buddyPointer: true }, do: [{ wait: 0.8 }, { buddy: 'click' }],
+        notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
     ],
   },
   {
@@ -572,9 +629,6 @@ const SHORT_CHAPTERS = [
     key: 5, id: 'money', name: T('I dag · Verktøyene', 'Today · The tools'),
     base: { act: 2, time: 13.2, shot: 'desk', ...DESK, cast: { operator: { at: 'desk2' } }, screens: { Desk0Mon2Screen: 'stepTest', Desk0Mon3Screen: 'riser', Desk0Mon4Screen: 'govDocs' } },
     beats: [
-      { id: 'm.s1', set: { overlay: 'slide:m-01' }, notes: 'The money slides: what is possible.' },
-      { id: 'm.step', set: { overlay: null, shot: 'monitor:Desk0Mon2Screen', tool: 'stepTest' }, notes: 'Step-test finder on history. TODO(Adriaen): screenshot of the real tool in private/tools/stepTest.png.' },
-      { id: 'm.s2', set: { overlay: 'slide:m-02' } },
       { id: 'm.riser', set: { overlay: null, shot: 'monitor:Desk0Mon3Screen', tool: 'riser', screens: { Desk0Mon3Screen: 'riser' } }, notes: 'The riser simulator, open loop: it fills and blows through.' },
       { id: 'm.antislug', set: { tool: 'antiSlug', screens: { Desk0Mon3Screen: 'antiSlug' } }, notes: 'Anti-slug control tuned on the model. Seeing is believing.' },
       { id: 'm.s3', set: { overlay: 'slide:m-03' } },
@@ -625,6 +679,11 @@ function applyStory(chapters) {
   }
   chapters.forEach((ch, c) => { ch.key = c + 1; });
   for (const ch of chapters) {
+    // its name, if renamed in the editor (by any of its beats, added ones too)
+    const ids = ch.beats.map((b) => b.id);
+    for (const add of STORY.inserted) if (ids.includes(add.after) || add.after === `^${ch.id}`) ids.push(add.id);
+    const named = ids.find((id) => STORY.chapterNames?.[id]);
+    if (named) ch.name = tx(STORY.chapterNames[named]);
     for (const b of ch.beats) {
       const o = STORY.beats[b.id];
       if (o?.notes !== undefined) b.notes = o.notes;
@@ -642,15 +701,16 @@ function applyStory(chapters) {
       if (STORY.callouts[b.id]) b.callouts = STORY.callouts[b.id].map((c) => ({ ...c, label: tx(c.label), text: tx(c.text) }));
     }
     for (const add of STORY.inserted) {
-      const i = ch.beats.findIndex((b) => b.id === add.after);
-      if (i < 0) continue;
+      // after a beat, or `^<chapter id>`: first in that chapter
+      const i = add.after === `^${ch.id}` ? -1 : ch.beats.findIndex((b) => b.id === add.after);
+      if (i < 0 && add.after !== `^${ch.id}`) continue;
       // the overlay in force before it, for the beat after it to fall back to
       let overlay = ch.base?.overlay ?? null;
       for (const b of ch.beats.slice(0, i + 1)) for (const st of [b.set, b.end]) if (st && 'overlay' in st) overlay = st.overlay;
       const nb = { id: add.id, notes: add.notes ?? '', set: { overlay: add.slide ? `slide:${add.slide}` : null } };
       if (add.chat) {
         nb.chat = add.chat;
-        nb.set = { ...nb.set, shot: `monitor:${CHAT_SCREEN}`, screens: { [CHAT_SCREEN]: `chat:${add.chat}`, [REPORT_SCREEN]: `report:${add.chat}` }, chats: { [add.chat]: 1 } };
+        nb.set = { ...nb.set, shot: `monitor:${CHAT_SCREEN}`, screens: { [CHAT_SCREEN]: `chat:${add.chat}`, [REPORT_SCREEN]: `report:${add.chat}` }, chats: { [add.chat]: 0 }, thoughts: null, call: null, phone: null };   // main.js enter types the first message
       }
       if (add.card) nb.card = { text: tx(add.card), solid: !!add.solid };
       if (STORY.callouts[add.id]) nb.callouts = STORY.callouts[add.id].map((c) => ({ ...c, label: tx(c.label), text: tx(c.text) }));
@@ -670,6 +730,13 @@ function applyStory(chapters) {
 }
 const merge2 = (a, b) => ({ ...(a ?? {}), ...(b ?? {}) });
 applyStory(SHORT_CHAPTERS);
+
+// The private build (?private=1): the real names over the public stand-ins
+// (privateNames.js), in everything this file hands out
+if (PRIVATE) {
+  for (const o of [STORY, SPEAKERS, CREDITS, CARDS, PLAIN_CARDS, SLIDES, CHATS, AGENTS, ORG, NOTICES, LOGS, GOV_DOCS, FULL_CHAPTERS, SHORT_CHAPTERS]) realDeep(o);
+  for (const [k, v] of Object.entries(OVERRIDES.crew ?? {})) CREW_NAMES[k] = v;
+}
 
 export const CHAPTERS = FULL ? FULL_CHAPTERS : SHORT_CHAPTERS;
 // The slides this run shows, in order, for their numbers

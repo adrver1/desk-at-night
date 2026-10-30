@@ -14,10 +14,6 @@ To rebuild it:
 
 ## Images
 
-| File | Source | Licence | Author |
-| --- | --- | --- | --- |
-| `ivar_aasen_rusti.jpg` | Charcoal portrait of Ivar Aasen, signed "Olav Rusti", scaled down to 800 px greyscale | Public domain (artist died 1920) | Olav Rusti |
-| `ivar_aasen_photo.jpg` | Studio photograph of Ivar Aasen (died 1896), print border trimmed, 800 px greyscale | Public domain (19th-century photograph) | Unknown photographer |
-
-`boards.photo_print()` puts them in the desk photo frames (`props.make_photo_frame`,
-`control_room.PHOTO_FRAMES`).
+The desk photo frames (`props.make_photo_frame`, `control_room.PHOTO_FRAMES`)
+show pictures `boards.photo_print()` draws itself. The private build's
+portraits are not in this repo (`boards.PRIVATE_PICTURES`).

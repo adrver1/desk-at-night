@@ -424,7 +424,7 @@ export class Sola {
     const line = (c) => `<b>${c.name[0]}</b><small>${c.name[1]}</small>`;
     if (TAGS === 'b') for (const c of this.crew) if (c.name) c.tagEl = box.appendChild(Object.assign(document.createElement('div'), { className: 'tag', innerHTML: line(c) }));
     if (TAGS === 'c') {
-      box.innerHTML = '<div class="head">AI Catalyst Run 2026</div>';
+      box.innerHTML = '<div class="head">Boarding list</div>';
       // in boarding order, each row lights up as its person steps in
       for (const c of [...this.crew].sort((a, b) => b.start - a.start)) if (c.name) c.tagEl = box.appendChild(Object.assign(document.createElement('div'), { className: 'row', innerHTML: line(c) }));
     }
