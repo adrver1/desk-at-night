@@ -686,11 +686,14 @@ const BIAS = new THREE.Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 
 // and not at all while the window is out of view; ?seaclip=0 draws them full
 // screen, as before
 const SEA_CLIP = new URLSearchParams(location.search).get('seaclip') !== '0';
+// ?cull=0 draws the vessel and the waterline even while the walls hide them (cullOutside())
+const CULL = new URLSearchParams(location.search).get('cull') !== '0';
 const MIRROR_NUDGE = 0.06;   // how far the waves move a mirror lookup (oceanFragment), in texture widths
 
 // The part of a convex polygon (world points) in front of a camera, in the
 // camera's view space (Sutherland-Hodgman against a plane just ahead of it;
 // not the near plane, as what is nearer still shows sky through it)
+const _box = new THREE.Box3(), _sphere = new THREE.Sphere(), _mirrored = new THREE.Vector3();
 function inFront(points, camera) {
   const v = points.map((p) => p.clone().applyMatrix4(camera.matrixWorldInverse));
   const z = -1e-3, out = [];
@@ -780,6 +783,7 @@ export class Outdoor {
     // for other scenes (the CCTV's); render() keeps them all under its camera.
     this.surfaces = [];
     this.waterline = this.surface();
+    this.outside = [];   // seenThroughWindow()
     // Rain, also in the room's pass so the walls hide it: streaks falling
     // in the air round the camera
     const seeds = new Float32Array(RAIN_DROPS * 8);
@@ -1035,7 +1039,7 @@ export class Outdoor {
     this.rain.material.uniforms.uCenter.value.copy(at);
     // Seen from inside, only the part through the window (see SEA_CLIP)
     const through = main ? this.throughWindow(renderer) : undefined;
-    this.waterline.visible = through !== null;
+    this.waterline.visible = main ? this.cullOutside(through) : true;
     if (through === null) {   // the window is out of view: no sky or sea at all
       renderer.clear();
       return;
@@ -1101,6 +1105,46 @@ export class Outdoor {
     const world = front.map((p) => p.clone().applyMatrix4(cam.matrixWorld)).map((p) => { p.y = 2 * y - p.y; return p; });
     const mirror = screenBox(inFront(world, m), m, w, h, MIRROR_NUDGE * Math.max(w, h) + 2);
     return { screen, mirror: mirror ?? new THREE.Vector4(0, 0, 1, 1) };
+  }
+
+  // Hide the room scene's things out at sea (seenThroughWindow()) that
+  // neither they nor their mirror image show through the window, from
+  // this.camera (placed by render()). Returns whether the room's waterline
+  // is needed: it only clips them, so it isn't when none of them shows.
+  cullOutside(through) {
+    if (!CULL || !this.outside.length) return through !== null;
+    let any = false;
+    const planes = through ? this.windowPlanes() : null;
+    for (const o of this.outside) {
+      let seen = through !== null;
+      if (planes) {
+        const sphere = _box.setFromObject(o).getBoundingSphere(_sphere);
+        const r = sphere.radius;
+        const inside = (c) => c.x - r < this.window.x && planes.every((p) => p.distanceToPoint(c) >= -r);
+        seen = !_box.isEmpty() && (inside(sphere.center) || inside(_mirrored.copy(sphere.center).setY(2 * this.seaLevel - sphere.center.y)));
+      }
+      o.visible = seen;
+      if (seen) for (let x = o.parent; x && seen; x = x.parent) seen = x.visible;   // its owner may have hidden it (the vessel when away)
+      any ||= seen;
+    }
+    return any;
+  }
+
+  // The four planes through the camera and the window's edges, facing in
+  windowPlanes() {
+    const at = this.camera.position, c = this.window.corners, mid = c[0].clone().lerp(c[2], 0.5);
+    return c.map((a, i) => {
+      const p = new THREE.Plane().setFromCoplanarPoints(at, a, c[(i + 1) % c.length]);
+      if (p.distanceToPoint(mid) < 0) p.negate();
+      return p;
+    });
+  }
+
+  // Something in the room's own scene that is out at sea, like the supply
+  // vessel: drawn only while it, or its reflection, shows through the
+  // window. Its visibility is then this file's to set.
+  seenThroughWindow(object) {
+    this.outside.push(object);
   }
 
   // The mirror camera for `camera` (this.camera, already placed): the same
