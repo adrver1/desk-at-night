@@ -69,7 +69,7 @@ BADGE_Z = 1.31          # name badge high on the chest, as drawn
 # Roles whose tabard is painted on: no 14 mm slab standing off the body, the
 # badge, V-neck and first-aid pocket painted straight onto the torso. The
 # others keep the slab tabard.
-PAINTED = {"scholar", "nurse"}
+PAINTED = {"buddy", "scholar", "nurse", "franken"}
 # Frankenbot's green: "all" tints every grey part (head, arms, body, sleeves,
 # thruster), "skin" only the head and arms, "none" keeps him grey
 FRANKEN_GREEN = "all"
@@ -174,7 +174,7 @@ def scar(m, a, b, stitches, y=FACE_Y + 0.0012, region="scar"):
         flat_bar(m, c - n, c + n, 0.0045, y + 0.0004, region)
 
 
-def face_scar(m, bvh, a, b, stitches, w=0.006):
+def face_scar(m, bvh, a, b, stitches, w=0.006, region="scar"):
     """A stitched scar painted onto the head: the seam cut into short pieces
     and each piece, like each stitch, projected onto the surface from the
     front, so it lies on the facets as it crosses them."""
@@ -187,7 +187,7 @@ def face_scar(m, bvh, a, b, stitches, w=0.006):
         k = (q - p).normalized()
         k = V2((-k.y, k.x)) * (width / 2)
         pts = [p - k, q - k, q + k, p + k]
-        m.decal_poly(bvh, [(v.x, v.y) for v in pts], INK, "scar", lift=lift)
+        m.decal_poly(bvh, [(v.x, v.y) for v in pts], INK, region, lift=lift)
     pieces = max(1, round((b - a).length / 0.02))
     for i in range(pieces):
         strip(a + (b - a) * (i / pieces), a + (b - a) * ((i + 1) / pieces), w, 0.002)
@@ -342,12 +342,15 @@ def torso(role, form):
         quad_y(m, cx - 0.026, cx + 0.026, cz - 0.007, cz + 0.007, fy + 0.003, "signal_red", "badge")
     if role == "franken":
         # a stitched seam down the chest and a riveted patch, as drawn
-        scar(m, (-0.122, TABARD_TOP - 0.01), (-0.118, 0.94), 9, y=fy + 0.0012, region="tabard")
+        if SURF:
+            face_scar(m, SURF[0], (-0.122, TABARD_TOP - 0.01), (-0.118, 0.96), 9, region="tabard")
+        else:
+            scar(m, (-0.122, TABARD_TOP - 0.01), (-0.118, 0.94), 9, y=fy + 0.0012, region="tabard")
         px0, px1, pz0, pz1 = 0.050, 0.118, 1.000, 1.068
         quad_y(m, px0, px1, pz0, pz1, fy + 0.002, "grey", "tabard")
         for x in (px0 + 0.009, px1 - 0.009):
             for z in (pz0 + 0.009, pz1 - 0.009):
-                box(m, (x - 0.004, fy + 0.002, z - 0.004), (x + 0.004, fy + 0.007, z + 0.004), DARK, "tabard")
+                quad_y(m, x - 0.004, x + 0.004, z - 0.004, z + 0.004, fy + 0.003, DARK, "tabard")
     if role == "scholar":  # bow tie at the collar
         # without the slab it sits back on the chest itself
         dy = SURF[0].ray_cast(Vector((0, 1, 1.385)), -Y)[0].y - 0.112 if SURF else 0.0
