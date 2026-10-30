@@ -96,7 +96,7 @@ row('Test', [
     if (state.step != null) return;
     state.step = cmp.b.t; both((s) => s.manual('water', s.u.water + 0.1));
   }],
-  ['Slow valves', () => state.slow, () => { state.slow = !state.slow; both((s) => { if (s.stroke) s.stroke = state.slow ? { gas: 20, oil: 30, water: 30 } : { gas: 6, oil: 8, water: 8 }; }); }],
+  ['Slow valves', () => state.slow, () => { state.slow = !state.slow; both((s) => { if (s.stroke) s.stroke = state.slow ? { gas: 6, oil: 30, water: 30 } : { gas: 1.5, oil: 8, water: 8 }; }); }],
   ['Eq % valves', () => state.eqp, () => { state.eqp = !state.eqp; both((s) => { s.valve = state.eqp ? 'eqp' : 'linear'; }); }],
 ]);
 row('3D shows', [

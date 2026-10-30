@@ -26,7 +26,7 @@ export class SeparatorCompare {
     const ref = this.b; // the mass sim knows the instrument ranges
     const pct = (s) => ref.pct(s.hO, ref.range.oil);
     this.trends = [
-      { title: 'Pressure, barg', lo: 6, hi: 11, key: 'P', sp: () => ref.sp.P },
+      { title: 'Pressure, barg', lo: 7, hi: 9, key: 'P', sp: () => ref.sp.P },
       { title: 'Oil compartment level, %', lo: 0, hi: 100, key: 'oil', sp: () => ref.spPct('oil'), bands: true },
       { title: 'Oil valve position, %', lo: 0, hi: 100, key: kind === 'model' ? 'u' : 'z', actual: kind === 'model' ? 'z' : null },
       { title: 'Oil in water, ppm', lo: 0, hi: 1500, key: 'oiw' },
