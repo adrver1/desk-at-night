@@ -154,6 +154,28 @@ def scar(m, a, b, stitches, y=FACE_Y + 0.0012, region="scar"):
         flat_bar(m, c - n, c + n, 0.0045, y + 0.0004, region)
 
 
+def face_scar(m, bvh, a, b, stitches, w=0.006):
+    """A stitched scar painted onto the head: the seam cut into short pieces
+    and each piece, like each stitch, projected onto the surface from the
+    front, so it lies on the facets as it crosses them."""
+    from mathutils import Vector as V2
+    a, b = V2(a), V2(b)
+    d = (b - a).normalized()
+    n = V2((-d.y, d.x))
+
+    def strip(p, q, width, lift):
+        k = (q - p).normalized()
+        k = V2((-k.y, k.x)) * (width / 2)
+        pts = [p - k, q - k, q + k, p + k]
+        m.decal_poly(bvh, [(v.x, v.y) for v in pts], INK, "scar", lift=lift)
+    pieces = max(1, round((b - a).length / 0.02))
+    for i in range(pieces):
+        strip(a + (b - a) * (i / pieces), a + (b - a) * ((i + 1) / pieces), w, 0.002)
+    for i in range(stitches):
+        c = a + (b - a) * ((i + 0.5) / stitches)
+        strip(c - n * 0.013, c + n * 0.013, 0.0045, 0.0026)
+
+
 def arm_seam(m, o, u, v, w, t, r, region):
     """A stitched seam painted round a hex arm at t: on each of the six flat
     faces a thin band across and two stitches along the arm."""
@@ -174,6 +196,7 @@ def frankenstein(m):
     """As in Adriaen's drawing: a black flat-top with a jagged fringe, a bolt
     through the head sticking out above each ear, a stitched seam across the
     forehead and another down the cheek from the shades."""
+    bvh = m.bvh()          # the bare head, for painting the scars onto
     # the flat-top: round in plan like the head, flat on top, its lower
     # edge cut into a jagged fringe all the way round
     top, z0, n = HEAD_FLAT[-1][0] + 0.030, 1.752, 20
@@ -188,8 +211,8 @@ def frankenstein(m):
     for sx in (1, -1):
         m.bar((sx * 0.100, 0.0, 1.715), (sx * 0.178, 0.0, 1.715), 0.020, "steel", "ear_bolt")
         box(m, (sx * 0.162, -0.024, 1.691), (sx * 0.186, 0.024, 1.739), DARK, "ear_bolt")
-    scar(m, (-0.108, 1.712), (0.090, 1.700), 7)
-    scar(m, (-0.092, 1.612), (-0.080, 1.512), 4)
+    face_scar(m, bvh, (-0.108, 1.712), (0.090, 1.700), 7)
+    face_scar(m, bvh, (-0.092, 1.612), (-0.080, 1.512), 4)
 
 
 def head(role):
