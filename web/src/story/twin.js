@@ -13,8 +13,8 @@
 // After it, the chat about the real separator (c.sim2, Adriaen 2026-10-30)
 // shows the same twin beside the chat ('twinFix') and corrects it as
 // the chat goes: after the drawing from CDF the vessel takes its length (the
-// main separation zone, 8 m to 7 m), then the water level valve (its datasheet) is swapped, the linear one
-// lifted out and an equal-percentage one put in, each with its valve curve beside it.
+// main separation zone, 8 m to 7 m), then the water level valve (its datasheet) is swapped, the equal-percentage one
+// it was modelled as lifted out and a linear one put in (Adriaen: the datasheet says linear), each with its valve curve beside it.
 //
 // State key (content.js): twin: true starts the build on entering the beat,
 // 'fix' the corrections (story.json chats.sim2.set), null hides it.
@@ -41,6 +41,7 @@ const smooth = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3
 const BLUE = 0x5fd6ff;
 const SHORT = 1 / 8;   // the correction: 8 m to 7 m
 const EQP = 30;        // rangeability of the equal-percentage curve
+const FIX_WAIT = 1.8;  // s after its message before a correction starts (the camera's way back from the report)
 const SWAP = 'water';  // the valve the correction swaps (its datasheet: the water outlet's level valve)
 
 // Python colours on top of the shared VS Code look
@@ -214,9 +215,9 @@ export class Twin {
     }
     sc.add(this.ghost);
     for (const o of Object.values(this.groups).flat()) o.userData.home = o.position.clone();
-    // the equal-percentage level valve the correction puts in (another actuator, so it reads as a new valve)
+    // the linear level valve the correction puts in (another actuator, so it reads as a new valve)
     const old = sep.valves[SWAP];
-    this.newValve = new Valve({ body: 'globe', actuator: 'linear', r: DIM.liquidR * 0.85, fluid: SWAP, name: `LV ${SWAP} (equal percentage)`, side: old.side });
+    this.newValve = new Valve({ body: 'globe', actuator: 'linear', r: DIM.liquidR * 0.85, fluid: SWAP, name: `LV ${SWAP} (linear)`, side: old.side });
     this.newValve.group.position.copy(old.group.position);
     this.newValve.group.rotation.copy(old.group.rotation);
     this.newValve.group.userData.home = old.group.position.clone();
@@ -268,6 +269,7 @@ export class Twin {
     this.mode = mode;
     this.on = Boolean(mode);
     this.fix = { len: 0, valve: 0 };
+    this.marked = {};
     this.game.room?.setFeeds({ twin: this.rt.texture, twinFix: this.rt.texture });
     if (mode && !was) {
       this.t = mode === 'fix' ? DUR : 0;   // its own clock: a jump between beats runs the story clock on fast
@@ -354,18 +356,28 @@ export class Twin {
   correct(dt) {
     const f = this.fix, nv = this.newValve, oldG = this.sep.valves[SWAP].group;
     const shown = this.mode === 'fix' ? (CHATS.sim2?.messages ?? []).slice(0, S.chats.sim2 ?? 0) : [];
-    const has = (k) => shown.some(([, , m]) => m?.twin === k);
+    // each change waits until the camera is back from the report before it (Adriaen, 2026-10-30)
+    const since = (this.marked ??= {});
+    const has = (k) => {
+      if (!shown.some(([, , m]) => m?.twin === k)) { delete since[k]; return false; }
+      since[k] ??= this.t;
+      return this.t - since[k] > FIX_WAIT;
+    };
     const toward = (v, to) => (to > v ? Math.min(to, v + dt * 0.6) : Math.max(to, v - dt * 0.6));
     f.len = toward(f.len, has('len') ? 1 : 0);
     f.valve = toward(f.valve, has('valve') ? 1 : 0);
     this.sep.group.scale.x = 1 - SHORT * smooth(f.len);
-    // the linear valve lifts out and hangs to the side; the new one drops into its place
+    // the equal-percentage valve lifts out and hangs to the side; the new one drops into its place
     const out = smooth(f.valve * 1.6);
     oldG.position.copy(oldG.userData.home).add(new THREE.Vector3(-0.6 * out, 1.4 * out, -1.6 * out));
     // the valves sit behind the vessel: the camera swings round to them for the swap
     const swing = smooth(f.valve * 2.5), v = this.sep.group.localToWorld(oldG.userData.home.clone());
     const target = this.home.target.clone().lerp(v.clone().add(new THREE.Vector3(-0.3, 0.6, -0.8)), swing);
-    this.camera.position.copy(this.home.pos).lerp(v.clone().add(new THREE.Vector3(4.5, 3.0, -10)), swing);
+    // round the vessel's end, not through it: angle, radius and height eased separately
+    const back = v.clone().add(new THREE.Vector3(4.5, 3.0, -10)), from = this.home.pos;
+    const a0 = Math.atan2(from.x, from.z), a1 = Math.atan2(back.x, back.z), r0 = Math.hypot(from.x, from.z), r1 = Math.hypot(back.x, back.z);
+    const ang = a0 + (a1 - a0) * swing, rad = r0 + (r1 - r0) * swing;
+    this.camera.position.set(Math.sin(ang) * rad, from.y + (back.y - from.y) * swing, Math.cos(ang) * rad);
     this.camera.lookAt(target);
     const inn = smooth((f.valve - 0.35) / 0.65);
     nv.group.visible = f.valve > 0.35;
@@ -408,10 +420,10 @@ export class Twin {
       const old = at(this.sep.valves[SWAP].group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.4, 0)));
       const neu = at(this.newValve.group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.4, 0)));
       ctx.globalAlpha = Math.min(1, f.valve * 3);
-      this.curveCard(ctx, s, old, [old[0] - 150 * s, old[1] - 110 * s], T('Lineær', 'Linear'), '#ff7a7a', (z) => z, true);
+      this.curveCard(ctx, s, old, [old[0] - 150 * s, old[1] - 110 * s], T('Likeprosentlig', 'Equal percentage'), '#ff7a7a', (z) => (EQP ** (z - 1) - 1 / EQP) / (1 - 1 / EQP), true);
       if (f.valve > 0.5) {
         ctx.globalAlpha = Math.min(1, (f.valve - 0.5) * 4);
-        this.curveCard(ctx, s, neu, [neu[0] + 50 * s, neu[1] - 30 * s], T('Likeprosentlig', 'Equal percentage'), '#7fdc9a', (z) => (EQP ** (z - 1) - 1 / EQP) / (1 - 1 / EQP), false);
+        this.curveCard(ctx, s, neu, [neu[0] + 50 * s, neu[1] - 30 * s], T('Lineær', 'Linear'), '#7fdc9a', (z) => z, false);
       }
       ctx.globalAlpha = 1;
     }
