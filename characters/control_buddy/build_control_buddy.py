@@ -174,18 +174,17 @@ def frankenstein(m):
     """As in Adriaen's drawing: a black flat-top with a jagged fringe, a bolt
     through the head sticking out above each ear, a stitched seam across the
     forehead and another down the cheek from the shades."""
-    top = HEAD_FLAT[-1][0]
-    box(m, (-0.128, -0.118, 1.752), (0.128, 0.119, top + 0.030), "hair_black", "hair")
-    teeth = 7
-    for i in range(teeth):           # the fringe: a row of points down the front and both sides
-        x0 = -0.128 + 0.256 * i / teeth
-        x1 = x0 + 0.256 / teeth
-        m.face([(x0, 0.1195, 1.752), ((x0 + x1) / 2, 0.1195, 1.726), (x1, 0.1195, 1.752)], "hair_black", "hair")
-        for sx in (1, -1):
-            y0 = -0.118 + 0.237 * i / teeth
-            y1 = y0 + 0.237 / teeth
-            m.face([(sx * 0.1285, y0, 1.752), (sx * 0.1285, (y0 + y1) / 2, 1.730), (sx * 0.1285, y1, 1.752)][::sx],
-                   "hair_black", "hair")
+    # the flat-top: round in plan like the head, flat on top, its lower
+    # edge cut into a jagged fringe all the way round
+    top, z0, n = HEAD_FLAT[-1][0] + 0.030, 1.752, 20
+    angles = [360 * i / n for i in range(n)]
+    m.tube([(z0, 0.130, 0.120, 0.0, "hair"), (top, 0.130, 0.120, 0.0, "hair")], angles=angles,
+           swatch="hair_black", cap_start=False)
+    for i in range(n):
+        a0, a1 = (math.radians(d) for d in (angles[i], angles[(i + 1) % n]))
+        am = (a0 + a1) / 2
+        rim = lambda a, z, k=1.0: (0.130 * k * math.cos(a), 0.120 * k * math.sin(a), z)  # noqa: E731
+        m.face([rim(a0, z0), rim(am, z0 - 0.024, 0.985), rim(a1, z0)], "hair_black", "hair")
     for sx in (1, -1):
         m.bar((sx * 0.100, 0.0, 1.715), (sx * 0.178, 0.0, 1.715), 0.020, "steel", "ear_bolt")
         box(m, (sx * 0.162, -0.024, 1.691), (sx * 0.186, 0.024, 1.739), DARK, "ear_bolt")
