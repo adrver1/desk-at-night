@@ -726,7 +726,7 @@ def phoenix_fountain(cx, cy, z0=0.15):
     bpy.context.object.data.materials.append(M["granite"])
     cyl("Column", (cx, cy, 0), 0.3, 1.45, "tile", 12)
     cyl("Collar", (cx, cy, 1.45), 0.36, 0.12, "dark", 12)
-    variant = os.environ.get("TRD_PHOENIX", "B")
+    variant = os.environ.get("TRD_PHOENIX", "C")
     if variant == "old":
         old_phoenix(cx, cy)
     else:

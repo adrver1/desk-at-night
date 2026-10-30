@@ -13,7 +13,7 @@ Built facing -y (out of Føniks's front) at (cx, cy) with the braided ring's und
 z. Variants (TRD_PHOENIX) keep the asset library:
     A  plate wings: each wing one flat slab, the leanest
     B  feather fan: a covert plate over six long primary feathers fanned below it
-    C  sculpted: scalloped trailing edge, raised arm ridge, three-strand braid
+    C  sculpted: scalloped trailing edge, raised arm ridge, three-strand braid (Adriaen's pick, 2026-10-30)
     old  the 2026-10-24 bird (wings half folded, pointing down)
 """
 import math
@@ -47,11 +47,12 @@ class _Kit:
         me = bpy.data.meshes.new(name)
         me.from_pydata([(SCALE * x + ox, SCALE * y + oy, SCALE * z + oz) for x, y, z in verts], [], faces)
         me.validate()
-        bm = bmesh.new()   # faces out, whatever order the outline came in
-        bm.from_mesh(me)
-        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-        bm.to_mesh(me)
-        bm.free()
+        if len(faces) > 1:   # faces out, whatever order the outline came in (a lone face keeps its order)
+            bm = bmesh.new()
+            bm.from_mesh(me)
+            bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+            bm.to_mesh(me)
+            bm.free()
         me.materials.append(self.M[mat])
         o = bpy.data.objects.new(name, me)
         bpy.context.scene.collection.objects.link(o)
@@ -69,7 +70,7 @@ class _Kit:
             f.append(tuple(range((len(rings) - 1) * n, len(rings) * n)))
         return self.mesh(name, v, f, mat)
 
-    def tube(self, name, path, r, mat, n=5, twist=0.0):
+    def tube(self, name, path, r, mat, n=5, twist=0.0, cap=(True, True)):
         """A tube along path; r is one radius or one per point; twist turns each ring
         on from the last (a twisted square tube reads as rope)."""
         rs = r if isinstance(r, (list, tuple)) else [r] * len(path)
@@ -81,7 +82,7 @@ class _Kit:
             w = _cross(t, u)
             rings.append([_add(p, _add(_mul(u, rs[i] * math.cos(k / n * math.tau + twist * i)),
                                        _mul(w, rs[i] * math.sin(k / n * math.tau + twist * i)))) for k in range(n)])
-        return self.loft(name, rings, mat)
+        return self.loft(name, rings, mat, cap)
 
     def ball(self, name, c, r, mat, seg=8, rings=5, scale=(1, 1, 1)):
         v = [(c[0], c[1], c[2] - r * scale[2])]
@@ -102,13 +103,13 @@ class _Kit:
                 f.append((a + k, a + (k + 1) % seg, b_ + (k + 1) % seg, b_ + k))
         return self.mesh(name, v, f, mat)
 
-    def disc(self, name, c, r, normal, depth, mat, n=8):
+    def disc(self, name, c, r, normal, depth, mat, n=8, cap=(True, True)):
         """A short cylinder of radius r along normal, from c to c + normal * depth."""
         t = _norm(normal)
         u = _norm(_cross(t, (0, 0, 1)))
         w = _cross(t, u)
         ring = [_add(c, _add(_mul(u, r * math.cos(k / n * math.tau)), _mul(w, r * math.sin(k / n * math.tau)))) for k in range(n)]
-        return self.loft(name, [ring, [_add(p, _mul(t, depth)) for p in ring]], mat)
+        return self.loft(name, [ring, [_add(p, _mul(t, depth)) for p in ring]], mat, cap)
 
     def slab(self, name, pts, back, mat):
         """A flat outline pts (3D, counter-clockwise from the front) with thickness: the
@@ -151,7 +152,7 @@ def _ring(z, y, rx, ry, n, x=0.0):
     return [(x + rx * math.cos(k / n * math.tau), y + ry * math.sin(k / n * math.tau), z) for k in range(n)]
 
 
-def braid(k, strands, n, sides):
+def braid(k, strands, n, sides, twists=7):
     """The braided bronze ring round a 0.4 m circle: strands helices, or with one
     strand a twisted square rope."""
     if strands == 1:
@@ -161,17 +162,17 @@ def braid(k, strands, n, sides):
         path = []
         for i in range(n + 1):
             t = i / n * math.tau
-            ph = 7 * t + s * math.tau / strands
+            ph = twists * t + s * math.tau / strands
             r, dz = 0.4 + 0.045 * math.cos(ph), 0.08 + 0.04 * math.sin(ph)
             path.append((r * math.cos(t), r * math.sin(t), dz))
-        k.tube("PhoenixBraid", path, 0.055, "bronze_dark", sides)
-    k.loft("PhoenixRingTop", [_ring(0.05, 0, 0.38, 0.38, 12), _ring(0.12, 0, 0.36, 0.36, 12)], "bronze_dark")
+        k.tube("PhoenixBraid", path, 0.055, "bronze_dark", sides, cap=(False, False))   # a closed loop
+    k.loft("PhoenixRingTop", [_ring(0.05, 0, 0.38, 0.38, 8), _ring(0.12, 0, 0.36, 0.36, 8)], "bronze_dark", (False, True))
 
 
 def stand(k, v):
     """Gilded flame trunk with three branches to the lamp cups, globe lamps on top."""
     k.tube("PhoenixTrunk", [(0, 0.02, 0.1), (0.01, 0.02, 0.25), (0, 0.02, 0.42)], [0.11, 0.085, 0.06], "gold", 6)
-    n = 6 if v == "A" else 9
+    n = {"A": 6, "B": 9, "C": 7}[v]
     for i in range(n):   # flame tongues licking up round the trunk
         t = i / n * math.tau
         h = 0.25 + 0.12 * ((i * 5) % 3) / 2
@@ -183,22 +184,24 @@ def stand(k, v):
             "right": [(0.02, 0.03, 0.38), (0.2, 0.06, 0.45), (0.36, 0.04, 0.55), (0.42, 0.02, 0.62)],
             "front": [(0, 0.0, 0.33), (0.06, -0.12, 0.40), (0.1, -0.22, 0.47)]}
     for path in cups.values():
-        k.tube("PhoenixBranch", path, [0.045] + [0.035] * (len(path) - 1), "gold", 5)
+        k.tube("PhoenixBranch", path, [0.045] + [0.035] * (len(path) - 1), "gold", 4, cap=(False, False))
         c = path[-1]
         if v == "A":
             k.loft("PhoenixCup", [_ring(c[2], c[1], 0.035, 0.035, 6, c[0]), _ring(c[2] + 0.09, c[1], 0.09, 0.09, 6, c[0])], "gold")
-        else:   # a crown of leaves: the rim's points alternate out and in
+        else:   # a crown of leaves: the rim's points alternate out and in (the globe hides its inside)
+            m = 8 if v == "C" else 12
             rim = [(c[0] + r * math.cos(t), c[1] + r * math.sin(t), c[2] + 0.09 + 0.03 * (j % 2 == 0))
-                   for j in range(12) for t, r in [(j / 12 * math.tau, 0.1 if j % 2 == 0 else 0.07)]]
-            k.loft("PhoenixCup", [_ring(c[2], c[1], 0.035, 0.035, 12, c[0]), rim], "gold", cap=(True, False))
-            k.mesh("PhoenixCup", [(c[0], c[1], c[2] + 0.07)] + rim, [(0, j, j % 12 + 1) for j in range(1, 13)], "gold")
-        k.ball("PhoenixGlobe", (c[0], c[1], c[2] + 0.24), 0.16, "lamp", 8 if v == "A" else 10, 5 if v == "A" else 6)
+                   for j in range(m) for t, r in [(j / m * math.tau, 0.1 if j % 2 == 0 else 0.07)]]
+            k.loft("PhoenixCup", [_ring(c[2], c[1], 0.035, 0.035, m, c[0]), rim], "gold", cap=(v != "C", False))
+            if v != "C":
+                k.mesh("PhoenixCup", [(c[0], c[1], c[2] + 0.07)] + rim, [(0, j, j % m + 1) for j in range(1, m + 1)], "gold")
+        k.ball("PhoenixGlobe", (c[0], c[1], c[2] + 0.24), 0.16, "lamp", {"A": 8, "B": 10, "C": 8}[v], {"A": 5, "B": 6, "C": 4}[v])
     # the perch the claws grip, across the front
-    k.tube("PhoenixBranch", [(-0.24, -0.06, 0.40), (0, -0.1, 0.43), (0.22, -0.06, 0.41)], 0.04, "gold", 5)
+    k.tube("PhoenixBranch", [(-0.24, -0.06, 0.40), (0, -0.1, 0.43), (0.22, -0.06, 0.41)], 0.04, "gold", 4)
 
 
 def body(k, v):
-    n = {"A": 6, "B": 8, "C": 10}[v]
+    n = {"A": 6, "B": 8, "C": 8}[v]
     # (height, y, half width, half depth): vent, belly, chest, shoulders, neck
     rings = [(0.72, 0.08, 0.08, 0.06), (0.84, 0.03, 0.16, 0.13), (1.00, -0.03, 0.21, 0.17), (1.18, -0.06, 0.235, 0.185),
              (1.36, -0.05, 0.22, 0.165), (1.50, -0.02, 0.17, 0.13), (1.60, -0.02, 0.11, 0.10)]
@@ -218,11 +221,11 @@ def body(k, v):
     k.slab("PhoenixTail", [(-0.09, 0.1, 0.80), (0.09, 0.1, 0.80), (0.15, 0.32, 0.30), (0, 0.36, 0.24), (-0.15, 0.32, 0.30)],
            (0, -0.03, -0.01), "patina")
     for s in (-1, 1):   # feathered thighs, bare shanks, toes gripping the perch
-        k.tube("PhoenixThigh", [(s * 0.09, 0.0, 0.92), (s * 0.095, -0.03, 0.72), (s * 0.09, -0.05, 0.56)], [0.085, 0.075, 0.045], "patina", n)
+        k.tube("PhoenixThigh", [(s * 0.09, 0.0, 0.92), (s * 0.095, -0.03, 0.72), (s * 0.09, -0.05, 0.56)], [0.085, 0.075, 0.045], "patina", 6, cap=(False, True))   # tops inside the body
         k.tube("PhoenixShank", [(s * 0.09, -0.05, 0.58), (s * 0.09, -0.07, 0.47)], 0.028, "patina", 4)
         for d in (-0.035, 0.0, 0.035):
-            k.tube("PhoenixClaw", [(s * 0.09, -0.07, 0.47), (s * 0.09 + d, -0.13, 0.47), (s * 0.09 + d * 1.2, -0.15, 0.40)], [0.02, 0.016, 0.008], "patina", 4)
-        k.tube("PhoenixClaw", [(s * 0.09, -0.07, 0.47), (s * 0.09, -0.02, 0.43)], [0.018, 0.008], "patina", 4)
+            k.tube("PhoenixClaw", [(s * 0.09, -0.07, 0.47), (s * 0.09 + d, -0.13, 0.47), (s * 0.09 + d * 1.2, -0.15, 0.40)], [0.02, 0.016, 0.008], "patina", 3)
+        k.tube("PhoenixClaw", [(s * 0.09, -0.07, 0.47), (s * 0.09, -0.02, 0.43)], [0.018, 0.008], "patina", 3)
 
 
 def wings(k, v):
@@ -262,20 +265,28 @@ def wings(k, v):
                 scal += [(u0, z0), ((u0 + u1) / 2 - 0.03, (z0 + z1) / 2 + 0.02)]
             k.slab("PhoenixWing", outline(WING[:11] + scal[:-1]), back, "bronze_dark")
             k.tube("PhoenixWingArm", [at(u, z, -0.015) for u, z in ((0.15, 1.44), (0.2, 1.76), (0.3, 2.04), (0.43, 2.14), (0.55, 2.07))],
-                   [0.045, 0.04, 0.035, 0.03, 0.02], "bronze_dark", 5)
+                   [0.045, 0.04, 0.035, 0.03, 0.02], "bronze_dark", 4, cap=(False, True))
         for u, z in LENSES:
             slope = -0.44 * (u - 0.14) * s / SPAN  # face out along the cupped wing
             nrm = _norm((slope, -1, 0))
             c = at(u, z, 0.005)
-            k.disc("PhoenixLensRim", c, 0.058, nrm, 0.03, "lens_rim", 8 if v != "A" else 6)
-            k.disc("PhoenixLens", _add(c, _mul(nrm, 0.03)), 0.04, nrm, 0.006, "lens", 8 if v != "A" else 6)
+            m = 8 if v == "B" else 6   # no backs: they sit on the wing
+            k.disc("PhoenixLensRim", c, 0.058, nrm, 0.03, "lens_rim", m, (False, True))
+            glass = _add(c, _mul(nrm, 0.032))   # one flat face just proud of the rim
+            u = _norm(_cross(nrm, (0, 0, 1)))
+            w = _cross(nrm, u)
+            k.mesh("PhoenixLens", [_add(glass, _add(_mul(u, 0.04 * math.cos(j / m * math.tau)), _mul(w, 0.04 * math.sin(j / m * math.tau))))
+                                   for j in range(m)], [tuple(range(m))], "lens")
 
 
-def build(M, cx, cy, z, variant="B"):
+def build(M, cx, cy, z, variant="C"):
     """The sculpture from the braided ring up; returns the objects it made."""
     before = set(bpy.data.objects)
     k = _Kit(M, cx, cy, z)
-    braid(k, 3 if variant == "C" else 1, {"A": 24, "B": 32, "C": 32}[variant], 4)
+    if variant == "C":   # three triangular strands, five crossings round the ring
+        braid(k, 3, 20, 3, 5)
+    else:
+        braid(k, 1, {"A": 24, "B": 32}[variant], 4)
     stand(k, variant)
     body(k, variant)
     wings(k, variant)
