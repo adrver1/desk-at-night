@@ -38,6 +38,10 @@ export class SlugSim {
     this.kc = 0.1; this.ti = 150; // PI: opening per bar, integral time (s)
     this.iTerm = this.u;
     this.t = 0;
+    // small slow wander of the reservoir pressure (relative), as in any real
+    // plant; without it an open-loop run parked exactly on the unstable
+    // operating point would stay there forever
+    this.d = 0; this.noise = 0.002;
     this.flows(this.x, this.uOut);
   }
   flows(x, u) {
@@ -53,7 +57,7 @@ export class SlugSim {
     const wiv = p.Civ * Math.sqrt(rhoA * Math.max(0, Pab - Ptb));
     const wpc = p.Cpc * u * Math.sqrt(rhoM * Math.max(0, Ptt - p.Ps));
     const fl = mlt / (mgt + mlt);
-    const wro = p.Cr * Math.sqrt(RHO_L * Math.max(0, p.Pr - Pbh));
+    const wro = p.Cr * Math.sqrt(RHO_L * Math.max(0, p.Pr * (1 + this.d) - Pbh));
     Object.assign(this, { pat: Pat / 1e5, pab: Pab / 1e5, ptt: Ptt / 1e5, ptb: Ptb / 1e5, pbh: Pbh / 1e5, wiv, wpc, wOil: wpc * fl, wro });
     return [p.wGc - wiv, wiv - wpc * (1 - fl), wro - wpc * fl];
   }
@@ -70,6 +74,7 @@ export class SlugSim {
       const k1 = this.flows(x, u), k2 = this.flows(add(x, k1, h / 2), u), k3 = this.flows(add(x, k2, h / 2), u), k4 = this.flows(add(x, k3, h), u);
       this.x = x.map((v, i) => Math.max(1, v + (h / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i])));
       this.t += h;
+      this.d += (-this.d / 120) * h + this.noise * Math.sqrt(h / 60) * (Math.random() + Math.random() + Math.random() - 1.5) * 2;
     }
     this.flows(this.x, this.uOut);
     // what the picture needs: liquid fraction in the tubing (0..1)

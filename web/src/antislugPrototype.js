@@ -27,7 +27,7 @@ const RISER = q.get('case') === 'riser';
 // what differs between the two cases: the sim, the choke positions offered,
 // the pressure scale, the separator inflow that counts as normal
 const CASE = RISER ? {
-  Sim: RiserSim, u: 0.5, sp: 68, sps: [68, 70, 72], chokes: [15, 30, 50, 100], safeU: 0.15,
+  Sim: RiserSim, u: 0.5, sp: 67.6, sps: [67.6, 68, 70], chokes: [15, 30, 50, 100], safeU: 0.15,
   P: [55, 85], grid: [60, 70, 80], steady: 1, pName: 'inlet', pLong: 'Inlet pressure (bar)', ctl: 'On · hold inlet P',
   nominal: 10.6, surge: 3.5, oilShare: 0.96, rho: 832,
 } : {
@@ -302,7 +302,7 @@ row('Case', [['Gas-lift well', !RISER], ['Riser tie-back', RISER]].map(([t, on],
   const u = new URL(location.href); u.searchParams.set('case', i ? 'riser' : 'gaslift'); location.href = u.href;
 }]));
 row('Control', [
-  ['Off', () => !state.auto, () => { state.auto = false; state.u = Math.round(sim.uOut * 10) / 10; }],
+  ['Off', () => !state.auto, () => { state.auto = false; state.u = sim.uOut; }], // the choke stays where the controller left it
   [CASE.ctl, () => state.auto, () => { state.auto = true; }],
   ...CASE.chokes.map((p) => [`${p} %`, () => !state.auto && Math.abs(state.u - p / 100) < 1e-3, () => { state.auto = false; state.u = p / 100; }]),
 ]);
@@ -381,7 +381,7 @@ function drawStats() {
   const h = hist[0], oil = avg(h, 'oil'), [lo, hi] = span(h, 'p'), gain = (oil / REF.oil - 1) * 100, full = REF.oil * 1.6;
   const steady = hi - lo < CASE.steady, catching = sim.auto && !steady ? ' · <b>catching the slug…</b>' : '';
   const sw = lvl.length ? (Math.max(...lvl) - Math.min(...lvl)) * 100 : 0;
-  stats.innerHTML = `<div><b>${sim.auto ? 'Controller on' : 'Controller off'}</b>${catching} · choke ${Math.round(avg(h, 'u') * 100)} % avg · ${CASE.pName} ${steady ? `${avg(h, 'p').toFixed(0)} steady` : `${lo.toFixed(0)}–${hi.toFixed(0)} swinging`} · separator level ${sw < 6 ? 'steady' : `swings ${sw.toFixed(0)} cm`}</div>
+  stats.innerHTML = `<div><b>${sim.auto ? 'Controller on' : 'Controller off'}</b>${catching} · choke ${Math.round(avg(h, 'u') * 100)} % avg · ${CASE.pName} ${steady ? `${avg(h, 'p').toFixed(RISER ? 1 : 0)} steady` : `${lo.toFixed(0)}–${hi.toFixed(0)} swinging`} · separator level ${sw < 6 ? 'steady' : `swings ${sw.toFixed(0)} cm`}</div>
     <div>Oil <b>${m3d(oil)} m³/d</b> (${gain >= 0 ? '+' : ''}${gain.toFixed(0)} % vs safe fixed choke at ${SAFE_U * 100} %, the line on the bar)</div>
     <div class="bar"><i style="width:${(100 * oil) / full}%;background:${gain > 5 ? '#f2b544' : '#9fb3ba'}"></i><u style="left:${(100 * REF.oil) / full}%"></u></div>`;
 }

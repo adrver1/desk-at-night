@@ -13,10 +13,13 @@
 //
 // Numbers are the published OLGA test case from the paper (4.3 km flowline
 // with a 1 degree dip, 300 m riser) with a straight-line inflow from a
-// 100 bar reservoir. With these the riser is stable up to about 17 % choke
-// (inlet ~71 bar) and slugs beyond that (inlet swinging ~63-74 bar, a cycle
-// of ~10 min); with the PI holding 68 bar it sits still at ~40 % open and
-// produces ~11 % more. Same interface as SlugSim, so the scene and the trends
+// 100 bar reservoir. As in the paper the bifurcation is subcritical: the
+// steady flow loses stability at ~44 % choke, but slugging (inlet swinging
+// ~63-74 bar, a cycle of ~10 min) can already start from ~24 %, so between
+// those it depends on how the riser got there. The PI holds 67.6 bar at
+// ~68 % open (past the 44 %, so slugs come back if it is switched off) and
+// 68 bar at ~41 % (stays calm when switched off unless something kicks it).
+// Same interface as SlugSim, so the scene and the trends
 // don't care which one runs; `pbh` is an alias for `pin`.
 
 const g = 9.81, R = 8.314;
@@ -51,10 +54,14 @@ export class RiserSim {
     this.u = 0.5;
     this.uOut = this.u;
     this.auto = false;
-    this.sp = 68; // inlet pressure setpoint (bar)
-    this.kc = 0.2; this.ti = 60; // PI: opening per bar, integral time (s)
+    this.sp = 67.6; // inlet pressure setpoint (bar)
+    this.kc = 0.8; this.ti = 30; // PI: opening per bar, integral time (s)
     this.iTerm = this.u;
     this.t = 0;
+    // small slow wander of the reservoir pressure (relative), as in any real
+    // plant; without it an open-loop run parked exactly on the unstable
+    // operating point would stay there forever
+    this.d = 0; this.noise = 0.002;
     this.flows(this.x, this.uOut);
   }
   flows(x, u) {
@@ -86,7 +93,7 @@ export class RiserSim {
     const rhoRt = aLrt * P.rhoL + (1 - aLrt) * rhoGr;
     const wOut = Prt > P.Ps ? P.Cv * u * Math.sqrt((Prt - P.Ps) * Math.max(rhoRt, 0.01)) : 0;
     const fl = aLrt > 0 ? (aLrt * P.rhoL) / (aLrt * P.rhoL + (1 - aLrt) * Math.max(rhoGr, 0.1)) : 0;
-    const wIn = P.PI * Math.max(P.Pres - Pin, 0);
+    const wIn = P.PI * Math.max(P.Pres * (1 + this.d) - Pin, 0);
     Object.assign(this, {
       pin: Pin / 1e5, pbh: Pin / 1e5, prt: Prt / 1e5, h, aLr, aLrt,
       wGrb, wLrb, wOut, wpc: wOut, wOil: fl * wOut, wIn, wro: wIn,
@@ -105,6 +112,7 @@ export class RiserSim {
       const k1 = this.flows(x, u), k2 = this.flows(add(x, k1, h / 2), u), k3 = this.flows(add(x, k2, h / 2), u), k4 = this.flows(add(x, k3, h), u);
       this.x = x.map((v, i) => Math.max(0.001, v + (h / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i])));
       this.t += h;
+      this.d += (-this.d / 120) * h + this.noise * Math.sqrt(h / 60) * (Math.random() + Math.random() + Math.random() - 1.5) * 2;
     }
     this.flows(this.x, this.uOut);
     this.holdup = this.aLr; // liquid fraction in the riser (0..1)
