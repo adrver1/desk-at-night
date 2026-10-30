@@ -234,21 +234,8 @@ export class SlugWell {
     // dashes run toward the choke while the loop is on
     const pic = new THREE.Vector3(D.chokeX - 0.95, 2.75, 0.1);
     const pts = [D.gauge.clone().add(new THREE.Vector3(-0.6, 0, 0)), new THREE.Vector3(D.gauge.x - 0.6, pic.y, 0.1), pic, new THREE.Vector3(D.chokeX, pic.y, 0.1), new THREE.Vector3(D.chokeX, 2.2, 0.1)];
-    let dist = 0; const pos = [], dd = [];
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i], b = pts[i + 1];
-      pos.push(a.x, a.y, a.z, b.x, b.y, b.z); dd.push(dist, dist + a.distanceTo(b)); dist += a.distanceTo(b);
-    }
-    const lg = new THREE.BufferGeometry();
-    lg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); lg.setAttribute('d', new THREE.Float32BufferAttribute(dd, 1));
-    this.signalMat = new THREE.ShaderMaterial({
-      uniforms: { uT: { value: 0 }, uOn: { value: 0 } }, transparent: true, depthWrite: false,
-      vertexShader: 'attribute float d; varying float vD; void main() { vD = d; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: `uniform float uT, uOn; varying float vD;
-        void main() { float dash = step(0.5, fract(vD * 2.5 - uT * 1.5)); vec3 c = mix(vec3(0.45, 0.5, 0.53), vec3(1.0, 0.72, 0.2), uOn);
-          gl_FragColor = vec4(c, dash * mix(0.35, 1.0, uOn)); }`,
-    });
-    this.group.add(new THREE.LineSegments(lg, this.signalMat));
+    const sig = signalLine(pts); this.signalMat = sig.material;
+    this.group.add(sig);
     const box = new THREE.BoxGeometry(0.62, 0.42, 0.2); box.translate(pic.x, pic.y, pic.z);
     this.picMat = new THREE.MeshStandardMaterial({ color: 0x2a3136, emissive: 0xf2b544, emissiveIntensity: 0, roughness: 0.6 });
     this.group.add(new THREE.Mesh(box, this.picMat));
@@ -291,6 +278,24 @@ export class SlugWell {
     this.signalMat.uniforms.uT.value = this.t;
     this.picMat.emissiveIntensity = 0.6 * this.signalMat.uniforms.uOn.value;
   }
+}
+
+/** A dashed signal line along a polyline; its dashes run toward the end while uOn is 1. */
+export function signalLine(pts) {
+  let dist = 0; const pos = [], dd = [];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    pos.push(a.x, a.y, a.z, b.x, b.y, b.z); dd.push(dist, dist + a.distanceTo(b)); dist += a.distanceTo(b);
+  }
+  const lg = new THREE.BufferGeometry();
+  lg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); lg.setAttribute('d', new THREE.Float32BufferAttribute(dd, 1));
+  return new THREE.LineSegments(lg, new THREE.ShaderMaterial({
+    uniforms: { uT: { value: 0 }, uOn: { value: 0 } }, transparent: true, depthWrite: false,
+    vertexShader: 'attribute float d; varying float vD; void main() { vD = d; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: `uniform float uT, uOn; varying float vD;
+      void main() { float dash = step(0.5, fract(vD * 2.5 - uT * 1.5)); vec3 c = mix(vec3(0.45, 0.5, 0.53), vec3(1.0, 0.72, 0.2), uOn);
+        gl_FragColor = vec4(c, dash * mix(0.35, 1.0, uOn)); }`,
+  }));
 }
 
 /** Animate a flowline's contents from the well sim: liquid share and speed. */

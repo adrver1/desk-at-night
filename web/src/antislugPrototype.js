@@ -6,18 +6,35 @@
 // scene, so the slugs show up as level swings there too (Adriaen picked
 // "separator now, platform later"; the twin-well layout of the first
 // preview is replaced by a faint "without controller" line in the trend).
-// URL: antislug-prototype.html?auto=1&view=whole|topside|bottom&speed=120
+// Second case (Adriaen 2026-10-30, "both views"): a subsea well tied back
+// through a flowline and riser, slugging at the riser base (Jahanshahi &
+// Skogestad 2014), with the topside choke holding the inlet pressure.
+// URL: antislug-prototype.html?case=gaslift|riser&auto=1&view=whole|topside|separator|bottom&speed=120
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { SlugSim } from './slugSim.js';
+import { RiserSim } from './riserSim.js';
 import { SlugWell, WELL_DIM as D, pipeRun, flowUpdate } from './slugWell.js';
+import { RiserTieback } from './riserTieback.js';
 import { Separator, SeparatorSim, DIM as SDIM } from './separator.js';
 import { perfPanel, perfWatch } from './perf.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 perfPanel();
 const q = new URLSearchParams(location.search);
+const RISER = q.get('case') === 'riser';
+// what differs between the two cases: the sim, the choke positions offered,
+// the pressure scale, the separator inflow that counts as normal
+const CASE = RISER ? {
+  Sim: RiserSim, u: 0.5, sp: 68, sps: [68, 70, 72], chokes: [15, 30, 50, 100], safeU: 0.15,
+  P: [55, 85], grid: [60, 70, 80], steady: 1, pName: 'inlet', pLong: 'Inlet pressure (bar)', ctl: 'On · hold inlet P',
+  nominal: 10.6, surge: 3.5, oilShare: 0.96, rho: 832,
+} : {
+  Sim: SlugSim, u: 0.7, sp: 110, sps: [105, 110, 120], chokes: [30, 50, 70, 100], safeU: 0.3,
+  P: [80, 170], grid: [100, 125, 150], steady: 3, pName: 'BHP', pLong: 'Bottom-hole pressure (bar)', ctl: 'On · hold BHP',
+  nominal: 14.8, surge: 8, oilShare: 1, rho: 760,
+};
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: q.has('shot') });
 perfWatch(renderer);
@@ -47,7 +64,12 @@ const BOTTOM = wy(D.res[0]) - 1.5;
 // no riser between the tree and the choke. Depths are squeezed: the sea is
 // ~110 m deep, the reservoir ~2 km down.
 const SEA = -1.4, SEABED = -6, BACK = -9, NOTCH = [WELL_X - 1.9, WELL_X + 1.9, -1.9];
-const BX0 = -17, BX1 = 9;
+const BX0 = RISER ? -34 : -17, BX1 = 9;
+// riser case: the seabed rises away from the platform, so the flowline runs
+// downhill to the low point at the riser base
+const SUB_X = -30; // the subsea well
+const slope = (x) => (RISER ? 1.8 * THREE.MathUtils.smootherstep(-11 - x, 0, 16) : 0);
+const seabedY = (x) => SEABED + slope(x);
 function strataTexture() { // rows run from the seabed (top) to the bottom of the block
   const c = document.createElement('canvas'); c.width = 64; c.height = 512;
   const g = c.getContext('2d'), y = (m) => ((SEABED - m) / (SEABED - BOTTOM)) * 512;
@@ -69,16 +91,24 @@ function block(x0, x1, y0, y1, z0, z1, earth) {
     const p = g.attributes.position, uv = g.attributes.uv;
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), z = p.getZ(i);
-      if (p.getY(i) > y1 - 1e-3) p.setY(i, y1 + 0.12 * Math.sin(x * 0.7 + z * 0.4) + 0.08 * Math.sin(z * 1.3 - x * 0.3));
+      if (p.getY(i) > y1 - 1e-3) p.setY(i, y1 + slope(x) + 0.12 * Math.sin(x * 0.7 + z * 0.4) + 0.08 * Math.sin(z * 1.3 - x * 0.3));
       uv.setXY(i, (x + z) / 9, 1 - (SEABED - p.getY(i)) / (SEABED - BOTTOM));
     }
     g.computeVertexNormals();
   }
   return g.toNonIndexed();
 }
-const notched = (y0, y1, earth) => [block(BX0, NOTCH[0], y0, y1, BACK, 0, earth), block(NOTCH[1], BX1, y0, y1, BACK, 0, earth), block(NOTCH[0], NOTCH[1], y0, y1, BACK, NOTCH[2], earth)];
-const earth = new THREE.Mesh(mergeGeometries(notched(BOTTOM, SEABED, true)), new THREE.MeshLambertMaterial({ map: strataTexture() }));
-const water = new THREE.Mesh(mergeGeometries(notched(SEABED, SEA, false)),
+// the block from BX0 to BX1 with notches [x0, x1, back z] cut into its front
+function notched(y0, y1, earth, notches) {
+  const out = []; let x = BX0;
+  for (const [n0, n1, nz] of notches) { out.push(block(x, n0, y0, y1, BACK, 0, earth), block(n0, n1, y0, y1, BACK, nz, earth)); x = n1; }
+  out.push(block(x, BX1, y0, y1, BACK, 0, earth));
+  return out;
+}
+// the gas-lift well is cut open through the seabed and the sea; the subsea
+// well only through the rock (its tree stands in the water)
+const earth = new THREE.Mesh(mergeGeometries(notched(BOTTOM, SEABED, true, RISER ? [[SUB_X - 1.2, SUB_X + 1.2, -1.2]] : [NOTCH])), new THREE.MeshLambertMaterial({ map: strataTexture() }));
+const water = new THREE.Mesh(mergeGeometries(notched(SEABED, SEA, false, RISER ? [] : [NOTCH])),
   new THREE.MeshStandardMaterial({ color: 0x1f6f8a, transparent: true, opacity: 0.38, roughness: 0.15, metalness: 0, depthWrite: false }));
 water.renderOrder = 1;
 // deck plate with the wellbay opening around the well (open to the cut side)
@@ -112,22 +142,31 @@ const jacketMat = new THREE.MeshStandardMaterial({ color: 0xc9b23a, roughness: 0
   }
   // conductor guides: at each frame level, beams from the back face and from
   // the two front legs to the conductor, which they hold
-  const cr = WS * (D.rc + 0.16);
+  const cr = RISER ? 0.42 : WS * (D.rc + 0.16); // the riser or the conductor
   for (const f of levels.slice(1)) {
     const b0 = at(0, f), b1 = at(1, f), back = b0.clone().lerp(b1, (WELL_X - b0.x) / (b1.x - b0.x));
     tubeAB(back, V(WELL_X, back.y, -cr), 0.15, 6);
     tubeAB(at(3, f), V(WELL_X - cr, back.y, at(3, f).z), 0.15, 6);
     tubeAB(at(2, f), V(WELL_X + cr, back.y, at(2, f).z), 0.15, 6);
   }
-  const cond = new THREE.CylinderGeometry(WS * (D.rc + 0.16), WS * (D.rc + 0.16), -0.25 - SEABED + 0.6, 14, 1, true, Math.PI / 2, Math.PI);
-  cond.translate(WELL_X, (-0.25 + SEABED - 0.6) / 2, 0); parts.push(cond);
+  if (!RISER) {
+    const cond = new THREE.CylinderGeometry(WS * (D.rc + 0.16), WS * (D.rc + 0.16), -0.25 - SEABED + 0.6, 14, 1, true, Math.PI / 2, Math.PI);
+    cond.translate(WELL_X, (-0.25 + SEABED - 0.6) / 2, 0); parts.push(cond);
+  }
   scene.add(new THREE.Mesh(mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g))), jacketMat));
 }
 
-// the well, its choke and controller
-const well = new SlugWell({ name: 'well', flowline: false });
-well.group.position.set(WELL_X, WELL_Y, 0); well.group.scale.setScalar(WS);
-scene.add(well.group);
+// the well, its choke and controller: the platform well, or the subsea well
+// with its flowline and riser (riser in the wellbay, choke on the deck)
+let well = null, tieback = null;
+if (RISER) {
+  tieback = new RiserTieback({ wellX: SUB_X, riserX: WELL_X, chokeX: WELL_X + 2.4, topY: 2.2, seabedY, resY: wy(D.res[1]) });
+  scene.add(tieback.group);
+} else {
+  well = new SlugWell({ name: 'well', flowline: false });
+  well.group.position.set(WELL_X, WELL_Y, 0); well.group.scale.setScalar(WS);
+  scene.add(well.group);
+}
 
 // the separator, cut open (glass), with its own level loops
 const sep = new Separator({ inlet: 'vane', gas: 'cyclones', inletChoke: false }); // the tree's production choke does the choking
@@ -137,14 +176,14 @@ sep.U.uLook.value = 1;
 scene.add(sep.group);
 const sepSim = new SeparatorSim();
 // the well stream drives the separator's inflow through sepSim.feed (1 = normal)
-const NOMINAL = 14.8; // kg/s of well liquid that counts as the separator's normal inflow (the controlled well)
+const NOMINAL = CASE.nominal; // kg/s of well liquid that counts as the separator's normal inflow (the controlled well)
 // The well runs ~120x faster than the separator (which runs in real time), so a
 // surge that takes minutes in the well passes in seconds on screen; scaling
 // the deviation keeps roughly the liquid volume a real surge would bring.
-const SURGE = 8;
+const SURGE = CASE.surge;
 
 // flowline: choke outlet down, back behind the separator, along to its inlet pipe
-const chokeOut = new THREE.Vector3(WELL_X + WS * D.chokeX, wy(D.wing - 3.4 * 0.13), 0);
+const chokeOut = RISER ? tieback.chokeOut : new THREE.Vector3(WELL_X + WS * D.chokeX, wy(D.wing - 3.4 * 0.13), 0);
 const inletStart = new THREE.Vector3(SDIM.inletX, SDIM.R + 1.7, -4).add(SEP); // where the separator's own inlet pipe begins
 const FY = 1.0;
 const run = pipeRun([chokeOut, new THREE.Vector3(chokeOut.x, FY, 0), new THREE.Vector3(chokeOut.x, FY, -4), new THREE.Vector3(inletStart.x, FY, -4), inletStart], 0.24);
@@ -152,13 +191,13 @@ scene.add(run.contents, run.sleeve);
 
 // sims: the well, a twin without controller (faint line in the trend), and
 // a safe fixed choke as the reference for the production bar
-const SAFE_U = 0.3; // the fixed choke an operator would settle for without a controller
+const SAFE_U = CASE.safeU; // the fixed choke an operator would settle for without a controller
 const state = {
-  auto: q.get('auto') === '1', u: 0.7, sp: 110,
+  auto: q.get('auto') === '1', u: CASE.u, sp: CASE.sp,
   view: ['whole', 'topside', 'bottom', 'separator'].includes(q.get('view')) ? q.get('view') : 'whole', speed: +q.get('speed') || 120, labels: q.get('labels') !== '0',
 };
-const sim = new SlugSim(), ghost = new SlugSim();
-const ref = new SlugSim(); ref.u = SAFE_U; ref.step(9000);
+const sim = new CASE.Sim(), ghost = new CASE.Sim();
+const ref = new CASE.Sim(); ref.u = SAFE_U; ref.step(9000);
 const REF = { oil: ref.wro, pbh: ref.pbh };
 const DT_S = 10, KEEP = 360, AVG = 300; // trend: last hour; averages: last 50 min (two slug cycles)
 const hist = [[], []];
@@ -170,18 +209,23 @@ function sample() {
 }
 function applyModes() {
   sim.auto = state.auto; sim.u = state.u; sim.sp = state.sp;
-  ghost.auto = false; ghost.u = state.auto ? 0.7 : state.u;
+  ghost.auto = false; ghost.u = state.auto ? CASE.u : state.u;
 }
 function advance(t) { for (; t > 0; t -= DT_S) { sim.step(DT_S); ghost.step(DT_S); sample(); } }
 // pre-roll: slugging with the choke at 70 %, so the trend starts full
-for (const s of [sim, ghost]) { s.u = 0.7; s.step(8000); }
+for (const s of [sim, ghost]) { s.u = CASE.u; s.step(8000); }
 applyModes(); advance(KEEP * DT_S);
 
 // camera: fit the chosen view into the band between the HUD and the dock
 const camera = new THREE.PerspectiveCamera(32, 1, 0.5, 400); // near 0.5: more depth precision for the far views
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
-const VIEWS = { // centre and half extents (m)
+const VIEWS = RISER ? { // centre and half extents (m)
+  whole: { c: [-12.5, -10.9], h: [21.8, 17.6] },
+  topside: { c: [-4.4, 3.4], h: [9.6, 4.6] },
+  separator: { c: [0, 3.6], h: [5.6, 3.6] },
+  bottom: { c: [-19.5, -3.6], h: [12.2, 3.6], label: 'Seabed' },
+} : {
   whole: { c: [-4, -10.9], h: [12.5, 17.6] },
   topside: { c: [-4.4, 3.4], h: [9.6, 4.6] },
   separator: { c: [0, 3.6], h: [5.6, 3.6] },
@@ -201,7 +245,7 @@ function frame() {
   controls.target.set(v.c[0], v.c[1], 0);
   // three-quarter views from the front right and above, so the block, the
   // jacket and the deck read as 3D
-  const [side, lift] = { whole: [0.55, 0.32], topside: [0.3, 0.24], separator: [0.15, 0.22], bottom: [0.35, 0.1] }[state.view];
+  const [side, lift] = { whole: [RISER ? 0.4 : 0.55, 0.32], topside: [0.3, 0.24], separator: [0.15, 0.22], bottom: [RISER ? 0.2 : 0.35, RISER ? 0.22 : 0.1] }[state.view];
   camera.position.set(controls.target.x + dist * side, controls.target.y + dist * lift, dist);
   camera.updateProjectionMatrix();
 }
@@ -209,15 +253,22 @@ addEventListener('resize', frame);
 
 // labels: [text, world position, views (w whole, t topside, s separator, b bottom)]
 const wl = (key) => () => well.group.localToWorld(well.anchors[key].clone());
-const LABELS = [
+const ta = (key) => () => tieback.anchors[key];
+const SEP_LABELS = [
+  ['Sea', () => new THREE.Vector3(3, SEA - 0.8, 0), 'w'],
+];
+const LABELS = (RISER ? [
+  ['Subsea well', ta('well'), 'w'], ['Wet tree', ta('tree'), 'wb'], ['Flowline ≈ 4 km, downhill', ta('flowline'), 'wb'],
+  ['Low point: liquid blocks the gas', ta('low'), 'wb'], ['Riser', ta('riser'), 'w'], ['Topside choke', ta('choke'), 'tw'], ['Controller (PIC)', ta('pic'), 't'],
+  ['Inlet pressure ≈ BHP', ta('gauge'), 'wb'], ['Reservoir', ta('res'), 'w'], ['Seabed', () => new THREE.Vector3(-3, SEABED + 0.5, 0), 'w'],
+  ...SEP_LABELS,
+] : [
   ['Lift gas in', wl('gasIn'), 't'], ['Lift gas valve', wl('gasValve'), 't'], ['Christmas tree', wl('tree'), 't'], ['Production choke', wl('choke'), 'tw'], ['Controller (PIC)', wl('pic'), 't'],
-  ['Flowline', () => new THREE.Vector3((chokeOut.x + inletStart.x) / 2, FY + 0.5, -4), 't'],
-  ['Inlet separator', () => new THREE.Vector3(1.5, SEP.y + SDIM.R + 0.5, 0), 'tws'],
-  ['Liquid level', () => new THREE.Vector3(-2.6, SEP.y + sepSim.hL + 0.2, 1.2), 's'], ['Weir', () => new THREE.Vector3(SDIM.weirX, SEP.y + SDIM.crest + 0.3, 1.2), 's'],
-  ['Conductor (no riser)', () => new THREE.Vector3(WELL_X + WS * (D.rc + 0.2) + 0.2, -2.6, 0), 'w'], ['Seabed', () => new THREE.Vector3(-13.5, SEABED + 0.5, 0), 'w'], ['Sea', () => new THREE.Vector3(3, SEA - 0.8, 0), 'w'],
+  ['Conductor (no riser)', () => new THREE.Vector3(WELL_X + WS * (D.rc + 0.2) + 0.2, -2.6, 0), 'w'], ['Seabed', () => new THREE.Vector3(-13.5, SEABED + 0.5, 0), 'w'],
   ['Tubing', wl('tubing'), 'w'], ['Annulus (lift gas)', wl('annulus'), 'w'], ['Gas-lift valve', wl('glv'), 'wb'], ['Perforations', () => well.group.localToWorld(new THREE.Vector3(D.rc + 1.0, -12.15, 0)), 'b'], ['Packer', wl('packer'), 'b'],
   ['Reservoir ≈ 2 km down', wl('res'), 'wb'], ['Bottom-hole pressure', wl('gauge'), 'wb'],
-].map(([text, at, views]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at, views }; });
+  ...SEP_LABELS,
+]).map(([text, at, views]) => { const el = document.createElement('div'); el.className = 'lbl'; el.textContent = text; document.body.append(el); return { el, at, views }; });
 
 // dock
 const ui = document.getElementById('ui'), note = document.getElementById('note');
@@ -230,14 +281,17 @@ function row(label, items) {
   }
   ui.append(r);
 }
+row('Case', [['Gas-lift well', !RISER], ['Riser tie-back', RISER]].map(([t, on], i) => [t, () => on, () => {
+  const u = new URL(location.href); u.searchParams.set('case', i ? 'riser' : 'gaslift'); location.href = u.href;
+}]));
 row('Control', [
   ['Off', () => !state.auto, () => { state.auto = false; state.u = Math.round(sim.uOut * 10) / 10; }],
-  ['On · hold BHP', () => state.auto, () => { state.auto = true; }],
-  ...[30, 50, 70, 100].map((p) => [`${p} %`, () => !state.auto && Math.abs(state.u - p / 100) < 1e-3, () => { state.auto = false; state.u = p / 100; }]),
+  [CASE.ctl, () => state.auto, () => { state.auto = true; }],
+  ...CASE.chokes.map((p) => [`${p} %`, () => !state.auto && Math.abs(state.u - p / 100) < 1e-3, () => { state.auto = false; state.u = p / 100; }]),
 ]);
-row('Setpoint', [105, 110, 120].map((p) => [`${p} bar`, () => state.sp === p, () => { state.sp = p; }]));
+row('Setpoint', CASE.sps.map((p) => [`${p} bar`, () => state.sp === p, () => { state.sp = p; }]));
 row('View', [
-  ...Object.keys(VIEWS).map((k) => [k[0].toUpperCase() + k.slice(1), () => state.view === k, () => { state.view = k; frame(); }]),
+  ...Object.keys(VIEWS).map((k) => [VIEWS[k].label || k[0].toUpperCase() + k.slice(1), () => state.view === k, () => { state.view = k; frame(); }]),
   ['Labels', () => state.labels, () => { state.labels = !state.labels; }],
 ]);
 row('Speed', [60, 120, 240].map((x) => [`×${x}`, () => state.speed === x, () => { state.speed = x; }]));
@@ -245,7 +299,7 @@ function refresh() {
   for (const b of ui.querySelectorAll('button')) b.classList.toggle('on', b._on());
   applyModes();
   const u = new URL(location.href);
-  for (const [k, v] of Object.entries({ auto: state.auto ? 1 : 0, view: state.view, speed: state.speed })) u.searchParams.set(k, v);
+  for (const [k, v] of Object.entries({ case: RISER ? 'riser' : 'gaslift', auto: state.auto ? 1 : 0, view: state.view, speed: state.speed })) u.searchParams.set(k, v);
   history.replaceState(null, '', u);
 }
 refresh();
@@ -258,20 +312,20 @@ function drawTrend() {
   const dpr = Math.min(devicePixelRatio, 2), W = tc.clientWidth, H = tc.clientHeight;
   if (tc.width !== Math.round(W * dpr)) { tc.width = Math.round(W * dpr); tc.height = Math.round(H * dpr); }
   const g = tc.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-  const L = 30, R = W - 30, T = 14, B = H - 4, P0 = 80, P1 = 170;
+  const L = 30, R = W - 30, T = 14, B = H - 4, [P0, P1] = CASE.P;
   const x = (i) => L + ((R - L) * i) / (KEEP - 1), yp = (p) => B - ((p - P0) / (P1 - P0)) * (B - T), yu = (u) => B - u * (B - T);
   const hm = hist[0], ghostOn = hm.some((s) => s.auto);
   g.fillStyle = C.on; // controller-on spans
   for (let i = 0; i < hm.length; i++) if (hm[i].auto) g.fillRect(x(i + KEEP - hm.length) - 0.5, T, (R - L) / (KEEP - 1) + 1, B - T);
   g.strokeStyle = C.grid; g.lineWidth = 1; g.font = '500 9.5px "JetBrains Mono", monospace'; g.fillStyle = C.text;
-  for (const p of [100, 125, 150]) { g.beginPath(); g.moveTo(L, yp(p)); g.lineTo(R, yp(p)); g.stroke(); g.textAlign = 'right'; g.fillText(p, L - 4, yp(p) + 3); }
+  for (const p of CASE.grid) { g.beginPath(); g.moveTo(L, yp(p)); g.lineTo(R, yp(p)); g.stroke(); g.textAlign = 'right'; g.fillText(p, L - 4, yp(p) + 3); }
   g.textAlign = 'left'; for (const u of [0, 0.5, 1]) g.fillText(`${u * 100}%`, R + 4, yu(u) + 3);
   if (state.auto) { g.setLineDash([4, 4]); g.strokeStyle = C.sp; g.globalAlpha = 0.5; g.beginPath(); g.moveTo(L, yp(state.sp)); g.lineTo(R, yp(state.sp)); g.stroke(); g.globalAlpha = 1; g.setLineDash([]); }
   const line = (h, key, col, y, w = 1.6, from = 0) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); let started = false; h.forEach((s, i) => { if (i < from) return; const xx = x(i + KEEP - h.length), yy = y(s[key]); started ? g.lineTo(xx, yy) : g.moveTo(xx, yy); started = true; }); g.stroke(); };
   if (ghostOn) { const from = hm.findIndex((s) => s.auto); g.globalAlpha = 0.45; line(hist[1], 'p', C.p2, yp, 1.2, from); g.globalAlpha = 1; }
   line(hm, 'u', C.u, yu); line(hm, 'p', C.p, yp, 2);
   g.textAlign = 'left'; g.font = '600 10px "Instrument Sans", system-ui, sans-serif';
-  g.fillStyle = C.p; g.fillText('Bottom-hole pressure (bar)', L, 10);
+  g.fillStyle = C.p; g.fillText(CASE.pLong, L, 10);
   g.fillStyle = C.u; g.fillText('Choke opening', L + 150, 10);
   if (ghostOn) { g.fillStyle = C.p2; g.fillText('faint: without', L + 240, 10); }
 }
@@ -304,17 +358,19 @@ function drawLevels() {
 }
 const avg = (h, k) => { const s = h.slice(-AVG); return s.reduce((a, b) => a + b[k], 0) / s.length; };
 const span = (h, k) => { const s = h.slice(-AVG).map((v) => v[k]); return [Math.min(...s), Math.max(...s)]; };
-const m3d = (kgs) => Math.round((kgs / 760) * 86400 / 10) * 10;
+const m3d = (kgs) => Math.round(((kgs * CASE.oilShare) / CASE.rho) * 86400 / 10) * 10;
 const lvl = []; // separator liquid level, last 30 s of screen time
 function drawStats() {
   const h = hist[0], oil = avg(h, 'oil'), [lo, hi] = span(h, 'p'), gain = (oil / REF.oil - 1) * 100, full = REF.oil * 1.6;
-  const catching = sim.auto && hi - lo >= 3 ? ' · <b>catching the slug…</b>' : '';
+  const steady = hi - lo < CASE.steady, catching = sim.auto && !steady ? ' · <b>catching the slug…</b>' : '';
   const sw = lvl.length ? (Math.max(...lvl) - Math.min(...lvl)) * 100 : 0;
-  stats.innerHTML = `<div><b>${sim.auto ? 'Controller on' : 'Controller off'}</b>${catching} · choke ${Math.round(avg(h, 'u') * 100)} % avg · BHP ${hi - lo < 3 ? `${avg(h, 'p').toFixed(0)} steady` : `${lo.toFixed(0)}–${hi.toFixed(0)} swinging`} · separator level ${sw < 6 ? 'steady' : `swings ${sw.toFixed(0)} cm`}</div>
+  stats.innerHTML = `<div><b>${sim.auto ? 'Controller on' : 'Controller off'}</b>${catching} · choke ${Math.round(avg(h, 'u') * 100)} % avg · ${CASE.pName} ${steady ? `${avg(h, 'p').toFixed(0)} steady` : `${lo.toFixed(0)}–${hi.toFixed(0)} swinging`} · separator level ${sw < 6 ? 'steady' : `swings ${sw.toFixed(0)} cm`}</div>
     <div>Oil <b>${m3d(oil)} m³/d</b> (${gain >= 0 ? '+' : ''}${gain.toFixed(0)} % vs safe fixed choke at ${SAFE_U * 100} %, the line on the bar)</div>
     <div class="bar"><i style="width:${(100 * oil) / full}%;background:${gain > 5 ? '#f2b544' : '#9fb3ba'}"></i><u style="left:${(100 * REF.oil) / full}%"></u></div>`;
 }
-note.innerHTML = 'PROTOTYPE · not to scale. Gas-lifted well: lift gas fills the annulus, pushes through the gas-lift valve, the column lightens and blows out, then fills up again. The controller reads bottom-hole pressure and moves the choke a little, fast. Averages over the last 50 min of well time.';
+note.innerHTML = RISER
+  ? 'PROTOTYPE · not to scale. Subsea well tied back to the platform: liquid collects in the low point at the riser base and blocks the gas, pressure builds until the gas blows the riser empty, then it fills again (severe slugging). The controller reads the inlet pressure and moves the topside choke a little, fast. Model after Jahanshahi &amp; Skogestad (2014), their published OLGA test case. Averages over the last 50 min of well time.'
+  : 'PROTOTYPE · not to scale. Gas-lifted well: lift gas fills the annulus, pushes through the gas-lift valve, the column lightens and blows out, then fills up again. The controller reads bottom-hole pressure and moves the choke a little, fast. Averages over the last 50 min of well time.';
 drawStats(); frame();
 
 const clock = new THREE.Clock(), v3 = new THREE.Vector3();
@@ -342,7 +398,7 @@ function stepWorld(dt) {
   const simDt = dt * state.speed;
   sim.step(simDt); ghost.step(simDt);
   acc += simDt; while (acc >= DT_S) { acc -= DT_S; sample(); }
-  well.update(dt, sim);
+  (well || tieback).update(dt, sim);
   flowUpdate(run.contents.material.uniforms, dt, sim);
   // the well stream into the separator; a sharp rise starts a wave down the vessel
   const f = Math.max(0.1, 1 + (sim.wOil / NOMINAL - 1) * SURGE);
@@ -352,5 +408,5 @@ function stepWorld(dt) {
   sepSim.step(dt); sepSim.apply(sep); sep.update(dt, sepSim.stir);
   if ((lvlT -= dt) < 0) { lvlT = 0.25; lvl.push(sepSim.hL); if (lvl.length > 120) lvl.shift(); }
 }
-window.proto = { sim, ghost, sepSim, well, sep, state, refresh, advance, frame, run: (sec) => { for (let t = 0; t < sec; t += 1 / 60) stepWorld(1 / 60); } };
+window.proto = { sim, ghost, sepSim, well, tieback, sep, state, refresh, advance, frame, run: (sec) => { for (let t = 0; t < sec; t += 1 / 60) stepWorld(1 / 60); } };
 requestAnimationFrame(tick);
