@@ -5,7 +5,7 @@
 import { T } from '../lang.js';
 import { Graph } from './graph.js';
 import { books, globe, col, KG_LOOK } from './engine.js';
-import { vscodeHTML } from '../vscode.js';
+import { vscodeWindow, vscodeStep, fitVSCode } from '../vscode.js';
 
 // ------------------------------------------------------------ helpers
 const title = (html, from = 0) => ({ kind: 'title', html, x: -7.2, y: 4.0, from });
@@ -138,79 +138,64 @@ const H08 = {
 };
 
 // ------------------------------------------------------------ slide 9: just .agent.md files
-const AGENT_MD = {
-  buddy: T(`<i>---</i>
-<b>navn:</b> CtrlBuddy
-<b>beskrivelse:</b> Reguleringsingeniørens orkestrator. Diagnostikk, navigasjon, spørsmål og rapporter om reguleringssløyfer. Delegerer kompilering til @Kompilator og helsesjekk til @Linter.
-<b>verktøy:</b> [edit, codebase, fetch, search, runCommands …]
-<b>agenter:</b> [Kompilator, Linter]
-<i>---</i>
-<h4># CtrlBuddy — Orkestrator</h4>Du eier steg 1, 3, 4 og 5 i Karpathys 7-trinns pipeline: ta inn spørsmålet, naviger i wikien, diagnostiser, lag utdata.`,
-  `<i>---</i>
-<b>name:</b> CtrlBuddy
-<b>description:</b> The control engineer's orchestrator. Diagnostics, navigation, questions and reports on control loops. Delegates compiling to @Compiler and health checks to @Linter.
-<b>tools:</b> [edit, codebase, fetch, search, runCommands …]
-<b>agents:</b> [Compiler, Linter]
-<i>---</i>
-<h4># CtrlBuddy — Orchestrator</h4>You own steps 1, 3, 4 and 5 of Karpathy's 7-step pipeline: take the question in, navigate the wiki, diagnose, produce the output.`),
-  scholar: T(`<i>---</i>
-<b>navn:</b> Kompilator
-<b>beskrivelse:</b> Leser filer fra raw/ og lager atomiske wiki-artikler. Eier Karpathy steg 2 (Kompiler).
-<b>verktøy:</b> [rediger, kodebase, hent, søk]
-<i>---</i>
-<h4># Kompilator — Raw → Wiki</h4>Inn: artikler, rapporter, leverandørdokumenter, forelesninger, datasett i raw/. Ut: én idé per notat i wiki/, med kilder.`,
-  `<i>---</i>
-<b>name:</b> Compiler
-<b>description:</b> Reads files from raw/ and writes atomic wiki articles. Owns Karpathy step 2 (Compile).
-<b>tools:</b> [edit, codebase, fetch, search]
-<i>---</i>
-<h4># Compiler — Raw → Wiki</h4>In: papers, reports, vendor documents, lectures, data sets in raw/. Out: one idea per note in wiki/, with sources.`),
-  nurse: T(`<i>---</i>
-<b>navn:</b> Linter
-<b>beskrivelse:</b> Validerer wiki-helse: frontmatter, ødelagte lenker, motsetninger, foreldreløse notater. Eier Karpathy steg 6 (Lint).
-<b>verktøy:</b> [kodebase, runCommands, søk]
-<i>---</i>
-<h4># Linter — Wiki-helse</h4>Kjør etter at @Kompilator har lagt til artikler, før en større overlevering, og hver uke.`,
-  `<i>---</i>
-<b>name:</b> Linter
-<b>description:</b> Checks the wiki's health: front matter, broken links, contradictions, orphan notes. Owns Karpathy step 6 (Lint).
-<b>tools:</b> [codebase, runCommands, search]
-<i>---</i>
-<h4># Linter — Wiki health</h4>Run after @Compiler has added articles, before a bigger handover, and weekly.`),
+// The whole slide is VS Code (vscode.js, the look Adriaen picked): an empty
+// window, then the three agent files open one by one, each agent standing in
+// its own editor group under its file, then the agent picker in the chat.
+const AGENT_FILES = {
+  buddy: ['CtrlBuddy', T(
+    ['---', 'name: CtrlBuddy', 'description: Reguleringsingeniørens orkestrator. Diagnostikk, navigasjon, spørsmål og rapporter om reguleringssløyfer.', "tools: ['edit', 'codebase', 'fetch', 'search', 'runCommands']", "agents: ['Kompilator', 'Linter']", '---', '', '# CtrlBuddy — Orkestrator', '', 'Du eier steg 1, 3, 4 og 5 i Karpathys pipeline:', 'ta inn spørsmålet, naviger i wikien,', 'diagnostiser, lag utdata.', '', '## Delegering', '- Nye kilder i `raw/` → @Kompilator', '- Helsesjekk etter endringer → @Linter'],
+    ['---', 'name: CtrlBuddy', "description: The control engineer's orchestrator. Diagnostics, navigation, questions and reports on control loops.", "tools: ['edit', 'codebase', 'fetch', 'search', 'runCommands']", "agents: ['Compiler', 'Linter']", '---', '', '# CtrlBuddy — Orchestrator', '', "You own steps 1, 3, 4 and 5 of Karpathy's pipeline:", 'take the question in, navigate the wiki,', 'diagnose, produce the output.', '', '## Delegating', '- New sources in `raw/` → @Compiler', '- Health check after changes → @Linter'])],
+  scholar: ['Compiler', T(
+    ['---', 'name: Kompilator', 'description: Leser filer fra raw/ og lager atomiske wiki-artikler. Eier Karpathy steg 2 (Kompiler).', "tools: ['edit', 'codebase', 'fetch', 'search']", '---', '', '# Kompilator — Raw → Wiki', '', 'Inn: artikler, rapporter, leverandør-', 'dokumenter og datasett i `raw/`.', 'Ut: én idé per notat i `wiki/`, med kilder.', '', '## Regler', '- Ett begrep per notat: `pid-regulator.md`', '- Lenk beslektede notater med [[wikilenker]]', '- Oppgi kilden: `kilde: raw/…`'],
+    ['---', 'name: Compiler', 'description: Reads files from raw/ and writes atomic wiki articles. Owns Karpathy step 2 (Compile).', "tools: ['edit', 'codebase', 'fetch', 'search']", '---', '', '# Compiler — Raw → Wiki', '', 'In: papers, reports, vendor documents', 'and data sets in `raw/`.', 'Out: one idea per note in `wiki/`, with sources.', '', '## Rules', '- One concept per note: `pid-controller.md`', '- Link related notes with [[wikilinks]]', '- Give the source: `source: raw/…`'])],
+  nurse: ['Linter', T(
+    ['---', 'name: Linter', 'description: Validerer wiki-helse. Frontmatter, ødelagte lenker, motsetninger, foreldreløse notater. Eier Karpathy steg 6 (Lint).', "tools: ['codebase', 'runCommands', 'search']", '---', '', '# Linter — Wiki-helse', '', 'Kjør etter at @Kompilator har lagt til', 'artikler, før en større overlevering,', 'og hver uke.', '', '## Sjekkliste', '- Alle notater har `kilde:` og `oppdatert:`', '- Ingen [[lenker]] til notater som mangler', '- Ingen notater uten innkommende lenker'],
+    ['---', 'name: Linter', "description: Checks the wiki's health. Front matter, broken links, contradictions, orphan notes. Owns Karpathy step 6 (Lint).", "tools: ['codebase', 'runCommands', 'search']", '---', '', '# Linter — Wiki health', '', 'Run after @Compiler has added', 'articles, before a bigger handover,', 'and weekly.', '', '## Checklist', '- Every note has `source:` and `updated:`', '- No [[links]] to notes that are missing', '- No notes without incoming links'])],
 };
-const ROBOT_TEXT9 = {
-  buddy: ROBOT_TEXT.buddy,
-  scholar: T('<b>«Lærd»</b>Samler kunnskap i en Karpathy-lignende kunnskapsbase', '<b>“Scholar”</b>Gathers knowledge in a Karpathy-like knowledge base'),
-  nurse: T('<b>«Sykepleier»</b>Sørger for at wikien er sunn', '<b>“Nurse”</b>Keeps the wiki healthy'),
-};
+const AGENTS9 = ['buddy', 'scholar', 'nurse'];
+// The editor area of the 1440×810 window in slide units (activity bar 48 px +
+// Explorer 230 px on the left, chat 340 px on the right), and where an agent
+// stands in group i of n
+const EDS = { x0: -8 + 278 / 90, x1: 8 - 340 / 90 };
+const groupX = (i, n) => EDS.x0 + (i + 0.5) * (EDS.x1 - EDS.x0) / n;
 const H09 = {
-  id: 'ctrl-09', builds: 5,
-  focus: (b) => [[0, 0, 0], [-5.2, 1, 2], [0, 1, 2], [5.2, 1, 2], [0, 0, 1], [0, 0, 3]][b],
+  id: 'ctrl-09', builds: 4,
+  focus: (b) => [[0, 0, 0], [-1.5, 0, 1], [-1, 0, 1], [0, 0, 1], [3, 0, 1]][b],
+  onBuild: (b, sl) => { const el = sl.html.querySelector('.vsw'); if (el) vscodeStep(el, b); },
   elements: [
-    ...['buddy', 'scholar', 'nurse'].flatMap((k, i) => {
-      const x = -5.2 + i * 5.2;
-      return [
-        // the robot shrinks a little and moves down under his file when it shows
-        fig(ROBOT[k], x, -1.75, 3.6, 0, { rot: [0.25, 0, -0.25][i], at: (b) => (b > i ? { x, y: -4.4, s: 0.68 } : { x, y: -1.75 }), until: 5 }),
-        text(ROBOT_TEXT9[k], x, -2.05, 4.3, 0, { cls: 'robot', anchor: [0.5, 0], until: i + 1 }),
-        { kind: 'card', cls: 'md', html: `<div class="fn">${['CtrlBuddy', 'Compiler', 'Linter'][i]}.agent.md</div><pre>${AGENT_MD[k]}</pre>`, x, y: 4.15, w: 4.95, h: 4.75, anchor: [0.5, 0], from: i + 1, until: 5 },
-      ];
+    // VS Code's editor background under the 3D, so the agents stand inside their groups
+    draw((ctx) => {
+      const el = ctx.slide.html.querySelector('.vsw');
+      if (el) fitVSCode(el);
+      if (KG_LOOK !== 'b') { ctx.under.fillStyle = '#1f1f1f'; ctx.under.fillRect(0, 0, ctx.slide.W, ctx.slide.H); }
     }),
-    // the project in an editor: the agents folder and the chat that uses them
     {
-      kind: 'card', cls: 'vscode full', x: 0, y: 0, w: 16, h: 9, anchor: [0.5, 0.5], from: 5,
-      html: vscodeHTML({
-        title: T('kontrollrom-agent — VS Code', 'control-room-agent — VS Code'),
-        tree: [{ t: '.github', dir: 'open' }, { t: 'agents', lvl: 1, dir: 'open' }, ...['CtrlBuddy', 'Compiler', 'Linter'].map((n) => ({ t: `${n}.agent.md`, lvl: 2, hl: true })),
-          ...['instructions', 'prompts'].map((t) => ({ t, lvl: 1, dir: 'closed' })), ...['raw', 'wiki', 'scripts', 'tests'].map((t) => ({ t, dir: 'closed' }))],
-        tab: 'Compiler.agent.md',
-        code: AGENT_MD.scholar,
-        chat: [{ t: T('Del notatene om tuning i to, og kompiler den nye rapporten.', 'Split the tuning notes in two, and compile the new report.'), me: true }, { t: T('Jeg oppdaterer terskelen først, så setter jeg @Compiler i gang.', 'I\'ll update the threshold first, then set @Compiler going.') }],
-        pick: 'CtrlBuddy',
+      kind: 'card', cls: 'vsw see-through', x: 0, y: 0, w: 16, h: 9, anchor: [0.5, 0.5],
+      html: vscodeWindow({
+        tree: [{ t: '.github', dir: 'open' }, { t: 'agents', lvl: 1, dir: 'open', hl: true },
+          ...AGENTS9.map((k, i) => ({ t: `${AGENT_FILES[k][0]}.agent.md`, lvl: 2, from: i + 1, git: 'U' })),
+          { t: 'instructions', lvl: 1, dir: 'closed' }, { t: 'prompts', lvl: 1, dir: 'closed' },
+          ...['raw', 'wiki', 'scripts', 'tests'].map((t) => ({ t, dir: 'closed' })), { t: 'README.md' }],
+        groups: AGENTS9.map((k, i) => {
+          const [name, lines] = AGENT_FILES[k];
+          return { tab: `${name}.agent.md`, crumbs: ['.github', 'agents', `${name}.agent.md`], lines, cur: 2, from: i + 1 };
+        }),
+        chat: {
+          msgs: [
+            { me: true, from: 4, t: T('Hvor bor dere egentlig?', 'Where do you actually live?') },
+            { from: 4, t: T('Vi er bare <code>.agent.md</code>-filer i <code>.github/agents</code> i dette prosjektet. Velg hvem av oss du vil snakke med nedenfor.', 'We are just <code>.agent.md</code> files in <code>.github/agents</code> in this project. Pick which of us to talk to below.') },
+          ],
+          menu: { from: 4, items: AGENTS9.map((k) => [T(...{ buddy: ['CtrlBuddy', 'CtrlBuddy'], scholar: ['Kompilator', 'Compiler'], nurse: ['Linter', 'Linter'] }[k]), T(...{ buddy: ['orkestrator', 'orchestrator'], scholar: ['raw → wiki', 'raw → wiki'], nurse: ['wiki-helse', 'wiki health'] }[k])]) },
+        },
+        status: 'Ln 2, Col 7',
       }),
     },
-    { kind: 'text', cls: 'plaque', html: T('Dette er bare <code>.agent.md</code>-filer i «agents»-mappen i VS Code-prosjektet', 'These are just <code>.agent.md</code> files in the “agents” folder of the VS Code project'), x: 0, y: 0.6, w: 12, anchor: [0.5, 0.5], from: 4, until: 5 },
-    draw((ctx) => { const k = Math.min(1, ctx.since * 1.2); ring(ctx, -6.45, 2.38, 1.25, 0.6, k); ring(ctx, 4.37, 1.64, 0.95, 0.36, Math.max(0, k * 1.5 - 0.5)); }, 5, { delay: 0.8 }),
+    // each agent under its own file; the groups split as the files open
+    ...AGENTS9.map((k, i) => fig(ROBOT[k], groupX(i, 3), -4.1, 3.0, i + 1, {
+      rot: [0.25, 0, -0.25][i], dur: 0.7,
+      at: (b) => ({ x: groupX(i, Math.max(i + 1, Math.min(b, 3))) }),
+    })),
+    draw((ctx) => { const k = Math.min(1, ctx.since * 1.2); ring(ctx, -5.8, 2.72, 1.55, 0.6, k); ring(ctx, 6.1, -1.86, 1.8, 0.55, Math.max(0, k * 1.5 - 0.5)); }, 4, { delay: 0.6 }),
   ],
 };
 

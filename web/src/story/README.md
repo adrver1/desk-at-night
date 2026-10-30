@@ -55,7 +55,7 @@ fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
   window. `epilogue.js`: the fly-out to the whole platform. `clockFace.js`:
   the rest corner's station clock, big over the picture during the rewind.
 - `kg/`: the knowledge-graph slides drawn live (`engine.js` the slide, `graph.js` the graphs, `slides.js` the eight slides click by click). Screenshots of every click: `node qa/kg-slides.mjs http://localhost:5173/ <out dir> [c|b]`.
-- `vscode.js`: the one VS Code window used across the story (the agent files slide and the build beat). `vscodeHTML()` for a slide card, `vscode()` for a live element with `typeLine()`, `addChat()`, `setTab()` and `draw()` onto a canvas, and `drawVSCode()` for an in-room monitor. Styles: `.vscode` in `story.css`.
+- `vscode.js`: the one VS Code window used across the story, in VS Code's Dark Modern look (Adriaen's pick). `vscodeWindow()` for a slide card (split editor groups, parts that come in click by click via `from` + `vscodeStep()`, scaled from 1440×810 by `fitVSCode()`), `vscode()` for a live element with `typeLine()`, `addChat()`, `setTab()` and `draw()` onto a canvas, and `drawVSCode()` for an in-room monitor (same look, same call as before). Styles: `.vsw` in `story.css`.
 - `ui.js`, `story.css`: overlays. `storyScreens.js`, `graph.js`: what the
   room's monitors and the display band show in story mode.
 - `sola.js`: the opening on the apron at Sola (on by default).
