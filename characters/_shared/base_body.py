@@ -83,6 +83,45 @@ MITTEN = [(0.47, 0.034, 0.040, 0.0, "hand"),
 # Wedge shoe profile in the YZ plane (heel, toe, toe top, instep, heel top)
 SHOE = [(-0.075, 0.0), (0.18, 0.0), (0.18, 0.05), (0.05, 0.115), (-0.075, 0.12)]
 SHOE_HALF_W = 0.062
+BROW_H = 0.010    # eyebrow height
+LEG_K = 1.0       # leg thickness against the default figure: outfits scale their leg bands by it
+
+
+# Figures: other body proportions on the same rig (same joints, so every
+# clip still plays). "default" is the tables above; "slim" is a slimmer,
+# female figure: narrower shoulders and waist, hips about as wide as the
+# shoulders, a low-poly bust on the chest ring, thinner neck, arms and legs,
+# a narrower jaw and chin, smaller feet and finer brows.
+def _scaled(rings, k):
+    return [(t, u * k, v * k, d, r) for t, u, v, d, r in rings]
+
+
+FIGURES = {"default": dict(HEAD=HEAD, TORSO=TORSO, NECK=NECK, LEG=LEG, ARM=ARM, MITTEN=MITTEN, SHOULDER=SHOULDER,
+                           SHOE_HALF_W=SHOE_HALF_W, LEG_K=1.0, BROW_H=BROW_H)}
+FIGURES["slim"] = dict(
+    TORSO=[(0.78, 0.104, 0.080, 0.000, "hips"),
+           (0.87, 0.166, 0.104, -0.010, "hips"),
+           (1.00, 0.128, 0.084, -0.002, "belly"),
+           (1.18, 0.156, 0.112, 0.022, "chest"),
+           (1.35, 0.166, 0.094, -0.004, "chest"),
+           (1.43, 0.090, 0.066, -0.010, "chest")],
+    HEAD=[(1.465, 0.048, 0.034, 0.050, "head"), (1.505, 0.090, 0.082, 0.020, "head")] + HEAD[2:],
+    NECK=_scaled(NECK, 0.86), LEG=_scaled(LEG, 0.9), ARM=_scaled(ARM, 0.84), MITTEN=_scaled(MITTEN, 0.88),
+    SHOULDER=Vector((0.158, -0.005, 1.36)), SHOE_HALF_W=0.052, LEG_K=0.9, BROW_H=0.0065)
+FIGURE = "default"
+
+
+def legs_k(rings):
+    """Leg rings given for the default figure, scaled to the current one."""
+    return _scaled(rings, LEG_K) if LEG_K != 1.0 else rings
+
+
+def set_figure(name="default"):
+    """Switch the body tables to another figure for the next body() and
+    everything built from its rings (clothes, outfits, rig)."""
+    global FIGURE
+    globals().update(FIGURES[name])
+    FIGURE = name
 
 DEFAULT_COLORS = {"hips": "undersuit", "belly": "undersuit", "chest": "undersuit",
                   "thigh": "undersuit", "shin": "undersuit", "shoe": "charcoal",
@@ -429,7 +468,7 @@ def body(skin="skin_3", colors=None, hide=(), brow=None, ears=True, ear_scale=1.
             hit + Z * 0.03 - Y * 0.01, tip], cols["nose"], "nose")
     for s in (1, -1):
         m.decal(bvh, s * 0.040, 1.615, 0.020, 0.028, cols["eye"], "eye")
-        m.decal(bvh, s * 0.042, 1.652, 0.040, 0.010, cols["brow"], "brow", tilt=-s * 6)
+        m.decal(bvh, s * 0.042, 1.652, 0.040, BROW_H, cols["brow"], "brow", tilt=-s * 6)
     mouth(m, bvh, cols["mouth"])
     return m.drop(set(hide))
 

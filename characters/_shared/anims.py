@@ -30,6 +30,17 @@ into every character's .glb as named glTF animations:
     phone_left, phone_left_down   the same with the left hand, for the
                  desk phone's handset (PHONE_DESK) to the left; the chair
                  is swivelled and rolled toward it by the player
+    fart         standing: a sneaky glance round, leans forward with
+                 the right knee lifted and the hip popped, a little
+                 shudder, then straightens up (neutral face); the puff is
+                 from 0.75 to 1.25 s (FART_PUFF)              (2.5 s)
+    fart_seated  the same on a 0.45 m seat: rolls onto the left cheek,
+                 shudder, settles back                        (2.5 s)
+    hug          cuddles a baby sloth (or any small bundle) at the
+                 chest: right forearm under its bottom, left arm
+                 round its tummy, rocking side to side with the
+                 cheek tilted down to it; parent the prop to the
+                 chest bone at HUG_HOLD                       (loop, 4 s)
 
 Face clips move only the eye and brow bones, so they play on top of any
 body clip (body clips never touch the face bones):
@@ -237,6 +248,7 @@ MOUSE_FAR = (0.54, 0.48, 0.78)        # the same on the second desk, whose mouse
 SIP_HOLD = (20 / FPS, 76 / FPS)       # seconds: the hand has the mug from, until
 PHONE_AT = (0.14, 0.42, 0.785)        # a mobile lying on the desk edge, in front of the keyboard
 PHONE_EAR = (0.12, -0.07, 1.03)       # the right wrist with the phone at the ear
+PHONE_EAR_DESK = (0.15, -0.01, 1.08)  # the wrist gripping a desk handset at the ear: out from the cheek, below the ear
 PHONE_DESK = (-0.36, 0.58, 0.82)       # the desk phone's handset, once the chair has turned toward it
 PHONE_GRAB = 12 / FPS                 # phone: the hand has it from here on
 PHONE_DROP = 16 / FPS                 # phone_down: the phone is back on the desk from here
@@ -258,7 +270,7 @@ def shoulder_seated(r, side):
     return p + drop, rc
 
 
-def reach(r, side, wrist, hand_dir, palm=None, elbow_out=0.6):
+def reach(r, side, wrist, hand_dir, palm=None, elbow_out=0.6, elbow_fwd=-0.2):
     """Two-bone reach: put the side's wrist at `wrist` (character space)
     with the elbow dropped down and out, and the hand pointing along
     hand_dir; palm is the world direction the palm should face."""
@@ -270,7 +282,7 @@ def reach(r, side, wrist, hand_dir, palm=None, elbow_out=0.6):
     u = v.normalized()
     along = (a * a - b * b + d * d) / (2 * d)
     h = math.sqrt(max(0.0, a * a - along * along))
-    pole = Vector((side * elbow_out, -0.2, -1.0))
+    pole = Vector((side * elbow_out, elbow_fwd, -1.0))
     pole = (pole - u * pole.dot(u)).normalized()
     e = s + u * along + pole * h
     d0, tag = _arm(side), _tag(side)
@@ -345,13 +357,19 @@ def phoning(stage, side=1, at=PHONE_AT):
     if stage <= 0:
         return r
     phone = Vector(at)
-    ear = Vector((side * PHONE_EAR[0], PHONE_EAR[1], PHONE_EAR[2]))
+    # a mobile lies flat in the hand against the cheek; a desk handset is gripped round its
+    # handle, ear to mouth, so the hand sits further out and its fingers point forward
+    desk = far > 0.5
+    e = PHONE_EAR_DESK if desk else PHONE_EAR
+    ear = Vector((side * e[0], e[1], e[2]))
     lap = Vector((side * 0.20, 0.30, 0.62))
     grip = phone + Vector((0, -0.07, 0.02))
     w = lap.lerp(grip, stage) if stage <= 1 else grip.lerp(ear, up)
-    hand = Vector((0.0, 0.95, -0.3)).lerp(Vector((-side * 0.1, 0.25, 1.0)), up)
+    hand = Vector((0.0, 0.95, -0.3)).lerp(Vector((-side * 0.1, -0.05, 1.0)) if desk else Vector((-side * 0.1, 0.25, 1.0)), up)
     palm = Vector((0.0, 0.0, -1.0)).lerp(Vector((-side * 1.0, 0.0, 0.0)), up)
-    reach(r, side, tuple(w), tuple(hand), palm=tuple(palm), elbow_out=0.7 - 0.5 * up)
+    # with a desk handset at the ear the elbow drops forward, in front of the chest, as when resting it
+    reach(r, side, tuple(w), tuple(hand), palm=tuple(palm), elbow_out=0.7 - 0.5 * up,
+          elbow_fwd=-0.2 + (1.0 * up if desk else 0.0))
     return r
 
 
@@ -368,6 +386,72 @@ def mouse_keys(at=MOUSE_AT):
     keys = [(0, mousing(0, at=at)), (12, mousing(1, at=at))]
     keys += [(12 + 8 * (k + 1), mousing(1, xy, at)) for k, xy in enumerate(w)]
     return keys + [(84, mousing(1, at=at)), (96, mousing(0, at=at))]
+
+
+# When the puff comes out in the fart clips, seconds from the clip start:
+# a player adds its cloud (and any sound) then
+FART_PUFF = (0.75, 1.25)
+
+
+def farting(f, glance=0.0, shudder=0.0, relief=0.0):
+    """Standing: f = 0 rest to 1 leaning forward with the right knee lifted
+    and the hips popped to the left; glance turns the head (degrees),
+    shudder jiggles the hips (-1..1), relief lifts the chest and head."""
+    r = standing(breath=1.5 * relief, head=glance)
+    arms_down(r, lower=36 - 8 * f, swing=(2 + 6 * f, 2 + 6 * f), elbow=(12 + 14 * f, 12 + 14 * f))
+    legs(r, "R", 22 * f, 30 * f, -6 * f)
+    legs(r, "L", 3 * f, 4 * f)
+    r["hips"] = [(Y, -9 * f + 2 * shudder), (X, 6 * f)]
+    r["spine"] = [(X, -14 * f + 4 * relief), (Y, 7 * f)]
+    r["chest"] = (X, -4 * f + 5 * relief)
+    r["head"] = [(Z, glance), (X, 6 * f - 9 * relief)]
+    r["hips_offset"] = (-0.02 * f + 0.004 * shudder, -0.01 * f, -0.012 * f)
+    return r
+
+
+def farting_seated(f, glance=0.0, shudder=0.0, relief=0.0):
+    """Seated: f = 0 sitting to 1 rolled onto the left cheek, the right
+    one lifted off the seat, leaning a little to the left."""
+    r = seated(breath=1.2 * relief, head=glance)
+    r["hips"] = (Y, -8 * f + 1.5 * shudder)
+    r["spine"] = [(X, 6 - 4 * f + 3 * relief), (Y, 10 * f)]
+    r["head"] = [(Z, glance), (X, -3 + 4 * f - 8 * relief)]
+    r["hips_offset"] = (-0.012 * f + 0.003 * shudder, -0.02, SEAT_DROP + 0.025 * f)
+    return r
+
+
+def fart_keys(pose):
+    """Glance round, lean in, shudder through the puff, relief, rest."""
+    return [(0, pose(0)), (6, pose(0, glance=22)), (12, pose(0.3, glance=-18)), (18, pose(1)),
+            (21, pose(1, shudder=1)), (24, pose(1, shudder=-1)), (27, pose(1, shudder=1)),
+            (30, pose(1)), (40, pose(0.2, relief=1)), (52, pose(0, relief=0.8)), (60, pose(0))]
+
+
+# Where a hugged prop sits in the rest pose, character space (metres, +Y
+# ahead): parent it to the chest bone there and it follows the hug clip
+HUG_HOLD = (0.0, 0.20, 1.12)
+
+
+def hugging(rock=0.0, nuzzle=0.0):
+    """Standing, cradling something about 0.3 m tall against the chest:
+    rock (-1..1) sways the body from side to side, nuzzle tilts the head
+    down and over to it."""
+    r = standing()
+    lean = 4 + 2 * abs(rock)
+    r["hips"] = (Z, 6 * rock)
+    r["spine"] = [(X, -lean), (Y, 3 * rock)]
+    r["chest"] = [(Y, 4 * rock), (Z, 3 * rock)]
+    r["neck"] = (X, -8 - 4 * nuzzle)
+    r["head"] = [(X, -12 - 6 * nuzzle), (Y, -8 * nuzzle - 4 * rock)]
+    world = Matrix.Rotation(math.radians(-lean), 3, X)
+    # right forearm flat across under its bottom, left arm round its tummy
+    aim(r, [("upper_arm.R", _arm(1), (0.12, 0.14, -1.0)),
+            ("forearm.R", _arm(1), (-0.80, 0.58, 0.02), ((-0.707, 0, -0.707), (0, 0, -1.0))),
+            ("hand.R", _arm(1), (-0.85, 0.30, 0.25))], world)
+    aim(r, [("upper_arm.L", _arm(-1), (-0.10, 0.45, -1.0)),
+            ("forearm.L", _arm(-1), (0.45, 0.89, 0.02), ((0.707, 0, -0.707), (0, -1.0, 0))),
+            ("hand.L", _arm(-1), (0.95, 0.20, 0.0))], world)
+    return r
 
 
 def clips():
@@ -399,6 +483,10 @@ def clips():
     c["mouse_far"] = mouse_keys(MOUSE_FAR)
     c["phone"], c["phone_down"] = phone_keys()
     c["phone_left"], c["phone_left_down"] = phone_keys(-1, PHONE_DESK)
+    c["fart"] = fart_keys(farting)
+    c["fart_seated"] = fart_keys(farting_seated)
+    c["hug"] = [(0, hugging(0, 1)), (24, hugging(1, 0.4)), (48, hugging(0, 1)), (72, hugging(-1, 0.4)),
+                (96, hugging(0, 1))]
     return c
 
 

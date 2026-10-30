@@ -91,8 +91,9 @@ def jacket():
     logo(m, bvh, -0.10, 1.235, 0.055, 0.065)
     # The logo big on the back, and reflective patches on the shoulder blades
     logo(m, bvh, 0.0, 1.16, 0.23, 0.29, facing=-1)
+    k = base.ring_at(base.TORSO, 1.35)[0] / 0.200   # narrower shoulders (slim figure) move them in
     for s in (1, -1):
-        m.decal_poly(bvh, [(s * 0.105, 1.31), (s * 0.16, 1.31), (s * 0.16, 1.37), (s * 0.105, 1.37)],
+        m.decal_poly(bvh, [(s * 0.105 * k, 1.31), (s * 0.16 * k, 1.31), (s * 0.16 * k, 1.37), (s * 0.105 * k, 1.37)],
                      TAPE, "band", facing=-1)
     return m
 
@@ -126,10 +127,10 @@ def leg_bands():
     """A reflective band round each shin and a boot shaft round each ankle."""
     right = base.Mesh()
     x = base.LEG_X
-    right.tube([(0.30, 0.068, 0.072, -0.004, "band"), (0.345, 0.067, 0.071, -0.003, "band")],
+    right.tube(base.legs_k([(0.30, 0.068, 0.072, -0.004, "band"), (0.345, 0.067, 0.071, -0.003, "band")]),
                origin=(x, 0, 0), swatch=TAPE, angles=base.HEX6, angle_offset=30, offset=0.006,
                cap_start=False, cap_end=False)
-    right.tube([(0.07, 0.058, 0.064, 0.005, "boot"), (0.17, 0.056, 0.060, 0.0, "boot")],
+    right.tube(base.legs_k([(0.07, 0.058, 0.064, 0.005, "boot"), (0.17, 0.056, 0.060, 0.0, "boot")]),
                origin=(x, 0, 0), swatch=RUBBER, angles=base.HEX6, angle_offset=30, offset=0.008,
                cap_start=False, cap_end=False)
     return right.extend(right.mirrored())
@@ -290,10 +291,10 @@ def survival_suit():
                              colors={"sleeve": SUIT, "band": TAPE, "seal": SEAL},
                              cap_start=True, cap_end=False)
     x = base.LEG_X
-    right.tube([(0.30, 0.068, 0.072, -0.004, "band"), (0.345, 0.067, 0.071, -0.003, "band")],
+    right.tube(base.legs_k([(0.30, 0.068, 0.072, -0.004, "band"), (0.345, 0.067, 0.071, -0.003, "band")]),
                origin=(x, 0, 0), swatch=TAPE, angles=base.HEX6, angle_offset=30, offset=0.008,
                cap_start=False, cap_end=False)
-    right.tube([(0.07, 0.058, 0.064, 0.005, "boot"), (0.19, 0.057, 0.061, 0.0, "boot")],
+    right.tube(base.legs_k([(0.07, 0.058, 0.064, 0.005, "boot"), (0.19, 0.057, 0.061, 0.0, "boot")]),
                origin=(x, 0, 0), swatch=RUBBER, angles=base.HEX6, angle_offset=30, offset=0.010,
                cap_start=False, cap_end=False)
     return m.extend(right).extend(right.mirrored())
@@ -362,7 +363,7 @@ def flight_suit():
     # rings run top down, so reverse them for outward faces)
     leg = base.Mesh().tube(base.LEG[::-1], origin=(base.LEG_X, 0, 0), angles=base.HEX6, angle_offset=30, swatch=FLIGHT)
     right.decal(leg.bvh(), base.LEG_X + 0.02, 0.66, 0.075, 0.012, FLIGHT_TRIM, "pocket", lift=0.003)
-    right.tube([(0.07, 0.058, 0.064, 0.005, "boot"), (0.17, 0.056, 0.060, 0.0, "boot")],
+    right.tube(base.legs_k([(0.07, 0.058, 0.064, 0.005, "boot"), (0.17, 0.056, 0.060, 0.0, "boot")]),
                origin=(base.LEG_X, 0, 0), swatch=RUBBER, angles=base.HEX6, angle_offset=30, offset=0.008,
                cap_start=False, cap_end=False)
     return m.extend(right).extend(right.mirrored())

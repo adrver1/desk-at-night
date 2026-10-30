@@ -319,6 +319,11 @@
   "col": 6,
   "hex": "#9aa0a4"
  },
+ "pearl": {
+  "row": 5,
+  "col": 7,
+  "hex": "#efe8da"
+ },
  "leather_brown": {
   "row": 6,
   "col": 0,
@@ -403,5 +408,35 @@
   "row": 7,
   "col": 5,
   "hex": "#1f3a5f"
+ },
+ "sloth_fur": {
+  "row": 8,
+  "col": 0,
+  "hex": "#8f7c62"
+ },
+ "sloth_fur_dark": {
+  "row": 8,
+  "col": 1,
+  "hex": "#6a5844"
+ },
+ "sloth_face": {
+  "row": 8,
+  "col": 2,
+  "hex": "#e4d6bc"
+ },
+ "sloth_mask": {
+  "row": 8,
+  "col": 3,
+  "hex": "#3a2a1f"
+ },
+ "claw": {
+  "row": 8,
+  "col": 4,
+  "hex": "#d8cbb0"
+ },
+ "sloth_tan": {
+  "row": 8,
+  "col": 5,
+  "hex": "#b49670"
  }
 }
