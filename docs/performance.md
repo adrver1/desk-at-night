@@ -162,6 +162,7 @@ pass table with and without:
 | `?seaclip=0` | Sky, sea and mirror drawn over the whole screen. Normally, seen from inside, they are drawn only in the window's box on screen, and not at all while the window is out of view |
 | `?aniso=old` | 16× anisotropic filtering on every baked map. Normally the light maps have none (they are smooth) and the albedo and whiteboards 4× |
 | `?aa=0` | Turns multisampling (antialiasing) off, to see what it costs. `play.html` and `story.html` only |
+| `?cull=0` | Draws what is out of sight again (2026-10-30): the room's sun shadow map while the sun can't get in through the window (all of story mode's day), the supply vessel and the sea's depth-only surface while the walls hide them, camera pictures for screens out of view, and the sea's surface in the rest corner clock's close-up |
 
 For example `story.html?perf=1&seaclip=0&aniso=old` is the page as it was
 before 2026-10-26.
@@ -175,6 +176,13 @@ before 2026-10-26.
   the copied report, for before/after comparisons. Headless Chrome draws in
   software, so its milliseconds mean nothing; compare draw calls and
   triangles.
+
+- **`web/qa/story-draws.mjs`**: walks every beat of story mode and writes,
+  per beat, each pass's draw calls and triangles, plus an ID render of the
+  room and characters: every object gets a flat colour, drawn from the story
+  camera, and the ones in the camera's view that put no pixel on screen are
+  listed (`drawnNotSeen`, `wasted`). Run it on two servers to compare
+  before and after: `node qa/story-draws.mjs out.json [chapters] [s per beat] [url]`.
 
 ## Adding to it
 

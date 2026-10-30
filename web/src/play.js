@@ -57,6 +57,8 @@ const START_TIME = 11.5;
 controls.setScene('full');
 controls.ceiling = controls.light / 100;
 const coarse = matchMedia('(pointer: coarse)').matches;
+// ?cull=0: every camera picture taken, also for screens out of view (docs/performance.md)
+const CULL = new URLSearchParams(location.search).get('cull') !== '0';
 if (coarse) ui.game.classList.add('coarse');
 
 // ?aa=0 turns off multisampling, to see what it costs (docs/performance.md)
@@ -745,7 +747,7 @@ renderer.setAnimationLoop((now) => {
   perfStep('daylight + sun shadow', () => room.setDaylight(outdoor.light, now / 1000));
   room.setClock(outdoor.state.time); // the wall clock runs with the screens off too
   if (controls.screens) perfStep('screens', () => room.updateScreens(now / 1000, outdoor.cctv));
-  if (controls.screens && cctv) perfStep('cctv', () => cctv.update(now / 1000, room.feedsShown(), room.focusedFeed()));
+  if (controls.screens && cctv) perfStep('cctv', () => cctv.update(now / 1000, room.feedsShown(CULL ? camera : null), room.focusedFeed()));
   outdoor.render(renderer, camera, { reflect: hooks.reflect.length ? [scene, ...hooks.reflect] : scene });   // the vessel mirrored in the sea
   renderer.render(scene, camera);
   for (const f of hooks.render) f(renderer, camera); // the story's own lit pass (characters), over the same depth
