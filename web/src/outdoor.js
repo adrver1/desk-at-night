@@ -20,6 +20,7 @@
 // and mirrors the platform and vessel in it; B is the fallback, the same sea
 // and mirror on a flat surface. A slow GPU steps C down to B by itself.
 import * as THREE from 'three';
+import { Neighbour, LOOKS } from './neighbour.js';
 
 // Where on Earth: the northern North Sea. Which way is north depends on the
 // frame a page draws in: `heading` (new Outdoor) is the true bearing of its
@@ -31,6 +32,9 @@ import * as THREE from 'three';
 const LATITUDE = 58.8;
 export const ROOM_HEADING = 60;
 export const PLATFORM_HEADING = 150;
+// Our platform's origin in the control room's frame (three.js x, z), from
+// blender/control_room.py's PLATFORM_OFFSET turned by PLATFORM_YAW
+export const ROOM_ORIGIN = [13.1, -36.4];
 
 // Sky colours (linear radiance) by sun elevation in degrees. Zenith, horizon,
 // and the sun's own colour as direct light: deep night, blue hour, sunset,
@@ -715,8 +719,10 @@ function screenBox(view, camera, w, h, margin) {
 
 export class Outdoor {
   // seaLevel: the sea's height in the frame (m); heading: the true bearing of
-  // the frame's -z axis in degrees (ROOM_HEADING, PLATFORM_HEADING)
-  constructor(seaLevel, { heading = 0 } = {}) {
+  // the frame's -z axis in degrees (ROOM_HEADING, PLATFORM_HEADING); origin:
+  // where our platform's origin is in the frame (x, z), for the neighbour
+  // platform on the horizon
+  constructor(seaLevel, { heading = 0, origin = [0, 0] } = {}) {
     this.seaLevel = seaLevel;
     this.heading = THREE.MathUtils.degToRad(heading);
     // time in hours (local solar time), day of year, weather (0..1, wind as
@@ -758,6 +764,17 @@ export class Outdoor {
       new THREE.ShaderMaterial({ vertexShader: oceanVertex, fragmentShader: oceanFragment, uniforms: u, side: THREE.DoubleSide }));
     this.ocean.frustumCulled = false;
     this.scene.add(this.sky, this.ocean);
+    // The neighbour platform on the horizon, in a pass of its own at full
+    // resolution (it is only a few pixels wide); ?neighbour=a|b|c picks the
+    // look (a, the cut-out, unless asked), 0 hides it
+    const look = new URLSearchParams(location.search).get('neighbour') ?? 'a';
+    this.far = new THREE.Scene();
+    this.far.name = 'neighbour';
+    if (LOOKS[look]) {
+      this.neighbour = new Neighbour(look);
+      this.neighbour.place(this.heading, new THREE.Vector3(origin[0], seaLevel, origin[1]));
+      this.far.add(this.neighbour.group);
+    }
     // In the room's own pass: the sea surface as depth only, so the platform's
     // legs and the vessel's hull end at the waterline. surface() makes more
     // for other scenes (the CCTV's); render() keeps them all under its camera.
@@ -1044,12 +1061,24 @@ export class Outdoor {
         renderer.setScissorTest(true);
       }
       renderer.render(this.blitScene, this.blitCamera);
+      this.renderFar(renderer);
       if (through) renderer.setScissorTest(false);
     } else {
       renderer.clear();
       renderer.render(this.scene, this.camera);
+      this.renderFar(renderer);
     }
     renderer.clearDepth();
+  }
+
+  // The neighbour platform over the sky and sea, without their depth: at
+  // 9 km the waves round its legs are smaller than a pixel
+  renderFar(renderer) {
+    if (!this.neighbour) return;
+    const target = renderer.getRenderTarget();
+    this.neighbour.update(this, this.camera, target ? target.height : renderer.getDrawingBufferSize(new THREE.Vector2()).y);
+    renderer.clearDepth();
+    renderer.render(this.far, this.camera);
   }
 
   // Where the window shows on screen, for the main view (render()):
