@@ -606,16 +606,18 @@ const SHORT_CHAPTERS = [
         notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
       // (Adriaen, 2026-10-29) what he is, one part per beat, while he waves; the click comes after the call
       // (Adriaen, 2026-10-30: the build and these before the call)
-      { id: 'm.what1', set: { shot: 'side:Desk0Mon1Screen', explain: 1 }, notes: 'Hva CtrlBuddy er: en KI-agent bygget i VS Code, med GitHub Copilot som harness.' },
-      { id: 'm.what2', set: { explain: 2 }, notes: 'Modellen: Auto / Opus 5.5.' },
-      { id: 'm.what3', set: { explain: 3 }, notes: 'Instruksjonene: oppfører seg som en erfaren automasjonsingeniør.' },
-      { id: 'm.what4', set: { explain: 4 }, notes: 'Verktøyene: datakilder via API-er (CDF, ABB LoopInsight).' },
-      { id: 'm.what5', set: { explain: 5 }, notes: 'Kunnskapsbasen: selskaps- og fagspesifikk kunnskap for oppgavene.' },
+      { id: 'm.what1', set: { shot: 'side:Desk0Mon1Screen', explain: 1, thoughts: 'dim' }, notes: 'Hva CtrlBuddy er: en KI-agent bygget i VS Code, med GitHub Copilot som harness.' },
+      { id: 'm.what2', set: { explain: 2, thoughts: 'dim' }, notes: 'Modellen: Auto / Opus 5.5.' },
+      { id: 'm.what3', set: { explain: 3, thoughts: 'dim' }, notes: 'Instruksjonene: oppfører seg som en erfaren automasjonsingeniør.' },
+      { id: 'm.what4', set: { explain: 4, thoughts: 'dim' }, notes: 'Verktøyene: datakilder via API-er (CDF, ABB LoopInsight).' },
+      { id: 'm.what5', set: { explain: 5, thoughts: 'dim' }, notes: 'Kunnskapsbasen: selskaps- og fagspesifikk kunnskap for oppgavene.' },
       // (Adriaen, 2026-10-29) and then the neighbouring platform calls about its separator
       // (Adriaen, 2026-10-29) the phone rings, in its own beat (it rings on while the presenter talks);
       // then the call: he picks up in the room behind, his portrait moves aside for the caller's,
       // and the separator comes up once the caller has said who it is
+      // m.what1-5 over the dark (Adriaen, 2026-10-30), which lifts as the camera turns to the phone; the use case's headline over it
       { id: 'm.ring', set: { thoughts: null, curve: null, explain: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' }, do: [{ sound: 'ringtone', times: 6 }],
+        card: { text: T('Brukstilfelle 1: Separatorregulering', 'Use case 1: Separator control'), small: true, top: true },
         notes: 'Telefonen ringer. Space: han tar den.' },
       { id: 'm.call', set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' },
         do: [{ set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
@@ -625,12 +627,12 @@ const SHORT_CHAPTERS = [
       // (Adriaen, 2026-10-29) the separator and the complaint in a beat of their own; at the end
       // he hangs up (the pickup played backwards, a click) and the call goes
       { id: 'm.slug', auto: true, set: { call: 'neighbour', callStage: 'sep', phone: 'operator', shot: 'phoneDesk' },
-        do: [{ wait: 1.2 }, { say: 'm.call1' }, { say: 'm.call2' }, { say: 'm.call3' }, { wait: 0.4 },
-          { set: { phone: null } }, { wait: 0.65 }, { sound: 'hangup' }, { wait: 0.9 }, { set: { call: null } }, { wait: 0.6 }],
+        do: [{ wait: 1.2 }, { say: 'm.call1' }, { say: 'm.call3' }, { wait: 0.4 },
+          { set: { phone: null } }, { wait: 0.65 }, { sound: 'hangup' }, { wait: 0.9 }, { set: { call: null } }, { card: null }, { wait: 0.6 }],
         end: { call: null, phone: null },
         notes: 'Separatoren deres slugger, og de spør den nye operatøren om råd. Han legger på.' },
       // (Adriaen, 2026-10-29) after the call he turns to CtrlBuddy, still waving on his screen: the click
-      { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen', explain: null, buddyPointer: true }, do: [{ wait: 0.8 }, { buddy: 'click' }],
+      { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen', explain: null, buddyPointer: true }, do: [{ card: null }, { wait: 0.8 }, { buddy: 'click' }],
         notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
     ],
   },

@@ -51,7 +51,7 @@ export class StoryUI {
     this.onCover?.(false);
     if (!t) { e.classList.remove('on'); return; }
     if (t.solid) this.coverTimer = setTimeout(() => this.onCover?.(true), 1300);
-    e.className = `title ${t.solid ? 'solid' : ''}`;
+    e.className = `title ${t.solid ? 'solid' : ''} ${t.top ? 'top' : ''}`;
     e.innerHTML = `<div class="inner">${t.eyebrow ? `<div class="eyebrow">${esc(t.eyebrow)}</div>` : ''}<h1 class="${t.small ? 'small' : ''}">${esc(t.text)}</h1>${t.sub ? `<p>${esc(t.sub)}</p>` : ''}</div>`;
     fadeIn(e);
   }

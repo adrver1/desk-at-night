@@ -761,6 +761,21 @@
     "x": 12,
     "y": 30
    }
+  ],
+  "m.what5": [
+   {
+    "target": "band",
+    "label": {
+     "no": "",
+     "en": ""
+    },
+    "text": {
+     "no": "Mer om dette senere",
+     "en": "More about this later"
+    },
+    "x": 67,
+    "y": 74
+   }
   ]
  },
  "beats": {

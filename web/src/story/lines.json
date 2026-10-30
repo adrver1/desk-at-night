@@ -65,7 +65,6 @@
   "y.ceo1": { "who": "ceo", "name": "Toppsjefen", "text": "Ola! Welcome to Nordhav Energi. Good to have you with us.", "no": "Ola! Velkommen til Nordhav Energi. Godt å ha deg med oss." },
 
   "m.call0": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "Hi, it's Nordhav Beta.", "no": "Hei, det er Nordhav Beta." },
-  "m.call1": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "Our separator has been slugging all night.", "no": "Separatoren vår har slugget hele natta." },
-  "m.call2": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "Any good ideas?", "no": "Har dere noen gode ideer?" },
+  "m.call1": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "The level controller on the secondary inlet separator isn't handling the slugs very well. Could you take a look at it?", "no": "Nivåregulator i sekundær innløpsseparator håndterer ikke sluggene særlig godt. Kan du ta en titt på det?" },
   "m.call3": { "who": "operator", "name": "Ola", "text": "Eh... let me see what I can find out.", "no": "Eh... jeg skal se hva jeg finner ut." }
 }
