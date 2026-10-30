@@ -105,7 +105,7 @@ const H02 = {
     title(T('CtrlBuddy – hva er det?', 'CtrlBuddy – what is it?')),
     sub(T('… Én av flere agenter', '… One of several agents')),
     ...['buddy', 'scholar', 'nurse'].flatMap((k, i) => [
-      fig(ROBOT[k], -4.8 + i * 4.8, -1.75, 3.6, i + 1, { act: (b) => (b === i + 1 ? 'point' : 'idle'), rot: [0.25, 0, -0.25][i] }),
+      fig(ROBOT[k], -4.8 + i * 4.8, -1.75, 3.6, i + 1, { rot: [0.25, 0, -0.25][i] }),
       text(ROBOT_TEXT[k], -4.8 + i * 4.8, -2.05, 4.3, i + 1, { cls: 'robot', anchor: [0.5, 0] }),
     ]),
   ],
