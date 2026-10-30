@@ -326,21 +326,21 @@
    "no": {
     "title": "CtrlBuddy – hva er det?",
     "bullets": [
-     "AI-agent: Bygget i VS Code, med GitHub Copilot som harness",
-     "Modell: Kjører stort sett på Claude 5.5",
+     "KI-agent: Bygget i VS Code, med GitHub Copilot som harness",
+     "Modell: Auto / Opus 5.5",
      "Instruksjoner: Oppfører seg som en erfaren automasjonsingeniør",
      "Verktøy: Kobler seg til datakilder via API-er: CDF, ABB LoopInsight",
-     "Kunnskapsbase: Nordhav Energi-spesifikk fagkunnskap for oppgavene"
+     "Kunnskapsbase: Nordhav Energi-spesifikk fagkunnskap | Mer om dette senere"
     ]
    },
    "en": {
     "title": "CtrlBuddy – what is it?",
     "bullets": [
      "AI agent: Built in VS Code, with GitHub Copilot as the harness",
-     "Model: Running mostly Claude 5.5",
+     "Model: Auto / Opus 5.5",
      "Instructions: Behaves like an advanced automation engineer",
      "Tools: Connects to data sources through APIs: CDF, ABB LoopInsight",
-     "Knowledge base: Nordhav Energi-specific domain knowledge for its tasks"
+     "Knowledge base: Nordhav Energi-specific domain knowledge | More about this later"
     ]
    }
   }
@@ -397,15 +397,22 @@
     [
      "me",
      {
-      "no": "Nordfeltet begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?",
-      "en": "Nordfeltet started slugging again overnight. Can you retune the anti-slug controller?"
+      "no": "Nordfeltet begynte å slugge i natt. Kan du justere nivåregulatoren til innløpsseparatoren?",
+      "en": "Nordfeltet started slugging overnight. Can you adjust the inlet separator level controller?"
      }
     ],
     [
      "ai",
      {
-      "no": "Ny modell tilpasset fra nattens data. Den foreslåtte innstillingen holder stigerøret stabilt i simulatoren.",
-      "en": "New model fitted from last night's data. The proposed tuning holds the riser steady in the simulator."
+      "no": "Nei. Som KI-agent har jeg ikke lov til å røre OT-systemer direkte. Men jeg foreslår en løsning for deg.",
+      "en": "No. As an AI agent I am not permitted to touch OT systems directly. But I'll propose a solution for you."
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Jeg kjenner igjen denne oppførselen fra Nordhav Beta. Ny modell tilpasset fra nattens data: den foreslåtte innstillingen holder stigerøret stabilt i simulatoren.",
+      "en": "I recognise this behaviour from Nordhav Beta. New model fitted from last night's data: the proposed tuning holds the riser steady in the simulator."
      }
     ],
     [
@@ -772,12 +779,6 @@
    "notes": "Samme samtale som chat (versjon B): Nordhav Beta skriver, separatoren som video på skjermen ved siden av."
   },
   {
-   "after": "^money",
-   "id": "c.step",
-   "chat": "step",
-   "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."
-  },
-  {
    "after": "m.s3",
    "id": "c.sim",
    "chat": "sim",
@@ -842,6 +843,12 @@
    "id": "new.ctrl14",
    "slide": "ctrl-14",
    "notes": "Lysbilde 14."
+  },
+  {
+   "after": "new.ctrl14",
+   "id": "c.step",
+   "chat": "step",
+   "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."
   }
  ],
  "hidden": [
@@ -864,7 +871,9 @@
   "h.s3",
   "h.g3",
   "b.forward",
-  "b.room"
+  "b.room",
+  "m.docs",
+  "m.s5"
  ],
  "closing": {
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",

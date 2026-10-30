@@ -48,7 +48,7 @@
 
   "t.plan1": { "who": "supervisor", "name": "Per", "text": "How does the business plan hold up if the new well comes in three months late?", "no": "Hvordan holder forretningsplanen hvis den nye brønnen kommer tre måneder for sent?" },
   "t.plan2": { "who": "supervisor", "name": "Per", "text": "Good. Draft both, and flag anything that needs sign-off offshore.", "no": "Bra. Lag utkast til begge, og merk det som trenger godkjenning offshore." },
-  "t.adr1": { "who": "operator", "name": "Ola", "text": "Nordfeltet started slugging again overnight. Can you retune the anti-slug controller?", "no": "Nordfeltet begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?" },
+  "t.adr1": { "who": "operator", "name": "Ola", "text": "Nordfeltet started slugging overnight. Can you adjust the inlet separator level controller?", "no": "Nordfeltet begynte å slugge i natt. Kan du justere nivåregulatoren til innløpsseparatoren?" },
   "t.adr2": { "who": "operator", "name": "Ola", "text": "Good. Run it through the logic tester before I sign.", "no": "Bra. Kjør den gjennom logikktesteren før jeg signerer." },
   "t.adr3": { "who": "operator", "name": "Ola", "text": "Signed. A year ago, this would have taken me a week.", "no": "Signert. For ett år siden ville dette tatt meg en uke." },
   "t.gm1": { "who": "supervisor", "name": "Per", "text": "Good morning, Ola.", "no": "God morgen, Ola." },
@@ -58,13 +58,13 @@
   "t.gm5": { "who": "supervisor", "name": "Per", "text": "Thanks!", "no": "Takk!" },
   "t.ai1": { "who": "agent", "name": "Agent", "fx": "robot", "text": "Production dips a little in the third quarter. Two projects can move forward to fill the gap. Shall I draft both?", "no": "Produksjonen faller litt i tredje kvartal. To prosjekter kan flyttes fram og dekke gapet. Skal jeg lage utkast til begge?" },
   "t.ai2": { "who": "agent", "name": "Agent", "fx": "robot", "text": "Drafts ready. Two items need sign-off, and they have gone to the control room.", "no": "Utkastene er klare. To punkter trenger godkjenning, og de er sendt til kontrollrommet." },
-  "t.ai3": { "who": "agent", "name": "Agent", "fx": "robot", "text": "New model fitted from last night's data. The proposed tuning holds the riser steady in the simulator.", "no": "Ny modell tilpasset fra nattens data. Den foreslåtte innstillingen holder stigerøret stabilt i simulatoren." },
+  "t.ai3": { "who": "agent", "name": "Agent", "fx": "robot", "text": "No. As an AI agent I am not permitted to touch OT systems directly. But I'll propose a solution for you.", "no": "Nei. Som KI-agent har jeg ikke lov til å røre OT-systemer direkte. Men jeg foreslår en løsning for deg." },
+  "t.ai3b": { "who": "agent", "name": "Agent", "fx": "robot", "text": "I recognise this behaviour from Nordhav Beta. New model fitted from last night's data: the proposed tuning holds the riser steady in the simulator.", "no": "Jeg kjenner igjen denne oppførselen fra Nordhav Beta. Ny modell tilpasset fra nattens data: den foreslåtte innstillingen holder stigerøret stabilt i simulatoren." },
   "t.ai4": { "who": "agent", "name": "Agent", "fx": "robot", "text": "All 14 test cases pass. Ready for your signature.", "no": "Alle 14 testtilfeller består. Klar for din signatur." },
 
   "y.ceo1": { "who": "ceo", "name": "Toppsjefen", "text": "Ola! Welcome to Nordhav Energi. Good to have you with us.", "no": "Ola! Velkommen til Nordhav Energi. Godt å ha deg med oss." },
 
   "m.call0": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "Hi, it's Nordhav Beta.", "no": "Hei, det er Nordhav Beta." },
-  "m.call1": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "Our separator has been slugging all night, the levels are going up and down like a yo-yo.", "no": "Separatoren vår har slugget hele natta, og nivåene går opp og ned som en jojo." },
-  "m.call2": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "You've got the same kind of separator, haven't you? Any good ideas?", "no": "Dere har vel samme type separator? Har dere noen gode ideer?" },
+  "m.call1": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "The level controller on the secondary inlet separator isn't handling the slugs very well. Could you take a look at it?", "no": "Nivåregulator i sekundær innløpsseparator håndterer ikke sluggene særlig godt. Kan du ta en titt på det?" },
   "m.call3": { "who": "operator", "name": "Ola", "text": "Eh... let me see what I can find out.", "no": "Eh... jeg skal se hva jeg finner ut." }
 }

@@ -11,8 +11,8 @@
 // ?story=full (the three-act version), ?lang=en|no (on-screen language).
 import * as THREE from 'three';
 import '../play.js';
-import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN, CREW_NAMES } from './content.js';
-import { FULL, T, SPEECH, cycleSpeech } from './lang.js';
+import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN, CREW_NAMES, DISCLAIMER } from './content.js';
+import { T, SPEECH, cycleSpeech } from './lang.js';
 import lines from './lines.json';
 import { PRIVATE as PRIVATE_ON, OVERRIDES, realDeep } from '../privateNames.js';
 import { StoryUI } from './ui.js';
@@ -27,6 +27,9 @@ import { Sola, LENGTH as SOLA_LENGTH } from './sola.js';
 import { Trondheim } from './trondheim.js';
 import { ClockFace } from './clockFace.js';
 import { Buddy } from './buddy.js';
+import { Workshop } from './workshop.js';
+import { Twin } from './twin.js';
+import { Retune } from './retune.js';
 import { Thoughts } from './thoughts.js';
 import { Explain } from './explain.js';
 import { Caller } from './caller.js';
@@ -48,9 +51,10 @@ if (NAV !== '0') ui.nav(CHAPTERS, NAV, (c, i) => { sound.wake(); return c === 'n
 const sound = new Sound();
 const call = new Call(ui.el.call);
 const trondheim = new Trondheim(host);
-let cast = null, shots = null, epilogue = null, clockFace = null, buddy = null;
+let cast = null, shots = null, epilogue = null, clockFace = null, buddy = null, workshop = null, twin = null;
 const thoughts = new Thoughts();
 const explain = new Explain();
+const retune = new Retune();
 const caller = new Caller();
 // The Sola opening (off since 2026-10-29, Adriaen: "Remove Sola beat"; kept,
 // on with ?sola=1) and its callback stills in Acts 1 and 3 of the full
@@ -178,8 +182,11 @@ function apply(s, { instant = false } = {}) {
   else if (trondheim.on) { trondheim.hide(); game.hooks.hidden = false; }
   cast?.place(s.cast);
   buddy?.set(s);
+  workshop?.set(s.build);
+  twin?.set(s.twin);
   thoughts.set(s.thoughts);
   explain.set(s.explain);
+  retune.set(s.retune);
   caller.set(s.call, s.callStage);
   if (!s.call || s.callStage !== 'ring') sound.hangUp();   // the phone stops ringing once the call is over or answered
   cast?.phone(s.phone, instant);
@@ -539,7 +546,7 @@ function startPrologue(pro = 'takeoff', { carry = false, at = 0 } = {}) {
   game.hooks.hidden = true;
   ui.clipboard(null); ui.stars(null); ui.banner(null); ui.overlay(null, { call }); ui.org(null); ui.clearNotices();
   // The room's own overlays too (a jump from the call, the curve or the explainer straight into the prologue)
-  buddy?.set({}); thoughts.set(null); explain.set(null); caller.set(null); sound.hangUp(); cast?.phone(null, true);
+  buddy?.set({}); workshop?.set(null); twin?.set(null); thoughts.set(null); explain.set(null); retune.set(null); caller.set(null); sound.hangUp(); cast?.phone(null, true);
   host.classList.remove(`grade-${lastGrade}`); lastGrade = 0;
   showHud();
   if (pro === 'sola' && sola?.open) {
@@ -669,7 +676,7 @@ function prologueFrame() {
   cue('p4', intro.T_LAND + 1.5, () => say('pro.pilot4', token));
   cue('end', intro.T_END - 1, () => {
     prologue.ended = true;
-    ui.title({ text: T('Klikk eller trykk mellomrom for å fortsette', 'Click or press Space to continue'), small: true });
+    // no "press Space" prompt: the presenter knows (Adriaen, 2026-10-30)
     showHudWaiting();
   });
 }
@@ -701,6 +708,9 @@ function frame(dt, now) {
   if (Object.entries(S.chatAt).some(([id, at]) => at > S.now && S.chatType[id])) game.room?.redrawFocus?.();
   cast?.update(dt, game.camera, S.now);
   buddy?.update(dt, S.now);
+  workshop?.update(dt);
+  twin?.update(dt);
+  retune.update(dt);
   epilogue?.update(dt);
   // a report's video plays only while its screen is drawn
   for (const v of Object.values(S.videos)) if (!v.paused && S.now - v.seen > 0.5) v.pause();
@@ -720,12 +730,28 @@ requestAnimationFrame(loop);
 
 // ---------------------------------------------------------------- start
 
+// Start opens the Begin screen (with the disclaimer, Adriaen 2026-10-30) like an iris onto the show:
+// a copy of it stays on top while a circle opens from the middle
+function irisOpen(el) {
+  const veil = el.cloneNode(true);
+  veil.classList.add('iris');
+  el.replaceWith(veil);
+  // its own clock, a frame at most 1/30 s: entering the first beat can stall a frame or two, and the circle should still open
+  const D = 1.4, R = Math.hypot(innerWidth, innerHeight) / 2 + 40;
+  let k = 0, last = null;
+  const step = (now) => {
+    if (last != null) k = Math.min(1, k + Math.min((now - last) / 1000, 1 / 30) / D);
+    last = now;
+    veil.style.setProperty('--r', `${R * k * k * (3 - 2 * k)}px`);
+    if (k < 1) requestAnimationFrame(step); else veil.remove();
+  };
+  requestAnimationFrame(step);
+}
 const begin = document.createElement('div');
 begin.className = 'begin';
-begin.innerHTML = `<div class="inner"><p class="eyebrow">${T('Fortellermodus', 'Story mode')}</p><h1>${TITLE}</h1>
-  <p>${FULL ? 'A day on the platform, three times: yesterday, today and tomorrow. It waits for you at every step.'
-    : T('Kontrollrommet i morgen, og veien dit. Den venter på deg ved hvert steg.', 'The control room of tomorrow, and the road there. It waits for you at every step.')}</p>
-  <dl class="keys"><dt>${T('Mellomrom', 'Space')} / →</dt><dd>${T('neste', 'next')}</dd><dt>←</dt><dd>${T('tilbake', 'back')}</dd><dt>1 – ${CHAPTERS.length}</dt><dd>${T('hopp til et kapittel', 'jump to a chapter')}</dd><dt>F</dt><dd>${T('fri modus og tilbake', 'free mode and back')}</dd><dt>P</dt><dd>${T('presentatørnotater', 'presenter notes')}</dd></dl>
+// just the title, the disclaimer and Start (Adriaen, 2026-10-30)
+begin.innerHTML = `<div class="inner"><h1>${TITLE}</h1>
+  <p class="disclaimer">${DISCLAIMER}</p>
   <button type="button" id="storyGo" disabled>${T('Laster kontrollrommet…', 'Loading the control room…')}</button></div>`;
 host.append(begin);
 ui.onCover = (on) => { game.hooks.covered = on; };   // solid act titles: nothing to draw behind them
@@ -737,10 +763,12 @@ game.ready.then(async () => {
   shots = new Shots(game);
   cast = new Cast(game);
   buddy = new Buddy(game, CHAT_SCREEN);
+  workshop = new Workshop(game);
+  twin = new Twin(game);
   clockFace = new ClockFace(game);
   shots.cast = cast;
   game.hooks.frame.push(frame);
-  await Promise.all([cast.load(), buddy.load(), sound.loadIndex()]);
+  await Promise.all([cast.load(), buddy.load(), workshop.load(), twin.load(), sound.loadIndex()]);
   go.disabled = false;
   go.textContent = T('Start', 'Begin');
   if (!begin.parentNode) enter(chapter, beat, { instant: true });
@@ -753,7 +781,7 @@ function start() {
   if (go.disabled && !q.has('chapter')) {
     // The prologue can start before the room is ready: it loads underneath
   }
-  begin.remove();
+  irisOpen(begin);
   game.hooks.hidden = false;   // the prologue hides it again
   if (!q.has('nofs') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
   game.controls.startAudio();

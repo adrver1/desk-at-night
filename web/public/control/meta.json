@@ -1,7 +1,7 @@
 {
-  "scaleCeiling": 1.5450955629348755,
-  "scaleScreens": 0.2761036455631256,
-  "scaleSky": 0.5624074339866638,
+  "scaleCeiling": 1.5460001230239868,
+  "scaleScreens": 0.2800203561782837,
+  "scaleSky": 0.5617212057113647,
   "seaLevel": -52.7,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 2048,
@@ -75,7 +75,7 @@
     "floorlamp": {
       "map": "light_floorlamp.png",
       "body": "FloorLamp",
-      "scale": 2.1018660068511963
+      "scale": 2.0775063037872314
     }
   },
   "boards": {
@@ -218,6 +218,20 @@
       2.6,
       0.85,
       2.45
+    ],
+    "phones": [
+      [
+        -2.2226,
+        1.3048,
+        0.74,
+        1.0243
+      ],
+      [
+        2.2226,
+        1.3048,
+        0.74,
+        -1.0243
+      ]
     ]
   },
   "movable": [

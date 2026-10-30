@@ -54,6 +54,7 @@
 .title { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; z-index: 12; opacity: 0; transition: opacity 1.2s; }
 .title.on { opacity: 1; }
 .title.solid { background: #05080c; }
+.title.top { place-items: start center; padding-top: calc(5 * var(--u)); }   /* a headline over the scene, clear of the portraits */
 .title .inner { display: grid; gap: calc(1.2 * var(--u)); }
 .title .eyebrow { font: 500 calc(1.3 * var(--u))/1 var(--mono); letter-spacing: 0.3em; text-transform: uppercase; color: var(--tungsten); }
 .title h1 { margin: 0; font: 600 calc(8 * var(--u))/1 var(--display); letter-spacing: -0.02em; text-shadow: 0 2px 30px #000; }
@@ -365,6 +366,10 @@
 .learning { position: absolute; left: 44%; top: 50%; width: 52%; aspect-ratio: 420 / 300; transform: translate(0, -48%); opacity: 0; transition: opacity 0.6s, transform 0.6s; z-index: 6; pointer-events: none;
   background: #0d1418d9; border-radius: calc(1.2 * var(--u)); padding: calc(1.6 * var(--u)); box-sizing: border-box; }
 .learning.on { opacity: 1; transform: translate(0, -50%); }
+/* after the thoughts (curveLate): once the face and the bubbles have gone */
+.learning.late.on { transition-delay: 0.6s; }
+.learning.late.on .axis { transition-delay: 0.9s; }
+.learning.late.on .arrow { transition-delay: 1.5s; }
 .learning svg { width: 100%; height: 100%; overflow: visible; }
 .learning .axis, .learning .arrow { fill: none; stroke: #e8eef2; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .learning .plot { fill: none; stroke: #5fe0b7; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 700; stroke-dashoffset: 700; }
@@ -373,7 +378,13 @@
 .learning.on .axis { stroke-dashoffset: 0; transition: stroke-dashoffset 0.9s ease-out 0.3s; }
 .learning.on .arrow { opacity: 1; }
 .learning.plot .plot { stroke-dashoffset: 0; transition: stroke-dashoffset 3.6s cubic-bezier(.25,.6,.35,1) 0.4s; }   /* (Adriaen, 2026-10-29: a slower reveal) */
-.learning .learner { opacity: 0; transition: opacity 0.3s; }
+.learning .plot2 { fill: none; stroke: #ffc35a; stroke-width: 6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 700; stroke-dashoffset: 700; }
+.learning.both .plot { stroke-dashoffset: 0; transition: none; opacity: 0.55; }   /* the first one, as it was: already there */
+.learning.both .plot2 { stroke-dashoffset: 0; transition: stroke-dashoffset 3s cubic-bezier(.25,.6,.35,1) 0.6s; }
+.learning .learner, .learning .learner2 { opacity: 0; transition: opacity 0.3s; }
+.learning .learner2 .ring { fill: #ffc35a; }
+.learning .learner2 text { fill: #1d1d1f; font: 800 28px var(--display, system-ui); text-anchor: middle; dominant-baseline: central; }   /* him + KI, on the second curve (Adriaen, 2026-10-30) */
+.learning .learner2 text.plus { font-weight: 600; }
 .learning .learner .ring { fill: #e8eef2; }
 .learning text { fill: #e8eef2; font: 600 22px var(--display, system-ui); }
 
@@ -386,6 +397,8 @@
 .thoughts .bubble { position: absolute; display: flex; flex-direction: column; align-items: center; gap: calc(0.8 * var(--u)); transform: translate(-50%, -50%) scale(0.4); opacity: 0;
   transition: opacity 0.35s, transform 0.45s cubic-bezier(.3,1.6,.5,1); background: #f4f1e8; color: #1c2730; border-radius: 50%; width: min(27vh, 21vw); aspect-ratio: 1.4; justify-content: center; box-shadow: 0 0.6vh 2.5vh #0007; }
 .thoughts .bubble.in { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.thoughts .face { transition: opacity 0.5s; }
+.thoughts.bare .face, .thoughts.bare .bubble { opacity: 0; transition: opacity 0.5s; }   /* thoughts: 'dim', only the dark stays */
 .thoughts .bubble svg { width: 34%; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .thoughts .bubble .letters { font: 800 calc(3.4 * var(--u)) var(--display, system-ui); letter-spacing: 0.04em; }
 .thoughts .bubble span { font: 600 calc(1.6 * var(--u)) var(--display, system-ui); text-align: center; padding: 0 9%; line-height: 1.15; }
@@ -419,14 +432,31 @@
 .explain { position: absolute; left: 50%; top: 50%; width: min(43vw, calc(150vh * 0.43)); aspect-ratio: 8 / 9; max-width: 100%; z-index: 6; pointer-events: none; opacity: 0; transform: translate(3%, -50%); transition: opacity 0.45s, transform 0.5s cubic-bezier(.3,1.1,.5,1);
   background: #fff; color: #1d1d1f; border-radius: 6px; box-shadow: 0 20px 70px #000c; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 5% 6%; box-sizing: border-box; container-type: inline-size; font-family: Aptos, 'Segoe UI', Arial, system-ui, sans-serif; }
 .explain.on { opacity: 1; transform: translate(0, -50%); }
-.explain h2 { margin: 0 0 6.4cqw; font: 400 7.2cqw/1.1 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; letter-spacing: -0.01em; }
+.explain h2 { margin: 0 0 6.4cqw; font: 700 8.8cqw/1.1 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; letter-spacing: -0.01em; }
 .explain ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4.4cqw; }
 .explain li { display: grid; grid-template-columns: 10.4cqw 1fr; gap: 4cqw; align-items: center; opacity: 0; transform: translateY(2cqw); transition: opacity 0.4s, transform 0.45s cubic-bezier(.3,1.3,.5,1); }
 .explain li.in { opacity: 1; transform: none; }
 .explain li svg { width: 100%; aspect-ratio: 1; fill: none; stroke: #1d1d1f; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
 .explain li b { display: flex; align-items: center; gap: 0.5em; font: 700 5.3cqw/1.2 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; }
 .explain li b::before { content: ''; width: 0.42em; height: 0.42em; background: #c2185b; flex: none; }
+.explain li i { display: block; margin: 1.2cqw 0 0 calc(5.3cqw * 0.92); font: italic 600 3.7cqw/1.2 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; color: #c2185b; }   /* the bullet's aside after ' | ' */
 .explain li span { display: block; margin-left: calc(5.3cqw * 0.92); font: 400 4.2cqw/1.3 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; color: #333; }
 /* V / U: which voice and subtitles (main.js speechToast) */
 .speech-toast { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); z-index: 20; pointer-events: none; padding: 0.5em 1em; border-radius: 0.5em; background: #0b1116d9; color: #e8eef2; font: 600 calc(1.4 * var(--u)) var(--display, system-ui); opacity: 0; transition: opacity 0.3s; }
 .speech-toast.on { opacity: 1; }
+/* Today, the re-tuning outcome (retune.js): the cut-open separator live on the left, both tunings' trends on the right */
+.retune { position: absolute; inset: 0; z-index: 6; display: grid; grid-template-columns: 1fr min(34vw, calc(60 * var(--u))); background: #0b1216; opacity: 0; pointer-events: none; transition: opacity 0.5s; }
+.retune.on { opacity: 1; }
+.retune .view { position: relative; min-width: 0; }
+.retune .view canvas { display: block; width: 100%; height: 100%; }
+.retune .tag { position: absolute; left: calc(2 * var(--u)); top: calc(2 * var(--u)); font: 600 calc(2.4 * var(--u))/1.2 var(--display, system-ui); color: #eef3f4; text-shadow: 0 1px 3px #000; }
+.retune .tag small { display: block; margin-top: 0.3em; font: 500 calc(1.3 * var(--u))/1 var(--mono, monospace); letter-spacing: 0.06em; color: #9fb3ba; }
+.retune .trends { display: grid; grid-template-rows: auto repeat(4, 1fr); gap: calc(1.2 * var(--u)); padding: calc(2 * var(--u)) calc(2 * var(--u)) calc(9 * var(--u)); background: rgba(6, 14, 18, 0.9); min-height: 0; }
+.retune .trends canvas { width: 100%; height: 100%; min-height: 0; display: block; }
+.retune .legend { display: flex; gap: calc(2 * var(--u)); font: 500 calc(1.4 * var(--u))/1 var(--display, system-ui); color: #eef3f4; }
+.retune .legend span { white-space: nowrap; display: flex; align-items: center; gap: 0.5em; }
+.retune .legend i { width: 2em; border-top: 0.18em solid #f2b544; }
+.retune .legend i.a { border-top: 0.18em dashed #9fb3ba; }
+/* Start (main.js irisOpen): the Begin screen opens from the middle onto the show */
+.begin.iris { pointer-events: none; -webkit-mask: radial-gradient(circle at 50% 50%, transparent var(--r, 0px), #000 calc(var(--r, 0px) + 1px)); mask: radial-gradient(circle at 50% 50%, transparent var(--r, 0px), #000 calc(var(--r, 0px) + 1px)); }
+.begin p.disclaimer { font-style: italic; color: #e8e4da; max-width: 46ch; justify-self: center; }   /* Adriaen, 2026-10-30 */
