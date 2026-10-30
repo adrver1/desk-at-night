@@ -512,6 +512,7 @@ function buddyScreen(ctx, w, h, t) {
   const s = w / 640, look = S.buddy.look, L = BUDDY_LOOKS[look];
   const hi = since(S.buddy.clickAt) < 0.6;   // just clicked: his frame lights up
   if (look === 'popup') {
+    const who = BUDDY_WHO[S.buddy.who] ?? BUDDY_WHO.buddy;
     CONTENT.separator[1](ctx, w, h, t);
     const bw = 0.36 * w, bh = 0.62 * h, bx = L.x * w - bw / 2, by = L.y * h - bh / 2 + 6 * s;
     ctx.save();
@@ -520,7 +521,7 @@ function buddyScreen(ctx, w, h, t) {
     ctx.restore();
     rect(ctx, bx, by - 22 * s, bw, 22 * s, '#2a4a56');
     agentIcon(ctx, bx + 13 * s, by - 11 * s, 6 * s);
-    text(ctx, 'CtrlBuddy', bx + 25 * s, by - 6 * s, { px: 12 * s, weight: 600, color: C.bright });
+    text(ctx, who.name(), bx + 25 * s, by - 6 * s, { px: 12 * s, weight: 600, color: C.bright });
     text(ctx, '×', bx + bw - 10 * s, by - 6 * s, { px: 14 * s, color: C.dim, align: 'right' });
     ctx.strokeStyle = hi ? C.ai : '#2a4a56'; ctx.lineWidth = 2 * s;
     ctx.strokeRect(bx, by - 22 * s, bw, bh + 22 * s);
@@ -529,7 +530,7 @@ function buddyScreen(ctx, w, h, t) {
     ctx.fillStyle = '#fff6c8';
     ctx.beginPath(); ctx.roundRect(tx, ty, tw, 58 * s, 8 * s); ctx.fill();
     ctx.beginPath(); ctx.moveTo(tx + tw, ty + 18 * s); ctx.lineTo(tx + tw + 12 * s, ty + 26 * s); ctx.lineTo(tx + tw, ty + 32 * s); ctx.fill();
-    text(ctx, T('Hei! Jeg er CtrlBuddy.', 'Hi! I am CtrlBuddy.'), tx + 10 * s, ty + 22 * s, { px: 12 * s, weight: 600, color: '#222' });
+    text(ctx, T(`Hei! Jeg er ${who.name()}.`, `Hi! I am ${who.name()}.`), tx + 10 * s, ty + 22 * s, { px: 12 * s, weight: 600, color: '#222' });
     text(ctx, T('Trenger du hjelp?', 'Need a hand?'), tx + 10 * s, ty + 42 * s, { px: 12 * s, color: '#333' });
     return;
   }

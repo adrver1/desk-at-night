@@ -534,7 +534,7 @@ const SHORT_CHAPTERS = [
       // the pointer clicks it and the chat opens on that screen at full zoom. It is the CtrlBuddy model, but
       // CtrlBuddy is Ola's process-control agent: Per's has its own name (PlanBuddy, BUDDY_WHO.planner)
       { id: 't.plan', auto: true, set: { shot: 'buddyDesk', buddyAt: CHAT_SCREEN, buddyWho: 'planner' },
-        do: [{ wait: 0.8 }, { set: { screens: PLAN_SCREENS('buddy'), buddy: 'splash', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
+        do: [{ wait: 0.8 }, { set: { screens: PLAN_SCREENS('buddy'), buddy: 'popup', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
           { set: { screens: PLAN_SCREENS('chatPlan'), shot: `monitor:${CHAT_SCREEN}` } }, { wait: 0.4 },
           { chat: 'plan' }, { say: 't.plan1' }, { chat: 'plan' }, { wait: 0.6 }, { say: 't.ai1' }, { wait: 0.2 },
           { set: { shot: 'supervisor' } }, { chat: 'plan' }, { say: 't.plan2' }, { chat: 'plan' }, { set: { shot: `monitor:${CHAT_SCREEN}` } }, { wait: 0.6 }, { say: 't.ai2' }, { set: { shot: 'band' } }, { wait: 0.8 }],
@@ -546,10 +546,12 @@ const SHORT_CHAPTERS = [
           { move: 'operator', walk: PATHS.desk0ToDesk2 }, { move: 'operator', carry: null, put: [1.36, 0.745, -2.3] }, { move: 'operator', sit: 1, then: 'typing', to: 'desk2typing' }, { wait: 0.6 }, { set: { shot: 'wideRoom' } }, { idle: 'operator' }],
         end: { shot: 'wideRoom', mugs: { S0Mug: [1, -0.45, -2.12] }, cast: { supervisor: { at: 'desk0typing' }, operator: { at: 'desk2typing' } } },
         notes: 'Ola comes back with a fresh pot, fills Per\'s mug and sits down at his own desk.' },
+      // (Adriaen, 2026-10-30) tomorrow the agents pop up Clippy style over the process picture (popup), and the
+      // click opens the chat; one year ago CtrlBuddy keeps his own start screen (splash)
       // (Adriaen, 2026-10-29) the same template as Per's: Ola and his screen on the right (buddyDesk_right),
       // CtrlBuddy appears and waves, the pointer clicks him, the chat opens at full zoom
       { id: 't.adriaen', auto: true, set: { shot: 'buddyDesk_right', buddyAt: SLUG_SCREEN, buddyWho: 'buddy', buddy: null },
-        do: [{ wait: 0.8 }, { set: { screens: ADR_SCREENS('buddy'), buddy: 'splash', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
+        do: [{ wait: 0.8 }, { set: { screens: ADR_SCREENS('buddy'), buddy: 'popup', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
           { set: { screens: ADR_SCREENS('chatSlug'), shot: `monitor:${SLUG_SCREEN}` } }, { wait: 0.4 },
           { chat: 'slug' }, { say: 't.adr1' }, { chat: 'slug' }, { wait: 0.6 }, { say: 't.ai3' },
           // (Adriaen, 2026-10-30) it won't touch the controller itself (no OT access), but proposes a tuning
