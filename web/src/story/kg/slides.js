@@ -115,6 +115,7 @@ const H02 = {
 const LOOP = { buddy: [0, 0.2], scholar: [-5.1, -3.6], nurse: [5.1, -3.6], books: [0, -4.2] };
 const H08 = {
   id: 'ctrl-08', builds: 5,
+  glideIn: true,   // the agents slide over from h-02, the beat before
   focus: (b) => [[0, 0, 0], [0, 0, 1], [-2.5, -2.5, 3], [0, -1.5, 3], [2.5, -2.5, 3], [3, 1.5, 2]][b],
   elements: [
     title(T('CtrlBuddy – hva er det?', 'CtrlBuddy – what is it?')),

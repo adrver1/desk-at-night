@@ -221,9 +221,12 @@ export class StoryUI {
   overlay(id, { cast, call } = {}) {
     const fromEnd = this.buildFromEnd; this.buildFromEnd = false;
     if (id === this.overlayId) return;
+    const was = this.overlayId;
     this.overlayId = id;
     const [kind, arg] = (id ?? '').split(':');
-    for (const k of ['panel', 'slide', 'log', 'search', 'sign']) this.el[k].classList.remove('on');
+    // a live slide whose figures glide over from the slide before stays up, no fade between
+    const glide = kind === 'slide' && was?.startsWith('slide:') && KG_LOOK !== 'deck' && LIVE_SLIDES[arg]?.glideIn;
+    for (const k of ['panel', 'slide', 'log', 'search', 'sign']) if (!(glide && k === 'slide')) this.el[k].classList.remove('on');
     call?.show(kind === 'call' || kind === 'phone' ? { who: arg, phone: kind === 'phone' } : null);
     this.voteState = null;
     if (kind !== 'slide') this.live?.hide();

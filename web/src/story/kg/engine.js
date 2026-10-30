@@ -248,6 +248,14 @@ export class LiveSlide {
   U(u) { return u / 16 * this.W * (KG_LOOK === 'b' ? this.bScale ?? 1 : 1); }
 
   async show(def, fromEnd) {
+    // where the figures on screen stand now, so a slide with glideIn can
+    // slide the same models over from there instead of popping them in
+    const t0 = now(), was = {};
+    for (const it of this.items ?? []) {
+      if (!it.fig || !it.obj.visible) continue;
+      const s = it.tw.get(t0);
+      was[it.e.glb] ??= { x: s.x ?? it.e.x, y: s.y ?? it.e.y, h: it.e.h * s.s, rot: s.rot ?? it.e.rot ?? 0 };
+    }
     this.hide();
     this.initGL();
     this.def = def;
@@ -264,10 +272,23 @@ export class LiveSlide {
     this.items = def.elements.map((e) => this.make(e, G));
     this.build = fromEnd ? def.builds : 0;
     this.goTo(this.build, true);
+    if (def.glideIn && !fromEnd) this.glide(was);
     this.running = true;
     this.last = now();
     const loop = () => { if (!this.running || token !== this.token) return; this.frame(); requestAnimationFrame(loop); };
     requestAnimationFrame(loop);
+  }
+
+  // start the figures that were on the last slide where they stood, then
+  // tween them to their places here
+  glide(was) {
+    const t = now(), b = this.build;
+    for (const it of this.items) {
+      const e = it.e, w = it.fig && this.shown(e, b) && was[e.glb];
+      if (!w) continue;
+      it.tw.jump({ a: 1, s: w.h / e.h, x: w.x, y: w.y, rot: w.rot });
+      it.tw.set({ a: 1, s: 1, x: e.x, y: e.y, rot: e.rot ?? 0, ...(e.at ? e.at(b) : {}) }, t, 0, 1.4);
+    }
   }
 
   hide() {
