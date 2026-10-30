@@ -12,7 +12,7 @@
 import * as THREE from 'three';
 import '../play.js';
 import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN, CREW_NAMES, DISCLAIMER } from './content.js';
-import { FULL, T, SPEECH, cycleSpeech } from './lang.js';
+import { T, SPEECH, cycleSpeech } from './lang.js';
 import lines from './lines.json';
 import { PRIVATE as PRIVATE_ON, OVERRIDES, realDeep } from '../privateNames.js';
 import { StoryUI } from './ui.js';
@@ -746,10 +746,8 @@ function irisOpen(el) {
 }
 const begin = document.createElement('div');
 begin.className = 'begin';
-begin.innerHTML = `<div class="inner"><p class="eyebrow">${T('Fortellermodus', 'Story mode')}</p><h1>${TITLE}</h1>
-  <p>${FULL ? 'A day on the platform, three times: yesterday, today and tomorrow. It waits for you at every step.'
-    : T('Kontrollrommet i morgen, og veien dit. Den venter på deg ved hvert steg.', 'The control room of tomorrow, and the road there. It waits for you at every step.')}</p>
-  <dl class="keys"><dt>${T('Mellomrom', 'Space')} / →</dt><dd>${T('neste', 'next')}</dd><dt>←</dt><dd>${T('tilbake', 'back')}</dd><dt>1 – ${CHAPTERS.length}</dt><dd>${T('hopp til et kapittel', 'jump to a chapter')}</dd><dt>F</dt><dd>${T('fri modus og tilbake', 'free mode and back')}</dd><dt>P</dt><dd>${T('presentatørnotater', 'presenter notes')}</dd></dl>
+// just the title, the disclaimer and Start (Adriaen, 2026-10-30)
+begin.innerHTML = `<div class="inner"><h1>${TITLE}</h1>
   <p class="disclaimer">${DISCLAIMER}</p>
   <button type="button" id="storyGo" disabled>${T('Laster kontrollrommet…', 'Loading the control room…')}</button></div>`;
 host.append(begin);
