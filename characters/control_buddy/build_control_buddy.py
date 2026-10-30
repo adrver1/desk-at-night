@@ -4,11 +4,13 @@ low-poly robot. A tall domed head with ear bolts, wide dark shades under
 frowning brows, a big triangle nose and a flat mouth, short sleeves pointing out over
 the shoulders, a grey tabard with a name badge, and segmented arms with
 joint rings. Its team-mates share the body and swap the badge and hat:
-the Scholar (COMPILER, mortarboard and bow tie) and the Nurse (LINTER,
-nurse cap and a first-aid patch).
+the Scholar (COMPILER, mortarboard and bow tie), the Nurse (LINTER,
+nurse cap and a first-aid patch) and Frankenbot (FRANKENBOT, the merged
+knowledge bases' agent: a flat-topped head with bolts through the neck,
+screws in the temples and stitched scars on the forehead and cheek).
 
     python characters/control_buddy/build_control_buddy.py [--form walker|hover|desk|all]
-                                                           [--role buddy|scholar|nurse|all]
+                                                           [--role buddy|scholar|nurse|franken|all]
 
 Forms (all kept; FORM picks the live one):
     walker  full size on legs, a crew member who walks and sits
@@ -37,7 +39,7 @@ FORM = "hover"
 # following the arm)
 # or "flaps" (the earlier collar wedges)
 SHOULDERS = "sleeves"
-FORMS, ROLES = ("walker", "hover", "desk"), ("buddy", "scholar", "nurse")
+FORMS, ROLES = ("walker", "hover", "desk"), ("buddy", "scholar", "nurse", "franken")
 DESK_SCALE, DESK_HEAD = 0.3, 1.6
 
 # Colours
@@ -52,6 +54,8 @@ HEAD = [(1.470, 0.105, 0.098, 0.0, "head"),
         (1.805, 0.108, 0.100, 0.0, "head"),
         (1.850, 0.072, 0.068, 0.0, "head"),
         (1.868, 0.030, 0.028, 0.0, "head")]
+# Frankenbot's head: the dome sawn off flat
+HEAD_FLAT = HEAD[:3] + [(1.800, 0.122, 0.112, 0.0, "head"), (1.808, 0.112, 0.102, 0.0, "head")]
 FACE_Y = 0.112          # the flat front of the head
 EYE_Z, MOUTH_Z = 1.640, 1.548
 TORSO = [(0.84, 0.150, 0.098, 0.0, "pelvis"),
@@ -73,8 +77,10 @@ FONT = {
     "O": ["###", "#.#", "#.#", "#.#", "###"], "P": ["##.", "#.#", "##.", "#..", "#.."],
     "R": ["##.", "#.#", "##.", "#.#", "#.#"], "T": ["###", ".#.", ".#.", ".#.", ".#."],
     "U": ["#.#", "#.#", "#.#", "#.#", "###"], "Y": ["#.#", "#.#", ".#.", ".#.", ".#."],
+    "A": [".#.", "#.#", "###", "#.#", "#.#"], "F": ["###", "#..", "##.", "#..", "#.."],
+    "K": ["#.#", "#.#", "##.", "#.#", "#.#"],
 }
-BADGE = {"buddy": "CTRLBUDDY", "scholar": "COMPILER", "nurse": "LINTER"}
+BADGE = {"buddy": "CTRLBUDDY", "scholar": "COMPILER", "nurse": "LINTER", "franken": "FRANKENBOT"}
 
 
 def box(m, lo, hi, swatch, region):
@@ -124,12 +130,43 @@ def text(m, word, cx, cz, height, y, swatch="black", region="letters"):
 
 
 # ---------------------------------------------------------------- the head
-def head(role):
-    m = Mesh().tube(HEAD, angles=BOX8, swatch=METAL)
-    # ear bolts: flat boxes on the sides at eye height, a dark ring under each
+def scar(m, a, b, stitches, y=FACE_Y + 0.002):
+    """A stitched scar on the face: a dark seam from a to b (x, z) with short
+    crossing stitches."""
+    a, b = Vector((a[0], y, a[1])), Vector((b[0], y, b[1]))
+    m.bar(a, b, 0.007, INK, "scar")
+    d = (b - a).normalized()
+    n = Vector((-d.z, 0, d.x)) * 0.014
+    for i in range(stitches):
+        c = a + (b - a) * ((i + 0.5) / stitches) + Vector((0, 0.002, 0))
+        m.bar(c - n, c + n, 0.005, INK, "scar")
+
+
+def frankenstein(m):
+    """Bolts through the neck, screws in the temples and on the flat top, a
+    stitched seam across the forehead and another down the right cheek."""
     for s in (1, -1):
-        box(m, (s * 0.118, -0.045, 1.575), (s * 0.150, 0.035, 1.680), METAL, "ear_bolt")
-        box(m, (s * 0.150, -0.030, 1.595), (s * 0.160, 0.020, 1.660), DARK, "ear_bolt")
+        m.bar((s * 0.095, 0.0, 1.495), (s * 0.172, 0.0, 1.495), 0.030, "steel", "ear_bolt")
+        box(m, (s * 0.168, -0.026, 1.469), (s * 0.188, 0.026, 1.521), DARK, "ear_bolt")
+        # a slotted screw head in each temple
+        box(m, (s * 0.122, -0.020, 1.692), (s * 0.140, 0.020, 1.732), "steel", "screw")
+        box(m, (s * 0.140, -0.016, 1.709), (s * 0.143, 0.016, 1.715), INK, "screw")
+    for x, y in ((0.055, 0.035), (-0.060, -0.040)):
+        box(m, (x - 0.018, y - 0.018, 1.806), (x + 0.018, y + 0.018, 1.822), "steel", "screw")
+        box(m, (x - 0.014, y - 0.003, 1.822), (x + 0.014, y + 0.003, 1.825), INK, "screw")
+    scar(m, (-0.105, 1.722), (0.080, 1.706), 6)
+    scar(m, (0.104, 1.612), (0.078, 1.528), 3)
+
+
+def head(role):
+    m = Mesh().tube(HEAD_FLAT if role == "franken" else HEAD, angles=BOX8, swatch=METAL)
+    if role == "franken":
+        frankenstein(m)
+    else:
+        # ear bolts: flat boxes on the sides at eye height, a dark ring under each
+        for s in (1, -1):
+            box(m, (s * 0.118, -0.045, 1.575), (s * 0.150, 0.035, 1.680), METAL, "ear_bolt")
+            box(m, (s * 0.150, -0.030, 1.595), (s * 0.160, 0.020, 1.660), DARK, "ear_bolt")
     # shades: two wide rectangular lenses on a bridge, standing off the face
     y0, y1 = FACE_Y, FACE_Y + 0.018
     for s in (1, -1):
@@ -202,7 +239,7 @@ def torso(role, form):
         y1 = side * (front + 0.014)
         box(m, (-TABARD_W, min(y0, y1), bottom), (TABARD_W, max(y0, y1), TABARD_TOP), TABARD, "tabard")
     fy = front + 0.0145
-    bw = {"buddy": 0.205, "scholar": 0.19, "nurse": 0.14}[role]
+    bw = {"buddy": 0.205, "scholar": 0.19, "nurse": 0.14, "franken": 0.225}[role]
     # the Linter wears scrubs: a V-neck, the badge off to its right (the
     # viewer's left) under the V, and a first-aid pocket on the other side
     bx, bz = (0.048, 1.262) if role == "nurse" else (0.0, BADGE_Z)
@@ -335,7 +372,7 @@ def bone_for(region, co, form):
         return region
     if region == "mouth":
         return "jaw"
-    if region in ("head", "ear_bolt", "lens", "nose", "hat"):
+    if region in ("head", "ear_bolt", "lens", "nose", "hat", "scar", "screw"):
         return "head"
     if region == "neck":
         return "neck" if co.z > 1.43 else "chest"

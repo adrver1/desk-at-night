@@ -4,7 +4,7 @@
 // team), as everywhere in the public build.
 import { T } from '../lang.js';
 import { Graph } from './graph.js';
-import { books, desk, globe, col, KG_LOOK } from './engine.js';
+import { books, globe, col, KG_LOOK } from './engine.js';
 import { vscodeHTML } from '../vscode.js';
 
 // ------------------------------------------------------------ helpers
@@ -17,7 +17,7 @@ const arrow = (p0, p1, label, from = 0, o = {}) => ({ kind: 'arrow', p0, p1, lab
 const bubble = (html, x, y, from = 0, o = {}) => ({ kind: 'bubble', html, x, y, from, anchor: [0.5, 1], ...o });
 const draw = (fn, from = 0, o = {}) => ({ kind: 'draw', draw: fn, from, ...o });
 
-const ROBOT = { buddy: 'control_buddy', scholar: 'control_buddy_scholar', nurse: 'control_buddy_nurse' };
+const ROBOT = { buddy: 'control_buddy', scholar: 'control_buddy_scholar', nurse: 'control_buddy_nurse', franken: 'control_buddy_franken' };
 const OLA = 'bearded_operator';
 
 // Small things travelling from a to b along an arc, over and over: pages
@@ -360,8 +360,7 @@ const H12 = {
   focus: (b) => [[-3, 0, 2], [2, -1, 2], [3, -1, 1]][b],
   elements: [
     title(T('Hver gang Compiler tar inn <b>informasjon</b>, vokser wikien', 'Every time Compiler takes in <b>information</b>, the wiki grows')),
-    prop(desk, -3.3, -0.6, 0, { scale: 0.8, rot: 0.3 }),
-    fig(OLA, -2.75, -0.6, 1.6, 0, { rot: -0.3, tag: 'Ola', tagDy: 0.15 }),
+    fig(OLA, -3.0, -0.75, 1.8, 0, { seat: 'props/workstation.glb', rot: 0.9, act: () => 'typing', tag: 'Ola', tagDy: -0.3 }),
     bubble(T('Les denne artikkelen', 'Read this article'), -4.6, 1.6, 0, { cls: 'think' }),
     fig(ROBOT.scholar, -5.6, -4.4, 3.4, 0, { rot: 0.55, act: (b) => (b ? 'point' : 'idle') }),
     draw((ctx) => stream(ctx, [-3.0, 0.2], [-5.0, -1.6], { kind: 'page', n: 2, speed: 0.45, lift: 0.4 })),
@@ -464,7 +463,7 @@ const H14 = {
     fig('glasses_engineer', -6.25, 0.05, 2.4, 0, { rot: 0.45, tag: T('Brønnteamet', 'The well team'), tagDx: -0.55 }),
     fig(OLA, 6.75, 0.05, 2.4, 0, { rot: -0.5, tag: 'Ola', act: (b) => (b === 4 ? 'point' : 'idle') }),
     fig(ROBOT.nurse, -6.75, -4.4, 2.4, 2, { rot: 0.5, tag: 'Linter', act: (b) => (b === 3 || b === 6 ? 'point' : 'idle') }),
-    fig(ROBOT.buddy, ...AGENT14, 2.4, 4, { rot: -0.5, tag: 'Frankenbot', tint: '#8fd19e', act: (b) => (b === 5 ? 'point' : 'idle') }),
+    fig(ROBOT.franken, ...AGENT14, 2.4, 4, { rot: -0.5, tag: 'Frankenbot', tint: '#8fd19e', act: (b) => (b === 5 ? 'point' : 'idle') }),
     arrow([-3.3, 0.0], [-0.5, -0.12], '', 1, { bend: -0.25, at: (b) => ({ fade: b >= 3 ? 0.35 : 1 }) }),
     arrow([3.3, 0.0], [0.5, -0.12], T('slå sammen', 'merge'), 1, { bend: 0.25, at: (b) => ({ fade: b >= 3 ? 0.35 : 1 }) }),
     arrow([-6.1, -2.25], [-5.35, -1.55], T('rydder', 'tidies'), 3, { bend: -0.3, labelOff: [0.1, 0.45] }),
