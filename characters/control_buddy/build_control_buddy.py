@@ -131,16 +131,43 @@ def text(m, word, cx, cz, height, y, swatch="black", region="letters"):
 
 
 # ---------------------------------------------------------------- the head
-def scar(m, a, b, stitches, y=FACE_Y + 0.002, region="scar"):
-    """A stitched scar on a flat front: a dark seam from a to b (x, z) at
-    depth y, with short crossing stitches."""
-    a, b = Vector((a[0], y, a[1])), Vector((b[0], y, b[1]))
-    m.bar(a, b, 0.007, INK, region)
+def flat_bar(m, a, b, w, y, region):
+    """A dark strip painted on a flat front at depth y (no relief): a quad
+    from a to b (x, z), w wide."""
     d = (b - a).normalized()
-    n = Vector((-d.z, 0, d.x)) * 0.014
+    n = Vector((-d.y, d.x)) * (w / 2)
+    pts = [a - n, a + n, b + n, b - n]
+    m.face([(p.x, y, p.y) for p in pts][::-1], INK, region)
+
+
+def scar(m, a, b, stitches, y=FACE_Y + 0.0012, region="scar"):
+    """A stitched scar painted on a flat front: a dark seam from a to b
+    (x, z) at depth y, with short crossing stitches. Flat quads, like the
+    badge letters, so it reads as a texture rather than raised geometry."""
+    from mathutils import Vector as V2
+    a, b = V2((a[0], a[1])), V2((b[0], b[1]))
+    flat_bar(m, a, b, 0.006, y, region)
+    d = (b - a).normalized()
+    n = V2((-d.y, d.x)) * 0.013
     for i in range(stitches):
-        c = a + (b - a) * ((i + 0.5) / stitches) + Vector((0, 0.002, 0))
-        m.bar(c - n, c + n, 0.005, INK, region)
+        c = a + (b - a) * ((i + 0.5) / stitches)
+        flat_bar(m, c - n, c + n, 0.0045, y + 0.0004, region)
+
+
+def arm_seam(m, o, u, v, w, t, r, region):
+    """A stitched seam painted round a hex arm at t: on each of the six flat
+    faces a thin band across and two stitches along the arm."""
+    ap = r * math.cos(math.radians(30)) + 0.0012     # just off the face
+    half = r * math.sin(math.radians(30))            # half a face's width
+    for k in range(6):
+        a = math.radians(30 + 60 * k)
+        nrm, tan = u * math.cos(a) + v * math.sin(a), -u * math.sin(a) + v * math.cos(a)
+        c = o + w * t + nrm * ap
+        quad = lambda along, across, wa, wc: [c + w * along + tan * across + w * da * wa + tan * dc * wc  # noqa: E731
+                                              for da, dc in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
+        m.face(quad(0, 0, 0.003, half), INK, region)
+        for s in (-0.45, 0.45):
+            m.face([p + nrm * 0.0004 for p in quad(0, s * half, 0.016, 0.0025)], INK, region)
 
 
 def frankenstein(m):
@@ -264,7 +291,7 @@ def torso(role, form):
         quad_y(m, cx - 0.026, cx + 0.026, cz - 0.007, cz + 0.007, fy + 0.003, "signal_red", "badge")
     if role == "franken":
         # a stitched seam down the chest and a riveted patch, as drawn
-        scar(m, (-0.122, TABARD_TOP - 0.01), (-0.118, 0.94), 9, y=fy, region="tabard")
+        scar(m, (-0.122, TABARD_TOP - 0.01), (-0.118, 0.94), 9, y=fy + 0.0012, region="tabard")
         px0, px1, pz0, pz1 = 0.050, 0.118, 1.000, 1.068
         quad_y(m, px0, px1, pz0, pz1, fy + 0.002, "grey", "tabard")
         for x in (px0 + 0.009, px1 - 0.009):
@@ -322,13 +349,8 @@ def arm(side, role="buddy"):
                 pts.append(c + w * t + u * (su * hw) + v * (sv * hd))
     m.hull(pts, METAL, "hand")
     if role == "franken":
-        for t, r, reg in ((0.12, 0.064, "upper_arm"), (0.37, 0.056, "forearm")):
-            m.tube([(t - 0.004, r + 0.002, r + 0.002, 0, reg), (t + 0.004, r + 0.002, r + 0.002, 0, reg)], origin=o,
-                   axes=(u, v, w), angles=base.HEX6, swatch=INK)
-            for k in range(8):
-                ang = 2 * math.pi * k / 8
-                p = o + w * t + (u * math.cos(ang) + v * math.sin(ang)) * (r + 0.004)
-                m.bar(p - w * 0.017, p + w * 0.017, 0.004, INK, reg)
+        arm_seam(m, o, u, v, w, 0.12, 0.0635, "upper_arm")
+        arm_seam(m, o, u, v, w, 0.37, 0.0545, "forearm")
     tb = c + w * 0.03 + v * 0.050
     m.hull([tb - u * 0.014, tb + u * 0.014, tb - w * 0.02 - u * 0.012, tb - w * 0.02 + u * 0.012,
             tb + w * 0.05 + v * 0.025], METAL, "hand")
