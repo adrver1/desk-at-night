@@ -1,6 +1,7 @@
 // The room's building controls, as an operator would find them on the desk
-// touch panel: ceiling lights (scene and brightness), the screens, sound (the
-// room tone of ventilation and equipment hum) and temperature. The wall panel by the door
+// touch panel: ceiling lights (scene and brightness), the screens, the
+// window's curtains, sound (the room tone of ventilation and equipment hum)
+// and temperature. The wall panel by the door
 // only steps through the light scenes.
 import * as THREE from 'three';
 
@@ -14,6 +15,7 @@ export class RoomControls {
     this.ui = ui;
     this.light = SCENES.night; // %
     this.screens = true;       // off: dark and not redrawn
+    this.curtains = true;      // open (curtains.js draws them)
     this.volume = 40;          // %
     this.setpoint = 21.5;      // °C
     this.temp = 22.6;          // °C, drifts toward the setpoint
@@ -43,6 +45,7 @@ export class RoomControls {
   }
   nextSceneName() { return NAMES[ORDER[(ORDER.indexOf(this.scene) + 1) % ORDER.length]]; }
   setScreens(on) { this.screens = on; this.sync(); }
+  setCurtains(open) { this.curtains = open; this.sync(); }
   setVolume(pct) { this.volume = Math.round(Math.max(0, Math.min(100, pct))); this.sync(); }
   nudgeSetpoint(d) { this.setpoint = Math.max(17, Math.min(26, this.setpoint + d)); this.sync(); }
 
@@ -52,6 +55,7 @@ export class RoomControls {
     u.scenes.forEach((b) => b.addEventListener('click', () => this.setScene(b.dataset.scene)));
     u.light.addEventListener('input', () => this.setLight(Number(u.light.value)));
     u.screens.forEach((b) => b.addEventListener('click', () => this.setScreens(b.dataset.screens === 'on')));
+    u.curtains?.forEach((b) => b.addEventListener('click', () => this.setCurtains(b.dataset.curtains === 'open')));
     u.volume.addEventListener('input', () => this.setVolume(Number(u.volume.value)));
     u.warmer.addEventListener('click', () => this.nudgeSetpoint(0.5));
     u.cooler.addEventListener('click', () => this.nudgeSetpoint(-0.5));
@@ -61,6 +65,7 @@ export class RoomControls {
     const u = this.ui;
     u.scenes.forEach((b) => b.setAttribute('aria-checked', String(b.dataset.scene === this.scene)));
     u.screens.forEach((b) => b.setAttribute('aria-checked', String((b.dataset.screens === 'on') === this.screens)));
+    u.curtains?.forEach((b) => b.setAttribute('aria-checked', String((b.dataset.curtains === 'open') === this.curtains)));
     u.light.value = this.light;
     u.lightOut.textContent = `${this.light}%`;
     u.volume.value = this.volume;
@@ -135,6 +140,10 @@ export class RoomControls {
     g.fillStyle = '#8d95a8';
     g.font = '500 18px ui-monospace, Menlo, monospace';
     g.fillText('ROOM CONTROL', 20, 34);
+    g.textAlign = 'right';
+    g.fillStyle = this.curtains ? '#8d95a8' : '#a8bcff';
+    g.fillText(this.curtains ? 'CURTAINS OPEN' : 'CURTAINS CLOSED', W - 20, 34);
+    g.textAlign = 'left';
     const rows = [
       ['Lights', `${this.light}%`, this.light / 100, '#f2a646'],
       ['Temp', `${this.setpoint.toFixed(1)} °C`, (this.setpoint - 17) / 9, '#7fd1b9'],
