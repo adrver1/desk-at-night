@@ -66,6 +66,10 @@ TORSO = [(0.84, 0.150, 0.098, 0.0, "pelvis"),
          (1.42, 0.110, 0.080, 0.0, "torso")]
 TABARD_W, TABARD_TOP, TABARD_BOTTOM = 0.135, 1.40, 0.78
 BADGE_Z = 1.31          # name badge high on the chest, as drawn
+# Roles whose tabard is painted on: no 14 mm slab standing off the body, the
+# badge, V-neck and first-aid pocket painted straight onto the torso. The
+# others keep the slab tabard.
+PAINTED = {"scholar", "nurse"}
 # 8-sided rings with wide flat faces front, back and sides: boxy metal
 BOX8 = (25, 65, 115, 155, 205, 245, 295, 335)
 
@@ -90,8 +94,20 @@ def box(m, lo, hi, swatch, region):
     return m.hull([(x, y, z) for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)], swatch, region)
 
 
+# While set to (bvh, y0), quad_y paints onto that surface instead of
+# standing a flat plate at depth y: lifted y - y0 + PAINT_LIFT off it,
+# following its facets (see PAINTED)
+SURF = None
+PAINT_LIFT = 0.0015
+
+
 def quad_y(m, x0, x1, z0, z1, y, swatch, region):
     """Flat rectangle facing +Y at depth y: badge plates and letters."""
+    if SURF:
+        bvh, y0 = SURF
+        m.decal_band(bvh, [min(z0, z1), max(z0, z1)], lambda z: min(x0, x1), lambda z: max(x0, x1), swatch, region,
+                     lift=PAINT_LIFT + (y - y0))
+        return
     m.face([(x0, y, z0), (x0, y, z1), (x1, y, z1), (x1, y, z0)], swatch, region)
 
 
@@ -289,12 +305,17 @@ def torso(role, form):
         for sd in (1, -1):
             m.extend(sleeve(sd))
     # tabard: a flat white panel front and back with a black name badge
+    global SURF
     front = 0.118
     bottom = TABARD_BOTTOM if form == "walker" else 0.92
-    for side in (1, -1):
-        y0 = side * front
-        y1 = side * (front + 0.014)
-        box(m, (-TABARD_W, min(y0, y1), bottom), (TABARD_W, max(y0, y1), TABARD_TOP), TABARD, "tabard")
+    if role in PAINTED:
+        shell = Mesh().tube(rings, angles=BOX8, swatch=METAL)
+        SURF = (shell.bvh(), front + 0.0145)
+    else:
+        for side in (1, -1):
+            y0 = side * front
+            y1 = side * (front + 0.014)
+            box(m, (-TABARD_W, min(y0, y1), bottom), (TABARD_W, max(y0, y1), TABARD_TOP), TABARD, "tabard")
     fy = front + 0.0145
     bw = {"buddy": 0.205, "scholar": 0.19, "nurse": 0.14, "franken": 0.225}[role]
     # the Linter wears scrubs: a V-neck, the badge off to its right (the
@@ -304,7 +325,11 @@ def torso(role, form):
     quad_y(m, bx - bw / 2, bx + bw / 2, bz - 0.022, bz + 0.022, fy + 0.0015, "white", "badge")
     text(m, BADGE[role], bx, bz, 0.026, fy + 0.003)
     if role == "nurse":
-        m.face([(0.0, fy, 1.312), (-0.062, fy, TABARD_TOP), (0.062, fy, TABARD_TOP)], NOSE, "tabard")
+        if SURF:   # the V-neck, painted as a band narrowing to its point
+            m.decal_band(SURF[0], [1.312 + 0.0088 * i for i in range(11)], lambda z: -0.062 * (z - 1.312) / 0.088,
+                         lambda z: 0.062 * (z - 1.312) / 0.088, NOSE, "tabard", lift=PAINT_LIFT)
+        else:
+            m.face([(0.0, fy, 1.312), (-0.062, fy, TABARD_TOP), (0.062, fy, TABARD_TOP)], NOSE, "tabard")
         px0, px1, pz0, pz1 = -0.118, -0.042, 1.168, 1.258    # first-aid pocket
         quad_y(m, px0, px1, pz0, pz1, fy, INK, "badge")
         quad_y(m, px0 + 0.005, px1 - 0.005, pz0 + 0.005, pz1 - 0.005, fy + 0.0015, "white", "badge")
@@ -320,9 +345,15 @@ def torso(role, form):
             for z in (pz0 + 0.009, pz1 - 0.009):
                 box(m, (x - 0.004, fy + 0.002, z - 0.004), (x + 0.004, fy + 0.007, z + 0.004), DARK, "tabard")
     if role == "scholar":  # bow tie at the collar
-        m.hull([(0, 0.112, 1.385), (0.055, 0.118, 1.415), (0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
-        m.hull([(0, 0.112, 1.385), (-0.055, 0.118, 1.415), (-0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
-        box(m, (-0.012, 0.115, 1.373), (0.012, 0.130, 1.397), INK, "bowtie")
+        # without the slab it sits back on the chest itself
+        dy = SURF[0].ray_cast(Vector((0, 1, 1.385)), -Y)[0].y - 0.112 if SURF else 0.0
+        bow = Mesh()
+        bow.hull([(0, 0.112, 1.385), (0.055, 0.118, 1.415), (0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
+        bow.hull([(0, 0.112, 1.385), (-0.055, 0.118, 1.415), (-0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
+        box(bow, (-0.012, 0.115, 1.373), (0.012, 0.130, 1.397), INK, "bowtie")
+        bow.verts = [v + Vector((0, dy, 0)) for v in bow.verts]
+        m.extend(bow)
+    SURF = None
     return m
 
 
