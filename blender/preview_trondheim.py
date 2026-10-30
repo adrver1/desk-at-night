@@ -715,9 +715,9 @@ def wing(name, centre, side):
 
 
 def phoenix_fountain(cx, cy, z0=0.15):
-    """The phoenix fountain in front of the Føniks entrance (Adriaen's photo): a low
-    round basin with a thick stone rim, a dark tiled column, three globe lamps at the
-    front and the bronze phoenix rising from its nest, wings half folded and pointing down."""
+    """The phoenix fountain in front of the Føniks entrance (Adriaen's photos): a low
+    round basin with a thick stone rim, a dark tiled column and on it the bronze phoenix
+    on its gilded stand (blender/phoenix_sculpture.py, TRD_PHOENIX picks the variant)."""
     before = set(bpy.data.objects)
     cyl("Water", (cx, cy, 0), 3.0, 0.32, "water", 20)
     bpy.ops.mesh.primitive_torus_add(major_radius=3.0, minor_radius=0.3, major_segments=20, minor_segments=4,
@@ -726,6 +726,20 @@ def phoenix_fountain(cx, cy, z0=0.15):
     bpy.context.object.data.materials.append(M["granite"])
     cyl("Column", (cx, cy, 0), 0.3, 1.45, "tile", 12)
     cyl("Collar", (cx, cy, 1.45), 0.36, 0.12, "dark", 12)
+    variant = os.environ.get("TRD_PHOENIX", "B")
+    if variant == "old":
+        old_phoenix(cx, cy)
+    else:
+        import phoenix_sculpture
+        phoenix_sculpture.build(M, cx, cy, 1.57, variant)   # on the collar
+    for o in set(bpy.data.objects) - before:   # raised on a stone drum to the terrace's height
+        o.location.z += z0
+    cyl("Drum", (cx, cy, 0), 3.25, z0 + 0.3, "granite", 24)
+
+
+def old_phoenix(cx, cy):
+    """The 2026-10-24 bird (TRD_PHOENIX=old): wings half folded and pointing down, three
+    globe lamps on short arms at the front."""
     cyl("Nest", (cx, cy, 1.57), 0.3, 0.28, "bronze_dark", 10, 0.5)
     for k in (-1, 0, 1):
         a = math.radians(-90 + k * 32)
@@ -756,9 +770,6 @@ def phoenix_fountain(cx, cy, z0=0.15):
             bpy.ops.mesh.primitive_uv_sphere_add(segments=4, ring_count=2, radius=0.06,
                                                  location=(cx + side * u, cy + 0.02 - 0.3 * (u - 0.2) ** 2 - 0.06, 2.3 + v))
             bpy.context.object.data.materials.append(M["steel"])
-    for o in set(bpy.data.objects) - before:   # raised on a stone drum to the terrace's height
-        o.location.z += z0
-    cyl("Drum", (cx, cy, 0), 3.25, z0 + 0.3, "granite", 24)
 
 
 # café furniture shared by the restaurant terrace and the annex's Frati terrace
