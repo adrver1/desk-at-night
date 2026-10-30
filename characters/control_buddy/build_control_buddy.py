@@ -6,8 +6,9 @@ the shoulders, a grey tabard with a name badge, and segmented arms with
 joint rings. Its team-mates share the body and swap the badge and hat:
 the Scholar (COMPILER, mortarboard and bow tie), the Nurse (LINTER,
 nurse cap and a first-aid patch) and Frankenbot (FRANKENBOT, the merged
-knowledge bases' agent: a flat-topped head with bolts through the neck,
-screws in the temples and stitched scars on the forehead and cheek).
+knowledge bases' agent, after Adriaen's drawing: a square head with a black
+flat-top, bolts sticking out above the ears, stitched scars on the face,
+down the chest and round the arms, a riveted patch).
 
     python characters/control_buddy/build_control_buddy.py [--form walker|hover|desk|all]
                                                            [--role buddy|scholar|nurse|franken|all]
@@ -130,32 +131,39 @@ def text(m, word, cx, cz, height, y, swatch="black", region="letters"):
 
 
 # ---------------------------------------------------------------- the head
-def scar(m, a, b, stitches, y=FACE_Y + 0.002):
-    """A stitched scar on the face: a dark seam from a to b (x, z) with short
-    crossing stitches."""
+def scar(m, a, b, stitches, y=FACE_Y + 0.002, region="scar"):
+    """A stitched scar on a flat front: a dark seam from a to b (x, z) at
+    depth y, with short crossing stitches."""
     a, b = Vector((a[0], y, a[1])), Vector((b[0], y, b[1]))
-    m.bar(a, b, 0.007, INK, "scar")
+    m.bar(a, b, 0.007, INK, region)
     d = (b - a).normalized()
     n = Vector((-d.z, 0, d.x)) * 0.014
     for i in range(stitches):
         c = a + (b - a) * ((i + 0.5) / stitches) + Vector((0, 0.002, 0))
-        m.bar(c - n, c + n, 0.005, INK, "scar")
+        m.bar(c - n, c + n, 0.005, INK, region)
 
 
 def frankenstein(m):
-    """Bolts through the neck, screws in the temples and on the flat top, a
-    stitched seam across the forehead and another down the right cheek."""
-    for s in (1, -1):
-        m.bar((s * 0.095, 0.0, 1.495), (s * 0.172, 0.0, 1.495), 0.030, "steel", "ear_bolt")
-        box(m, (s * 0.168, -0.026, 1.469), (s * 0.188, 0.026, 1.521), DARK, "ear_bolt")
-        # a slotted screw head in each temple
-        box(m, (s * 0.122, -0.020, 1.692), (s * 0.140, 0.020, 1.732), "steel", "screw")
-        box(m, (s * 0.140, -0.016, 1.709), (s * 0.143, 0.016, 1.715), INK, "screw")
-    for x, y in ((0.055, 0.035), (-0.060, -0.040)):
-        box(m, (x - 0.018, y - 0.018, 1.806), (x + 0.018, y + 0.018, 1.822), "steel", "screw")
-        box(m, (x - 0.014, y - 0.003, 1.822), (x + 0.014, y + 0.003, 1.825), INK, "screw")
-    scar(m, (-0.105, 1.722), (0.080, 1.706), 6)
-    scar(m, (0.104, 1.612), (0.078, 1.528), 3)
+    """As in Adriaen's drawing: a black flat-top with a jagged fringe, a bolt
+    through the head sticking out above each ear, a stitched seam across the
+    forehead and another down the cheek from the shades."""
+    top = HEAD_FLAT[-1][0]
+    box(m, (-0.128, -0.118, 1.752), (0.128, 0.119, top + 0.030), "hair_black", "hair")
+    teeth = 7
+    for i in range(teeth):           # the fringe: a row of points down the front and both sides
+        x0 = -0.128 + 0.256 * i / teeth
+        x1 = x0 + 0.256 / teeth
+        m.face([(x0, 0.1195, 1.752), ((x0 + x1) / 2, 0.1195, 1.726), (x1, 0.1195, 1.752)], "hair_black", "hair")
+        for sx in (1, -1):
+            y0 = -0.118 + 0.237 * i / teeth
+            y1 = y0 + 0.237 / teeth
+            m.face([(sx * 0.1285, y0, 1.752), (sx * 0.1285, (y0 + y1) / 2, 1.730), (sx * 0.1285, y1, 1.752)][::sx],
+                   "hair_black", "hair")
+    for sx in (1, -1):
+        m.bar((sx * 0.100, 0.0, 1.715), (sx * 0.178, 0.0, 1.715), 0.020, "steel", "ear_bolt")
+        box(m, (sx * 0.162, -0.024, 1.691), (sx * 0.186, 0.024, 1.739), DARK, "ear_bolt")
+    scar(m, (-0.108, 1.712), (0.090, 1.700), 7)
+    scar(m, (-0.092, 1.612), (-0.080, 1.512), 4)
 
 
 def head(role):
@@ -254,6 +262,14 @@ def torso(role, form):
         cx, cz = (px0 + px1) / 2, (pz0 + pz1) / 2
         quad_y(m, cx - 0.007, cx + 0.007, cz - 0.026, cz + 0.026, fy + 0.003, "signal_red", "badge")
         quad_y(m, cx - 0.026, cx + 0.026, cz - 0.007, cz + 0.007, fy + 0.003, "signal_red", "badge")
+    if role == "franken":
+        # a stitched seam down the chest and a riveted patch, as drawn
+        scar(m, (-0.122, TABARD_TOP - 0.01), (-0.118, 0.94), 9, y=fy, region="tabard")
+        px0, px1, pz0, pz1 = 0.050, 0.118, 1.000, 1.068
+        quad_y(m, px0, px1, pz0, pz1, fy + 0.002, "grey", "tabard")
+        for x in (px0 + 0.009, px1 - 0.009):
+            for z in (pz0 + 0.009, pz1 - 0.009):
+                box(m, (x - 0.004, fy + 0.002, z - 0.004), (x + 0.004, fy + 0.007, z + 0.004), DARK, "tabard")
     if role == "scholar":  # bow tie at the collar
         m.hull([(0, 0.112, 1.385), (0.055, 0.118, 1.415), (0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
         m.hull([(0, 0.112, 1.385), (-0.055, 0.118, 1.415), (-0.055, 0.118, 1.355), (0, 0.125, 1.385)], INK, "bowtie")
@@ -283,9 +299,10 @@ def sleeve(side):
     return m if side > 0 else m.mirrored()
 
 
-def arm(side):
+def arm(side, role="buddy"):
     """Segmented arm in the A-pose with a dark ring at shoulder, elbow and
-    wrist, and a blocky hand with a thumb."""
+    wrist, and a blocky hand with a thumb. Frankenbot's are sewn on: a
+    stitched seam round the upper arm and the forearm."""
     u, v, w = base.frame(base.arm_dir(1))
     o = base.SHOULDER
     m = Mesh()
@@ -304,6 +321,14 @@ def arm(side):
             for sv in (-1, 1):
                 pts.append(c + w * t + u * (su * hw) + v * (sv * hd))
     m.hull(pts, METAL, "hand")
+    if role == "franken":
+        for t, r, reg in ((0.12, 0.064, "upper_arm"), (0.37, 0.056, "forearm")):
+            m.tube([(t - 0.004, r + 0.002, r + 0.002, 0, reg), (t + 0.004, r + 0.002, r + 0.002, 0, reg)], origin=o,
+                   axes=(u, v, w), angles=base.HEX6, swatch=INK)
+            for k in range(8):
+                ang = 2 * math.pi * k / 8
+                p = o + w * t + (u * math.cos(ang) + v * math.sin(ang)) * (r + 0.004)
+                m.bar(p - w * 0.017, p + w * 0.017, 0.004, INK, reg)
     tb = c + w * 0.03 + v * 0.050
     m.hull([tb - u * 0.014, tb + u * 0.014, tb - w * 0.02 - u * 0.012, tb - w * 0.02 + u * 0.012,
             tb + w * 0.05 + v * 0.025], METAL, "hand")
@@ -372,7 +397,7 @@ def bone_for(region, co, form):
         return region
     if region == "mouth":
         return "jaw"
-    if region in ("head", "ear_bolt", "lens", "nose", "hat", "scar", "screw"):
+    if region in ("head", "ear_bolt", "lens", "nose", "hat", "scar", "hair"):
         return "head"
     if region == "neck":
         return "neck" if co.z > 1.43 else "chest"
@@ -425,7 +450,7 @@ def akimbo(arm_ob):
 # ------------------------------------------------------------------- build
 def build(form, role, out, renders=True):
     base.reset()
-    parts = {"head": head(role), "torso": torso(role, form), "arm.R": arm(1), "arm.L": arm(-1)}
+    parts = {"head": head(role), "torso": torso(role, form), "arm.R": arm(1, role), "arm.L": arm(-1, role)}
     if form == "walker":
         parts["leg.R"], parts["leg.L"] = leg(1), leg(-1)
     elif form == "hover":
