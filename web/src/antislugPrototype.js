@@ -331,7 +331,7 @@ function drawTrend() {
   const g = tc.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
   const L = 30, R = W - 30, T = 14, B = H - 4, [P0, P1] = CASE.P;
   const x = (i) => L + ((R - L) * i) / (KEEP - 1), yp = (p) => B - ((p - P0) / (P1 - P0)) * (B - T), yu = (u) => B - u * (B - T);
-  const hm = hist[0], ghostOn = hm.some((s) => s.auto);
+  const hm = hist[0];
   g.fillStyle = C.on; // controller-on spans
   for (let i = 0; i < hm.length; i++) if (hm[i].auto) g.fillRect(x(i + KEEP - hm.length) - 0.5, T, (R - L) / (KEEP - 1) + 1, B - T);
   g.strokeStyle = C.grid; g.lineWidth = 1; g.font = '500 9.5px "JetBrains Mono", monospace'; g.fillStyle = C.text;
@@ -339,12 +339,11 @@ function drawTrend() {
   g.textAlign = 'left'; for (const u of [0, 0.5, 1]) g.fillText(`${u * 100}%`, R + 4, yu(u) + 3);
   if (state.auto) { g.setLineDash([4, 4]); g.strokeStyle = C.sp; g.globalAlpha = 0.5; g.beginPath(); g.moveTo(L, yp(state.sp)); g.lineTo(R, yp(state.sp)); g.stroke(); g.globalAlpha = 1; g.setLineDash([]); }
   const line = (h, key, col, y, w = 1.6, from = 0) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); let started = false; h.forEach((s, i) => { if (i < from) return; const xx = x(i + KEEP - h.length), yy = y(s[key]); started ? g.lineTo(xx, yy) : g.moveTo(xx, yy); started = true; }); g.stroke(); };
-  if (ghostOn) { const from = hm.findIndex((s) => s.auto); g.globalAlpha = 0.45; line(hist[1], 'p', C.p2, yp, 1.2, from); g.globalAlpha = 1; }
+  // no "without controller" line: only what the plant actually does is shown (Adriaen 2026-10-30)
   line(hm, 'u', C.u, yu); line(hm, 'p', C.p, yp, 2);
   g.textAlign = 'left'; g.font = '600 10px "Instrument Sans", system-ui, sans-serif';
   g.fillStyle = C.p; g.fillText(CASE.pLong, L, 10);
   g.fillStyle = C.u; g.fillText('Choke opening', L + 150, 10);
-  if (ghostOn) { g.fillStyle = C.p2; g.fillText('faint: without', L + 240, 10); }
 }
 // separator levels (m above the vessel bottom): liquid surface, oil-water
 // interface, oil compartment behind the weir, with the weir crest and setpoints
