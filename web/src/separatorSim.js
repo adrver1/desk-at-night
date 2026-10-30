@@ -132,10 +132,10 @@ export class SeparatorSimMass extends SeparatorSim {
     this.sp.P = 8; // barg
     this.range = { P: [0, 16], water: [-1.4, -0.1], oil: [-1.4, DIM.crest - 0.05] };
     this.down = { gas: abs(5.5), oil: abs(3), water: abs(1) }; // pressure after each valve
-    this.stroke = { gas: 6, oil: 8, water: 8 }; // s for full travel
+    this.stroke = { gas: 1.5, oil: 8, water: 8 }; // s for full travel
     // controllers (gains in %/%, times in s)
     this.ctl = {
-      gas: new PIDF({ kp: 4, ti: 20 }),
+      gas: new PIDF({ kp: 40, ti: 4 }), // pressure is held tight: a fast gas valve with a high gain
       water: new PIDF({ kp: 3, ti: 25 }),
       oil: new PIDF(OIL_TUNINGS.gap),
     };
