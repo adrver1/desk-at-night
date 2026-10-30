@@ -16,7 +16,7 @@ Use `to-questionnaire` when an answer has to come from someone else, such as ope
 ## Rules
 
 - This repo is public. Reference photos, the real platform's name, people or numbers stay in the private project files (`/mnt/project-files/control-room-game/`), never in commits or on GitHub Pages.
-- Game design decisions live in `/mnt/project-files/control-room-game/design.md` (45 KB, one section per topic). List its headings with `grep -n '^#' design.md` and read only the sections you need. Shared vocabulary goes in `GLOSSARY.md` and hard-to-reverse technical decisions in `docs/adr/`; create them when the first entry is needed.
+- Game design decisions live in `/mnt/project-files/control-room-game/design.md`, a short index pointing to one file per topic in `design/`. Read the index, then only the topic file you need; add new decisions to that file. Shared vocabulary goes in `GLOSSARY.md` and hard-to-reverse technical decisions in `docs/adr/`; create them when the first entry is needed.
 - `blender/*.py` scripts are the source of truth; never hand-edit generated `.blend` files or baked assets.
 
 ## Code map
