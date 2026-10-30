@@ -111,10 +111,27 @@ const earth = new THREE.Mesh(mergeGeometries(notched(BOTTOM, SEABED, true, RISER
 const water = new THREE.Mesh(mergeGeometries(notched(SEABED, SEA, false, RISER ? [] : [NOTCH])),
   new THREE.MeshStandardMaterial({ color: 0x1f6f8a, transparent: true, opacity: 0.38, roughness: 0.15, metalness: 0, depthWrite: false }));
 water.renderOrder = 1;
+// dark checker (tread) plate, so the deck reads apart from the pale process steel
+function treadTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  g.fillStyle = '#2c3135'; g.fillRect(0, 0, 64, 64);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { // raised lozenges, alternating direction
+    g.save(); g.translate(8 + i * 16, 8 + j * 16); g.rotate(((i + j) % 2 ? -1 : 1) * Math.PI / 4);
+    g.fillStyle = '#4a5156'; g.fillRect(-6, -1.6, 12, 3.2); g.fillStyle = '#1d2124'; g.fillRect(-6, 1.2, 12, 0.8);
+    g.restore();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
+  return t;
+}
 // deck plate with the wellbay opening around the well (open to the cut side)
 const deck = new THREE.Mesh(mergeGeometries([
   block(-18, NOTCH[0], -0.25, 0, -8, 1), block(NOTCH[1], 10, -0.25, 0, -8, 1), block(NOTCH[0], NOTCH[1], -0.25, 0, -8, NOTCH[2]),
-]), new THREE.MeshStandardMaterial({ color: 0x55606a, roughness: 0.8, metalness: 0.2 }));
+]), new THREE.MeshStandardMaterial({ map: treadTexture(), color: 0x8a8f92, roughness: 0.75, metalness: 0.35 }));
+{ // plate pattern in world metres (~0.8 m per tile of 4x4 lozenges), the same on every face
+  const p = deck.geometry.attributes.position, uv = deck.geometry.attributes.uv;
+  for (let i = 0; i < p.count; i++) uv.setXY(i, (p.getX(i) + p.getY(i)) / 0.8, (p.getZ(i) + p.getY(i)) / 0.8);
+}
 scene.add(earth, water, deck);
 
 // jacket: four battered legs from the deck to the seabed, braced on every
