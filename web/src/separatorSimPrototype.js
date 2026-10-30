@@ -3,7 +3,7 @@
 // dashed = old). Two comparisons:
 //   tuning  old vs re-tuned oil level gap controller, both on the mass-balance model
 //   model   the simple level-only sim vs the mass-balance one
-// URL: separator-sim-prototype.html?compare=tuning|model&show=a|b&slugging=1&speed=3
+// URL: separator-sim-prototype.html?compare=tuning|model&show=a|b&slugging=1&speed=1|3|5 (5 default)
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -40,7 +40,7 @@ const state = {
   compare: q.get('compare') === 'model' ? 'model' : 'tuning',
   show: q.get('show') === 'a' ? 'a' : 'b',
   oil: 'gap', slugging: q.get('slugging') !== '0',
-  slow: false, eqp: false, speed: q.get('speed') === '1' ? 1 : 3, step: null,
+  slow: false, eqp: false, speed: [1, 3, 5].includes(+q.get('speed')) ? +q.get('speed') : 5, step: null,
 };
 let cmp;
 function build() {
@@ -102,7 +102,7 @@ row('Test', [
 row('3D shows', [
   [() => cmp.names.b, () => state.show === 'b', () => { state.show = 'b'; }],
   [() => cmp.names.a, () => state.show === 'a', () => { state.show = 'a'; for (const [k, v] of Object.entries(sep.valves)) v.speed = speed0[k]; }],
-  ...[1, 3].map((s) => [`${s}x time`, () => state.speed === s, () => { state.speed = s; }]),
+  ...[1, 3, 5].map((s) => [`${s}x time`, () => state.speed === s, () => { state.speed = s; }]),
 ]);
 addEventListener('keydown', (e) => { if (e.key === 's' || e.key === 'S') { state.show = state.show === 'a' ? 'b' : 'a'; refresh(); } });
 function refresh() {
