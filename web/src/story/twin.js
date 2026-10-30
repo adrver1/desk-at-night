@@ -7,8 +7,8 @@
 // and CtrlBuddy hovers by the part being placed, beaming it in. When the
 // integrator is typed the liquids fill and the twin runs (separatorSim.js).
 //
-// The code is generic textbook physics (ideal gas, mass balances, the Francis
-// weir formula, an equal-percentage valve): no tags, no tuned numbers.
+// The code follows our own CasADi separator model (Adriaen, 2026-10-30), in
+// generic form: no tags, no tuned numbers, none of its code (that stays private).
 //
 // State key (content.js): twin: true starts the build on entering the beat,
 // null hides it. Screens: CODE_SCREEN shows 'twinCode', TWIN_SCREEN 'twin'.
@@ -19,6 +19,7 @@ import { LIVE } from '../controlScene.js';
 import { Separator, DIM } from '../separator.js';
 import { makeSeparatorSim } from '../separatorSim.js';
 import { loadModel } from './cast.js';
+import { PRIVATE, OVERRIDES } from '../privateNames.js';
 import { drawVSCode, VS_COL } from './vscode.js';
 import { T } from './lang.js';
 
@@ -43,52 +44,60 @@ function py(line) {
   return out;
 }
 
-// The model, one section per part of the twin
-const SECTIONS = [
+// The model, one section per part of the twin. The same physics as our own
+// CasADi separator model (4 mass states, ideal-gas pressure, weir
+// equalisation, ISA valves, one RK4 step), written out generically here; the
+// private build (?private=1) types the model's own lines instead
+// (overrides.json twinCode: { tab, sections: [{ part, lines }] }).
+const PUBLIC = [
   { part: 'shell', lines: [
     'import casadi as ca',
     '',
-    '# Geometry (from the vendor drawing)',
-    'L, D = 7.0, 3.0        # m, tan-tan, inner dia.',
-    'r = D / 2',
-    'def area(h):           # liquid cross-section',
-    '    return (r**2 * ca.acos((r - h) / r)',
-    '            - (r - h) * ca.sqrt(2*r*h - h**2))'] },
+    '# Horizontal vessel: liquid area at height h',
+    'def seg_area(h, r):',
+    '    th = ca.acos((r - h) / r)',
+    '    return 0.5*r*r*(2*th - ca.sin(2*th))',
+    '',
+    '# States: gas, oil, water, oil-zone mass, kg',
+    "x = ca.SX.sym('x', 4)",
+    "u = ca.SX.sym('u', 3)    # gas, oil, water"] },
   { part: 'inlet', lines: [
     '',
-    '# States: gas, oil, water, oil compartment',
-    "x = ca.SX.sym('x', 4)          # kg",
-    'm_g, m_o, m_w, m_b = ca.vertsplit(x)',
-    "w_in = ca.SX.sym('w_in', 3)    # well, kg/s"] },
+    '# Inlet split into gas, oil and water',
+    'w_g, w_o, w_w = w_in*f_g, w_in*f_o, w_in*f_w'] },
   { part: 'internals', lines: [
     '',
-    '# Weir: Francis formula over the crest',
-    'h_o = level(m_o, m_w)',
-    'q_weir = 1.84 * L_w * ca.fmax(',
-    '    h_o - h_crest, 0)**1.5'] },
+    '# Weir: the levels over the crest equalise',
+    'dh = h_main_over - h_zone_over',
+    'w_weir = rho_o * c_weir * L_weir * dh'] },
   { part: 'valves', lines: [
     '',
-    '# Valves: equal percentage (time series)',
-    "u = ca.SX.sym('u', 3)          # openings",
-    'def valve(z, Cv, dp, rho):',
-    '    return Cv * R_v**(z - 1) * ca.sqrt(',
-    '        ca.fmax(dp, 0) / rho)'] },
+    '# Valves (ISA Cv) at actuator position z',
+    'w_g_out = Cv_g*z_g*ca.sqrt(rho_g*(P - P_g))',
+    'dp_o = P + rho_o*g*h_zone - P_o',
+    'w_o_out = K*Cv_o*z_o*ca.sqrt(rho_o*dp_o)'] },
   { part: 'liquids', lines: [
     '',
     '# Ideal gas pressure, mass balances',
-    'P = m_g * R * T / (M_g * (V - V_liq))',
+    'P = m_g * R_spec * T / V_gas',
     'ode = ca.vertcat(',
-    '    w_in[0] - w_gas(u[0], P),',
-    '    w_in[1] - rho_o * q_weir,',
-    '    w_in[2] - w_water(u[2], P, h_w),',
-    '    rho_o * q_weir - w_oil(u[1], P, h_b))'] },
+    '    w_g - w_g_out,',
+    '    w_o - w_weir,',
+    '    w_w - w_w_out,',
+    '    w_weir - w_o_out)'] },
   { part: 'run', lines: [
     '',
-    '# Integrator',
-    "dae = {'x': x, 'p': ca.vertcat(u, w_in),",
-    "       'ode': ode}",
-    "F = ca.integrator('F', 'cvodes', dae, 0, 0.1)"] },
-].map((s) => ({ ...s, lines: s.lines.map(py) }));
+    '# One RK4 step as a CasADi function',
+    "f = ca.Function('f', [x, u, p], [ode])",
+    'k1 = f(x, u, p)',
+    'k2 = f(x + dt/2*k1, u, p)',
+    'k3 = f(x + dt/2*k2, u, p)',
+    'k4 = f(x + dt*k3, u, p)',
+    'xf = x + dt/6*(k1 + 2*k2 + 2*k3 + k4)'] },
+];
+const OWN = PRIVATE && OVERRIDES.twinCode;
+const TAB = OWN?.tab ?? 'separator.py';
+const SECTIONS = (OWN?.sections ?? PUBLIC).map((s) => ({ ...s, lines: s.lines.map(py) }));
 const len = (line) => line.reduce((n, [t]) => n + t.length, 0) + 1;   // +1: an empty line takes a moment too
 const CHARS = SECTIONS.map((s) => s.lines.reduce((n, l) => n + len(l), 0));
 const TOTAL = CHARS.reduce((a, b) => a + b, 0);
@@ -320,8 +329,8 @@ export class Twin {
     const fs = w / 64, rows = Math.max(4, Math.floor((h / fs - 4.2) / 1.4));
     const lines = typed(p);
     drawVSCode(ctx, {
-      title: 'separator-twin — Visual Studio Code', tab: 'separator.py',
-      tree: [{ t: '▾ SEPARATOR-TWIN' }, { t: '▾ model', lvl: 1 }, { t: 'separator.py', lvl: 2, hl: true }, { t: 'valves.py', lvl: 2 }, { t: '▾ data', lvl: 1 }, { t: 'drawing.pdf', lvl: 2 }, { t: 'timeseries.csv', lvl: 2 }, { t: '▸ tuning', lvl: 1 }],
+      title: 'separator-twin — Visual Studio Code', tab: TAB,
+      tree: [{ t: '▾ SEPARATOR-TWIN' }, { t: '▾ model', lvl: 1 }, { t: TAB, lvl: 2, hl: true }, { t: 'valves.py', lvl: 2 }, { t: '▾ data', lvl: 1 }, { t: 'drawing.pdf', lvl: 2 }, { t: 'timeseries.csv', lvl: 2 }, { t: '▸ tuning', lvl: 1 }],
       lines: lines.slice(-rows), caret: p < TYPE, chat, pick: 'CtrlBuddy',
     }, 0, 0, w, h);
   }
