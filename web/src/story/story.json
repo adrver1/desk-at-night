@@ -691,16 +691,24 @@
     [
      "ai",
      {
-      "no": "… og forresten: du modellerte ventilen som en lineær ventil, men jeg analyserte nylige tidsseriedata, og den er mer kompatibel med en likeprosentlig karakteristikk.",
-      "en": "… and by the way: you modelled the valve as linear, but I analysed recent time series, and it fits an equal-percentage characteristic better.",
-      "twin": "valve"
+      "no": "… og forresten: jeg hentet databladet for nivåventilen fra CDF. Du modellerte den som en lineær ventil, men nylige tidsseriedata passer bedre med en likeprosentlig karakteristikk.",
+      "en": "… and by the way: I pulled the level valve's datasheet from CDF. You modelled it as a linear valve, but recent time series fit an equal-percentage characteristic better."
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Datablad for nivåventilen",
+      "en": "The level valve's datasheet",
+      "file": "valve-datasheet.webp"
      }
     ],
     [
      "me",
      {
       "no": "… jepp, jeg sjekket leverandørens datablad, og det står tydelig at den er likeprosentlig.",
-      "en": "… yep, I checked the vendor's datasheet, and it clearly says equal percentage."
+      "en": "… yep, I checked the vendor's datasheet, and it clearly says equal percentage.",
+      "twin": "valve"
      }
     ],
     [

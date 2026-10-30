@@ -13,8 +13,8 @@
 // After it, the chat about the real separator (c.sim2, Adriaen 2026-10-30)
 // shows the same twin beside the chat ('twinFix') and corrects it as
 // the chat goes: after the drawing from CDF the vessel takes its length (the
-// main separation zone, 8 m to 7 m), then the oil valve is swapped, the linear one lifted out and an
-// equal-percentage one put in, each with its valve curve beside it.
+// main separation zone, 8 m to 7 m), then the water level valve (its datasheet) is swapped, the linear one
+// lifted out and an equal-percentage one put in, each with its valve curve beside it.
 //
 // State key (content.js): twin: true starts the build on entering the beat,
 // 'fix' the corrections (story.json chats.sim2.set), null hides it.
@@ -41,6 +41,7 @@ const smooth = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3
 const BLUE = 0x5fd6ff;
 const SHORT = 1 / 8;   // the correction: 8 m to 7 m
 const EQP = 30;        // rangeability of the equal-percentage curve
+const SWAP = 'water';  // the valve the correction swaps (its datasheet: the water outlet's level valve)
 
 // Python colours on top of the shared VS Code look
 Object.assign(VS_COL, { kw: '#c586c0', str: '#ce9178', num: '#b5cea8', fn: '#dcdcaa' });
@@ -213,9 +214,9 @@ export class Twin {
     }
     sc.add(this.ghost);
     for (const o of Object.values(this.groups).flat()) o.userData.home = o.position.clone();
-    // the equal-percentage oil valve the correction puts in (another actuator, so it reads as a new valve)
-    const old = sep.valves.oil;
-    this.newValve = new Valve({ body: 'globe', actuator: 'linear', r: DIM.liquidR * 0.85, fluid: 'oil', name: 'LV oil (equal percentage)' });
+    // the equal-percentage level valve the correction puts in (another actuator, so it reads as a new valve)
+    const old = sep.valves[SWAP];
+    this.newValve = new Valve({ body: 'globe', actuator: 'linear', r: DIM.liquidR * 0.85, fluid: SWAP, name: `LV ${SWAP} (equal percentage)`, side: old.side });
     this.newValve.group.position.copy(old.group.position);
     this.newValve.group.rotation.copy(old.group.rotation);
     this.newValve.group.userData.home = old.group.position.clone();
@@ -351,7 +352,7 @@ export class Twin {
 
   // The corrections, as far as the chat has come: the messages marked twin: 'len' and 'valve' (story.json chats.sim2)
   correct(dt) {
-    const f = this.fix, nv = this.newValve, oldG = this.sep.valves.oil.group;
+    const f = this.fix, nv = this.newValve, oldG = this.sep.valves[SWAP].group;
     const shown = this.mode === 'fix' ? (CHATS.sim2?.messages ?? []).slice(0, S.chats.sim2 ?? 0) : [];
     const has = (k) => shown.some(([, , m]) => m?.twin === k);
     const toward = (v, to) => (to > v ? Math.min(to, v + dt * 0.6) : Math.max(to, v - dt * 0.6));
@@ -370,7 +371,7 @@ export class Twin {
     nv.group.visible = f.valve > 0.35;
     nv.group.position.copy(nv.group.userData.home);
     nv.group.position.y += (1 - inn) * 2.5;
-    nv.set(this.sim.z?.oil ?? this.sim.u?.oil ?? 0.5);
+    nv.set(this.sim.z?.[SWAP] ?? this.sim.u?.[SWAP] ?? 0.5);
     nv.update(dt);
   }
 
@@ -404,7 +405,7 @@ export class Twin {
     }
     // each valve with its curve
     if (f.valve > 0) {
-      const old = at(this.sep.valves.oil.group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.4, 0)));
+      const old = at(this.sep.valves[SWAP].group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.4, 0)));
       const neu = at(this.newValve.group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.4, 0)));
       ctx.globalAlpha = Math.min(1, f.valve * 3);
       this.curveCard(ctx, s, old, [old[0] - 150 * s, old[1] - 110 * s], T('Lineær', 'Linear'), '#ff7a7a', (z) => z, true);
