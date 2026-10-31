@@ -771,6 +771,15 @@ game.ready.then(async () => {
   shots.cast = cast;
   game.hooks.frame.push(frame);
   await Promise.all([cast.load(), buddy.load(), workshop.load(), twin.load(), sound.loadIndex()]);
+  // Their shaders compiled now, behind the Begin screen, not on the frame
+  // each first shows (the bench saw 9 to 16 new programs on those frames)
+  for (const x of [cast, buddy, workshop, twin]) {
+    if (!x?.scene) continue;
+    const r = game.renderer, prev = r.getRenderTarget();
+    r.setRenderTarget(x.rt ?? null);
+    r.compileAsync?.(x.scene, x.camera ?? game.camera).catch(() => {});
+    r.setRenderTarget(prev);
+  }
   go.disabled = false;
   go.textContent = T('Start', 'Begin');
   if (!begin.parentNode) enter(chapter, beat, { instant: true });

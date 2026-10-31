@@ -373,6 +373,7 @@ export async function loadControlRoom(renderer) {
     board.defines = { BOARD: '', USE_UV1: '' };
     board.uniforms = { ...material.uniforms, uBoard: { value: await texture(renderer, boardBufs[i], true) } };
     mesh.material = board;
+    renderer.initTexture(board.uniforms.uBoard.value);   // uploaded now, not on the frame a board first comes into view
   }
   // Every screen is drawn once into a static atlas. A screen that moves (the
   // LIVE ones, and the one the player zooms in on) gets its own texture on a
@@ -521,15 +522,15 @@ export async function loadControlRoom(renderer) {
       const want = wanted(o, width, height), was = o.seen;
       o.seen = want > 0;
       // live ones always have a texture; static ones only when the atlas is too coarse
-      let target = live ? Math.max(1, want) : want > 1 ? want : 0;
+      let target = live || o.own ? Math.max(1, want) : want > 1 ? want : 0;
       if (focus) target = Math.max(target, FOCUS_SCALE);
-      if (!o.seen && !focus) target = live ? 1 : 0;   // out of view: back to the slot's size
+      if (!o.seen && !focus) target = live || o.own ? 1 : 0;   // out of view: back to the slot's size
       // grow at once; shrink only well below, so a slow dolly doesn't redraw every step
       if (target > o.scale || (target > 0 && target <= o.scale / 2)) {
         overlay(name, target, true);
         if (live) draw(o, screens.time);
       } else if (live && o.seen && !was) draw(o, screens.time);   // stale from its time out of view
-      if (!live && !focus) {
+      if (!live && !focus && !o.own) {
         const show = target > 0 && o.scale > 1;
         if (show && !o.mesh.visible) draw(o, 0);
         o.mesh.visible = show;
@@ -674,15 +675,18 @@ export async function loadControlRoom(renderer) {
       if (!o) return null;
       return faceFrame(o.mesh, from);
     },
-    // Change what a screen shows (an id from screens.js CONTENT). Redraws its
-    // slot of the atlas once, which costs one upload of the atlas.
+    // Change what a screen shows (an id from screens.js CONTENT). The new
+    // picture goes on the screen's own small overlay (`own`), not into the
+    // atlas: uploading the 2048² atlas stalled the frame on every story beat
+    // that changed a screen. The atlas canvas is kept in step, and goes up
+    // with its next clock redraw.
     setContent(name, id) {
       if (!screens || !slots[name]) return;
       assign(name, id);
       drawSlots(screens.atlas.image.getContext('2d'), { [name]: slots[name] }, STATIC_T, SCREEN_SCALE);
-      screens.atlas.needsUpdate = true;
-      const o = isLive(name) ? overlay(name, 1) : screens.overlays.get(name);
-      if (o) { showFeed(o); if (o.tex) draw(o, 0); o.mesh.visible = isLive(name) || o === screens.focus; }
+      const o = overlay(name, 1);
+      if (o) { o.own = true; showFeed(o); draw(o, 0); o.mesh.visible = true; }
+      else screens.atlas.needsUpdate = true;
     },
     // Live camera pictures from cctv.js (id -> texture) and the cameras' gain:
     // those screens show the picture with only rain, noise and caption drawn.
@@ -693,7 +697,8 @@ export async function loadControlRoom(renderer) {
       if (gain) gainSource = gain;
       setFeeds(Object.keys(feeds));
       if (!screens) return;
-      for (const o of screens.overlays.values()) { showFeed(o); if (o.tex) draw(o, 0); }
+      // only the screens showing one of these cameras (each redraw is an upload)
+      for (const o of screens.overlays.values()) if (contentOf(o.name) in textures) { showFeed(o); if (o.tex) draw(o, 0); }
     },
     // Which camera pictures some screen shows right now (to skip the others)
     // With `camera`, only the screens in its view: a camera picture nobody
@@ -752,7 +757,7 @@ export async function loadControlRoom(renderer) {
       if (!screens) return;
       const prev = screens.focus;
       screens.focus = name ? overlay(name, FOCUS_SCALE) : null;
-      if (prev && prev !== screens.focus && !isLive(prev.name)) prev.mesh.visible = false;
+      if (prev && prev !== screens.focus && !isLive(prev.name) && !prev.own) prev.mesh.visible = false;
       if (screens.focus) { screens.focus.mesh.visible = true; screens.focusDrawn = -Infinity; }
     },
   };
