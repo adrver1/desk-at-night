@@ -459,7 +459,7 @@
 .retune .legend i.a { border-top: 0.18em dashed #9fb3ba; }
 /* Start (main.js irisOpen): the Begin screen opens from the middle onto the show */
 .begin.iris { pointer-events: none; -webkit-mask: radial-gradient(circle at 50% 50%, transparent var(--r, 0px), #000 calc(var(--r, 0px) + 1px)); mask: radial-gradient(circle at 50% 50%, transparent var(--r, 0px), #000 calc(var(--r, 0px) + 1px)); }
-.begin p.disclaimer { font-style: italic; color: #e8e4da; max-width: 46ch; justify-self: center; }   /* Adriaen, 2026-10-30 */
+.begin p.disclaimer { font-style: italic; color: #b4afa4; font-size: max(12px, calc(1.25 * var(--u))); max-width: 46ch; justify-self: center; }   /* Adriaen, 2026-10-30 */
 
 /* ------------------------------------------- live knowledge-graph slides (kg/)
    Deck slides 7 to 14 drawn live with the game's figures. --sw = 1% of the
