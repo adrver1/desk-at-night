@@ -12,10 +12,12 @@ import { drawSlots, contentOf, isFeed } from '../screens.js';
 import { LIVE } from '../controlScene.js';
 
 const SHOW = 0.12, HIDE = 0.09;   // share of the picture a screen must cover to get (and keep) its canvas
-const MAX = 2, HZ = 8, STATIC_T = 600;   // STATIC_T as in controlScene.js
+const MAX = 2, HZ = 8, BUSY_HZ = 20, STATIC_T = 600;   // BUSY_HZ: screens the room's redraw() was asked for (typing)   // STATIC_T as in controlScene.js
 // The in-world screens are drawn with the room's exposure; the canvas a touch
-// dimmer than full white to sit with them
-const FILTER = 'brightness(0.92)';
+// dimmer than full white to sit with them. Painted into the canvas (black at
+// this alpha = brightness 0.92) rather than a CSS filter, which made the
+// browser composite the layer through an extra pass every frame.
+const DIM = 0.08;
 
 // The CSS matrix3d that maps a w×h box onto the quad p (four [x, y] corners:
 // top left, top right, bottom right, bottom left)
@@ -56,12 +58,16 @@ export function closeups(game) {
   for (let i = 0; i < MAX; i++) {
     const canvas = document.createElement('canvas');
     canvas.className = 'closeup';
-    canvas.style.cssText = `position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none;display:none;filter:${FILTER}`;
+    canvas.style.cssText = `position:absolute;left:0;top:0;transform-origin:0 0;pointer-events:none;display:none;`;
     (pool[i - 1]?.canvas ?? game.renderer.domElement).after(canvas);
-    pool.push({ canvas, name: null, drawn: -1 });
+    pool.push({ canvas, name: null, drawn: -1, css: '' });
   }
   const v = new game.camera.position.constructor();
-  const hideAll = () => { for (const o of pool) { o.canvas.style.display = 'none'; o.name = null; } };
+  // The screens don't move: each one's face is found once (faceFrame walks
+  // the overlay's triangles), and feeds are known from the start
+  const frames = new Map();
+  const frameOf = (room, name) => { if (!frames.has(name)) frames.set(name, room.screenFrame(name, null)); return frames.get(name); };
+  const hideAll = () => { for (const o of pool) { o.canvas.style.display = 'none'; o.name = null; } game.room?.cover?.([]); };
   return (dt, now) => {
     const room = game.room, cam = game.camera, slots = room?.meta.screens?.slots;
     if (!slots || game.hooks.hidden || game.hooks.covered) { hideAll(); return; }
@@ -71,7 +77,7 @@ export function closeups(game) {
     const big = [];
     for (const name of Object.keys(slots)) {
       if (isFeed(contentOf(name))) continue;
-      const f = room.screenFrame(name, cam.position);
+      const f = frameOf(room, name);
       if (!f) continue;
       const p = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([s, t]) => {
         v.copy(f.at(s, t)).applyMatrix4(cam.matrixWorldInverse);
@@ -93,20 +99,32 @@ export function closeups(game) {
       const cssW = Math.hypot(w.p[1][0] - w.p[0][0], w.p[1][1] - w.p[0][1]), cssH = cssW * sh / sw;
       const pw = Math.max(1, Math.round(cssW * dpr)), ph = Math.max(1, Math.round(cssH * dpr));
       const c = o.canvas;
-      if (o.name !== w.name || c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; o.drawn = -1; }
+      if (o.name !== w.name || c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; o.drawn = -1; o.css = ''; }
       o.name = w.name;
-      c.style.width = `${cssW}px`;
-      c.style.height = `${cssH}px`;
-      c.style.transform = quadMatrix(cssW, cssH, w.p);
+      // only touch the style when it changes, so a still camera costs no restyle
+      const css = `${cssW.toFixed(1)}px ${cssH.toFixed(1)}px ${quadMatrix(cssW, cssH, w.p)}`;
+      if (o.css !== css) {
+        o.css = css;
+        c.style.width = `${cssW}px`;
+        c.style.height = `${cssH}px`;
+        c.style.transform = quadMatrix(cssW, cssH, w.p);
+      }
       // live content moves with the story's clock; the rest is drawn as the
       // room's atlas has it (STATIC_T), so it only needs the clock now and then
       const live = LIVE.includes(contentOf(w.name));
-      if (now / 1000 - o.drawn >= (live ? 1 / HZ : 1)) {
+      if (now / 1000 - o.drawn >= (live ? 1 / (room.busy?.(w.name) ? BUSY_HZ : HZ) : 1)) {
         o.drawn = now / 1000;
-        drawSlots(c.getContext('2d'), { [w.name]: [0, 0, sw, sh] }, live ? STATIC_T + now / 1000 : STATIC_T, pw / sw, undefined, true);
+        const ctx = c.getContext('2d');
+        drawSlots(ctx, { [w.name]: [0, 0, sw, sh] }, live ? STATIC_T + now / 1000 : STATIC_T, pw / sw, undefined, true);
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = `rgba(0,0,0,${DIM})`;
+        ctx.fillRect(0, 0, pw, ph);
+        ctx.restore();
       }
       c.style.display = '';
     }
     for (const o of free) { o.canvas.style.display = 'none'; o.name = null; }
+    room.cover?.(want.map((w) => w.name));
   };
 }

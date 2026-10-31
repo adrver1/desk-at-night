@@ -258,7 +258,7 @@ export class Workshop {
     this.weld.intensity = busy ? 2 + Math.random() * 6 : 0;
     this.opMix.update(dt); this.budMix.update(dt); this.ghostMix.update(dt);
     this.work(fitting >= 0 ? WORK[fitting] : null, dt);
-    if (this.t < DUR + 1) this.game.room?.redrawNow?.();   // the typing and the ring, every frame while it builds
+    if (this.t < DUR + 1) this.game.room?.redraw?.(CODE_SCREEN, SHOP_SCREEN);   // the typing and the ring while it builds (only these two: redrawNow redrew every live screen each frame)
   }
 
   // Ola at work on the part being fitted (null: done, he stands back)

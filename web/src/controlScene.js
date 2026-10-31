@@ -37,6 +37,7 @@ const isLive = (name) => LIVE.includes(contentOf(name));
 const STATIC_T = 600, SCREEN_HZ = 4, SCREEN_GAIN = 1.4;
 const ATLAS_EVERY = 3; // s between redraws of the static screens for the clock
 const FOCUS_SCALE = 2, FOCUS_HZ = 8; // the screen the player zooms in on
+const BUSY_HZ = 20, BUSY_FOR = 0.25; // screens asked for with redraw() (typing, a ring filling): their rate, and how long they count as busy
 // ?cull=0: the room's sun shadow drawn all day and every camera picture taken (docs/performance.md)
 const CULL = new URLSearchParams(location.search).get('cull') !== '0';
 const viewFrustum = new THREE.Frustum(), viewMatrix = new THREE.Matrix4();
@@ -381,7 +382,7 @@ export async function loadControlRoom(renderer) {
     const { canvas: size, slots } = meta.screens;
     const atlas = canvasTexture(renderer, size * SCREEN_SCALE, size * SCREEN_SCALE);
     drawSlots(atlas.image.getContext('2d'), slots, STATIC_T, SCREEN_SCALE);
-    screens = { atlas, meshes: [], overlays: new Map(), focus: null, drawn: -Infinity, focusDrawn: -Infinity, atlasTime: -1, atlasDrawn: -Infinity };
+    screens = { atlas, meshes: [], overlays: new Map(), focus: null, drawn: -Infinity, focusDrawn: -Infinity, atlasTime: -1, atlasDrawn: -Infinity, t: 0, busy: new Map(), covered: new Set() };
   }
   const emitters = [];
   for (const [name, e] of Object.entries(meta.emitters)) {
@@ -644,11 +645,19 @@ export async function loadControlRoom(renderer) {
           setOutside(outside, STATIC_T + t);
         }
       }
-      const f = screens.focus;
+      screens.t = t;
+      const f = screens.focus, covered = screens.covered;
       if (f && t - screens.focusDrawn >= 1 / FOCUS_HZ) { screens.focusDrawn = t; draw(f, t); }
+      // busy screens (redraw()) at their own rate, unless a page canvas covers them
+      for (const [name, at] of screens.busy) {
+        const o = screens.overlays.get(name);
+        if (!o?.tex || o === f || covered.has(name) || at > t || t - (o.drawnAt ?? -Infinity) < 1 / BUSY_HZ) continue;
+        o.drawnAt = t; draw(o, t);
+        if (t - at > BUSY_FOR) screens.busy.delete(name);
+      }
       if (t - screens.drawn < 1 / SCREEN_HZ) return;
       screens.drawn = t;
-      for (const [name, o] of screens.overlays) if (o !== f && isLive(name) && (!sharp || o.seen)) draw(o, t);
+      for (const [name, o] of screens.overlays) if (o !== f && isLive(name) && (!sharp || o.seen) && !covered.has(name)) draw(o, t);
     },
     // The meshes the screens are drawn on, for raycasting
     screenMeshes: screens?.meshes ?? [],
@@ -709,6 +718,26 @@ export async function loadControlRoom(renderer) {
     // mustn't stay up for a quarter of a second
     redrawNow() {
       if (screens) screens.drawn = screens.focusDrawn = -Infinity;
+    },
+    // Keep redrawing these screens at BUSY_HZ for a moment (call it every
+    // frame while they change, e.g. code being typed): only them, not every
+    // live screen in the room as redrawNow does
+    redraw(...names) {
+      if (!screens) return;
+      for (const n of names) screens.busy.set(n, screens.t);
+    },
+    // Whether redraw() asked for this screen just now (story/closeups.js
+    // draws such a screen's page canvas faster)
+    busy(name) {
+      const at = screens?.busy.get(name);
+      return at !== undefined && screens.t - at <= BUSY_FOR;
+    },
+    // The screens a page canvas covers right now (story/closeups.js): their
+    // WebGL picture isn't seen, so it isn't redrawn; drawn again when uncovered
+    cover(names) {
+      if (!screens) return;
+      for (const n of screens.covered) if (!names.includes(n)) { const o = screens.overlays.get(n); if (o?.tex) draw(o, screens.t); }
+      screens.covered = new Set(names);
     },
     // ... or only the screen zoomed in on (letters typed into a chat)
     redrawFocus() {
