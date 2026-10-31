@@ -21,6 +21,13 @@ const [WIDTH, HZ] = (new URLSearchParams(location.search).get('cctv') ?? '256,3'
 // The camera on a screen the player zooms in on: sharp and smooth, while
 // the screen fills the view and little else is drawn
 const FOCUS_WIDTH = 1024, FOCUS_HZ = 15;
+// How the pictures look (?cctvlook=): pixel, WIDTH across shown blocky (as
+// before 2026-11); smooth, the same size filtered and antialiased; sized,
+// filtered and antialiased, each taken as wide as its widest screen shows it
+// (in steps of STEP, from WIDTH up to MAX_WIDTH)
+const LOOK = new URLSearchParams(location.search).get('cctvlook') ?? 'pixel';
+const MAX_WIDTH = 768, STEP = 128;
+const FILTER = LOOK === 'pixel' ? THREE.NearestFilter : THREE.LinearFilter, SAMPLES = LOOK === 'pixel' ? 0 : 4;
 // On time: within this much of the quickest recent frame (the display's
 // refresh); after a late frame, wait for this many on time before the next
 // picture, but never longer than MAX_WAIT seconds
@@ -80,7 +87,7 @@ export class Cctv {
       camera.updateMatrixWorld();
       // A camera on a moving part (the crane boom's) rides along with it
       model.getObjectByName(c.parent ?? '')?.attach(camera);
-      const target = new THREE.WebGLRenderTarget(WIDTH, Math.round(WIDTH * 9 / 16), { type: THREE.HalfFloatType, magFilter: THREE.NearestFilter });
+      const target = new THREE.WebGLRenderTarget(WIDTH, Math.round(WIDTH * 9 / 16), { type: THREE.HalfFloatType, magFilter: FILTER });
       target.texture.name = 'cctv feed';
       return { id, camera, target };
     });
@@ -109,7 +116,7 @@ export class Cctv {
     this.lastT = t;
     if (this.job) { this.finish(); return; }
     if (focus !== (this.focus?.id ?? null)) {
-      if (this.focus) this.resize(this.focus, WIDTH, THREE.NearestFilter);
+      if (this.focus) this.resize(this.focus, WIDTH, FILTER);
       this.focus = this.cams.find((c) => c.id === focus) ?? null;
       if (this.focus) this.resize(this.focus, FOCUS_WIDTH, THREE.LinearFilter);
       this.focusAt = -Infinity;
@@ -125,7 +132,9 @@ export class Cctv {
     const cams = (shown ? this.cams.filter((c) => shown.has(c.id) || c.taken === undefined) : this.cams).filter((c) => c !== this.focus);
     if (!cams.length || t - this.at < 1 / HZ || !(spare || t - this.at > MAX_WAIT)) return;
     this.at = t;
-    this.start(cams.reduce((a, c) => ((c.taken ?? -Infinity) < (a.taken ?? -Infinity) ? c : a)), t);
+    const cam = cams.reduce((a, c) => ((c.taken ?? -Infinity) < (a.taken ?? -Infinity) ? c : a));
+    const px = LOOK === 'sized' && shown?.get?.(cam.id);
+    this.start(cam, t, px ? THREE.MathUtils.clamp(Math.ceil(px / STEP) * STEP, WIDTH, MAX_WIDTH) : cam.target.width);
   }
 
   resize(cam, width, filter) {
@@ -134,7 +143,7 @@ export class Cctv {
   }
 
   // First half of a picture: the sky and sea, into a spare target
-  start(cam, t) {
+  start(cam, t, width = cam.target.width) {
     cam.taken = t;
     this.heli.update(this.prevT === undefined ? 0 : t - this.prevT);
     this.prevT = t;
@@ -152,10 +161,10 @@ export class Cctv {
     const at = cam.camera.getWorldPosition(new THREE.Vector3());
     this.sun.position.copy(at).addScaledVector(L.sunDir, 200);
     this.sun.target.position.copy(at);
-    const { width, height } = cam.target;
+    const height = Math.round(width * 9 / 16);
     let work = this.work.get(width);
     if (!work) {
-      this.work.set(width, work = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType }));
+      this.work.set(width, work = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType, samples: SAMPLES }));
       work.texture.name = 'cctv';
     }
     const r = this.renderer, prev = r.getRenderTarget();
@@ -178,6 +187,7 @@ export class Cctv {
     r.setRenderTarget(work);
     r.render(this.scene, cam.camera);
     copy.material.uniforms.uTex.value = work.texture;
+    if (cam.target.width !== work.width) this.resize(cam, work.width, FILTER);   // a new size (sized look): only now, so the screen never shows an empty target
     r.setRenderTarget(cam.target);
     r.render(copyScene, copyCamera);
     r.setRenderTarget(prev);
