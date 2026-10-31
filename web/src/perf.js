@@ -86,6 +86,8 @@ setInterval(() => { if (tracing()) performance.clearMeasures(); }, 2000);
 
 // Time one update step: perfStep('cctv', () => cctv.update(...)). Returns
 // what fn returns.
+// The story bench's per-frame breakdown: ms per step and render pass this frame
+let frameLog = null;
 export function perfStep(name, fn) {
   const s = performance.now();
   try { return fn(); } finally {
@@ -93,6 +95,7 @@ export function perfStep(name, fn) {
     if (!st) steps.set(name, st = { n: 0, ms: 0 });
     st.n++;
     st.ms += performance.now() - s;
+    if (frameLog) frameLog[name] = (frameLog[name] ?? 0) + performance.now() - s;
     measure(`step ${name}`, s);
   }
 }
@@ -149,6 +152,7 @@ export function perfWatch(renderer, name = 'main') {
       p.tris += fresh ? info.triangles : info.triangles - before.tris;
       p.other += fresh ? info.points + info.lines : info.points + info.lines - before.other;
       p.cpu += cpu;
+      if (frameLog) frameLog[label] = (frameLog[label] ?? 0) + cpu;
       if (wait) { p.gpu += cpu; p.gpuN++; }
       p.target = renderer.getRenderTarget();
       p.scene = scene;
@@ -611,7 +615,7 @@ export function perfPanel({ parent = document.body } = {}) {
   }
   draw();
   raf(tick);
-  window.__perf = { report: perfReport, startScan, setView, get snapshot() { return snapshot; }, get scan() { return scan?.result; } };   // for qa/perf-shots.mjs
+  window.__perf = { report: perfReport, startScan, setView, get snapshot() { return snapshot; }, get scan() { return scan?.result; }, set frameLog(v) { frameLog = v; } };   // for qa/perf-shots.mjs
 
   return { el, setView, get view() { return view; } };
 }

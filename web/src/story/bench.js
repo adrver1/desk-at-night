@@ -49,7 +49,10 @@ function tagger(game) {
     };
   }
   const frames = [];   // newest last: { at, js, up, px, sizes, shaders }
-  game.hooks.frame.unshift(() => { cur = { at: performance.now(), up: 0, px: 0, sizes: [], programs: info.programs?.length ?? 0 }; });
+  game.hooks.frame.unshift(() => {
+    cur = { at: performance.now(), up: 0, px: 0, sizes: [], programs: info.programs?.length ?? 0, steps: {} };
+    if (window.__perf) window.__perf.frameLog = cur.steps;   // perf.js adds each step and pass of this frame
+  });
   game.hooks.render.push(() => {
     cur.js = performance.now() - cur.at;
     cur.shaders = (info.programs?.length ?? 0) - cur.programs;
@@ -60,7 +63,8 @@ function tagger(game) {
   // work ran up to it)
   return (now) => { for (let i = frames.length - 1; i >= 0; i--) if (frames[i].at < now) return frames[i]; return null; };
 }
-const tagText = (f) => (f ? `js ${f.js.toFixed(0)} ms${f.up ? ` · ${f.up} uploads ${(f.px / 1e6).toFixed(1)} Mpx (${f.sizes.join(', ')})` : ''}${f.shaders ? ` · ${f.shaders} new shaders` : ''}` : '');
+const slowSteps = (st) => Object.entries(st ?? {}).filter(([, ms]) => ms >= 5).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, ms]) => `${k} ${ms.toFixed(0)}`).join(', ');
+const tagText = (f) => (f ? `js ${f.js.toFixed(0)} ms${slowSteps(f.steps) ? ` (${slowSteps(f.steps)})` : ''}${f.up ? ` · ${f.up} uploads ${(f.px / 1e6).toFixed(1)} Mpx (${f.sizes.join(', ')})` : ''}${f.shaders ? ` · ${f.shaders} new shaders` : ''}` : '');
 
 // The longest frame over `ms` from now, with what it and the frame before did
 async function longest(ms, tagOf) {
@@ -183,10 +187,12 @@ export async function runBench(story) {
     for (const beat of beats) {
       const setting = mode.ratios ? `${label} @${r}` : label;
       show(state.results, info, `running: ${setting} · ${beat}`);
+      const g0 = performance.now();
       if (!story.goto(beat)) continue;
+      const gotoMs = performance.now() - g0;
       const j = await longest(SETTLE, tagOf);
       const m = await measure(MEASURE, tagOf);
-      state.results.push({ setting, beat, ...m, jump: j.ms, jumpTag: j.tag });
+      state.results.push({ setting, beat, ...m, jump: j.ms, jumpTag: `goto ${gotoMs.toFixed(0)} ms | ${j.tag}` });
       save(state);
     }
   }

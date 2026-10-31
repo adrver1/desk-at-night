@@ -780,6 +780,18 @@ game.ready.then(async () => {
     r.compileAsync?.(x.scene, x.camera ?? game.camera).catch(() => {});
     r.setRenderTarget(prev);
   }
+  // ... and every texture in the room and the story's scenes uploaded now:
+  // the first frame after Begin uploaded ~29 Mpx (light maps, atlas) and
+  // took 0.4 to 0.6 s on the Arc laptop (bench)
+  const seen = new Set();
+  const upload = (t) => { if (t?.isTexture && !t.isRenderTargetTexture && t.image && !seen.has(t)) { seen.add(t); game.renderer.initTexture(t); } };
+  for (const root of [game.scene, cast?.scene, buddy?.scene, workshop?.scene, twin?.scene]) root?.traverse((o) => {
+    for (const m of [o.material].flat()) {
+      if (!m) continue;
+      for (const v of Object.values(m)) upload(v);
+      for (const u of Object.values(m.uniforms ?? {})) upload(u?.value);
+    }
+  });
   go.disabled = false;
   go.textContent = T('Start', 'Begin');
   if (!begin.parentNode) enter(chapter, beat, { instant: true });
