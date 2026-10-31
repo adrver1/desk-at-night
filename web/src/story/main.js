@@ -792,6 +792,7 @@ game.ready.then(async () => {
       for (const u of Object.values(m.uniforms ?? {})) upload(u?.value);
     }
   });
+  warmUp();
   go.disabled = false;
   go.textContent = T('Start', 'Begin');
   if (!begin.parentNode) enter(chapter, beat, { instant: true });
@@ -801,6 +802,33 @@ game.ready.then(async () => {
   if (q.has('bench')) import('./bench.js').then(({ runBench }) => runBench({ start, goto: window.__story.goto, game }));
 }).catch((e) => { go.textContent = `Could not load: ${e.message}`; console.error(e); });
 sound.loadIndex();
+
+// Everything drawn once, out of sight, while the Begin screen is up: the
+// room and the cast with frustum culling off (so every object's buffers go
+// up, whatever the first beat looks at), the story's own picture scenes, and
+// the sun's shadows with a sun for a moment. The first room frame took
+// ~450 ms on the Arc laptop (bench, 2026-10-31): 230 ms first drawing the
+// room, 150 ms the platform's first sun shadow.
+function warmUp() {
+  const r = game.renderer, cam = game.camera;
+  const vp = r.getViewport(new THREE.Vector4()), sc = r.getScissor(new THREE.Vector4()), test = r.getScissorTest();
+  const unculled = [];
+  for (const root of [game.scene, cast?.scene]) root?.traverse((o) => { if (o.frustumCulled) { o.frustumCulled = false; unculled.push(o); } });
+  const light = game.outdoor3?.light;
+  try {
+    if (light) game.room?.setDaylight({ ...light, sun: new THREE.Color(1, 1, 1), sunDir: new THREE.Vector3(-0.5, 0.6, 0.3).normalize() }, 0);
+    r.setRenderTarget(null);
+    r.setViewport(0, 0, 1, 1); r.setScissor(0, 0, 1, 1); r.setScissorTest(true);
+    r.render(game.scene, cam);
+    if (cast?.scene) r.render(cast.scene, cam);
+    for (const x of [buddy, workshop, twin]) if (x?.scene && x.rt) { r.setRenderTarget(x.rt); r.render(x.scene, x.camera); }
+  } catch (e) { console.warn('warm-up', e); } finally {
+    r.setRenderTarget(null);
+    r.setViewport(vp); r.setScissor(sc); r.setScissorTest(test);
+    for (const o of unculled) o.frustumCulled = true;
+    if (light) game.room?.setDaylight(light, 0);
+  }
+}
 
 let wantBeat = null, wantAt = 0;   // __story.goto before Start
 function start() {
