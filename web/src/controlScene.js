@@ -36,6 +36,9 @@ export const LIVE = ['assistant', 'deckCam', 'flareCam', 'craneCam', 'boomCam', 
 const isLive = (name) => LIVE.includes(contentOf(name));
 const STATIC_T = 600, SCREEN_HZ = 4, SCREEN_GAIN = 1.4;
 const ATLAS_EVERY = 3; // s between redraws of the static screens for the clock
+// Static screens on their own overlays after load, so a clock redraw never
+// re-uploads the atlas (?ownscreens=0: the old way, for A/B)
+const OWN_STATIC = new URLSearchParams(location.search).get('ownscreens') !== '0';
 const FOCUS_SCALE = 2, FOCUS_HZ = 8; // the screen the player zooms in on
 const BUSY_HZ = 20, BUSY_FOR = 0.25; // screens asked for with redraw() (typing, a ring filling): their rate, and how long they count as busy
 // ?cull=0: the room's sun shadow drawn all day and every camera picture taken (docs/performance.md)
@@ -468,6 +471,13 @@ export async function loadControlRoom(renderer) {
     drawSlots(o.tex.image.getContext('2d'), { [o.name]: [0, 0, o.slot[2], o.slot[3]] }, STATIC_T + t, o.scale, undefined, true);
     o.tex.needsUpdate = true;
   }
+  // A static screen at the room's clock (as the atlas has it)
+  function drawStatic(o) {
+    const out = screens.outside;
+    if (out) setOutside(out, STATIC_T);
+    draw(o, 0);
+    if (out) setOutside(out, STATIC_T + screens.t);
+  }
   // Put a live camera's picture under the overlay when the screen shows one
   const feeds = {}, feedGain = { value: 1 };
   let gainSource = feedGain;
@@ -636,18 +646,39 @@ export async function loadControlRoom(renderer) {
         setOutside(outside, STATIC_T + t);
         // The static screens show the clock too: redraw them when it has
         // moved on a minute (or the time was changed), at most every few seconds
+        // The first time (at load) the whole atlas goes up, and every static
+        // screen gets its own small overlay. After that only the overlays are
+        // redrawn, each when it is in view: uploading the 2048² atlas again
+        // took ~150 ms on the Arc laptop, on every jump in the story's time.
         if (Math.abs(outside.time - screens.atlasTime) >= 1 / 60 && t - screens.atlasDrawn >= ATLAS_EVERY) {
+          const first = screens.atlasTime < 0;
           screens.atlasTime = outside.time;
           screens.atlasDrawn = t;
           setOutside(outside, STATIC_T);
-          drawSlots(screens.atlas.image.getContext('2d'), slots, STATIC_T, SCREEN_SCALE);
-          screens.atlas.needsUpdate = true;
-          for (const [name, o] of screens.overlays) if (!isLive(name) && o.mesh.visible && o !== screens.focus) draw(o, 0);
+          drawSlots(screens.atlas.image.getContext('2d'), slots, STATIC_T, SCREEN_SCALE);   // the canvas kept in step
+          if (first) {
+            screens.atlas.needsUpdate = true;
+            if (OWN_STATIC) for (const name of Object.keys(slots)) { const o = overlay(name, 1); if (o) { o.own = true; o.mesh.visible = true; } }
+          }
+          for (const [name, o] of screens.overlays) if (!isLive(name) && o.mesh.visible && o !== screens.focus) { if (first) draw(o, 0); else o.stale = true; }
+          if (!first && !OWN_STATIC) screens.atlas.needsUpdate = true;
           setOutside(outside, STATIC_T + t);
         }
       }
       screens.t = t;
+      screens.outside = outside;
       const f = screens.focus, covered = screens.covered;
+      // static screens behind on the clock: redrawn once in view, two a frame
+      if (view?.camera) {
+        view.camera.updateMatrixWorld();
+        viewFrustum.setFromProjectionMatrix(viewMatrix.multiplyMatrices(view.camera.projectionMatrix, view.camera.matrixWorldInverse));
+      }
+      let n = 0;
+      for (const o of screens.overlays.values()) {
+        if (!o.stale || n >= 2 || covered.has(o.name) || (view?.camera && !viewFrustum.intersectsObject(o.mesh))) continue;
+        o.stale = false; n++;
+        drawStatic(o);
+      }
       if (f && t - screens.focusDrawn >= 1 / FOCUS_HZ) { screens.focusDrawn = t; draw(f, t); }
       // busy screens (redraw()) at their own rate, unless a page canvas covers them
       for (const [name, at] of screens.busy) {
@@ -741,7 +772,7 @@ export async function loadControlRoom(renderer) {
     // WebGL picture isn't seen, so it isn't redrawn; drawn again when uncovered
     cover(names) {
       if (!screens) return;
-      for (const n of screens.covered) if (!names.includes(n)) { const o = screens.overlays.get(n); if (o?.tex) draw(o, screens.t); }
+      for (const n of screens.covered) if (!names.includes(n)) { const o = screens.overlays.get(n); if (o?.tex) { if (isLive(n)) draw(o, screens.t); else drawStatic(o); o.stale = false; } }
       screens.covered = new Set(names);
     },
     // ... or only the screen zoomed in on (letters typed into a chat)
