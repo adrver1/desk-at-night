@@ -163,6 +163,7 @@ pass table with and without:
 | `?aniso=old` | 16× anisotropic filtering on every baked map. Normally the light maps have none (they are smooth) and the albedo and whiteboards 4× |
 | `?aa=0` | Turns multisampling (antialiasing) off, to see what it costs. `play.html` and `story.html` only |
 | `?cull=0` | Draws what is out of sight again (2026-10-30): the room's sun shadow map while the sun can't get in through the window (all of story mode's day), the supply vessel and the sea's depth-only surface while the walls hide them, camera pictures for screens out of view, and the sea's surface in the rest corner clock's close-up |
+| `?sharp=0` | Screens drawn the old way (2026-10-31): live screens at their slot's size (640 or 512 px wide) and the rest from the shared atlas, whatever their size on screen, and live screens redrawn also out of view. Normally each screen in view gets a texture as wide as it shows on the canvas (up to 4× the slot), so close-ups stay sharp, and live screens out of view wait |
 
 For example `story.html?perf=1&seaclip=0&aniso=old` is the page as it was
 before 2026-10-26.
