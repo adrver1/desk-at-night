@@ -636,6 +636,12 @@ const SHORT_CHAPTERS = [
       // (Adriaen, 2026-10-29) after the call he turns to CtrlBuddy, still waving on his screen: the click
       { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen', explain: null, buddyPointer: true }, do: [{ card: null }, { wait: 0.8 }, { buddy: 'click' }],
         notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
+      // (Adriaen, 2026-10-30) the separator's digital twin, after the simulator chat (c.sim); moved to the year-ago call with c.sim and c.sim2 (Adriaen, 2026-10-31): VS Code with the
+      // CasADi model typed in section by section, and beside it the separator put together over its blueprint
+      // while CtrlBuddy beams each part in (twin.js), as the CtrlBuddy build (m.build)
+      { id: 'm.twin', set: { overlay: null, twin: true, thoughts: null, call: null, phone: null, explain: null, shot: 'pair:Desk0Mon0Screen,Desk0Mon1Screen',
+        screens: { Desk0Mon0Screen: 'twinCode', Desk0Mon1Screen: 'twin' } },
+        notes: 'Vi bygde en digital tvilling av separatoren i CasADi: geometri, massebalanser, overløp og ventiler. Hver del av koden er en del av separatoren.' },
     ],
   },
   {
@@ -658,12 +664,6 @@ const SHORT_CHAPTERS = [
       { id: 'm.s3', set: { overlay: 'slide:m-03' } },
       // the re-tuning outcome, after the step test and the separator model chats (c.step, c.sim, inserted
       // after h.s2's slides and m.s3): old and new oil level tuning side by side (Adriaen, 2026-10-30)
-      // (Adriaen, 2026-10-30) the separator's digital twin, after the simulator chat (c.sim): VS Code with the
-      // CasADi model typed in section by section, and beside it the separator put together over its blueprint
-      // while CtrlBuddy beams each part in (twin.js), as the CtrlBuddy build (m.build)
-      { id: 'm.twin', set: { overlay: null, twin: true, thoughts: null, call: null, phone: null, explain: null, shot: 'pair:Desk0Mon0Screen,Desk0Mon1Screen',
-        screens: { Desk0Mon0Screen: 'twinCode', Desk0Mon1Screen: 'twin' } },
-        notes: 'Vi bygde en digital tvilling av separatoren i CasADi: geometri, massebalanser, overløp og ventiler. Hver del av koden er en del av separatoren.' },
       { id: 'm.retune', set: { overlay: null, twin: null, retune: true },
         notes: 'Gammel og ny innstilling av nivåregulatoren side om side, på den nye modellen: strømningen holdes jevn, nivået får drive innenfor båndet. S bytter hvilken separatoren viser.' },
       { id: 'm.scd', set: { overlay: null, retune: null, shot: 'monitor:Desk0Mon2Screen', tool: 'scd', screens: { Desk0Mon2Screen: 'scd' } }, notes: 'The I-005 logic tester: a missing interlock found on a laptop.' },

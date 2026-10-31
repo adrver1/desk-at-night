@@ -815,7 +815,7 @@
    "notes": "Samme samtale som chat (versjon B): Nordhav Beta skriver, separatoren som video på skjermen ved siden av."
   },
   {
-   "after": "m.s3",
+   "after": "m.buddy2",
    "id": "c.sim",
    "chat": "sim",
    "notes": "Samtale: han vil lære ved å gjøre, CtrlBuddy bygger en generisk separatormodell."
