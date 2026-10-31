@@ -20,7 +20,8 @@ const MODES = {
   closeup: { beats: ['c.step', 'c.sim', 'm.build', 'm.twin', 'ep.line', 'm.what1'], ratios: 0,
     passes: [{ closeup: '0', label: 'no closeups' }, { label: 'closeups' }] },
 };
-const OPTIONS = ['aa', 'closeup', 'sharp'];   // the URL options passes set
+const OPTIONS = ['aa', 'closeup', 'sharp'];
+const BUILD = typeof __BUILD__ === 'string' ? __BUILD__ : 'dev';   // the URL options passes set
 const SETTLE = 1500, MEASURE = 3000;   // ms per beat and setting
 const KEY = 'storyBench';
 
@@ -48,7 +49,10 @@ function tagger(game) {
     };
   }
   const frames = [];   // newest last: { at, js, up, px, sizes, shaders }
-  game.hooks.frame.unshift(() => { cur = { at: performance.now(), up: 0, px: 0, sizes: [], programs: info.programs?.length ?? 0 }; });
+  game.hooks.frame.unshift(() => {
+    cur = { at: performance.now(), up: 0, px: 0, sizes: [], programs: info.programs?.length ?? 0, steps: {} };
+    if (window.__perf) window.__perf.frameLog = cur.steps;   // perf.js adds each step and pass of this frame
+  });
   game.hooks.render.push(() => {
     cur.js = performance.now() - cur.at;
     cur.shaders = (info.programs?.length ?? 0) - cur.programs;
@@ -59,7 +63,8 @@ function tagger(game) {
   // work ran up to it)
   return (now) => { for (let i = frames.length - 1; i >= 0; i--) if (frames[i].at < now) return frames[i]; return null; };
 }
-const tagText = (f) => (f ? `js ${f.js.toFixed(0)} ms${f.up ? ` · ${f.up} uploads ${(f.px / 1e6).toFixed(1)} Mpx (${f.sizes.join(', ')})` : ''}${f.shaders ? ` · ${f.shaders} new shaders` : ''}` : '');
+const slowSteps = (st) => Object.entries(st ?? {}).filter(([, ms]) => ms >= 5).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, ms]) => `${k} ${ms.toFixed(0)}`).join(', ');
+const tagText = (f) => (f ? `js ${f.js.toFixed(0)} ms${slowSteps(f.steps) ? ` (${slowSteps(f.steps)})` : ''}${f.up ? ` · ${f.up} uploads ${(f.px / 1e6).toFixed(1)} Mpx (${f.sizes.join(', ')})` : ''}${f.shaders ? ` · ${f.shaders} new shaders` : ''}` : '');
 
 // The longest frame over `ms` from now, with what it and the frame before did
 async function longest(ms, tagOf) {
@@ -123,7 +128,7 @@ function show(results, info, running) {
 }
 
 function report(results, info) {
-  const L = [`story bench · ${info.device} · ${info.css} CSS px · devicePixelRatio ${info.dpr} · GPU timer ${info.timer ? 'yes' : 'no'}`, navigator.userAgent, ''];
+  const L = [`story bench · build ${info.build}${info.builds?.length > 1 ? ` (passes ran different builds: ${info.builds.join(' / ')}, reload and run again)` : ''} · ${info.device} · ${info.css} CSS px · devicePixelRatio ${info.dpr} · GPU timer ${info.timer ? 'yes' : 'no'}`, navigator.userAgent, ''];
   const settings = [...new Set(results.map((r) => r.setting))];
   L.push(`${'setting'.padEnd(14)} ${'fps'.padStart(5)} ${'gpu ms'.padStart(7)} ${'room ms'.padStart(8)} ${'worst ms'.padStart(9)}   (averaged over beats; worst = longest frame; slowest beat)`);
   for (const s of settings) {
@@ -156,7 +161,8 @@ export async function runBench(story) {
   const mode = MODES[q.get('bench')] ?? MODES.full, beats = mode.beats;
   const renderer = story.game.renderer;
   // Each pass: its URL options, then a reload; the results carry over
-  const go = (i) => { for (const k of OPTIONS) q.delete(k); for (const [k, v] of Object.entries(mode.passes[i])) if (k !== 'label') q.set(k, v); q.set('benchpass', i); location.search = q.toString(); };
+  // (`run` makes each reload a new URL, so no pass gets an old cached page)
+  const go = (i) => { for (const k of OPTIONS) q.delete(k); for (const [k, v] of Object.entries(mode.passes[i])) if (k !== 'label') q.set(k, v); q.set('benchpass', i); q.set('run', Date.now().toString(36)); location.search = q.toString(); };
   // A pass carries on only from the pass before it, with that run's results
   // and its own URL options; anything else (say, an old bench URL opened
   // again) starts the run over
@@ -166,13 +172,14 @@ export async function runBench(story) {
   const label = passOpts.label ?? passOpts.aa;
   const state = pass > 0 ? saved : { results: [] };
   state.mode = q.get('bench'); state.pass = pass;
+  state.builds = [...new Set([...(state.builds ?? []), BUILD])];
   story.start();
   document.querySelector('.iris')?.remove();
   window.__perf?.setView?.('full');
   const dpr = devicePixelRatio;
   const ratios = mode.ratios ? [...new Set([Math.min(dpr, 2), 1.5, 1.25, 1, 0.75].filter((r) => r <= Math.max(dpr, 1) + 1e-6))].slice(0, mode.ratios) : [renderer.getPixelRatio()];
   const gl = renderer.getContext();
-  const info = { device: window.__perf?.snapshot?.device ?? '', css: `${innerWidth}×${innerHeight}`, dpr: +dpr.toFixed(2), timer: Boolean(gl.getExtension('EXT_disjoint_timer_query_webgl2')) };
+  const info = { build: BUILD, device: window.__perf?.snapshot?.device ?? '', css: `${innerWidth}×${innerHeight}`, dpr: +dpr.toFixed(2), timer: Boolean(gl.getExtension('EXT_disjoint_timer_query_webgl2')) };
   const before = renderer.getPixelRatio();
   const tagOf = tagger(story.game);
   for (const r of ratios) {
@@ -180,16 +187,19 @@ export async function runBench(story) {
     for (const beat of beats) {
       const setting = mode.ratios ? `${label} @${r}` : label;
       show(state.results, info, `running: ${setting} · ${beat}`);
+      const g0 = performance.now();
       if (!story.goto(beat)) continue;
+      const gotoMs = performance.now() - g0;
       const j = await longest(SETTLE, tagOf);
       const m = await measure(MEASURE, tagOf);
-      state.results.push({ setting, beat, ...m, jump: j.ms, jumpTag: j.tag });
+      state.results.push({ setting, beat, ...m, jump: j.ms, jumpTag: `goto ${gotoMs.toFixed(0)} ms | ${j.tag}` });
       save(state);
     }
   }
   renderer.setPixelRatio(before);
   save(state);
   if (pass < mode.passes.length - 1) { go(pass + 1); return; }
+  info.builds = state.builds;
   show(state.results, info, null);
   try { sessionStorage.removeItem(KEY); } catch { /* fine */ }
 }
