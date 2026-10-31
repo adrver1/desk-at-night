@@ -4,7 +4,9 @@
 // again, and shows one table to copy into a chat.
 // Per beat and setting: frame rate, and GPU time per frame where the browser
 // has a GPU timer (desktop Chrome, Edge, Firefox), read from perf.js.
-// Results carry across the reload in sessionStorage.
+// Results carry across the reload in sessionStorage. Frames over 40 ms are
+// listed with what they did (uploads, shader compiles, page code time), both
+// while a beat plays and on the jump into it.
 //
 // URL: ?bench=1 (all), ?bench=quick (three beats, two ratios),
 // ?bench=closeup (close-up beats with the sharp close-up canvases of
@@ -28,15 +30,61 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 function load() { try { return JSON.parse(sessionStorage.getItem(KEY)) ?? null; } catch { return null; } }
 function save(v) { try { sessionStorage.setItem(KEY, JSON.stringify(v)); } catch { /* private mode: one pass only */ } }
 
-// Frame rate from requestAnimationFrame over `ms`, and the perf panel's
-// last GPU readings over the same time
-async function measure(ms) {
-  const gpu = [], room = [], passes = {};
-  let frames = 0, first = null, last = null, worst = 0;
+// What each frame did, to tell why a long one was long: the time spent in
+// the page's own code (from the first frame hook to the end of the story's
+// render hooks), the textures uploaded (canvas to WebGL, slow on the Arc
+// laptop) and shader programs compiled
+const LONG = 40;   // ms: a frame this long is listed
+function tagger(game) {
+  const gl = game.renderer.getContext(), info = game.renderer.info;
+  let cur = { up: 0, px: 0, sizes: [] };
+  for (const k of ['texImage2D', 'texSubImage2D']) {
+    const f = gl[k].bind(gl);
+    gl[k] = (...a) => {
+      const src = a.find((x) => x && typeof x === 'object' && 'width' in x && 'height' in x);
+      const w = src ? src.width : typeof a[3] === 'number' ? a[3] : 0, h = src ? src.height : typeof a[4] === 'number' ? a[4] : 0;
+      if (w * h >= 64 * 64) { cur.up++; cur.px += w * h; if (cur.sizes.length < 4) cur.sizes.push(`${w}×${h}`); }
+      return f(...a);
+    };
+  }
+  const frames = [];   // newest last: { at, js, up, px, sizes, shaders }
+  game.hooks.frame.unshift(() => { cur = { at: performance.now(), up: 0, px: 0, sizes: [], programs: info.programs?.length ?? 0 }; });
+  game.hooks.render.push(() => {
+    cur.js = performance.now() - cur.at;
+    cur.shaders = (info.programs?.length ?? 0) - cur.programs;
+    frames.push(cur);
+    if (frames.length > 600) frames.shift();
+  });
+  // the record of the last frame started before rAF time `now` (the one whose
+  // work ran up to it)
+  return (now) => { for (let i = frames.length - 1; i >= 0; i--) if (frames[i].at < now) return frames[i]; return null; };
+}
+const tagText = (f) => (f ? `js ${f.js.toFixed(0)} ms${f.up ? ` · ${f.up} uploads ${(f.px / 1e6).toFixed(1)} Mpx (${f.sizes.join(', ')})` : ''}${f.shaders ? ` · ${f.shaders} new shaders` : ''}` : '');
+
+// The longest frame over `ms` from now, with what it and the frame before did
+async function longest(ms, tagOf) {
+  let first = null, last = null, worst = { ms: 0 };
   await new Promise((done) => {
     const tick = (now) => {
       if (first == null) first = now;
-      if (last != null) worst = Math.max(worst, now - last);
+      if (last != null && now - last > worst.ms) worst = { ms: now - last, tag: [tagOf?.(last), tagOf?.(now)].filter(Boolean).map(tagText).join(' | then ') };
+      last = now;
+      if (now - first < ms) requestAnimationFrame(tick); else done();
+    };
+    requestAnimationFrame(tick);
+  });
+  return worst;
+}
+
+// Frame rate from requestAnimationFrame over `ms`, and the perf panel's
+// last GPU readings over the same time
+async function measure(ms, tagOf) {
+  const gpu = [], room = [], passes = {};
+  let frames = 0, first = null, last = null, worst = 0, worstTag = '';
+  await new Promise((done) => {
+    const tick = (now) => {
+      if (first == null) first = now;
+      if (last != null && now - last > worst) { worst = now - last; worstTag = [tagOf?.(last), tagOf?.(now)].filter(Boolean).map(tagText).join(' | then '); }
       frames++; last = now;
       if (now - first < ms) requestAnimationFrame(tick); else done();
     };
@@ -52,7 +100,7 @@ async function measure(ms) {
   });
   const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
   const top = Object.entries(passes).map(([l, v]) => [l, avg(v)]).sort((a, b) => b[1] - a[1]).slice(0, 4);
-  return { fps: ((frames - 1) * 1000) / (last - first), worst, gpu: avg(gpu), room: avg(room), top };
+  return { fps: ((frames - 1) * 1000) / (last - first), worst, worstTag, gpu: avg(gpu), room: avg(room), top };
 }
 
 function show(results, info, running) {
@@ -86,13 +134,18 @@ function report(results, info) {
     const hitch = Math.max(...rs.map((r) => r.worst ?? 0));
     L.push(`${s.padEnd(14)} ${f(avg('fps')).padStart(5)} ${f(avg('gpu')).padStart(7)} ${f(avg('room')).padStart(8)} ${f(hitch, 0).padStart(9)}   ${worst.beat} ${f(worst.fps)} fps`);
   }
-  L.push('', 'per beat (fps / gpu ms / longest frame ms):', `${'beat'.padEnd(12)} ${settings.map((s) => s.padStart(16)).join('')}`);
+  L.push('', 'per beat (fps / gpu ms / longest frame ms / longest frame of the jump into it ms):', `${'beat'.padEnd(12)} ${settings.map((s) => s.padStart(18)).join('')}`);
   for (const beat of [...new Set(results.map((r) => r.beat))]) {
-    L.push(`${beat.padEnd(12)} ${settings.map((s) => { const r = results.find((x) => x.beat === beat && x.setting === s); return (r ? `${r.fps.toFixed(0)}/${r.gpu == null ? '–' : r.gpu.toFixed(1)}/${(r.worst ?? 0).toFixed(0)}` : '').padStart(16); }).join('')}`);
+    L.push(`${beat.padEnd(12)} ${settings.map((s) => { const r = results.find((x) => x.beat === beat && x.setting === s); return (r ? `${r.fps.toFixed(0)}/${r.gpu == null ? '–' : r.gpu.toFixed(1)}/${(r.worst ?? 0).toFixed(0)}/${(r.jump ?? 0).toFixed(0)}` : '').padStart(18); }).join('')}`);
   }
   // Where the GPU time goes in the slowest beats
   const slow = [...results].sort((a, b) => a.fps - b.fps).filter((r) => r.top?.length).slice(0, 4);
   if (slow.length) L.push('', 'slowest beats, top passes (gpu ms):', ...slow.map((r) => `${r.beat} · ${r.setting}: ${r.top.map(([l, ms]) => `${l} ${ms.toFixed(1)}`).join(' · ')}`));
+  // The longest frames, while playing (steady) and on the jump into a beat,
+  // with what that frame and the one before it did
+  const long = results.flatMap((r) => [{ r, ms: r.worst, tag: r.worstTag, when: 'playing' }, { r, ms: r.jump, tag: r.jumpTag, when: 'jump' }])
+    .filter((x) => x.ms > LONG).sort((a, b) => b.ms - a.ms).slice(0, 10);
+  if (long.length) L.push('', `frames over ${LONG} ms (what the frame before and that frame did):`, ...long.map((x) => `${x.r.beat} · ${x.r.setting} · ${x.when} ${x.ms.toFixed(0)} ms: ${x.tag || '–'}`));
   return L.join('\n');
 }
 
@@ -121,15 +174,16 @@ export async function runBench(story) {
   const gl = renderer.getContext();
   const info = { device: window.__perf?.snapshot?.device ?? '', css: `${innerWidth}×${innerHeight}`, dpr: +dpr.toFixed(2), timer: Boolean(gl.getExtension('EXT_disjoint_timer_query_webgl2')) };
   const before = renderer.getPixelRatio();
+  const tagOf = tagger(story.game);
   for (const r of ratios) {
     renderer.setPixelRatio(r);
     for (const beat of beats) {
       const setting = mode.ratios ? `${label} @${r}` : label;
       show(state.results, info, `running: ${setting} · ${beat}`);
       if (!story.goto(beat)) continue;
-      await wait(SETTLE);
-      const m = await measure(MEASURE);
-      state.results.push({ setting, beat, ...m });
+      const j = await longest(SETTLE, tagOf);
+      const m = await measure(MEASURE, tagOf);
+      state.results.push({ setting, beat, ...m, jump: j.ms, jumpTag: j.tag });
       save(state);
     }
   }
