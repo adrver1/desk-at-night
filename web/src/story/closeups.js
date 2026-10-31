@@ -12,7 +12,7 @@ import { drawSlots, contentOf, isFeed } from '../screens.js';
 import { LIVE } from '../controlScene.js';
 
 const SHOW = 0.12, HIDE = 0.09;   // share of the picture a screen must cover to get (and keep) its canvas
-const MAX = 2, HZ = 8, STATIC_T = 600;   // STATIC_T as in controlScene.js
+const MAX = 2, HZ = 8, BUSY_HZ = 20, STATIC_T = 600;   // BUSY_HZ: screens the room's redraw() was asked for (typing)   // STATIC_T as in controlScene.js
 // The in-world screens are drawn with the room's exposure; the canvas a touch
 // dimmer than full white to sit with them. Painted into the canvas (black at
 // this alpha = brightness 0.92) rather than a CSS filter, which made the
@@ -67,7 +67,7 @@ export function closeups(game) {
   // the overlay's triangles), and feeds are known from the start
   const frames = new Map();
   const frameOf = (room, name) => { if (!frames.has(name)) frames.set(name, room.screenFrame(name, null)); return frames.get(name); };
-  const hideAll = () => { for (const o of pool) { o.canvas.style.display = 'none'; o.name = null; } };
+  const hideAll = () => { for (const o of pool) { o.canvas.style.display = 'none'; o.name = null; } game.room?.cover?.([]); };
   return (dt, now) => {
     const room = game.room, cam = game.camera, slots = room?.meta.screens?.slots;
     if (!slots || game.hooks.hidden || game.hooks.covered) { hideAll(); return; }
@@ -112,7 +112,7 @@ export function closeups(game) {
       // live content moves with the story's clock; the rest is drawn as the
       // room's atlas has it (STATIC_T), so it only needs the clock now and then
       const live = LIVE.includes(contentOf(w.name));
-      if (now / 1000 - o.drawn >= (live ? 1 / HZ : 1)) {
+      if (now / 1000 - o.drawn >= (live ? 1 / (room.busy?.(w.name) ? BUSY_HZ : HZ) : 1)) {
         o.drawn = now / 1000;
         const ctx = c.getContext('2d');
         drawSlots(ctx, { [w.name]: [0, 0, sw, sh] }, live ? STATIC_T + now / 1000 : STATIC_T, pw / sw, undefined, true);
@@ -125,5 +125,6 @@ export function closeups(game) {
       c.style.display = '';
     }
     for (const o of free) { o.canvas.style.display = 'none'; o.name = null; }
+    room.cover?.(want.map((w) => w.name));
   };
 }

@@ -356,7 +356,7 @@ export class Twin {
       const world = new THREE.Quaternion().setFromUnitVectors(now, want).multiply(qb);
       this.opHead.quaternion.copy(this.opHead.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(world));
     }
-    if (this.t < DUR + 1 || this.mode === 'fix') this.game.room?.redrawNow?.();   // the typing and the ring, every frame while it builds
+    if (this.t < DUR + 1 || this.mode === 'fix') this.game.room?.redraw?.(CODE_SCREEN, TWIN_SCREEN);   // the typing and the ring while it builds (only these two: redrawNow redrew every live screen each frame)
   }
 
   // The corrections, as far as the chat has come: the messages marked twin: 'len' and 'valve' (story.json chats.sim2)
