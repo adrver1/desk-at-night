@@ -88,7 +88,6 @@ export class Cctv {
     this.feeds = Object.fromEntries(this.cams.map((c) => [c.id, c.target.texture]));
     // How much the cameras amplify: more at night, like an auto-exposure
     this.gain = { value: 1 };
-    this.next = 0;  // whose turn it is
     this.at = -Infinity;
     this.job = null;          // a picture half drawn: { cam, work }
     this.work = new Map();    // spare targets by width
@@ -121,10 +120,12 @@ export class Cctv {
       this.start(this.focus, t);
       return;
     }
-    const cams = (shown ? this.cams.filter((c) => shown.has(c.id)) : this.cams).filter((c) => c !== this.focus);
+    // The shown ones, and any not taken yet (so none is black when it turns
+    // into view), the longest waiting first
+    const cams = (shown ? this.cams.filter((c) => shown.has(c.id) || c.taken === undefined) : this.cams).filter((c) => c !== this.focus);
     if (!cams.length || t - this.at < 1 / HZ || !(spare || t - this.at > MAX_WAIT)) return;
     this.at = t;
-    this.start(cams[this.next++ % cams.length], t);
+    this.start(cams.reduce((a, c) => ((c.taken ?? -Infinity) < (a.taken ?? -Infinity) ? c : a)), t);
   }
 
   resize(cam, width, filter) {
@@ -134,6 +135,7 @@ export class Cctv {
 
   // First half of a picture: the sky and sea, into a spare target
   start(cam, t) {
+    cam.taken = t;
     this.heli.update(this.prevT === undefined ? 0 : t - this.prevT);
     this.prevT = t;
     const L = this.outdoor.light;

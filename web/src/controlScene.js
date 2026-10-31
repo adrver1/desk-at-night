@@ -36,6 +36,9 @@ const isLive = (name) => LIVE.includes(contentOf(name));
 const STATIC_T = 600, SCREEN_HZ = 4, SCREEN_GAIN = 1.4;
 const ATLAS_EVERY = 3; // s between redraws of the static screens for the clock
 const FOCUS_SCALE = 2, FOCUS_HZ = 8; // the screen the player zooms in on
+// ?cull=0: the room's sun shadow drawn all day and every camera picture taken (docs/performance.md)
+const CULL = new URLSearchParams(location.search).get('cull') !== '0';
+const viewFrustum = new THREE.Frustum(), viewMatrix = new THREE.Matrix4();
 const SCREEN_SCALE = matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
 
 // Seven-segment style digits: the unlit segments faintly, the time bright.
@@ -496,7 +499,9 @@ export async function loadControlRoom(renderer) {
       u.uSky.value.copy(sky);
       u.uSun.value.copy(sun);
       u.uSunDir.value.copy(sunDir);
-      if (sun.r + sun.g + sun.b > 1e-5) shadows.update(sunDir, casters, gltf.scene, t);
+      // The sun gets in only through the window, from its side (sunlit() in
+      // roomFragment) and past the curtains
+      if (sun.r + sun.g + sun.b > 1e-5) shadows.update(sunDir, casters, gltf.scene, t, !CULL || (sunDir.x < -1e-4 && u.uSunPass.value > 0));
       curtains?.setDaylight({ sky, sun, sunDir });
       if (!outside) return;
       outside.uniforms.uFogColor.value.copy(fog);
@@ -605,9 +610,20 @@ export async function loadControlRoom(renderer) {
       for (const o of screens.overlays.values()) { showFeed(o); if (o.tex) draw(o, 0); }
     },
     // Which camera pictures some screen shows right now (to skip the others)
-    feedsShown() {
+    // With `camera`, only the screens in its view: a camera picture nobody
+    // sees isn't taken (cctv.js still takes each one once, so a screen that
+    // turns into view never starts out black)
+    feedsShown(camera = null) {
       const shown = new Set();
-      if (screens) for (const o of screens.overlays.values()) if (o.mesh.visible && o.mesh.material.uniforms.uFeed.value) shown.add(contentOf(o.name));
+      if (camera) {
+        camera.updateMatrixWorld();
+        viewFrustum.setFromProjectionMatrix(viewMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+      }
+      if (screens) for (const o of screens.overlays.values()) {
+        if (!o.mesh.visible || !o.mesh.material.uniforms.uFeed.value) continue;
+        if (camera && !viewFrustum.intersectsObject(o.mesh)) continue;
+        shown.add(contentOf(o.name));
+      }
       return shown;
     },
     // The camera on the screen shown sharp, if it shows one (for cctv.js)
