@@ -55,6 +55,8 @@ ROWS = [
     # 8 animals and soft toys
     [("sloth_fur", "#8f7c62"), ("sloth_fur_dark", "#6a5844"), ("sloth_face", "#e4d6bc"),
      ("sloth_mask", "#3a2a1f"), ("claw", "#d8cbb0"), ("sloth_tan", "#b49670")],
+    # 9 Frankenbot's green metal (light_grey and grey, tinted)
+    [("franken_green", "#a8c49c"), ("franken_green_dark", "#7c9873")],
 ]
 
 SWATCHES = {}

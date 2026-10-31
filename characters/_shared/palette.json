@@ -438,5 +438,15 @@
   "row": 8,
   "col": 5,
   "hex": "#b49670"
+ },
+ "franken_green": {
+  "row": 9,
+  "col": 0,
+  "hex": "#a8c49c"
+ },
+ "franken_green_dark": {
+  "row": 9,
+  "col": 1,
+  "hex": "#7c9873"
  }
 }
