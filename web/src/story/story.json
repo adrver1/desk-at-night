@@ -476,6 +476,9 @@
    "faces": {
     "me": "adriaen",
     "ai": "ctrlbuddy"
+   },
+   "set": {
+    "twin": null
    }
   },
   "sim": {
@@ -890,7 +893,7 @@
    "notes": "Lysbilde 14."
   },
   {
-   "after": "new.ctrl14",
+   "after": "c.sim2",
    "id": "c.step",
    "chat": "step",
    "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."
