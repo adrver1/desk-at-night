@@ -104,11 +104,15 @@ export async function runBench(story) {
   const renderer = story.game.renderer;
   // Each pass: its URL options, then a reload; the results carry over
   const go = (i) => { for (const k of OPTIONS) q.delete(k); for (const [k, v] of Object.entries(mode.passes[i])) if (k !== 'label') q.set(k, v); q.set('benchpass', i); location.search = q.toString(); };
-  if (!q.has('benchpass')) { go(0); return; }
-  const pass = Math.min(+q.get('benchpass') || 0, mode.passes.length - 1), passOpts = mode.passes[pass];
+  // A pass carries on only from the pass before it, with that run's results
+  // and its own URL options; anything else (say, an old bench URL opened
+  // again) starts the run over
+  const pass = q.has('benchpass') ? +q.get('benchpass') : -1, passOpts = mode.passes[pass], saved = load();
+  const fits = passOpts && OPTIONS.every((k) => (q.get(k) ?? undefined) === (passOpts[k] ?? undefined));
+  if (!fits || (pass > 0 && (saved?.mode !== q.get('bench') || saved?.pass !== pass - 1))) { go(0); return; }
   const label = passOpts.label ?? passOpts.aa;
-  let state = pass > 0 ? load() : null;   // the first pass starts over
-  state ??= { results: [] };
+  const state = pass > 0 ? saved : { results: [] };
+  state.mode = q.get('bench'); state.pass = pass;
   story.start();
   document.querySelector('.iris')?.remove();
   window.__perf?.setView?.('full');
@@ -130,6 +134,7 @@ export async function runBench(story) {
     }
   }
   renderer.setPixelRatio(before);
+  save(state);
   if (pass < mode.passes.length - 1) { go(pass + 1); return; }
   show(state.results, info, null);
   try { sessionStorage.removeItem(KEY); } catch { /* fine */ }

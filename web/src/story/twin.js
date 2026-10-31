@@ -166,7 +166,6 @@ export class Twin {
       if (this.shot && seen && !['twin', 'twinFix'].some((id) => seen.has(id))) return;
       if (this.shot && (this.skip = !this.skip)) return;
       this.shot = true;
-      if (!this.scene.environment) this.scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
       const prev = renderer.getRenderTarget(), clip = renderer.localClippingEnabled;
       renderer.localClippingEnabled = true;
       renderer.setRenderTarget(this.rt);
@@ -236,6 +235,9 @@ export class Twin {
   }
 
   async load() {
+    // Its lighting environment now, while the room loads: made on the first
+    // frame it showed, it stalled that frame by over a second (headless bench)
+    this.scene.environment ??= new THREE.PMREMGenerator(this.game.renderer).fromScene(new RoomEnvironment(), 0.04).texture;
     const [op, bud] = await Promise.all(['bearded_operator', 'control_buddy'].map((m) => loadModel(m).catch((e) => { console.warn('twin', m, e); return null; })));
     const clip = (g, n) => THREE.AnimationClip.findByName(g.animations, n);
     const bones = (root) => { const b = {}; root.traverse((o) => { if (o.isBone) b[o.name] = o; }); return b; };
