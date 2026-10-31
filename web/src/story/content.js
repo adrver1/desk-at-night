@@ -470,7 +470,7 @@ const tx = (o) => (o ? T(o.no ?? o.en, o.en ?? o.no) : '');
 // A 'show' message is a report the agent hands over: the chat shows it as an
 // attachment and the screen beside it the picture or video (`file` in
 // public/story/reports/).
-const chatOf = (c) => ({ title: tx(c.title), who: c.who, faces: c.faces ?? {}, messages: c.messages.map(([who, m]) => [who, tx(m), m]) });
+const chatOf = (c) => ({ title: tx(c.title), who: c.who, faces: c.faces ?? {}, shot: c.set?.shot, messages: c.messages.map(([who, m]) => [who, tx(m), m]) });
 export const CHATS = Object.fromEntries(Object.entries(STORY.chats).map(([id, c]) => [id, chatOf(c)]));
 // the private build's own wording of a chat (overrides.json `chats`)
 export const setChat = (id, c) => { CHATS[id] = chatOf({ ...STORY.chats[id], ...c }); };
@@ -512,6 +512,8 @@ const SLUG_SCREEN = 'Desk1Mon2Screen';
 const ADR_SCREENS = (id) => ({ ...PLAN_SCREENS('chatPlan'), [SLUG_SCREEN]: id });
 const TOMORROW_CAST = { supervisor: { at: 'desk0typing' }, operator: { at: 'desk2typing' } };
 export const CLOSING = tx(STORY.closing);
+// The card before the prologue (main.js), editable in the story editor
+export const DISCLAIMER = tx(STORY.disclaimer ?? { no: 'Laget av landkrabber som aldri har vært offshore. Kunstnerisk frihet benyttet i design og historiefortelling, men teknologien er reell :)', en: 'Made by landlubbers who have never been offshore. Artistic licence taken in design and storytelling, but the technology is real :)' });
 
 const SHORT_CHAPTERS = [
   {
@@ -534,7 +536,7 @@ const SHORT_CHAPTERS = [
       // the pointer clicks it and the chat opens on that screen at full zoom. It is the CtrlBuddy model, but
       // CtrlBuddy is Ola's process-control agent: Per's has its own name (PlanBuddy, BUDDY_WHO.planner)
       { id: 't.plan', auto: true, set: { shot: 'buddyDesk', buddyAt: CHAT_SCREEN, buddyWho: 'planner' },
-        do: [{ wait: 0.8 }, { set: { screens: PLAN_SCREENS('buddy'), buddy: 'splash', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
+        do: [{ wait: 0.8 }, { set: { screens: PLAN_SCREENS('buddy'), buddy: 'popup', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
           { set: { screens: PLAN_SCREENS('chatPlan'), shot: `monitor:${CHAT_SCREEN}` } }, { wait: 0.4 },
           { chat: 'plan' }, { say: 't.plan1' }, { chat: 'plan' }, { wait: 0.6 }, { say: 't.ai1' }, { wait: 0.2 },
           { set: { shot: 'supervisor' } }, { chat: 'plan' }, { say: 't.plan2' }, { chat: 'plan' }, { set: { shot: `monitor:${CHAT_SCREEN}` } }, { wait: 0.6 }, { say: 't.ai2' }, { set: { shot: 'band' } }, { wait: 0.8 }],
@@ -546,16 +548,20 @@ const SHORT_CHAPTERS = [
           { move: 'operator', walk: PATHS.desk0ToDesk2 }, { move: 'operator', carry: null, put: [1.36, 0.745, -2.3] }, { move: 'operator', sit: 1, then: 'typing', to: 'desk2typing' }, { wait: 0.6 }, { set: { shot: 'wideRoom' } }, { idle: 'operator' }],
         end: { shot: 'wideRoom', mugs: { S0Mug: [1, -0.45, -2.12] }, cast: { supervisor: { at: 'desk0typing' }, operator: { at: 'desk2typing' } } },
         notes: 'Ola comes back with a fresh pot, fills Per\'s mug and sits down at his own desk.' },
+      // (Adriaen, 2026-10-30) tomorrow the agents pop up Clippy style over the process picture (popup), and the
+      // click opens the chat; one year ago CtrlBuddy keeps his own start screen (splash)
       // (Adriaen, 2026-10-29) the same template as Per's: Ola and his screen on the right (buddyDesk_right),
       // CtrlBuddy appears and waves, the pointer clicks him, the chat opens at full zoom
       { id: 't.adriaen', auto: true, set: { shot: 'buddyDesk_right', buddyAt: SLUG_SCREEN, buddyWho: 'buddy', buddy: null },
-        do: [{ wait: 0.8 }, { set: { screens: ADR_SCREENS('buddy'), buddy: 'splash', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
+        do: [{ wait: 0.8 }, { set: { screens: ADR_SCREENS('buddy'), buddy: 'popup', buddyPointer: true } }, { wait: 1.6 }, { buddy: 'click' },
           { set: { screens: ADR_SCREENS('chatSlug'), shot: `monitor:${SLUG_SCREEN}` } }, { wait: 0.4 },
           { chat: 'slug' }, { say: 't.adr1' }, { chat: 'slug' }, { wait: 0.6 }, { say: 't.ai3' },
+          // (Adriaen, 2026-10-30) it won't touch the controller itself (no OT access), but proposes a tuning
+          { chat: 'slug' }, { wait: 0.4 }, { say: 't.ai3b' },
           { set: { shot: 'monitor:Desk1Mon3Screen', tool: 'antiSlug', screens: { Desk1Mon3Screen: 'antiSlug' } } }, { wait: 3.2 },
           { set: { shot: 'adriaenDesk' } }, { chat: 'slug' }, { say: 't.adr2' }, { chat: 'slug' }, { set: { shot: 'monitor:Desk1Mon2Screen' } }, { wait: 0.6 }, { say: 't.ai4' },
           { set: { shot: 'adriaen' } }, { wait: 0.4 }, { say: 't.adr3' }],
-        end: { shot: 'adriaen', tool: 'antiSlug', screens: { ...ADR_SCREENS('chatSlug'), Desk1Mon3Screen: 'antiSlug' }, chats: { plan: 4, slug: 4 }, buddy: null },
+        end: { shot: 'adriaen', tool: 'antiSlug', screens: { ...ADR_SCREENS('chatSlug'), Desk1Mon3Screen: 'antiSlug' }, chats: { plan: 4, slug: 5 }, buddy: null },
         notes: 'Ola works with his agent on the anti-slug controller; the agent answers out loud. The camera settles on him.' },
       { id: 't.question', auto: true, set: { shot: 'adriaen' }, do: [{ wait: 0.5 }, { card: { text: T('Hvordan kom vi hit?', 'How did we get here?') } }, { wait: 3.2 }, { card: null }],
         notes: 'The question. Let it hang for a moment.' },
@@ -580,17 +586,40 @@ const SHORT_CHAPTERS = [
       { id: 'm.step', set: { overlay: null, shot: 'monitor:Desk0Mon2Screen', tool: 'stepTest', screens: { Desk0Mon2Screen: 'stepTest' } }, notes: 'Step-test finder on history. TODO(Adriaen): screenshot of the real tool in private/tools/stepTest.png.' },
       { id: 'm.s2', set: { overlay: 'slide:m-02' } },
       // CtrlBuddy's first appearance (Adriaen, 2026-10-29), before his first chat (c.step):
-      // the learning curve in two clicks (axes, then the curve), then he appears on the screen beside the operator
-      { id: 'm.curve1', set: { overlay: null, curve: 'axes', shot: 'curveDesk', buddyAt: CHAT_SCREEN, buddyWho: 'buddy', screens: null, cast: { operator: { at: 'desk0typing' } } },
+      // the learning curve in two clicks (axes, then the curve), then he appears on the screen beside the operator;
+      // all over the thoughts' dark, like the curve beats after them (Adriaen, 2026-10-30)
+      { id: 'm.curve1', set: { overlay: null, thoughts: 'dim', curve: 'axes', shot: 'curveDesk', buddyAt: CHAT_SCREEN, buddyWho: 'buddy', screens: null, cast: { operator: { at: 'desk0typing' } } },
         notes: 'Ett år siden, kontrollrommet. Aksene: tid og læring.' },
       { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
       // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
       { id: 'm.think', set: { curve: null, thoughts: true }, notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
+      // (Adriaen, 2026-10-30) the curve again, and a second one over it: him and CtrlBuddy together, steeper
+      // and higher. Over the thoughts' dark, once his face and the bubbles have gone, in three clicks: the axes,
+      // the curve as before, then the new one
+      { id: 'm.curve3', set: { thoughts: 'dim', curve: 'axes', curveLate: true, shot: 'curveDesk' }, notes: 'Læringskurven igjen.' },
+      { id: 'm.curve4', set: { curve: 'plot' }, notes: 'Den bratte kurven, som før.' },
+      { id: 'm.curve5', set: { curve: 'both' }, notes: 'Med CtrlBuddy: brattere, og høyere. Menneske + KI får gjort mer, raskere.' },
+      // (Adriaen, 2026-10-30) how he was made: VS Code on one monitor, his agent file typed in section by
+      // section, and on the one beside it Ola fitting him together part by part (workshop.js)
+      { id: 'm.build', set: { curve: null, thoughts: null, call: null, phone: null, explain: null, build: true, shot: 'pair:Desk0Mon0Screen,Desk0Mon1Screen',
+        screens: { Desk0Mon0Screen: 'buildCode', Desk0Mon1Screen: 'workshop' } },
+        notes: 'Jeg bygde CtrlBuddy i VS Code: instruksjoner, verktøy og kunnskap, bit for bit. Ringen viser hvor langt agenten er kommet.' },
+      { id: 'm.buddy1', set: { build: null, curve: null, thoughts: null, call: null, phone: null, explain: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
+        notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
+      // (Adriaen, 2026-10-29) what he is, one part per beat, while he waves; the click comes after the call
+      // (Adriaen, 2026-10-30: the build and these before the call)
+      { id: 'm.what1', set: { shot: 'side:Desk0Mon1Screen', explain: 1, thoughts: 'dim' }, notes: 'Hva CtrlBuddy er: en KI-agent bygget i VS Code, med GitHub Copilot som harness.' },
+      { id: 'm.what2', set: { explain: 2, thoughts: 'dim' }, notes: 'Modellen: Auto / Opus 5.5.' },
+      { id: 'm.what3', set: { explain: 3, thoughts: 'dim' }, notes: 'Instruksjonene: oppfører seg som en erfaren automasjonsingeniør.' },
+      { id: 'm.what4', set: { explain: 4, thoughts: 'dim' }, notes: 'Verktøyene: datakilder via API-er (CDF, ABB LoopInsight).' },
+      { id: 'm.what5', set: { explain: 5, thoughts: 'dim' }, notes: 'Kunnskapsbasen: selskaps- og fagspesifikk kunnskap for oppgavene.' },
       // (Adriaen, 2026-10-29) and then the neighbouring platform calls about its separator
       // (Adriaen, 2026-10-29) the phone rings, in its own beat (it rings on while the presenter talks);
       // then the call: he picks up in the room behind, his portrait moves aside for the caller's,
       // and the separator comes up once the caller has said who it is
-      { id: 'm.ring', set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' }, do: [{ sound: 'ringtone', times: 6 }],
+      // m.what1-5 over the dark (Adriaen, 2026-10-30), which lifts as the camera turns to the phone; the use case's headline over it
+      { id: 'm.ring', set: { thoughts: null, curve: null, explain: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' }, do: [{ sound: 'ringtone', times: 6 }],
+        card: { text: T('Brukstilfelle 1: Separatorregulering', 'Use case 1: Separator control'), small: true, top: true },
         notes: 'Telefonen ringer. Space: han tar den.' },
       { id: 'm.call', set: { thoughts: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' },
         do: [{ set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
@@ -600,19 +629,12 @@ const SHORT_CHAPTERS = [
       // (Adriaen, 2026-10-29) the separator and the complaint in a beat of their own; at the end
       // he hangs up (the pickup played backwards, a click) and the call goes
       { id: 'm.slug', auto: true, set: { call: 'neighbour', callStage: 'sep', phone: 'operator', shot: 'phoneDesk' },
-        do: [{ wait: 1.2 }, { say: 'm.call1' }, { say: 'm.call2' }, { say: 'm.call3' }, { wait: 0.4 },
-          { set: { phone: null } }, { wait: 0.65 }, { sound: 'hangup' }, { wait: 0.9 }, { set: { call: null } }, { wait: 0.6 }],
+        do: [{ wait: 1.2 }, { say: 'm.call1' }, { say: 'm.call3' }, { wait: 0.4 },
+          { set: { phone: null } }, { wait: 0.65 }, { sound: 'hangup' }, { wait: 0.9 }, { set: { call: null } }, { card: null }, { wait: 0.6 }],
         end: { call: null, phone: null },
         notes: 'Separatoren deres slugger, og de spør den nye operatøren om råd. Han legger på.' },
-      { id: 'm.buddy1', set: { curve: null, thoughts: null, call: null, phone: null, explain: null, buddy: 'splash', shot: 'half:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'buddy' } },
-        notes: 'CtrlBuddy dukker opp på skjermen og vinker.' },
-      // (Adriaen, 2026-10-29) what he is, one part per beat, while he waves; then the click
-      { id: 'm.what1', set: { shot: 'side:Desk0Mon1Screen', explain: 1 }, notes: 'Hva CtrlBuddy er: en AI-agent bygget i VS Code, med GitHub Copilot som harness.' },
-      { id: 'm.what2', set: { explain: 2 }, notes: 'Modellen: stort sett Claude 5.5.' },
-      { id: 'm.what3', set: { explain: 3 }, notes: 'Instruksjonene: oppfører seg som en erfaren automasjonsingeniør.' },
-      { id: 'm.what4', set: { explain: 4 }, notes: 'Verktøyene: datakilder via API-er (CDF, ABB LoopInsight).' },
-      { id: 'm.what5', set: { explain: 5 }, notes: 'Kunnskapsbasen: selskaps- og fagspesifikk kunnskap for oppgavene.' },
-      { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen', explain: null, buddyPointer: true }, do: [{ wait: 0.8 }, { buddy: 'click' }],
+      // (Adriaen, 2026-10-29) after the call he turns to CtrlBuddy, still waving on his screen: the click
+      { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen', explain: null, buddyPointer: true }, do: [{ card: null }, { wait: 0.8 }, { buddy: 'click' }],
         notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
     ],
   },
@@ -629,10 +651,22 @@ const SHORT_CHAPTERS = [
     key: 5, id: 'money', name: T('I dag · Verktøyene', 'Today · The tools'),
     base: { act: 2, time: 13.2, shot: 'desk', ...DESK, cast: { operator: { at: 'desk2' } }, screens: { Desk0Mon2Screen: 'stepTest', Desk0Mon3Screen: 'riser', Desk0Mon4Screen: 'govDocs' } },
     beats: [
+      // multi-agent work opens today's tools (Adriaen, 2026-10-30), its deck slides with it
+      { id: 'h.s2', set: { overlay: 'slide:h-02' }, notes: 'Multi-agent work.' },
       { id: 'm.riser', set: { overlay: null, shot: 'monitor:Desk0Mon3Screen', tool: 'riser', screens: { Desk0Mon3Screen: 'riser' } }, notes: 'The riser simulator, open loop: it fills and blows through.' },
       { id: 'm.antislug', set: { tool: 'antiSlug', screens: { Desk0Mon3Screen: 'antiSlug' } }, notes: 'Anti-slug control tuned on the model. Seeing is believing.' },
       { id: 'm.s3', set: { overlay: 'slide:m-03' } },
-      { id: 'm.scd', set: { overlay: null, shot: 'monitor:Desk0Mon2Screen', tool: 'scd', screens: { Desk0Mon2Screen: 'scd' } }, notes: 'The I-005 logic tester: a missing interlock found on a laptop.' },
+      // the re-tuning outcome, after the step test and the separator model chats (c.step, c.sim, inserted
+      // after h.s2's slides and m.s3): old and new oil level tuning side by side (Adriaen, 2026-10-30)
+      // (Adriaen, 2026-10-30) the separator's digital twin, after the simulator chat (c.sim): VS Code with the
+      // CasADi model typed in section by section, and beside it the separator put together over its blueprint
+      // while CtrlBuddy beams each part in (twin.js), as the CtrlBuddy build (m.build)
+      { id: 'm.twin', set: { overlay: null, twin: true, thoughts: null, call: null, phone: null, explain: null, shot: 'pair:Desk0Mon0Screen,Desk0Mon1Screen',
+        screens: { Desk0Mon0Screen: 'twinCode', Desk0Mon1Screen: 'twin' } },
+        notes: 'Vi bygde en digital tvilling av separatoren i CasADi: geometri, massebalanser, overløp og ventiler. Hver del av koden er en del av separatoren.' },
+      { id: 'm.retune', set: { overlay: null, twin: null, retune: true },
+        notes: 'Gammel og ny innstilling av nivåregulatoren side om side, på den nye modellen: strømningen holdes jevn, nivået får drive innenfor båndet. S bytter hvilken separatoren viser.' },
+      { id: 'm.scd', set: { overlay: null, retune: null, shot: 'monitor:Desk0Mon2Screen', tool: 'scd', screens: { Desk0Mon2Screen: 'scd' } }, notes: 'The I-005 logic tester: a missing interlock found on a laptop.' },
       { id: 'm.s4', set: { overlay: 'slide:m-04' } },
       { id: 'm.docs', set: { overlay: null, shot: 'monitor:Desk0Mon4Screen', tool: 'govDocs' }, notes: 'A governing-document agent answers with its sources. TODO(Adriaen): screenshot in private/tools/govDocs.png.' },
       { id: 'm.s5', set: { overlay: 'slide:m-05' } },
@@ -644,7 +678,6 @@ const SHORT_CHAPTERS = [
     beats: [
       { id: 'h.s1', set: { overlay: 'slide:h-01' }, notes: 'Knowledge graphs.' },
       { id: 'h.g1', set: { overlay: null }, do: [{ graph: 2 }, { wait: 2 }, { graph: 3 }], end: { graph: 3 }, notes: 'The graph grows on the band as knowledge is added.' },
-      { id: 'h.s2', set: { overlay: 'slide:h-02' }, notes: 'Multi-agent work.' },
       { id: 'h.g2', set: { overlay: null }, do: [{ graph: 4 }], end: { graph: 4 }, notes: 'More agents on the same graph.' },
       { id: 'h.s3', set: { overlay: 'slide:h-03' }, notes: 'MCP tools.' },
       { id: 'h.g3', set: { overlay: null, graphOn: 'overlay' }, do: [{ graph: 5 }], end: { graph: 5 }, notes: 'The whole graph, full screen.' },
@@ -653,7 +686,7 @@ const SHORT_CHAPTERS = [
   },
   {
     key: 7, id: 'back', name: T('I morgen · Tilbake', 'Tomorrow · Back'),
-    base: { act: 3, time: 11.5, shot: 'wideRoom', ...DESK, cast: TOMORROW_CAST, graph: 5, graphOn: 'band', chats: { plan: 4, slug: 4 }, tool: 'antiSlug', screens: { ...TOMORROW_SCREENS, Desk1Mon3Screen: 'antiSlug' } },
+    base: { act: 3, time: 11.5, shot: 'wideRoom', ...DESK, cast: TOMORROW_CAST, graph: 5, graphOn: 'band', chats: { plan: 4, slug: 5 }, tool: 'antiSlug', screens: { ...TOMORROW_SCREENS, Desk1Mon3Screen: 'antiSlug' } },
     beats: [
       { id: 'b.forward', do: [{ forward: 3 }], notes: 'Fast forward to tomorrow\'s room again.' },
       { id: 'b.room', set: { shot: 'adriaen' }, notes: 'Where we are heading. Bridge to the epilogue.' },
@@ -711,6 +744,9 @@ function applyStory(chapters) {
       if (add.chat) {
         nb.chat = add.chat;
         nb.set = { ...nb.set, shot: `monitor:${CHAT_SCREEN}`, screens: { [CHAT_SCREEN]: `chat:${add.chat}`, [REPORT_SCREEN]: `report:${add.chat}` }, chats: { [add.chat]: 0 }, thoughts: null, call: null, phone: null };   // main.js enter types the first message
+        // a chat's own stage (story.json chats.<id>.set): its camera, screens and state, e.g. sim2's twin beside it
+        const own = STORY.chats[add.chat]?.set;
+        if (own) nb.set = { ...nb.set, ...own, screens: { ...nb.set.screens, ...own.screens } };
       }
       if (add.card) nb.card = { text: tx(add.card), solid: !!add.solid };
       if (STORY.callouts[add.id]) nb.callouts = STORY.callouts[add.id].map((c) => ({ ...c, label: tx(c.label), text: tx(c.text) }));

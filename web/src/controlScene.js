@@ -13,6 +13,7 @@ import { drawSlots, assign, contentOf, setOutside, setFeeds, isFeed } from './sc
 import { SunShadow } from './sunShadow.js';
 import { clock } from './outdoor.js';
 import { OVERRIDES, PRIVATE_BASE } from './privateNames.js';
+import { loadDeskPhones } from './deskPhones.js';
 import { makeCurtains, LOOKS as CURTAIN_LOOKS } from './curtains.js';
 
 const SCENE = 'control/';
@@ -283,6 +284,9 @@ export async function loadControlRoom(renderer) {
     ...lampBufs.map((buf) => texture(renderer, buf, false)),
   ]);
   const gltf = await new GLTFLoader().parseAsync(glb, '');
+  // The desk phones, live where the bake left them out (deskPhones.js)
+  const phones = await loadDeskPhones(meta.layout?.phones).catch((e) => { console.warn('desk phones', e); return null; });
+  if (phones) gltf.scene.add(phones.root);
 
   const shadows = new SunShadow(renderer);
   // The window, in three's axes (Blender y is -z); defaults match control_room.py
@@ -477,6 +481,7 @@ export async function loadControlRoom(renderer) {
   return {
     meta,
     root: gltf.scene,
+    phones,
     cameras: gltf.cameras,
     sizes: { glb: glb.byteLength, maps: [albedoBuf, ceilBuf, scrBuf, skyBuf, ...boardBufs].reduce((n, b) => n + (b?.byteLength ?? 0), 0) },
     seaLevel: meta.seaLevel ?? -69.2,
@@ -515,6 +520,7 @@ export async function loadControlRoom(renderer) {
       u.uMode.value = mode;
       curtains?.setLights(ceiling);
       lampOff.copy(LAMP_OFF).multiplyScalar(ceiling);
+      phones?.setLight(ceiling + 0.25 * screens);
       for (const e of emitters) {
         if (e.lamp >= 0) continue; // see setLamp
         const w = e.group === 'screens' ? screens : ceiling;

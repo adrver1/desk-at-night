@@ -211,7 +211,10 @@ def main():
     glowing = [o for o in scene.objects if emissive(o)]
     b.texel_weight = texel_weight  # unwrap_weighted() looks it up by name
     sea = scene.objects["Sea"]  # shades the bake, but is not exported
-    room = b.join_static(glowing + [sea])
+    # Live desk phones (control_room.DESK_PHONES): they shade the desk, then go; the viewer puts its own there
+    phones = [o for o in scene.objects if cr.DESK_PHONES == "live" and o.type == "MESH" and o.name[:1] == "S"
+              and o.name[1:2].isdigit() and o.name[2:] == "Phone"]
+    room = b.join_static(glowing + [sea] + phones)
     print(f"room: {len(room.data.polygons)} faces, {len(glowing)} emissive meshes", flush=True)
 
     imgs = {k: bpy.data.images.new(k, args.res, args.res, float_buffer=True, alpha=False)
@@ -240,6 +243,9 @@ def main():
         b.bake(room, imgs[lamp], {"DIRECT", "INDIRECT"}, lamp)
     only(None)
     bpy.data.objects.remove(sea)
+    spots = [[round(v, 4) for v in (*o.matrix_world.translation, o.matrix_world.to_euler().z)] for o in phones]
+    for o in phones:
+        bpy.data.objects.remove(o)
 
     b.save_albedo(b.pixels(imgs["albedo"]), os.path.join(OUT, "albedo.png"))
     meta = {
@@ -332,6 +338,7 @@ def main():
         "deskZ": cr.DESK_Z,
         "window": [-cr.ROOM_X, cr.WIN_Y0, cr.WIN_Y1, cr.WIN_Z0, cr.WIN_Z1],  # x of the wall, y range, z range
     }
+    meta["layout"]["phones"] = spots  # live desk phones: x, y, z of the desk top under them, yaw
     meta["movable"] = sorted(movable)
 
     meta["screens"] = screen_uvs(scene)

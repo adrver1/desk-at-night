@@ -326,21 +326,21 @@
    "no": {
     "title": "CtrlBuddy – hva er det?",
     "bullets": [
-     "AI-agent: Bygget i VS Code, med GitHub Copilot som harness",
-     "Modell: Kjører stort sett på Claude 5.5",
+     "KI-agent: Bygget i VS Code, med GitHub Copilot som harness",
+     "Modell: Auto / Opus 5.5",
      "Instruksjoner: Oppfører seg som en erfaren automasjonsingeniør",
      "Verktøy: Kobler seg til datakilder via API-er: CDF, ABB LoopInsight",
-     "Kunnskapsbase: Nordhav Energi-spesifikk fagkunnskap for oppgavene"
+     "Kunnskapsbase: Nordhav Energi-spesifikk fagkunnskap | Mer om dette senere"
     ]
    },
    "en": {
     "title": "CtrlBuddy – what is it?",
     "bullets": [
      "AI agent: Built in VS Code, with GitHub Copilot as the harness",
-     "Model: Running mostly Claude 5.5",
+     "Model: Auto / Opus 5.5",
      "Instructions: Behaves like an advanced automation engineer",
      "Tools: Connects to data sources through APIs: CDF, ABB LoopInsight",
-     "Knowledge base: Nordhav Energi-specific domain knowledge for its tasks"
+     "Knowledge base: Nordhav Energi-specific domain knowledge | More about this later"
     ]
    }
   }
@@ -397,15 +397,22 @@
     [
      "me",
      {
-      "no": "Nordfeltet begynte å slugge igjen i natt. Kan du justere anti-slug-regulatoren?",
-      "en": "Nordfeltet started slugging again overnight. Can you retune the anti-slug controller?"
+      "no": "Nordfeltet begynte å slugge i natt. Kan du justere nivåregulatoren til innløpsseparatoren?",
+      "en": "Nordfeltet started slugging overnight. Can you adjust the inlet separator level controller?"
      }
     ],
     [
      "ai",
      {
-      "no": "Ny modell tilpasset fra nattens data. Den foreslåtte innstillingen holder stigerøret stabilt i simulatoren.",
-      "en": "New model fitted from last night's data. The proposed tuning holds the riser steady in the simulator."
+      "no": "Nei. Som KI-agent har jeg ikke lov til å røre OT-systemer direkte. Men jeg foreslår en løsning for deg.",
+      "en": "No. As an AI agent I am not permitted to touch OT systems directly. But I'll propose a solution for you."
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Jeg kjenner igjen denne oppførselen fra Nordhav Beta. Ny modell tilpasset fra nattens data: den foreslåtte innstillingen holder stigerøret stabilt i simulatoren.",
+      "en": "I recognise this behaviour from Nordhav Beta. New model fitted from last night's data: the proposed tuning holds the riser steady in the simulator."
      }
     ],
     [
@@ -487,53 +494,8 @@
     [
      "ai",
      {
-      "no": "Her er en simulator for slugging i stigerøret, og en for innløpsseparatoren.",
-      "en": "Here is a simulator of riser slugging, and one of the inlet separator."
-     }
-    ],
-    [
-     "show",
-     {
-      "no": "Simulator for slugging i stigerøret",
-      "en": "Riser slugging simulator",
-      "file": "sim-1.mp4"
-     }
-    ],
-    [
-     "show",
-     {
-      "no": "Simulator for innløpsseparatoren",
-      "en": "Inlet separator simulator",
-      "file": "sim-2.webp"
-     }
-    ],
-    [
-     "ai",
-     {
-      "no": "Jeg er ganske sikker på at du parametriserte modellen feil. Jeg sjekket dokumentet på CDF, og det står at separatoren er 7 meter lang, ikke 8 meter…",
-      "en": "I'm fairly sure you parametrised the model wrong. I checked the document in CDF, and it says the separator is 7 metres long, not 8…"
-     }
-    ],
-    [
-     "ai",
-     {
-      "no": "… og forresten: du modellerte ventilen som en lineær ventil, men jeg analyserte nylige tidsseriedata, og den er mer kompatibel med en likeprosentlig karakteristikk.",
-      "en": "… and by the way: you modelled the valve as linear, but I analysed recent time series, and it fits an equal-percentage characteristic better."
-     }
-    ],
-    [
-     "me",
-     {
-      "no": "… jepp, jeg sjekket leverandørens datablad, og det står tydelig at den er likeprosentlig.",
-      "en": "… yep, I checked the vendor's datasheet, and it clearly says equal percentage."
-     }
-    ],
-    [
-     "show",
-     {
-      "no": "Verktøy for regulatortuning",
-      "en": "Controller tuning tool",
-      "file": "sim-3.webp"
+      "no": "Jeg innhenter fysikalske likninger fra oppgitt referansemateriale og bygger en generisk separatormodell som du kan leke deg med.",
+      "en": "I gather the physical equations from the reference material you gave me and build a generic separator model you can play with."
      }
     ]
    ],
@@ -677,6 +639,87 @@
     "me": "adriaen",
     "ai": "neighbour.svg"
    }
+  },
+  "sim2": {
+   "title": {
+    "no": "CtrlBuddy",
+    "en": "CtrlBuddy"
+   },
+   "who": "Ola",
+   "faces": {
+    "me": "adriaen",
+    "ai": "ctrlbuddy"
+   },
+   "set": {
+    "twin": "fix",
+    "shot": "pair:Desk0Mon1Screen,Desk0Mon2Screen",
+    "screens": {
+     "Desk0Mon2Screen": "twinFix"
+    }
+   },
+   "messages": [
+    [
+     "me",
+     {
+      "no": "Jeg har parametrisert modellen med data for sekundær innløpsseparator.",
+      "en": "I have parametrised the model with data for the secondary inlet separator."
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "Jeg hentet GA-tegningen av separatoren fra CDF. Den viser at hovedseparasjonssonen er 7 m, du modellerte den som 8 m. Vil du at jeg justerer modellen?",
+      "en": "I pulled the separator's general arrangement drawing from CDF. It shows that the main separation zone is 7 m; you modelled it as 8 m. Do you want me to adjust the model?"
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "GA-tegning av separatoren",
+      "en": "Separator general arrangement drawing",
+      "file": "ga-drawing.webp"
+     }
+    ],
+    [
+     "me",
+     {
+      "no": "Ja, juster modellen.",
+      "en": "Yes, adjust the model.",
+      "twin": "len"
+     }
+    ],
+    [
+     "ai",
+     {
+      "no": "… og forresten: jeg hentet databladet for nivåventilen fra CDF. Du modellerte den som likeprosentlig, men databladet sier lineær karakteristikk.",
+      "en": "… and by the way: I pulled the level valve's datasheet from CDF. You modelled it as equal percentage, but the datasheet says linear."
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Datablad for nivåventilen",
+      "en": "The level valve's datasheet",
+      "file": "valve-datasheet.webp"
+     }
+    ],
+    [
+     "me",
+     {
+      "no": "… jepp, du har rett. Den er lineær.",
+      "en": "… yep, you're right. It's linear.",
+      "twin": "valve"
+     }
+    ],
+    [
+     "show",
+     {
+      "no": "Verktøy for regulatortuning",
+      "en": "Controller tuning tool",
+      "file": "sim-3.webp"
+     }
+    ]
+   ]
   }
  },
  "callouts": {
@@ -772,16 +815,16 @@
    "notes": "Samme samtale som chat (versjon B): Nordhav Beta skriver, separatoren som video på skjermen ved siden av."
   },
   {
-   "after": "^money",
-   "id": "c.step",
-   "chat": "step",
-   "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."
-  },
-  {
    "after": "m.s3",
    "id": "c.sim",
    "chat": "sim",
-   "notes": "Samtale: simulatorene, rettelsene og tuningverktøyet."
+   "notes": "Samtale: han vil lære ved å gjøre, CtrlBuddy bygger en generisk separatormodell."
+  },
+  {
+   "after": "m.twin",
+   "id": "c.sim2",
+   "chat": "sim2",
+   "notes": "Samtale: modellen parametrisert for den ekte separatoren; CtrlBuddy retter lengden (tvillingen endrer lengde) og ventilkarakteristikken (ventilen byttes, med kurvene), så tuningverktøyet."
   },
   {
    "after": "m.s3",
@@ -842,6 +885,12 @@
    "id": "new.ctrl14",
    "slide": "ctrl-14",
    "notes": "Lysbilde 14."
+  },
+  {
+   "after": "new.ctrl14",
+   "id": "c.step",
+   "chat": "step",
+   "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."
   }
  ],
  "hidden": [
@@ -864,7 +913,9 @@
   "h.s3",
   "h.g3",
   "b.forward",
-  "b.room"
+  "b.room",
+  "m.docs",
+  "m.s5"
  ],
  "closing": {
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",

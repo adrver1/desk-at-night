@@ -5,7 +5,8 @@
 //
 // The text is the story slide EXPLAIN_SLIDE (story.json slides, editable in
 // the story editor's slides lane): its title, and one bullet per part written
-// "Heading: line". State key (content.js): explain: n shows the panel with the
+// "Heading: line", or "Heading: line | note" for a small aside under it
+// (e.g. "more about this later"). State key (content.js): explain: n shows the panel with the
 // first n parts, null hides it.
 import { SLIDES } from './content.js';
 import { real } from '../privateNames.js';
@@ -22,7 +23,7 @@ const ICONS = [
   // instructions
   '<path d="M12 4h18l8 8v32H12z"/><path d="M30 4v8h8M18 20h14M18 27h14M18 34h9"/>',
   // tools
-  '<path d="M8 40l16-16M30 6a8 8 0 0 0-6 12l-3 3 6 6 3-3a8 8 0 0 0 12-6l-5 1-4-4 1-5z"/><path d="M6 14h10M6 20h6"/>',
+  '<path d="M40 12.6L35.7 16.8L31.2 12.3L35.4 8A10 10 0 0 0 22.1 21.6L6.6 37.2A3 3 0 0 0 10.8 41.4L26.4 25.9A10 10 0 0 0 40 12.6Z"/><circle cx="9.9" cy="37.8" r="1"/>',
   // knowledge base
   '<path d="M6 10c6-3 12-3 18 2v30c-6-5-12-5-18-2zM42 10c-6-3-12-3-18 2v30c6-5 12-5 18-2z"/>',
 ];
@@ -46,9 +47,9 @@ export class Explain {
     if (key === this.drawn) return;
     this.drawn = key;
     this.el.innerHTML = `<h2>${esc(real(s.title))}</h2><ol>` + (s.bullets ?? []).map((b, i) => {
-      const t = real(b), at = t.indexOf(': ');
+      const [t, note] = real(b).split(' | '), at = t.indexOf(': ');
       const head = at < 0 ? t : t.slice(0, at), line = at < 0 ? '' : t.slice(at + 2);
-      return `<li><svg viewBox="0 0 48 48" aria-hidden="true">${ICONS[i % ICONS.length]}</svg><div><b>${esc(head)}</b><span>${esc(line)}</span></div></li>`;
+      return `<li><svg viewBox="0 0 48 48" aria-hidden="true">${ICONS[i % ICONS.length]}</svg><div><b>${esc(head)}</b><span>${esc(line)}</span>${note ? `<i>${esc(note)}</i>` : ''}</div></li>`;
     }).join('') + '</ol>';
     this.parts = [...this.el.querySelectorAll('li')];
   }

@@ -105,6 +105,18 @@ export class Shots {
     }
     // a screen filling the view (monitor:), or halfway there (half:, its neighbours and the desk around it),
     // or straight on in the left half of the view (side:, room for a panel on the right: explain.js)
+    // two screens side by side filling the view (pair:A,B; workshop.js)
+    if (name.startsWith('pair:')) {
+      const [a, b] = name.slice(5).split(',').map((n) => this.game.room.screenFrame(n, this.seat));
+      if (!a || !b) return this.target('desk');
+      const fov = 50, t = Math.tan(THREE.MathUtils.degToRad(fov) / 2) / 1.08;
+      const center = a.center.clone().add(b.center).multiplyScalar(0.5), normal = a.normal.clone().add(b.normal).normalize();
+      const span = a.center.distanceTo(b.center) + (a.width + b.width) / 2;
+      const d = Math.max(a.height / 2 / t, span / 2 / (t * this.game.camera.aspect));
+      const pos = center.clone().addScaledVector(normal, d);
+      const m = new THREE.Matrix4().lookAt(pos, center, a.up);
+      return { pos, quat: new THREE.Quaternion().setFromRotationMatrix(m), fov };
+    }
     if (name.startsWith('side:')) {
       const f = this.game.room.screenFrame(name.slice(5), this.seat);
       if (!f) return this.target('desk');
@@ -147,7 +159,7 @@ export class Shots {
     cam.position.copy(this.pose.pos);
     cam.quaternion.copy(this.pose.quat);
     // A breath of life: the head never holds perfectly still
-    if (this.name !== 'epilogue' && !this.name.startsWith('monitor:') && !this.name.startsWith('half:') && !this.name.startsWith('side:')) {
+    if (this.name !== 'epilogue' && !this.name.startsWith('monitor:') && !this.name.startsWith('half:') && !this.name.startsWith('pair:') && !this.name.startsWith('side:')) {
       cam.rotateY(0.004 * Math.sin(this.t * 0.37));
       cam.rotateX(0.003 * Math.sin(this.t * 0.51 + 1));
     }
