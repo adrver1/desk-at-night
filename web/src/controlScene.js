@@ -43,11 +43,11 @@ const viewFrustum = new THREE.Frustum(), viewMatrix = new THREE.Matrix4();
 const SCREEN_SCALE = matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
 // Screens drawn at the size they show at: a screen in view gets its own
 // texture with as many texels as it covers canvas pixels (in steps of half
-// the slot, up to SHARP_MAX times it), and live screens out of view are not
-// redrawn. ?sharp=0 for the old way: live screens at their slot's size, the
+// the slot, up to SHARP_MAX times it and SHARP_TEXELS wide), and live
+// screens out of view are not redrawn. ?sharp=0 for the old way: live screens at their slot's size, the
 // rest from the atlas (docs/performance.md)
 const SHARP = new URLSearchParams(location.search).get('sharp') !== '0';
-const SHARP_MAX = 4, SHARP_STEP = 0.5;
+const SHARP_MAX = 4, SHARP_STEP = 0.5, SHARP_TEXELS = 2048;
 const _q0 = new THREE.Vector3(), _q1 = new THREE.Vector3(), _q2 = new THREE.Vector3();
 
 // Seven-segment style digits: the unlit segments faintly, the time bright.
@@ -478,20 +478,32 @@ export async function loadControlRoom(renderer) {
   }
   const slots = meta.screens?.slots ?? {};
   // SHARP: the scale a screen needs from this view, 0 when out of it
+  // The texels per slot unit it takes for the screen to look sharp: the most
+  // canvas pixels one unit covers, sampled on a 3×3 grid over its face,
+  // counting only points in front of the camera and on the canvas (so a
+  // screen reaching past the edge or behind the camera isn't overdone)
   function wanted(o, width, height) {
     if (!viewFrustum.intersectsObject(o.mesh)) return 0;
     o.frame ??= faceFrame(o.mesh, null);
     if (!o.frame) return 1;
-    _q0.copy(o.frame.at(0, 0)).project(sharpCam);
-    _q1.copy(o.frame.at(1, 0)).project(sharpCam);
-    _q2.copy(o.frame.at(0, 1)).project(sharpCam);
-    // Across and down, in canvas pixels; a screen reaching behind the camera
-    // counts as big
-    if (Math.max(_q0.z, _q1.z, _q2.z) > 1) return SHARP_MAX;
-    const across = Math.hypot((_q1.x - _q0.x) * width / 2, (_q1.y - _q0.y) * height / 2);
-    const down = Math.hypot((_q2.x - _q0.x) * width / 2, (_q2.y - _q0.y) * height / 2);
-    const need = Math.max(across / o.slot[2], down / o.slot[3]);
-    return Math.min(SHARP_MAX, Math.max(1, Math.ceil(need / SHARP_STEP - 0.15) * SHARP_STEP));
+    let need = 0;
+    const d = 0.02;
+    for (const u of [0.1, 0.5, 0.9]) for (const v of [0.1, 0.5, 0.9]) {
+      if (!onCanvas(o.frame.at(u, v), _q0) || Math.abs(_q0.x) > 1 || Math.abs(_q0.y) > 1) continue;
+      if (!onCanvas(o.frame.at(u + d, v), _q1) || !onCanvas(o.frame.at(u, v + d), _q2)) continue;
+      const across = Math.hypot((_q1.x - _q0.x) * width / 2, (_q1.y - _q0.y) * height / 2) / d;
+      const down = Math.hypot((_q2.x - _q0.x) * width / 2, (_q2.y - _q0.y) * height / 2) / d;
+      need = Math.max(need, across / o.slot[2], down / o.slot[3]);
+    }
+    const most = Math.min(SHARP_MAX, Math.floor(SHARP_TEXELS / Math.max(o.slot[2], o.slot[3]) / SHARP_STEP) * SHARP_STEP);
+    return Math.min(most, Math.max(1, Math.ceil(need / SHARP_STEP - 0.15) * SHARP_STEP));
+  }
+  // A world point in clip space; false when it is behind the camera
+  function onCanvas(p, out) {
+    out.copy(p).applyMatrix4(sharpCam.matrixWorldInverse);
+    if (out.z > -sharpCam.near) return false;
+    out.applyMatrix4(sharpCam.projectionMatrix);
+    return true;
   }
   let sharpCam = null;
   function sharpen(camera, width, height) {
