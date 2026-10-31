@@ -8,7 +8,8 @@
 // presenter notes, O debug overlay (free mode). A presentation clicker sends
 // the same keys. URL: ?chapter=N, ?mode=free, ?sola=1 (adds the Sola apron
 // scene before the flight, off by default), ?nofs (no fullscreen on start),
-// ?story=full (the three-act version), ?lang=en|no (on-screen language).
+// ?story=full (the three-act version), ?lang=en|no (on-screen language),
+// ?bench=1 (frame rate benchmark, bench.js).
 import * as THREE from 'three';
 import '../play.js';
 import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN, CREW_NAMES, DISCLAIMER } from './content.js';
@@ -772,6 +773,8 @@ game.ready.then(async () => {
   go.disabled = false;
   go.textContent = T('Start', 'Begin');
   if (!begin.parentNode) enter(chapter, beat, { instant: true });
+  // ?bench=1: the frame rate benchmark (bench.js)
+  if (q.has('bench')) import('./bench.js').then(({ runBench }) => runBench({ start, goto: window.__story.goto, game }));
 }).catch((e) => { go.textContent = `Could not load: ${e.message}`; console.error(e); });
 sound.loadIndex();
 
