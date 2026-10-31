@@ -5,9 +5,11 @@
 // resolution with no upload into WebGL: big WebGL screen textures took the
 // Intel Arc laptop from 16 to 134 ms a frame, this costs about nothing
 // (story.html?bench=closeup). Up to MAX screens at once, the biggest first;
-// camera pictures (cctv.js, the workshop, the twin) stay in WebGL.
+// camera pictures (cctv.js, the workshop, the twin) stay in WebGL, and so does a
+// screen partly behind another one (a wall screen behind a desk monitor).
 // Anything in front of the monitor would be hidden by the canvas, so it is
 // for close-ups of screens with nobody in front. ?closeup=0 turns it off.
+import * as THREE from 'three';
 import { drawSlots, contentOf, isFeed } from '../screens.js';
 import { LIVE } from '../controlScene.js';
 
@@ -18,6 +20,9 @@ const MAX = 2, HZ = 8, BUSY_HZ = 20, STATIC_T = 600;   // BUSY_HZ: screens the r
 // this alpha = brightness 0.92) rather than a CSS filter, which made the
 // browser composite the layer through an extra pass every frame.
 const DIM = 0.08;
+// A screen covers another's close-up where its face, grown by this much for
+// the monitor's bezel, overlaps it, and it is this far (m) in front of it
+const BEZEL = 1.08, IN_FRONT = 0.1;
 
 // The CSS matrix3d that maps a w×h box onto the quad p (four [x, y] corners:
 // top left, top right, bottom right, bottom left)
@@ -49,6 +54,23 @@ function clip(poly, W, H) {
   }
   return poly;
 }
+// The part of convex polygon a inside convex polygon b (both wound the same way as the screen quads)
+function within(a, b) {
+  const sign = Math.sign(area2(b));
+  for (let i = 0; i < b.length && a.length; i++) {
+    const [p, q] = [b[i], b[(i + 1) % b.length]];
+    const side = (r) => sign * ((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
+    const out = [];
+    a.forEach((r, k) => {
+      const t = a[(k + 1) % a.length], sr = side(r), st = side(t);
+      if (sr >= 0) out.push(r);
+      if ((sr >= 0) !== (st >= 0)) { const u = sr / (sr - st); out.push([r[0] + (t[0] - r[0]) * u, r[1] + (t[1] - r[1]) * u]); }
+    });
+    a = out;
+  }
+  return a;
+}
+const area2 = (p) => p.reduce((s, [x, y], i) => { const [x2, y2] = p[(i + 1) % p.length]; return s + x * y2 - x2 * y; }, 0);
 const area = (p) => Math.abs(p.reduce((s, [x, y], i) => { const [x2, y2] = p[(i + 1) % p.length]; return s + x * y2 - x2 * y; }, 0)) / 2;
 
 // game: play.js's __game. Returns the per-frame step for hooks.frame.
@@ -63,6 +85,7 @@ export function closeups(game) {
     pool.push({ canvas, name: null, drawn: -1, css: '' });
   }
   const v = new game.camera.position.constructor();
+  const plane = new THREE.Plane();
   // The screens don't move: each one's face is found once (faceFrame walks
   // the overlay's triangles), and feeds are known from the start
   const frames = new Map();
@@ -74,20 +97,38 @@ export function closeups(game) {
     const W = host.clientWidth, H = host.clientHeight;
     cam.updateMatrixWorld();
     // Screens big in the picture, the biggest first
-    const big = [];
+    const big = [], all = [];
     for (const name of Object.keys(slots)) {
-      if (isFeed(contentOf(name))) continue;
+      const feed = isFeed(contentOf(name));
       const f = frameOf(room, name);
       if (!f) continue;
-      const p = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([s, t]) => {
-        v.copy(f.at(s, t)).applyMatrix4(cam.matrixWorldInverse);
+      const world = [[0, 0], [1, 0], [1, 1], [0, 1]].map(([s, t]) => f.at(s, t).clone());
+      const project = (q) => {
+        v.copy(q).applyMatrix4(cam.matrixWorldInverse);
         if (v.z > -cam.near) return null;
         v.applyMatrix4(cam.projectionMatrix);
         return [(v.x + 1) / 2 * W, (1 - v.y) / 2 * H];
-      });
-      if (p.some((x) => !x || x[0] < -W || x[0] > 2 * W || x[1] < -H || x[1] > 2 * H)) continue;   // reaching far off the picture
+      };
+      const p = world.map(project);
+      if (p.some((x) => !x)) continue;   // partly behind the camera
+      // As something in front of others: the face and its monitor's bezel
+      const mid = world[0].clone().lerp(world[2], 0.5);
+      const rim = world.map((q) => project(q.clone().sub(mid).multiplyScalar(BEZEL).add(mid)));
+      all.push({ name, world, p: rim.some((x) => !x) ? p : rim });
+      if (feed || p.some((x) => x[0] < -W || x[0] > 2 * W || x[1] < -H || x[1] > 2 * H)) continue;   // a camera picture, or reaching far off the picture
       const share = area(clip(p, W, H)) / (W * H);
-      if (share >= (pool.some((o) => o.name === name) ? HIDE : SHOW)) big.push({ name, p, share });
+      if (share >= (pool.some((o) => o.name === name) ? HIDE : SHOW)) big.push({ name, p, share, world });
+    }
+    // The canvases lie over the whole picture, so a screen partly behind
+    // another one (a wall screen behind a desk monitor) stays in WebGL, where
+    // the depth test hides it (Adriaen, 2026-10-31). In front means wholly on
+    // the camera's side of its plane: a neighbour in the same curved band only
+    // touches it at the shared edge
+    for (let i = big.length - 1; i >= 0; i--) {
+      const b = big[i];
+      plane.setFromCoplanarPoints(b.world[0], b.world[1], b.world[2]);
+      if (plane.distanceToPoint(cam.position) < 0) plane.negate();
+      if (all.some((o) => o.name !== b.name && o.world.every((q) => plane.distanceToPoint(q) > IN_FRONT) && area(within(b.p, o.p)) > 4)) big.splice(i, 1);
     }
     big.sort((a, b) => b.share - a.share);
     const want = big.slice(0, MAX);
