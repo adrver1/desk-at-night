@@ -344,11 +344,13 @@ function chat(ctx, w, h, id) {
   agentIcon(ctx, w - 110 * s, 15 * s, 8 * s);
   const px = 15 * s, lh = 20 * s, pad = 10 * s, maxW = w * 0.58, fr = 30 * s, gap = 2 * fr + 22 * s;
   ctx.font = `500 ${px}px ${SANS}`;
-  const bubbles = c.messages.slice(0, n).map(([who, msg], i) => {
-    const typing = who === 'ai' && i === n - 1 && age < 1.4;
+  // a chat that continues another (story.json `continues`, Adriaen 2026-10-31) shows that one's messages above its own
+  const before = c.continues ? CHATS[c.continues]?.messages ?? [] : [], last = n ? before.length + n - 1 : -1;
+  const bubbles = [...before, ...c.messages.slice(0, n)].map(([who, msg], i) => {
+    const typing = who === 'ai' && i === last && age < 1.4;
     const lines = typing ? ['•••'] : who === 'show' ? [`▤  ${msg}`] : wrap(ctx, msg, maxW - 2 * pad);
     // our own message being typed: as many letters as are in yet (the bubble at its full size)
-    const keyed = who === 'me' && i === n - 1 && age < 0 ? Math.max(0, 1 + age / (S.chatType[id] || 1)) : null;
+    const keyed = who === 'me' && i === last && age < 0 ? Math.max(0, 1 + age / (S.chatType[id] || 1)) : null;
     return { who: who === 'show' ? 'ai' : who, lines, typing, keyed, h: lines.length * lh + 2 * pad + (who === 'me' ? 0 : 16 * s) };
   });
   // Stack from the bottom up, dropping what no longer fits
@@ -361,7 +363,7 @@ function chat(ctx, w, h, id) {
     ctx.font = `500 ${px}px ${SANS}`;   // text() below changes it
     const bw = Math.min(maxW, Math.max(...b.lines.map((l) => ctx.measureText(l).width)) + 2 * pad);
     const x = b.who === 'me' ? w - gap - bw : gap;
-    const fresh = b.keyed !== null ? 1 : i === n - 1 && age < 0.4 ? Math.max(0, age / 0.4) : 1;
+    const fresh = b.keyed !== null ? 1 : i === last && age < 0.4 ? Math.max(0, age / 0.4) : 1;
     ctx.globalAlpha = fresh;
     // the writer's portrait, level with the bubble's foot
     const fx = b.who === 'me' ? w - 10 * s - fr : 10 * s + fr, fy = y + b.h - fr;
@@ -382,7 +384,7 @@ function chat(ctx, w, h, id) {
     ctx.globalAlpha = 1;
     y -= row - b.h + 10 * s;
   }
-  if (!n) text(ctx, T('Klar.', 'Ready.'), 20 * s, top + 40 * s, { px: 15 * s, color: C.dim });
+  if (!bubbles.length) text(ctx, T('Klar.', 'Ready.'), 20 * s, top + 40 * s, { px: 15 * s, color: C.dim });
 }
 
 // A portrait in a ring (public/story/faces/<id>.png, or <id> when it names

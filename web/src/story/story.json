@@ -652,9 +652,11 @@
    },
    "set": {
     "twin": "fix",
-    "shot": "pair:Desk0Mon1Screen,Desk0Mon2Screen",
+    "shot": "pair:Desk0Mon0Screen,Desk0Mon1Screen",
+    "reportShot": "monitor:Desk0Mon1Screen",
     "screens": {
-     "Desk0Mon2Screen": "twinFix"
+     "Desk0Mon0Screen": "chat:sim2",
+     "Desk0Mon1Screen": "twinFix"
     }
    },
    "messages": [
@@ -719,7 +721,8 @@
       "file": "sim-3.webp"
      }
     ]
-   ]
+   ],
+   "continues": "sim"
   }
  },
  "callouts": {

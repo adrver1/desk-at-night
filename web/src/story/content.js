@@ -470,7 +470,7 @@ const tx = (o) => (o ? T(o.no ?? o.en, o.en ?? o.no) : '');
 // A 'show' message is a report the agent hands over: the chat shows it as an
 // attachment and the screen beside it the picture or video (`file` in
 // public/story/reports/).
-const chatOf = (c) => ({ title: tx(c.title), who: c.who, faces: c.faces ?? {}, shot: c.set?.shot, messages: c.messages.map(([who, m]) => [who, tx(m), m]) });
+const chatOf = (c) => ({ title: tx(c.title), who: c.who, faces: c.faces ?? {}, shot: c.set?.shot, reportShot: c.set?.reportShot, continues: c.continues, messages: c.messages.map(([who, m]) => [who, tx(m), m]) });
 export const CHATS = Object.fromEntries(Object.entries(STORY.chats).map(([id, c]) => [id, chatOf(c)]));
 // the private build's own wording of a chat (overrides.json `chats`)
 export const setChat = (id, c) => { CHATS[id] = chatOf({ ...STORY.chats[id], ...c }); };
