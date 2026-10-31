@@ -77,10 +77,14 @@ export class SunShadow {
 
   // Re-render what is out of date for the light coming from `dir`. `casters`
   // are the meshes that cast; everything else in `scene` is hidden meanwhile.
-  update(dir, casters, scene, t) {
+  // `inRoom` false: the sun can't get in (it is on the far side of the
+  // window's wall, or the curtains are shut), so nothing reads the room's
+  // map and it isn't drawn. In story mode that is the whole day.
+  update(dir, casters, scene, t, inRoom = true) {
     const moved = this.dir.dot(dir) < 0.999999;
-    const roomDue = moved || t - this.roomAt >= 1 / ROOM_HZ;
+    const roomDue = inRoom && (moved || t - this.roomAt >= 1 / ROOM_HZ || !this.roomFresh);
     const platformDue = moved && this.platform.box;
+    if (!inRoom) this.roomFresh = false;   // the sun moved meanwhile: draw it again as soon as it gets in
     if (!roomDue && !platformDue) return;
     this.dir.copy(dir);
     // `scene` is the glTF's group, not a Scene, so no overrideMaterial: swap
@@ -89,7 +93,7 @@ export class SunShadow {
     for (const o of hidden) o.visible = false;
     const materials = casters.map((m) => m.material);
     for (const m of casters) m.material = depthOnly;
-    if (roomDue && this.room.box) { this.room.aim(dir); this.room.render(this.renderer, scene); this.roomAt = t; }
+    if (roomDue && this.room.box) { this.room.aim(dir); this.room.render(this.renderer, scene); this.roomAt = t; this.roomFresh = true; }
     if (platformDue) { this.platform.aim(dir); this.platform.render(this.renderer, scene); }
     casters.forEach((m, i) => { m.material = materials[i]; });
     for (const o of hidden) o.visible = true;

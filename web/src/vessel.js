@@ -424,6 +424,7 @@ export async function addVessel({ renderer, scene, room, outdoor, cctv, panel })
   const seen = vessel.copy({ seaLevel: room.seaLevel, fog: true, lights: true, outdoor });
   reflectable(seen);
   scene.add(seen);
+  outdoor.seenThroughWindow(vessel.copies.at(-1).root);   // not drawn while the walls hide it
   if (panel) vesselControls(panel, vessel, outdoor);
   cctv.then((c) => {
     if (!c) return;

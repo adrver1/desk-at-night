@@ -8,6 +8,7 @@ import * as THREE from 'three';
 const SIZE = 768;     // px of the texture
 const RADIUS = 0.62;  // of half the screen's height
 const FADE = 0.5;     // s in and out
+const CULL = new URLSearchParams(location.search).get('cull') !== '0'; // ?cull=0 (docs/performance.md)
 
 export class ClockFace {
   constructor(game) {
@@ -50,7 +51,12 @@ export class ClockFace {
     renderer.setRenderTarget(this.target);
     renderer.setClearColor(0x101418, 1);
     renderer.clear();
+    // The camera is a hand's width from the nook's wall: the sea's depth-only
+    // surface (76k triangles, never culled) can't show
+    const sea = CULL && this.game.outdoor3?.waterline, seaOn = sea?.visible;
+    if (sea) sea.visible = false;
     renderer.render(scene, this.cam);
+    if (sea) sea.visible = seaOn;
     renderer.setRenderTarget(before);
     renderer.setClearColor(color, alpha);
     // The disc over everything, at the screen's aspect
