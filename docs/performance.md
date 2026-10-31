@@ -163,6 +163,7 @@ pass table with and without:
 | `?aniso=old` | 16× anisotropic filtering on every baked map. Normally the light maps have none (they are smooth) and the albedo and whiteboards 4× |
 | `?aa=msaa` / `?aa=0` | Edges are smoothed by an FXAA pass over the finished frame (2026-10-31; pass `fxaa`). `?aa=msaa` is the old multisampling, which took half the GPU time on the Intel Arc laptop (14.5 against 7.7 ms a frame); `?aa=0` turns both off. `play.html` and `story.html` only |
 | `?cull=0` | Draws what is out of sight again (2026-10-30): the room's sun shadow map while the sun can't get in through the window (all of story mode's day), the supply vessel and the sea's depth-only surface while the walls hide them, camera pictures for screens out of view, and the sea's surface in the rest corner clock's close-up |
+| `?closeup=0` | Story mode without the sharp close-up canvases (2026-10-31): a room screen that fills at least 12% of the picture normally gets its content drawn in a page canvas laid over it, so it is sharp without a WebGL upload |
 | `?sharp=1` | Screens drawn at the size they show at (2026-10-31): each screen in view gets a texture as wide as it covers on the canvas (up to 4× its slot, 2048 texels), so close-ups are sharp, and live screens out of view wait. Off by default: on the Intel Arc laptop the big canvas uploads took story mode's GPU time from 16 to 134 ms a frame (`story.html?bench=quick&sharp=1` against `&sharp=0`) |
 
 For example `story.html?perf=1&seaclip=0&aniso=old` is the page as it was
@@ -174,10 +175,10 @@ before 2026-10-26.
 pixel ratio the screen allows (2, 1.5, 1.25, 1, 0.75) with multisampling,
 reloads with FXAA and with neither and plays them again: about 4.5 s per
 beat and setting, some 9 minutes in all (`?bench=quick`: three beats, two ratios, under two minutes).
-`?bench=closeup` compares the ways of drawing close-up screens on six
-close-up beats at the page's own pixel ratio: today's, `?closeup=a` (in
-place), `?closeup=b` (card) and `?sharp=1` (big textures), about 2 minutes,
-with the longest frame per beat to show hitches.
+`?bench=closeup` plays six close-up beats at the page's own pixel ratio
+with the sharp close-up canvases (`web/src/story/closeups.js`) and without
+(`?closeup=0`), about a minute. All modes show the longest frame per beat,
+to show hitches, and the top GPU passes of the slowest beats.
 It then shows a table of frame rate and GPU time per setting and per beat,
 with a Copy button, to paste into a chat. GPU time needs a GPU timer
 (desktop Chrome, Edge, Firefox); on the iPhone only the frame rate means

@@ -161,6 +161,11 @@ export class Twin {
     this.build();
     game.hooks.render.push((renderer) => {
       if (!this.on || !this.ready) return;
+      // Only while its monitor is in view (once first, so it never shows black), at 30 fps
+      const seen = this.game.room?.feedsShown(this.game.camera);
+      if (this.shot && seen && !['twin', 'twinFix'].some((id) => seen.has(id))) return;
+      if (this.shot && (this.skip = !this.skip)) return;
+      this.shot = true;
       if (!this.scene.environment) this.scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
       const prev = renderer.getRenderTarget(), clip = renderer.localClippingEnabled;
       renderer.localClippingEnabled = true;
