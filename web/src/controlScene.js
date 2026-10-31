@@ -41,6 +41,14 @@ const FOCUS_SCALE = 2, FOCUS_HZ = 8; // the screen the player zooms in on
 const CULL = new URLSearchParams(location.search).get('cull') !== '0';
 const viewFrustum = new THREE.Frustum(), viewMatrix = new THREE.Matrix4();
 const SCREEN_SCALE = matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
+// Screens drawn at the size they show at: a screen in view gets its own
+// texture with as many texels as it covers canvas pixels (in steps of half
+// the slot, up to SHARP_MAX times it), and live screens out of view are not
+// redrawn. ?sharp=0 for the old way: live screens at their slot's size, the
+// rest from the atlas (docs/performance.md)
+const SHARP = new URLSearchParams(location.search).get('sharp') !== '0';
+const SHARP_MAX = 4, SHARP_STEP = 0.5;
+const _q0 = new THREE.Vector3(), _q1 = new THREE.Vector3(), _q2 = new THREE.Vector3();
 
 // Seven-segment style digits: the unlit segments faintly, the time bright.
 // White on black: the material's colour makes it red.
@@ -417,9 +425,9 @@ export async function loadControlRoom(renderer) {
   }
   // The overlay for one screen, made the first time it is needed; `scale`
   // times the atlas slot's resolution
-  function overlay(name, scale) {
+  function overlay(name, scale, exact = false) {
     let o = screens.overlays.get(name);
-    if (o && o.scale >= scale) return o;
+    if (o && (exact ? o.scale === scale : o.scale >= scale)) return o;
     const slot = slots[name];
     if (!slot) return null;
     if (!o) {
@@ -442,7 +450,7 @@ export async function loadControlRoom(renderer) {
       }
       if (!o) return null;
     }
-    if (scale <= o.scale) return o;
+    if (exact ? scale === o.scale || scale <= 0 : scale <= o.scale) return o;
     o.tex?.dispose();
     o.tex = canvasTexture(renderer, slot[2] * scale, slot[3] * scale);
     o.scale = scale;
@@ -469,6 +477,49 @@ export async function loadControlRoom(renderer) {
     }
   }
   const slots = meta.screens?.slots ?? {};
+  // SHARP: the scale a screen needs from this view, 0 when out of it
+  function wanted(o, width, height) {
+    if (!viewFrustum.intersectsObject(o.mesh)) return 0;
+    o.frame ??= faceFrame(o.mesh, null);
+    if (!o.frame) return 1;
+    _q0.copy(o.frame.at(0, 0)).project(sharpCam);
+    _q1.copy(o.frame.at(1, 0)).project(sharpCam);
+    _q2.copy(o.frame.at(0, 1)).project(sharpCam);
+    // Across and down, in canvas pixels; a screen reaching behind the camera
+    // counts as big
+    if (Math.max(_q0.z, _q1.z, _q2.z) > 1) return SHARP_MAX;
+    const across = Math.hypot((_q1.x - _q0.x) * width / 2, (_q1.y - _q0.y) * height / 2);
+    const down = Math.hypot((_q2.x - _q0.x) * width / 2, (_q2.y - _q0.y) * height / 2);
+    const need = Math.max(across / o.slot[2], down / o.slot[3]);
+    return Math.min(SHARP_MAX, Math.max(1, Math.ceil(need / SHARP_STEP - 0.15) * SHARP_STEP));
+  }
+  let sharpCam = null;
+  function sharpen(camera, width, height) {
+    sharpCam = camera;
+    camera.updateMatrixWorld();
+    viewFrustum.setFromProjectionMatrix(viewMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
+    for (const name of Object.keys(slots)) {
+      const o = overlay(name, 0);
+      if (!o) continue;
+      const live = isLive(name), focus = o === screens.focus;
+      const want = wanted(o, width, height), was = o.seen;
+      o.seen = want > 0;
+      // live ones always have a texture; static ones only when the atlas is too coarse
+      let target = live ? Math.max(1, want) : want > 1 ? want : 0;
+      if (focus) target = Math.max(target, FOCUS_SCALE);
+      if (!o.seen && !focus) target = live ? 1 : 0;   // out of view: back to the slot's size
+      // grow at once; shrink only well below, so a slow dolly doesn't redraw every step
+      if (target > o.scale || (target > 0 && target <= o.scale / 2)) {
+        overlay(name, target, true);
+        if (live) draw(o, screens.time);
+      } else if (live && o.seen && !was) draw(o, screens.time);   // stale from its time out of view
+      if (!live && !focus) {
+        const show = target > 0 && o.scale > 1;
+        if (show && !o.mesh.visible) draw(o, 0);
+        o.mesh.visible = show;
+      }
+    }
+  }
   if (screens) for (const name of Object.keys(slots)) if (isLive(name)) { const o = overlay(name, 1); if (o) o.mesh.visible = true; }
   gltf.scene.updateMatrixWorld(true);
   // What the sun's shadow maps cover: the room (with a margin for the walls)
@@ -556,8 +607,12 @@ export async function loadControlRoom(renderer) {
         h.obj.quaternion.copy(h.rest).multiply(handTurn);
       }
     },
-    updateScreens(t, outside) {
+    // With `view` ({ camera, width, height }, canvas pixels), the screens in
+    // it drawn at the size they show at and live ones out of it left alone
+    updateScreens(t, outside, view = null) {
       feedGain.value = gainSource.value;
+      const sharp = SHARP && view && screens;
+      if (sharp) { screens.time = t; sharpen(view.camera, view.width, view.height); }
       if (wallClock && outside) drawWallClock(wallClock, clock(outside.time));
       if (!screens) return;
       if (outside) {
@@ -570,6 +625,7 @@ export async function loadControlRoom(renderer) {
           setOutside(outside, STATIC_T);
           drawSlots(screens.atlas.image.getContext('2d'), slots, STATIC_T, SCREEN_SCALE);
           screens.atlas.needsUpdate = true;
+          for (const [name, o] of screens.overlays) if (!isLive(name) && o.mesh.visible && o !== screens.focus) draw(o, 0);
           setOutside(outside, STATIC_T + t);
         }
       }
@@ -577,7 +633,7 @@ export async function loadControlRoom(renderer) {
       if (f && t - screens.focusDrawn >= 1 / FOCUS_HZ) { screens.focusDrawn = t; draw(f, t); }
       if (t - screens.drawn < 1 / SCREEN_HZ) return;
       screens.drawn = t;
-      for (const [name, o] of screens.overlays) if (o !== f && isLive(name)) draw(o, t);
+      for (const [name, o] of screens.overlays) if (o !== f && isLive(name) && (!sharp || o.seen)) draw(o, t);
     },
     // The meshes the screens are drawn on, for raycasting
     screenMeshes: screens?.meshes ?? [],
