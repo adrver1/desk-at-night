@@ -161,7 +161,7 @@ pass table with and without:
 |---|---|
 | `?seaclip=0` | Sky, sea and mirror drawn over the whole screen. Normally, seen from inside, they are drawn only in the window's box on screen, and not at all while the window is out of view |
 | `?aniso=old` | 16× anisotropic filtering on every baked map. Normally the light maps have none (they are smooth) and the albedo and whiteboards 4× |
-| `?aa=0` | Turns multisampling (antialiasing) off, to see what it costs. `play.html` and `story.html` only |
+| `?aa=msaa` / `?aa=0` | Edges are smoothed by an FXAA pass over the finished frame (2026-10-31; pass `fxaa`). `?aa=msaa` is the old multisampling, which took half the GPU time on the Intel Arc laptop (14.5 against 7.7 ms a frame); `?aa=0` turns both off. `play.html` and `story.html` only |
 | `?cull=0` | Draws what is out of sight again (2026-10-30): the room's sun shadow map while the sun can't get in through the window (all of story mode's day), the supply vessel and the sea's depth-only surface while the walls hide them, camera pictures for screens out of view, and the sea's surface in the rest corner clock's close-up |
 | `?sharp=1` | Screens drawn at the size they show at (2026-10-31): each screen in view gets a texture as wide as it covers on the canvas (up to 4× its slot, 2048 texels), so close-ups are sharp, and live screens out of view wait. Off by default: on the Intel Arc laptop the big canvas uploads took story mode's GPU time from 16 to 134 ms a frame (`story.html?bench=quick&sharp=1` against `&sharp=0`) |
 
@@ -171,9 +171,9 @@ before 2026-10-26.
 ## The story benchmark
 
 `story.html?bench=1` plays eight of the story's heaviest beats under each
-pixel ratio the screen allows (2, 1.5, 1.25, 1, 0.75) with antialiasing on,
-reloads with `?aa=0` and plays them again: about 4.5 s per beat and setting,
-some 6 minutes in all (`?bench=quick`: three beats, two ratios, a minute).
+pixel ratio the screen allows (2, 1.5, 1.25, 1, 0.75) with multisampling,
+reloads with FXAA and with neither and plays them again: about 4.5 s per
+beat and setting, some 9 minutes in all (`?bench=quick`: three beats, two ratios, under two minutes).
 It then shows a table of frame rate and GPU time per setting and per beat,
 with a Copy button, to paste into a chat. GPU time needs a GPU timer
 (desktop Chrome, Edge, Firefox); on the iPhone only the frame rate means

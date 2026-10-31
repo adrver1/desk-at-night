@@ -1,6 +1,7 @@
 // Story mode benchmark (story.html?bench=1, Adriaen 2026-10-31): plays the
-// heaviest beats under each pixel ratio, with antialiasing on, then reloads
-// with ?aa=0 and plays them again, and shows one table to copy into a chat.
+// heaviest beats under each pixel ratio with multisampling (?aa=msaa), then
+// reloads with FXAA (?aa=fxaa) and with neither (?aa=0) and plays them
+// again, and shows one table to copy into a chat.
 // Per beat and setting: frame rate, and GPU time per frame where the browser
 // has a GPU timer (desktop Chrome, Edge, Firefox), read from perf.js.
 // Results carry across the reload in sessionStorage.
@@ -85,10 +86,11 @@ export async function runBench(story) {
   const quick = q.get('bench') === 'quick';
   const beats = quick ? QUICK : BEATS;
   const renderer = story.game.renderer;
-  const aa = q.get('aa') !== '0';
-  let state = load();
-  if (!aa && !state) state = { results: [] };   // opened straight with aa=0
-  if (aa) state = { results: [] };               // the first pass starts over
+  const PASSES = ['msaa', 'fxaa', '0'];
+  if (!q.has('aa')) { q.set('aa', PASSES[0]); location.search = q.toString(); return; }
+  const aa = q.get('aa'), pass = PASSES.indexOf(aa);
+  let state = pass > 0 ? load() : null;   // the first pass (or an ?aa of its own) starts over
+  state ??= { results: [] };
   story.start();
   document.querySelector('.iris')?.remove();
   window.__perf?.setView?.('full');
@@ -100,7 +102,7 @@ export async function runBench(story) {
   for (const r of ratios) {
     renderer.setPixelRatio(r);
     for (const beat of beats) {
-      const setting = `${aa ? 'aa' : 'no aa'} @${r}`;
+      const setting = `${aa === '0' ? 'no aa' : aa} @${r}`;
       show(state.results, info, `running: ${setting} · ${beat}`);
       if (!story.goto(beat)) continue;
       await wait(SETTLE);
@@ -110,7 +112,7 @@ export async function runBench(story) {
     }
   }
   renderer.setPixelRatio(before);
-  if (aa) { q.set('aa', '0'); location.search = q.toString(); return; }   // the second pass, without antialiasing
+  if (pass >= 0 && pass < PASSES.length - 1) { q.set('aa', PASSES[pass + 1]); location.search = q.toString(); return; }   // the next pass
   show(state.results, info, null);
   try { sessionStorage.removeItem(KEY); } catch { /* fine */ }
 }

@@ -773,6 +773,8 @@ game.ready.then(async () => {
   go.disabled = false;
   go.textContent = T('Start', 'Begin');
   if (!begin.parentNode) enter(chapter, beat, { instant: true });
+  // ?closeup=a|b: PROTOTYPE of sharp close-up screens (closeupPrototype.js)
+  if (q.has('closeup')) import('./closeupPrototype.js').then(({ closeupPrototype }) => game.hooks.frame.push(closeupPrototype(game, q.get('closeup'))));
   // ?bench=1: the frame rate benchmark (bench.js)
   if (q.has('bench')) import('./bench.js').then(({ runBench }) => runBench({ start, goto: window.__story.goto, game }));
 }).catch((e) => { go.textContent = `Could not load: ${e.message}`; console.error(e); });

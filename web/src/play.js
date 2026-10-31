@@ -17,6 +17,8 @@ import { RoomControls } from './roomControls.js';
 import { CONTENT, DEFAULT_LAYOUT, contentOf, screenLabel } from './screens.js';
 import { Highlight } from './highlight.js';
 import { perfPanel, perfWatch, perfRow, perfStep } from './perf.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
+import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 
 perfPanel(); // frame rate readout; tap it or press ` for the performance panel (see perf.js)
 
@@ -61,8 +63,12 @@ const coarse = matchMedia('(pointer: coarse)').matches;
 const CULL = new URLSearchParams(location.search).get('cull') !== '0';
 if (coarse) ui.game.classList.add('coarse');
 
-// ?aa=0 turns off multisampling, to see what it costs (docs/performance.md)
-const renderer = new THREE.WebGLRenderer({ canvas: ui.canvas, antialias: new URLSearchParams(location.search).get('aa') !== '0' });
+// Edges are smoothed by an FXAA pass over the finished frame: multisampling
+// took half the GPU time on the Intel Arc laptop (story bench 2026-10-31:
+// 14.5 ms a frame with it, 7.7 ms without). ?aa=msaa for multisampling
+// instead, ?aa=0 for neither (docs/performance.md)
+const AA = new URLSearchParams(location.search).get('aa') ?? 'fxaa';
+const renderer = new THREE.WebGLRenderer({ canvas: ui.canvas, antialias: AA === 'msaa' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, coarse ? 1.5 : 2));
 renderer.toneMapping = THREE.AgXToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -714,6 +720,25 @@ const WARM = { frames: 10, ms: 2500 };   // and long enough for the CCTV to take
 let warm = 0, warmFrom = 0, cctvSettled = false;
 const fullSize = new THREE.Vector2();
 
+// FXAA: the finished frame copied off the canvas and drawn back smoothed
+const fxaa = AA === 'fxaa' && {
+  quad: new FullScreenQuad(new THREE.ShaderMaterial({ ...FXAAShader, uniforms: THREE.UniformsUtils.clone(FXAAShader.uniforms), depthTest: false, depthWrite: false })),
+  frame: null,
+  size: new THREE.Vector2(),
+};
+if (fxaa) fxaa.quad._mesh.name = 'fxaa';   // the perf panel's pass name
+function smoothEdges() {
+  const size = renderer.getDrawingBufferSize(fxaa.size);
+  if (!fxaa.frame || fxaa.frame.image.width !== size.x || fxaa.frame.image.height !== size.y) {
+    fxaa.frame?.dispose();
+    fxaa.frame = new THREE.FramebufferTexture(size.x, size.y);
+    fxaa.quad.material.uniforms.tDiffuse.value = fxaa.frame;
+    fxaa.quad.material.uniforms.resolution.value.set(1 / size.x, 1 / size.y);
+  }
+  renderer.copyFramebufferToTexture(fxaa.frame);
+  fxaa.quad.render(renderer);
+}
+
 let last = performance.now();
 renderer.setAnimationLoop((now) => {
   const frame = (now - last) / 1000, dt = Math.min(frame, 0.05);
@@ -751,6 +776,7 @@ renderer.setAnimationLoop((now) => {
   outdoor.render(renderer, camera, { reflect: hooks.reflect.length ? [scene, ...hooks.reflect] : scene });   // the vessel mirrored in the sea
   renderer.render(scene, camera);
   for (const f of hooks.render) f(renderer, camera); // the story's own lit pass (characters), over the same depth
+  if (fxaa && !tiny) perfStep('fxaa', smoothEdges);
   if (tiny) {
     renderer.getSize(fullSize);
     renderer.setViewport(0, 0, fullSize.x, fullSize.y);
