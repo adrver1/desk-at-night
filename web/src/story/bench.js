@@ -20,7 +20,8 @@ const MODES = {
   closeup: { beats: ['c.step', 'c.sim', 'm.build', 'm.twin', 'ep.line', 'm.what1'], ratios: 0,
     passes: [{ closeup: '0', label: 'no closeups' }, { label: 'closeups' }] },
 };
-const OPTIONS = ['aa', 'closeup', 'sharp'];   // the URL options passes set
+const OPTIONS = ['aa', 'closeup', 'sharp'];
+const BUILD = typeof __BUILD__ === 'string' ? __BUILD__ : 'dev';   // the URL options passes set
 const SETTLE = 1500, MEASURE = 3000;   // ms per beat and setting
 const KEY = 'storyBench';
 
@@ -123,7 +124,7 @@ function show(results, info, running) {
 }
 
 function report(results, info) {
-  const L = [`story bench · ${info.device} · ${info.css} CSS px · devicePixelRatio ${info.dpr} · GPU timer ${info.timer ? 'yes' : 'no'}`, navigator.userAgent, ''];
+  const L = [`story bench · build ${info.build}${info.builds?.length > 1 ? ` (passes ran different builds: ${info.builds.join(' / ')}, reload and run again)` : ''} · ${info.device} · ${info.css} CSS px · devicePixelRatio ${info.dpr} · GPU timer ${info.timer ? 'yes' : 'no'}`, navigator.userAgent, ''];
   const settings = [...new Set(results.map((r) => r.setting))];
   L.push(`${'setting'.padEnd(14)} ${'fps'.padStart(5)} ${'gpu ms'.padStart(7)} ${'room ms'.padStart(8)} ${'worst ms'.padStart(9)}   (averaged over beats; worst = longest frame; slowest beat)`);
   for (const s of settings) {
@@ -156,7 +157,8 @@ export async function runBench(story) {
   const mode = MODES[q.get('bench')] ?? MODES.full, beats = mode.beats;
   const renderer = story.game.renderer;
   // Each pass: its URL options, then a reload; the results carry over
-  const go = (i) => { for (const k of OPTIONS) q.delete(k); for (const [k, v] of Object.entries(mode.passes[i])) if (k !== 'label') q.set(k, v); q.set('benchpass', i); location.search = q.toString(); };
+  // (`run` makes each reload a new URL, so no pass gets an old cached page)
+  const go = (i) => { for (const k of OPTIONS) q.delete(k); for (const [k, v] of Object.entries(mode.passes[i])) if (k !== 'label') q.set(k, v); q.set('benchpass', i); q.set('run', Date.now().toString(36)); location.search = q.toString(); };
   // A pass carries on only from the pass before it, with that run's results
   // and its own URL options; anything else (say, an old bench URL opened
   // again) starts the run over
@@ -166,13 +168,14 @@ export async function runBench(story) {
   const label = passOpts.label ?? passOpts.aa;
   const state = pass > 0 ? saved : { results: [] };
   state.mode = q.get('bench'); state.pass = pass;
+  state.builds = [...new Set([...(state.builds ?? []), BUILD])];
   story.start();
   document.querySelector('.iris')?.remove();
   window.__perf?.setView?.('full');
   const dpr = devicePixelRatio;
   const ratios = mode.ratios ? [...new Set([Math.min(dpr, 2), 1.5, 1.25, 1, 0.75].filter((r) => r <= Math.max(dpr, 1) + 1e-6))].slice(0, mode.ratios) : [renderer.getPixelRatio()];
   const gl = renderer.getContext();
-  const info = { device: window.__perf?.snapshot?.device ?? '', css: `${innerWidth}×${innerHeight}`, dpr: +dpr.toFixed(2), timer: Boolean(gl.getExtension('EXT_disjoint_timer_query_webgl2')) };
+  const info = { build: BUILD, device: window.__perf?.snapshot?.device ?? '', css: `${innerWidth}×${innerHeight}`, dpr: +dpr.toFixed(2), timer: Boolean(gl.getExtension('EXT_disjoint_timer_query_webgl2')) };
   const before = renderer.getPixelRatio();
   const tagOf = tagger(story.game);
   for (const r of ratios) {
@@ -190,6 +193,7 @@ export async function runBench(story) {
   renderer.setPixelRatio(before);
   save(state);
   if (pass < mode.passes.length - 1) { go(pass + 1); return; }
+  info.builds = state.builds;
   show(state.results, info, null);
   try { sessionStorage.removeItem(KEY); } catch { /* fine */ }
 }
