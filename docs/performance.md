@@ -174,6 +174,10 @@ before 2026-10-26.
 pixel ratio the screen allows (2, 1.5, 1.25, 1, 0.75) with multisampling,
 reloads with FXAA and with neither and plays them again: about 4.5 s per
 beat and setting, some 9 minutes in all (`?bench=quick`: three beats, two ratios, under two minutes).
+`?bench=closeup` compares the ways of drawing close-up screens on six
+close-up beats at the page's own pixel ratio: today's, `?closeup=a` (in
+place), `?closeup=b` (card) and `?sharp=1` (big textures), about 2 minutes,
+with the longest frame per beat to show hitches.
 It then shows a table of frame rate and GPU time per setting and per beat,
 with a Copy button, to paste into a chat. GPU time needs a GPU timer
 (desktop Chrome, Edge, Firefox); on the iPhone only the frame rate means
