@@ -44,9 +44,12 @@ const SCREEN_SCALE = matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
 // Screens drawn at the size they show at: a screen in view gets its own
 // texture with as many texels as it covers canvas pixels (in steps of half
 // the slot, up to SHARP_MAX times it and SHARP_TEXELS wide), and live
-// screens out of view are not redrawn. ?sharp=0 for the old way: live screens at their slot's size, the
-// rest from the atlas (docs/performance.md)
-const SHARP = new URLSearchParams(location.search).get('sharp') !== '0';
+// screens out of view are not redrawn. Off unless ?sharp=1: on an Intel Arc
+// laptop the big canvas uploads took the story's GPU time from 16 to 134 ms a
+// frame (story.html?bench=quick, 2026-10-31). Without it, live screens are
+// drawn at their slot's size and the rest come from the atlas
+// (docs/performance.md)
+const SHARP = new URLSearchParams(location.search).get('sharp') === '1';
 const SHARP_MAX = 4, SHARP_STEP = 0.5, SHARP_TEXELS = 2048;
 const _q0 = new THREE.Vector3(), _q1 = new THREE.Vector3(), _q2 = new THREE.Vector3();
 
