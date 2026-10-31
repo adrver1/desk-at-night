@@ -168,6 +168,18 @@ pass table with and without:
 For example `story.html?perf=1&seaclip=0&aniso=old` is the page as it was
 before 2026-10-26.
 
+## The story benchmark
+
+`story.html?bench=1` plays eight of the story's heaviest beats under each
+pixel ratio the screen allows (2, 1.5, 1.25, 1, 0.75) with antialiasing on,
+reloads with `?aa=0` and plays them again: about 4.5 s per beat and setting,
+some 6 minutes in all (`?bench=quick`: three beats, two ratios, a minute).
+It then shows a table of frame rate and GPU time per setting and per beat,
+with a Copy button, to paste into a chat. GPU time needs a GPU timer
+(desktop Chrome, Edge, Firefox); on the iPhone only the frame rate means
+anything. Frame rates stop at the screen's refresh rate, so compare GPU
+times. Code: `web/src/story/bench.js`.
+
 ## Other tools
 
 - **Spector.js** (Chrome/Firefox extension): captures one frame and lists
