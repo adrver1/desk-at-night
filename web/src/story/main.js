@@ -28,6 +28,7 @@ import { Sola, LENGTH as SOLA_LENGTH } from './sola.js';
 import { Trondheim } from './trondheim.js';
 import { ClockFace } from './clockFace.js';
 import { Buddy } from './buddy.js';
+import { closeups } from './closeups.js';
 import { Workshop } from './workshop.js';
 import { Twin } from './twin.js';
 import { Retune } from './retune.js';
@@ -773,8 +774,8 @@ game.ready.then(async () => {
   go.disabled = false;
   go.textContent = T('Start', 'Begin');
   if (!begin.parentNode) enter(chapter, beat, { instant: true });
-  // ?closeup=a|b: PROTOTYPE of sharp close-up screens (closeupPrototype.js)
-  if (q.has('closeup')) import('./closeupPrototype.js').then(({ closeupPrototype }) => game.hooks.frame.push(closeupPrototype(game, q.get('closeup'))));
+  // Sharp close-up screens, laid over the picture (closeups.js); ?closeup=0 for none
+  if (q.get('closeup') !== '0') game.hooks.frame.push(closeups(game));
   // ?bench=1: the frame rate benchmark (bench.js)
   if (q.has('bench')) import('./bench.js').then(({ runBench }) => runBench({ start, goto: window.__story.goto, game }));
 }).catch((e) => { go.textContent = `Could not load: ${e.message}`; console.error(e); });

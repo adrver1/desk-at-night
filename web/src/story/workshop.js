@@ -106,6 +106,11 @@ export class Workshop {
     this.build();
     game.hooks.render.push((renderer) => {
       if (!this.on || !this.ready) return;
+      // Only while its monitor is in view (once first, so it never shows black), at 30 fps
+      const seen = this.game.room?.feedsShown(this.game.camera);
+      if (this.shot && seen && !['workshop'].some((id) => seen.has(id))) return;
+      if (this.shot && (this.skip = !this.skip)) return;
+      this.shot = true;
       const prev = renderer.getRenderTarget();
       renderer.setRenderTarget(this.rt);
       renderer.render(this.scene, this.camera);

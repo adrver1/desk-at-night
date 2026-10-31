@@ -7,8 +7,8 @@
 // Results carry across the reload in sessionStorage.
 //
 // URL: ?bench=1 (all), ?bench=quick (three beats, two ratios),
-// ?bench=closeup (the close-up screens: today's, ?closeup=a in place,
-// ?closeup=b card, ?sharp=1 big textures, at the page's own pixel ratio).
+// ?bench=closeup (close-up beats with the sharp close-up canvases of
+// closeups.js and without, ?closeup=0, at the page's own pixel ratio).
 // Each pass is a reload with its own URL options (?benchpass=N).
 const BEATS = ['c.sim', 'm.build', 'm.twin', 'm.what1', 't.coffee', 'new.ctrl08', 'h.s1', 'ep.line'];
 const AA = [{ aa: 'msaa' }, { aa: 'fxaa' }, { aa: '0', label: 'no aa' }];
@@ -16,7 +16,7 @@ const MODES = {
   full: { beats: BEATS, ratios: 5, passes: AA },
   quick: { beats: ['c.sim', 'm.what1', 'ep.line'], ratios: 2, passes: AA },
   closeup: { beats: ['c.step', 'c.sim', 'm.build', 'm.twin', 'ep.line', 'm.what1'], ratios: 0,
-    passes: [{ label: 'today' }, { closeup: 'a', label: 'A in place' }, { closeup: 'b', label: 'B card' }, { sharp: '1', label: 'sharp tex' }] },
+    passes: [{ closeup: '0', label: 'no closeups' }, { label: 'closeups' }] },
 };
 const OPTIONS = ['aa', 'closeup', 'sharp'];   // the URL options passes set
 const SETTLE = 1500, MEASURE = 3000;   // ms per beat and setting
@@ -31,7 +31,7 @@ function save(v) { try { sessionStorage.setItem(KEY, JSON.stringify(v)); } catch
 // Frame rate from requestAnimationFrame over `ms`, and the perf panel's
 // last GPU readings over the same time
 async function measure(ms) {
-  const gpu = [], room = [];
+  const gpu = [], room = [], passes = {};
   let frames = 0, first = null, last = null, worst = 0;
   await new Promise((done) => {
     const tick = (now) => {
@@ -46,11 +46,13 @@ async function measure(ms) {
       if (s?.gpu != null) gpu.push(s.gpu);
       const r = s?.passes?.find((p) => p.label === 'room');
       if (r?.gpu != null) room.push(r.gpu);
+      for (const x of s?.passes ?? []) if (x.gpu != null) (passes[x.label] ??= []).push(x.gpu);
       if (last != null && last - first >= ms) clearInterval(poll);
     }, 500);
   });
   const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
-  return { fps: ((frames - 1) * 1000) / (last - first), worst, gpu: avg(gpu), room: avg(room) };
+  const top = Object.entries(passes).map(([l, v]) => [l, avg(v)]).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  return { fps: ((frames - 1) * 1000) / (last - first), worst, gpu: avg(gpu), room: avg(room), top };
 }
 
 function show(results, info, running) {
@@ -88,6 +90,9 @@ function report(results, info) {
   for (const beat of [...new Set(results.map((r) => r.beat))]) {
     L.push(`${beat.padEnd(12)} ${settings.map((s) => { const r = results.find((x) => x.beat === beat && x.setting === s); return (r ? `${r.fps.toFixed(0)}/${r.gpu == null ? '–' : r.gpu.toFixed(1)}/${(r.worst ?? 0).toFixed(0)}` : '').padStart(16); }).join('')}`);
   }
+  // Where the GPU time goes in the slowest beats
+  const slow = [...results].sort((a, b) => a.fps - b.fps).filter((r) => r.top?.length).slice(0, 4);
+  if (slow.length) L.push('', 'slowest beats, top passes (gpu ms):', ...slow.map((r) => `${r.beat} · ${r.setting}: ${r.top.map(([l, ms]) => `${l} ${ms.toFixed(1)}`).join(' · ')}`));
   return L.join('\n');
 }
 
