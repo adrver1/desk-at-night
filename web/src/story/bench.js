@@ -6,9 +6,19 @@
 // has a GPU timer (desktop Chrome, Edge, Firefox), read from perf.js.
 // Results carry across the reload in sessionStorage.
 //
-// URL: ?bench=1 (all), ?bench=quick (three beats, two ratios).
+// URL: ?bench=1 (all), ?bench=quick (three beats, two ratios),
+// ?bench=closeup (the close-up screens: today's, ?closeup=a in place,
+// ?closeup=b card, ?sharp=1 big textures, at the page's own pixel ratio).
+// Each pass is a reload with its own URL options (?benchpass=N).
 const BEATS = ['c.sim', 'm.build', 'm.twin', 'm.what1', 't.coffee', 'new.ctrl08', 'h.s1', 'ep.line'];
-const QUICK = ['c.sim', 'm.what1', 'ep.line'];
+const AA = [{ aa: 'msaa' }, { aa: 'fxaa' }, { aa: '0', label: 'no aa' }];
+const MODES = {
+  full: { beats: BEATS, ratios: 5, passes: AA },
+  quick: { beats: ['c.sim', 'm.what1', 'ep.line'], ratios: 2, passes: AA },
+  closeup: { beats: ['c.step', 'c.sim', 'm.build', 'm.twin', 'ep.line', 'm.what1'], ratios: 0,
+    passes: [{ label: 'today' }, { closeup: 'a', label: 'A in place' }, { closeup: 'b', label: 'B card' }, { sharp: '1', label: 'sharp tex' }] },
+};
+const OPTIONS = ['aa', 'closeup', 'sharp'];   // the URL options passes set
 const SETTLE = 1500, MEASURE = 3000;   // ms per beat and setting
 const KEY = 'storyBench';
 
@@ -22,10 +32,11 @@ function save(v) { try { sessionStorage.setItem(KEY, JSON.stringify(v)); } catch
 // last GPU readings over the same time
 async function measure(ms) {
   const gpu = [], room = [];
-  let frames = 0, first = null, last = null;
+  let frames = 0, first = null, last = null, worst = 0;
   await new Promise((done) => {
     const tick = (now) => {
       if (first == null) first = now;
+      if (last != null) worst = Math.max(worst, now - last);
       frames++; last = now;
       if (now - first < ms) requestAnimationFrame(tick); else done();
     };
@@ -39,7 +50,7 @@ async function measure(ms) {
     }, 500);
   });
   const avg = (a) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : null);
-  return { fps: ((frames - 1) * 1000) / (last - first), gpu: avg(gpu), room: avg(room) };
+  return { fps: ((frames - 1) * 1000) / (last - first), worst, gpu: avg(gpu), room: avg(room) };
 }
 
 function show(results, info, running) {
@@ -64,17 +75,18 @@ function show(results, info, running) {
 function report(results, info) {
   const L = [`story bench · ${info.device} · ${info.css} CSS px · devicePixelRatio ${info.dpr} · GPU timer ${info.timer ? 'yes' : 'no'}`, navigator.userAgent, ''];
   const settings = [...new Set(results.map((r) => r.setting))];
-  L.push(`${'setting'.padEnd(14)} ${'fps'.padStart(5)} ${'gpu ms'.padStart(7)} ${'room ms'.padStart(8)}   (averaged over beats; slowest beat)`);
+  L.push(`${'setting'.padEnd(14)} ${'fps'.padStart(5)} ${'gpu ms'.padStart(7)} ${'room ms'.padStart(8)} ${'worst ms'.padStart(9)}   (averaged over beats; worst = longest frame; slowest beat)`);
   for (const s of settings) {
     const rs = results.filter((r) => r.setting === s);
     const avg = (k) => { const v = rs.map((r) => r[k]).filter((x) => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
     const worst = rs.reduce((a, r) => (r.fps < a.fps ? r : a), rs[0]);
     const f = (x, d = 1) => (x == null ? '–' : x.toFixed(d));
-    L.push(`${s.padEnd(14)} ${f(avg('fps')).padStart(5)} ${f(avg('gpu')).padStart(7)} ${f(avg('room')).padStart(8)}   ${worst.beat} ${f(worst.fps)} fps`);
+    const hitch = Math.max(...rs.map((r) => r.worst ?? 0));
+    L.push(`${s.padEnd(14)} ${f(avg('fps')).padStart(5)} ${f(avg('gpu')).padStart(7)} ${f(avg('room')).padStart(8)} ${f(hitch, 0).padStart(9)}   ${worst.beat} ${f(worst.fps)} fps`);
   }
-  L.push('', 'per beat (fps / gpu ms):', `${'beat'.padEnd(12)} ${settings.map((s) => s.padStart(12)).join('')}`);
+  L.push('', 'per beat (fps / gpu ms / longest frame ms):', `${'beat'.padEnd(12)} ${settings.map((s) => s.padStart(16)).join('')}`);
   for (const beat of [...new Set(results.map((r) => r.beat))]) {
-    L.push(`${beat.padEnd(12)} ${settings.map((s) => { const r = results.find((x) => x.beat === beat && x.setting === s); return (r ? `${r.fps.toFixed(0)}/${r.gpu == null ? '–' : r.gpu.toFixed(1)}` : '').padStart(12); }).join('')}`);
+    L.push(`${beat.padEnd(12)} ${settings.map((s) => { const r = results.find((x) => x.beat === beat && x.setting === s); return (r ? `${r.fps.toFixed(0)}/${r.gpu == null ? '–' : r.gpu.toFixed(1)}/${(r.worst ?? 0).toFixed(0)}` : '').padStart(16); }).join('')}`);
   }
   return L.join('\n');
 }
@@ -83,26 +95,27 @@ function report(results, info) {
 export async function runBench(story) {
   // the GPU timer needs the full perf panel
   if (!q.has('perf')) { q.set('perf', '1'); location.search = q.toString(); return; }
-  const quick = q.get('bench') === 'quick';
-  const beats = quick ? QUICK : BEATS;
+  const mode = MODES[q.get('bench')] ?? MODES.full, beats = mode.beats;
   const renderer = story.game.renderer;
-  const PASSES = ['msaa', 'fxaa', '0'];
-  if (!q.has('aa')) { q.set('aa', PASSES[0]); location.search = q.toString(); return; }
-  const aa = q.get('aa'), pass = PASSES.indexOf(aa);
-  let state = pass > 0 ? load() : null;   // the first pass (or an ?aa of its own) starts over
+  // Each pass: its URL options, then a reload; the results carry over
+  const go = (i) => { for (const k of OPTIONS) q.delete(k); for (const [k, v] of Object.entries(mode.passes[i])) if (k !== 'label') q.set(k, v); q.set('benchpass', i); location.search = q.toString(); };
+  if (!q.has('benchpass')) { go(0); return; }
+  const pass = Math.min(+q.get('benchpass') || 0, mode.passes.length - 1), passOpts = mode.passes[pass];
+  const label = passOpts.label ?? passOpts.aa;
+  let state = pass > 0 ? load() : null;   // the first pass starts over
   state ??= { results: [] };
   story.start();
   document.querySelector('.iris')?.remove();
   window.__perf?.setView?.('full');
   const dpr = devicePixelRatio;
-  const ratios = [...new Set([Math.min(dpr, 2), 1.5, 1.25, 1, 0.75].filter((r) => r <= Math.max(dpr, 1) + 1e-6))].slice(0, quick ? 2 : 5);
+  const ratios = mode.ratios ? [...new Set([Math.min(dpr, 2), 1.5, 1.25, 1, 0.75].filter((r) => r <= Math.max(dpr, 1) + 1e-6))].slice(0, mode.ratios) : [renderer.getPixelRatio()];
   const gl = renderer.getContext();
   const info = { device: window.__perf?.snapshot?.device ?? '', css: `${innerWidth}×${innerHeight}`, dpr: +dpr.toFixed(2), timer: Boolean(gl.getExtension('EXT_disjoint_timer_query_webgl2')) };
   const before = renderer.getPixelRatio();
   for (const r of ratios) {
     renderer.setPixelRatio(r);
     for (const beat of beats) {
-      const setting = `${aa === '0' ? 'no aa' : aa} @${r}`;
+      const setting = mode.ratios ? `${label} @${r}` : label;
       show(state.results, info, `running: ${setting} · ${beat}`);
       if (!story.goto(beat)) continue;
       await wait(SETTLE);
@@ -112,7 +125,7 @@ export async function runBench(story) {
     }
   }
   renderer.setPixelRatio(before);
-  if (pass >= 0 && pass < PASSES.length - 1) { q.set('aa', PASSES[pass + 1]); location.search = q.toString(); return; }   // the next pass
+  if (pass < mode.passes.length - 1) { go(pass + 1); return; }
   show(state.results, info, null);
   try { sessionStorage.removeItem(KEY); } catch { /* fine */ }
 }
