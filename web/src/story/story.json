@@ -295,6 +295,15 @@
    },
    "builds": 5
   },
+  "h-02s": {
+   "no": {
+    "title": "Flere agenter sammen, på skjermen"
+   },
+   "en": {
+    "title": "Multi-agent work, on a screen"
+   },
+   "builds": 3
+  },
   "ctrl-08s": {
    "no": {
     "title": "Lysbilde 8 på skjermen"
@@ -953,7 +962,7 @@
    "notes": "Lysbilde 13."
   },
   {
-   "after": "new.ctrl13",
+   "after": "new.ctrl12",
    "id": "new.ctrl14",
    "slide": "ctrl-14",
    "notes": "Lysbilde 14."
@@ -1029,6 +1038,18 @@
   "m.uc4": {
    "no": "Brukstilfelle 4",
    "en": "Use case 4"
+  },
+  "h.s2": {
+   "no": "Multi-agent systemer",
+   "en": "Multi-agent systems"
+  },
+  "h.s1": {
+   "no": "Kunnskapsgrafer",
+   "en": "Knowledge graphs"
+  },
+  "ep.zoom": {
+   "no": "Epilog",
+   "en": "Epilogue"
   }
  }
 }

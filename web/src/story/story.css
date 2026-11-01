@@ -304,6 +304,8 @@
 /* b: a box per chapter, its full name, dots for the beats */
 .nav-b .nav-ch { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 1px 6px; align-items: center; text-align: left;
   padding: 4px 6px; border-radius: 6px; background: #0007; border-top: 2px solid #ffffff22; }
+/* no box narrower than its key and longest word (the names clipped with 11 chapters); the rest shared by room() */
+.nav-b .nav-group, .nav-b .nav-row, .nav-b .nav-ch { min-width: min-content; }
 .nav-b .nav-ch:hover { background: #fff2; }
 .nav-b .nav-ch.done { border-top-color: #ffffff77; }
 .nav-b .nav-ch.now { border-top-color: var(--tungsten); background: #000a; color: #fff; }

@@ -113,6 +113,10 @@ const H02 = {
   ],
 };
 
+// h-02 on the same monitor as ctrl-08s, the beat after it (Adriaen, 2026-11-01): the story opens
+// the chapter on the screen and stays there; h-02 itself is kept for the full-screen run
+const H02S = { ...H02, id: 'h-02s', screen: 'Desk1Mon0Screen', zoomAt: Infinity };
+
 // ------------------------------------------------------------ slide 8: the team loop
 const LOOP = { buddy: [0, 0.2], scholar: [-5.1, -3.6], nurse: [5.1, -3.6], books: [0, -4.2] };
 const H08 = {
@@ -502,4 +506,4 @@ const H04 = {
   ],
 };
 
-export const LIVE_SLIDES = Object.fromEntries([H02, H08, H08S, H09, H09S, H01, H11, H12, H13, H14, H04].map((s) => [s.id, s]));
+export const LIVE_SLIDES = Object.fromEntries([H02, H02S, H08, H08S, H09, H09S, H01, H11, H12, H13, H14, H04].map((s) => [s.id, s]));
