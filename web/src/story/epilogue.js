@@ -126,7 +126,7 @@ export class Epilogue {
       const out = new THREE.Vector3(-1, 0, 0);   // the window looks out along -x
       const seat = new THREE.Vector3(-1.13, 1.18, -1.27);
       this.path = new THREE.CatmullRomCurve3([
-        seat, new THREE.Vector3(-3.6, 1.5, -0.2), new THREE.Vector3(-5.4, 1.6, 0.1),
+        seat, new THREE.Vector3(-3.0, 1.45, -1.05), new THREE.Vector3(-4.2, 1.55, -0.95), new THREE.Vector3(-5.4, 1.6, -0.3),
         // then out and down, to end low over the water: from up high a calm sea
         // reflects only a few percent, at a glancing angle most of the light
         new THREE.Vector3(-12, 2.0, 0.5), new THREE.Vector3(-45, -2, 10), new THREE.Vector3(-120, -22, 25), new THREE.Vector3(-215, -36, 30),

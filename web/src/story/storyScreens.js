@@ -336,6 +336,9 @@ function wrap(ctx, s, maxW) {
   return out;
 }
 
+// how long the agent's ••• shows before its answer (1.4 s until Adriaen, 2026-11-01: snappier)
+const AI_THINK = 0.6;
+
 // A chat with an agent: the person's messages on the right, the agent's on
 // the left, newest at the bottom; the agent types for a moment first
 function chat(ctx, w, h, id) {
@@ -354,7 +357,7 @@ function chat(ctx, w, h, id) {
   for (let k = c.continues; k && CHATS[k] && !seen.has(k); k = CHATS[k].continues) { seen.add(k); before.unshift(...CHATS[k].messages); }
   const last = n && !held ? before.length + n - 1 : -1;
   const bubbles = [...before, ...c.messages.slice(0, n)].map(([who, msg], i) => {
-    const typing = who === 'ai' && i === last && age < 1.4;
+    const typing = who === 'ai' && i === last && age < AI_THINK;
     const lines = typing ? ['•••'] : who === 'show' ? [`▤  ${msg}`] : wrap(ctx, msg, maxW - 2 * pad);
     // our own message being typed: as many letters as are in yet (the bubble at its full size)
     const keyed = who === 'me' && i === last && age < 0 ? Math.max(0, 1 + age / (S.chatType[id] || 1)) : null;

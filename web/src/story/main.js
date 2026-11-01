@@ -167,8 +167,9 @@ function chatTo(id, n, typing) {
 const REPLY_WAIT = 1.8;
 
 // Our own message in a chat (Adriaen, 2026-10-29): typed out letter by letter
-// to keyboard clacks, quickly; done when the result is in (s to wait)
-const TYPE_CPS = 32, TYPE_TIME = [0.7, 3.5];
+// to keyboard clacks, quickly; done when the result is in (s to wait). Faster since 2026-11-01
+// (Adriaen: snappier chats; was 32 letters a second, 0.7 to 3.5 s)
+const TYPE_CPS = 55, TYPE_TIME = [0.4, 2.0];
 function typed(id, n, wait = 0) {
   const m = CHATS[id].messages[n - 1];
   if (m?.[0] !== 'me') return 0;
@@ -209,6 +210,7 @@ function apply(s, { instant = false } = {}) {
   buddy?.set(s);
   workshop?.set(s.build);
   twin?.set(s.twin);
+  if (twin) twin.settled = s.twin === 'fix' && s.screens?.Desk0Mon0Screen !== 'twinChat';   // the sim2 chat is over: the fixed twin, from the front
   thoughts.set(s.thoughts);
   explain.set(s.explain);
   retune.set(s.retune);
@@ -734,6 +736,9 @@ function frame(dt, now) {
   caller.update(dt);
   // letters being typed into a chat: the zoomed screen redrawn every frame, not at its own rate
   if (Object.entries(S.chatAt).some(([id, at]) => at > S.now && S.chatType[id])) game.room?.redrawFocus?.();
+  // the step report while it scrolls and draws (stepReport.js, about 6 s after its message): every frame, not
+  // the close-up's 8 a second, which made the scroll judder (Adriaen, 2026-11-01)
+  if (state.screens?.[REPORT_SCREEN] === 'report:step' && S.now - (S.chatAt.step ?? -99) < 6.5) game.room?.redrawAt?.(60, REPORT_SCREEN);
   cast?.update(dt, game.camera, S.now);
   ambience.set(Boolean(game.room) && !game.hooks.hidden && !game.hooks.covered && (free || state.sound !== 'silence'), state.sound === 'alarm');   // free: a silent beat stays behind, the room and the sips are heard
   ambience.update(dt, game.camera);

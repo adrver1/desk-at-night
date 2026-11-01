@@ -156,7 +156,8 @@ export function closeups(game) {
       // live content moves with the story's clock; the rest is drawn as the
       // room's atlas has it (STATIC_T), so it only needs the clock now and then
       const live = LIVE.includes(contentOf(w.name));
-      if (now / 1000 - o.drawn >= (live ? 1 / (room.busy?.(w.name) ? BUSY_HZ : HZ) : 1)) {
+      const busy = room.busy?.(w.name);
+      if (now / 1000 - o.drawn >= (live ? 1 / (busy ? (busy === true ? BUSY_HZ : busy) : HZ) : 1) - 0.002) {
         o.drawn = now / 1000;
         const ctx = c.getContext('2d');
         drawSlots(ctx, { [w.name]: [0, 0, sw, sh] }, live ? STATIC_T + now / 1000 : STATIC_T, pw / sw, undefined, true);

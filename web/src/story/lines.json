@@ -66,5 +66,8 @@
 
   "m.call0": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "Hi, it's Nordhav Beta.", "no": "Hei, det er Nordhav Beta." },
   "m.call1": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "The level controller on the secondary inlet separator isn't handling the slugs very well. Could you take a look at it?", "no": "Nivåregulator i sekundær innløpsseparator håndterer ikke sluggene særlig godt. Kan du ta en titt på det?" },
-  "m.call3": { "who": "operator", "name": "Ola", "text": "Eh... let me see what I can find out.", "no": "Eh... jeg skal se hva jeg finner ut." }
+  "m.call3": { "who": "operator", "name": "Ola", "text": "Eh... let me see what I can find out.", "no": "Eh... jeg skal se hva jeg finner ut." },
+  "m.call0b": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "Hi, it's Nordhav Beta again.", "no": "Hei, det er Nordhav Beta igjen." },
+  "m.back1": { "who": "operator", "name": "Ola", "text": "Here are the suggested tuning parameters.", "no": "Her er de foreslåtte reguleringsparameterne." },
+  "m.back2": { "who": "neighbour", "name": "Nordhav Beta", "fx": "radio", "text": "We tested them, and they work. Thank you!", "no": "Vi har testet dem, og de fungerer. Takk!" }
 }
