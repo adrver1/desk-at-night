@@ -165,6 +165,7 @@ pass table with and without:
 | `?cull=0` | Draws what is out of sight again (2026-10-30): the room's sun shadow map while the sun can't get in through the window (all of story mode's day), the supply vessel and the sea's depth-only surface while the walls hide them, camera pictures for screens out of view, and the sea's surface in the rest corner clock's close-up |
 | `?cctvlook=pixel` / `?cctvlook=smooth` | The camera pictures as before 2026-11-01 (256 px, blocky), or 256 px filtered and antialiased. Default `sized`: each taken as wide as its screen shows it (256 to 768 px), filtered and antialiased. `?cctv=256,3` sets the smallest width and pictures a second |
 | `?closeup=0` | Story mode without the sharp close-up canvases (2026-10-31): a room screen that fills at least 12% of the picture normally gets its content drawn in a page canvas laid over it, so it is sharp without a WebGL upload |
+| `?blur=0` / `?blur=a` / `?blur=b` | The background blur around close-up screens (2026-11-01, `web/src/focusBlur.js`; pass `focus blur`): when story mode's camera is on one or two screens that each fill at least 12% of the picture, the rest goes soft. Default `c`, a lens focused on the screen (the room's depth in an extra half-size draw); `a` blurs everything but the screens evenly, `b` softer the further from them; `0` off. Blurs run at a quarter and an eighth of the picture's size |
 | `?ownscreens=0` | Static room screens back on the shared 2048² atlas after load (2026-10-31): normally each gets its own small overlay at load, so a clock change or a jump in the story's time never re-uploads the atlas (~150 ms on the Arc laptop) |
 | `?sharp=1` | Screens drawn at the size they show at (2026-10-31): each screen in view gets a texture as wide as it covers on the canvas (up to 4× its slot, 2048 texels), so close-ups are sharp, and live screens out of view wait. Off by default: on the Intel Arc laptop the big canvas uploads took story mode's GPU time from 16 to 134 ms a frame (`story.html?bench=quick&sharp=1` against `&sharp=0`) |
 
@@ -179,7 +180,9 @@ reloads with FXAA and with neither and plays them again: about 4.5 s per
 beat and setting, some 9 minutes in all (`?bench=quick`: three beats, two ratios, under two minutes).
 `?bench=closeup` plays six close-up beats at the page's own pixel ratio
 with the sharp close-up canvases (`web/src/story/closeups.js`) and without
-(`?closeup=0`), about a minute. All modes show the longest frame per beat,
+(`?closeup=0`), about a minute.
+`?bench=blur` plays six close-up beats without the background blur and with
+each of its styles (`?blur=0|a|b|c`), about a minute and a half. All modes show the longest frame per beat,
 to show hitches, and the top GPU passes of the slowest beats.
 It then shows a table of frame rate and GPU time per setting and per beat,
 with a Copy button, to paste into a chat. GPU time needs a GPU timer

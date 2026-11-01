@@ -11,6 +11,7 @@
 // URL: ?bench=1 (all), ?bench=quick (three beats, two ratios),
 // ?bench=closeup (close-up beats with the sharp close-up canvases of
 // closeups.js and without, ?closeup=0, at the page's own pixel ratio),
+// ?bench=blur (the background blur around close-ups, focusBlur.js: off and each style),
 // ?bench=bakes and ?bench=bakesquick (the room's separate light maps against the
 // merged one, and what they cost to load; it starts and ends on the same maps
 // to show if the laptop got hot).
@@ -27,10 +28,12 @@ const MODES = {
   quick: { beats: ['c.sim', 'm.what1', 'ep.line'], ratios: 2, passes: AA },
   closeup: { beats: ['c.step', 'c.sim', 'm.build', 'm.twin', 'ep.line', 'm.what1'], ratios: 0,
     passes: [{ closeup: '0', label: 'no closeups' }, { label: 'closeups' }] },
+  blur: { beats: ['t.plan', 'c.loops', 'm.call2', 'new.ctrl08', 'h.s1', 'm.back'], ratios: 0,
+    passes: [{ blur: '0', label: 'no blur' }, { blur: 'a', label: 'blur a' }, { blur: 'b', label: 'blur b' }, { blur: 'c', label: 'blur c' }] },
   bakes: { beats: ['c.step', 'c.sim', 'm.build', 'm.twin', 'ep.line', 'm.what1'], ratios: 0, passes: BAKES, warm: 60000, post: true },
   bakesquick: { beats: ['c.sim', 'm.what1'], ratios: 0, passes: BAKES, warm: 60000, post: true },
 };
-const OPTIONS = ['aa', 'closeup', 'sharp', 'merged'];
+const OPTIONS = ['aa', 'closeup', 'sharp', 'merged', 'blur'];
 const BUILD = typeof __BUILD__ === 'string' ? __BUILD__ : 'dev';   // the URL options passes set
 const SETTLE = 1500, MEASURE = 3000;   // ms per beat and setting
 const KEY = 'storyBench';
