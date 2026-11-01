@@ -923,7 +923,7 @@
    "notes": "Lysbilde 14."
   },
   {
-   "after": "c.sim2c",
+   "after": "m.uc2",
    "id": "c.step",
    "chat": "step",
    "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."
@@ -973,6 +973,14 @@
   "m.ring": {
    "no": "Brukstilfelle 1",
    "en": "Use case 1"
+  },
+  "m.build": {
+   "no": "CtrlBuddy",
+   "en": "CtrlBuddy"
+  },
+  "m.uc2": {
+   "no": "Brukstilfelle 2",
+   "en": "Use case 2"
   }
  }
 }

@@ -254,14 +254,14 @@ export function drawStepReport(ctx, w, h, stage, age, base) {
   if (stage <= 0) {
     // the top of the page, still, so the title can be read and talked through (Adriaen, 2026-11-01)
   } else if (stage === 1) {
-    view.filter = ramp(age, 4.4, 4.9);
+    view.filter = ramp(age, 2.4, 2.8);
     const m = at(view);
-    scroll = ramp(age, 0.8, 3.8) * (m.catalogue - 60);   // one smooth scroll down to it (Adriaen, 2026-11-01)
+    scroll = ramp(age, 0.5, 2.1) * (m.catalogue - 60);   // one smooth scroll down to it (Adriaen, 2026-11-01; about twice as fast since)
   } else {
-    Object.assign(view, { filter: 1, open: ramp(age, 1.0, 1.8), draw: ramp(age, 3.4, 5.6), mark: ramp(age, 5.9, 7.1) });
+    Object.assign(view, { filter: 1, open: ramp(age, 0.5, 1.0), draw: ramp(age, 1.9, 3.1), mark: ramp(age, 3.3, 3.9) });
     const m = at({ ...view, open: 1 });
     const chartTop = m.catalogue + 222 + 44 + 64 + 16 + 150;
-    scroll = (m.catalogue - 60) + ramp(age, 1.6, 3.4) * (chartTop - 56 - (m.catalogue - 60));
+    scroll = (m.catalogue - 60) + ramp(age, 0.8, 1.8) * (chartTop - 56 - (m.catalogue - 60));
   }
   ctx.save();
   ctx.scale(k, k);
