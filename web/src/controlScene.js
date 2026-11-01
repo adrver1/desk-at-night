@@ -421,8 +421,9 @@ export async function loadControlRoom(renderer) {
     tex.flipY = true;
     const mat = new THREE.MeshBasicMaterial({ map: tex });
     const face = new THREE.Mesh(new THREE.PlaneGeometry(size.x, size.y), mat);
-    face.position.set((box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, box.max.z + 0.002);
+    face.position.set((box.min.x + box.max.x) / 2, (box.min.y + box.max.y) / 2, box.min.z + 0.001);
     gltf.scene.add(face);
+    clockMesh.visible = false;   // the box's edges showed as a bright line round the digits; it only lights the bake
     const e = meta.emitters.EmitClock;
     emitters.push({ material: mat, color: new THREE.Color(...e.color), strength: e.strength, group: e.group });
     wallClock = { tex, shown: '' };

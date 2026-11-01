@@ -111,6 +111,9 @@ export function closeups(game) {
       };
       const p = world.map(project);
       if (p.some((x) => !x)) continue;   // partly behind the camera
+      // From behind the picture comes out mirrored. The canvas lies over the whole
+      // picture, walls too, so it would show there through the wall
+      if (area2(p) <= 0) continue;
       // As something in front of others: the face and its monitor's bezel
       const mid = world[0].clone().lerp(world[2], 0.5);
       const rim = world.map((q) => project(q.clone().sub(mid).multiplyScalar(BEZEL).add(mid)));
