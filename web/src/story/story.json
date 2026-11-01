@@ -980,7 +980,7 @@
    "notes": "Lysbilde 13."
   },
   {
-   "after": "new.ctrl09s",
+   "after": "new.ctrl12",
    "id": "new.ctrl13s",
    "slide": "ctrl-13s",
    "set": {
@@ -1003,7 +1003,7 @@
    "notes": "Kameraet trekker seg ut til Ola ved pulten; Linter vinker på skjermen til høyre. Klikk: tankeboblen «Hvorfor eksisterer du?»."
   },
   {
-   "after": "new.ctrl12",
+   "after": "new.ctrl13z",
    "id": "new.ctrl14",
    "slide": "ctrl-14",
    "notes": "Lysbilde 14."
