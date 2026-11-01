@@ -527,10 +527,11 @@ def make_lightpanel(m, name="LightPanel"):
     return w.done()
 
 
-def make_deskphone(m, name="DeskPhone"):
+def make_deskphone(m, name="DeskPhone", handset=True):
     """IP desk phone: a wedge body that slopes up away from the operator
     (at -Y), a tilted display, a 4 x 3 keypad, line keys beside the display,
-    and a handset in its cradle on the left with a coiled cord."""
+    and a handset in its cradle on the left with a coiled cord. handset=False
+    leaves those two out, for a bake where a live one gets picked up."""
     p = Builder(name)
     w, d = 0.23, 0.19
     slope = math.radians(28)
@@ -549,6 +550,8 @@ def make_deskphone(m, name="DeskPhone"):
             p.rbox((0.017, 0.011, 0.005), face(0.012 + c * 0.023, -0.012 - r * 0.016, 0.003), m["key"], 0.002, segs=1, orient=tilt)
     p.rbox((0.03, 0.012, 0.005), face(0.085, -0.03, 0.003), m["key_red"], 0.002, segs=1, orient=tilt)  # hang-up
     p.rbox((0.03, 0.012, 0.005), face(0.085, -0.05, 0.003), m["key_green"], 0.002, segs=1, orient=tilt)
+    if not handset:
+        return p.done()
     # Handset in a cradle along the left edge: a long bar with ear and mouth cups
     hx = -0.085
     p.rbox((0.05, 0.18, 0.025), Vector((hx, 0.0, 0.065)), m["black"], 0.012, orient=tilt)

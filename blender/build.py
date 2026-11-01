@@ -449,7 +449,7 @@ def join_static(live):
     return room
 
 
-def bake(room, image, pass_filter, label):
+def bake(room, image, pass_filter, label, margin=12):
     """Point every material's active image node at `image`, then bake into it."""
     for mat in room.data.materials:
         nodes = mat.node_tree.nodes
@@ -462,7 +462,7 @@ def bake(room, image, pass_filter, label):
     bpy.context.view_layer.objects.active = room
     t = time.time()
     bpy.ops.object.bake(type="DIFFUSE", pass_filter=pass_filter, use_clear=True,
-                        margin=12, margin_type="EXTEND")
+                        margin=margin, margin_type="EXTEND")
     print(f"  baked {label:8s} in {time.time() - t:5.1f}s", flush=True)
 
 

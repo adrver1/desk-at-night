@@ -9,6 +9,8 @@ Textures for the control room's whiteboards, drawn with PIL:
     esd_panel()    the printed front of the hardwired ESD matrix panel
     photo_print()  the picture in the desk photo frame, plain
                    or with hearts doodled around it in marker
+    notepad_page() the ruled lines on the desk notepads' open page
+    ceiling_vent() the grilles on the ceiling's air cassettes
 
 Everything is generic and seeded, so the same image comes out every build.
 Each returns the path of a PNG in blender/build/boards/.
@@ -28,6 +30,7 @@ FONT_HAND = "/usr/share/fonts/truetype/freefont/FreeSansOblique.ttf"
 BOARD = (238, 240, 240)
 INK = (30, 32, 36)
 MARKER = {"blue": (30, 60, 150), "red": (180, 30, 30), "black": (35, 35, 40), "green": (20, 110, 50)}
+NOTEPAD_PAGE = (0.146, 0.198), -0.006  # (width, depth) in m, and its centre along the pad, from props.make_notepad
 
 
 def _font(path, size):
@@ -35,6 +38,73 @@ def _font(path, size):
         return ImageFont.truetype(path, size)
     except OSError:
         return ImageFont.load_default()
+
+
+# ---------------------------------------------------------------- notepad
+
+def notepad_page(w=512, rule=0.007, ink=0.0008):
+    """Faint blue lines every 7 mm on paper, the page of props.make_notepad."""
+    (pw, ph), cy = NOTEPAD_PAGE
+    s = 4  # drawn large, then scaled down for soft edges
+    h = round(w * ph / pw)
+    ppm = w / pw
+    img = Image.new("RGB", (w * s, h * s), (239, 238, 230))
+    d = ImageDraw.Draw(img)
+    k = math.ceil((cy - ph / 2) / rule)
+    while k * rule < cy + ph / 2:
+        row = (cy + ph / 2 - k * rule) * ppm * s
+        d.rectangle((0, row - ink / 2 * ppm * s, w * s, row + ink / 2 * ppm * s), fill=(169, 190, 225))
+        k += 1
+    os.makedirs(OUT, exist_ok=True)
+    path = os.path.join(OUT, "notepad_page.png")
+    img.resize((w, h), Image.LANCZOS).save(path, optimize=True)
+    return path
+
+
+# ---------------------------------------------------------------- ceiling
+
+VENT_BODY, VENT_EDGE, VENT_SLOT = (205, 207, 208), (172, 174, 176), (38, 40, 44)
+
+
+def ceiling_vent(style=None, s=512):
+    """The face of a ceiling air cassette, looking down. Three looks:
+    cassette   four long outlets round a fine return grille (the default)
+    squares    a square diffuser: rings of slots, smaller toward a solid middle
+    louvres    one big grille of parallel slats"""
+    style = style or os.environ.get("VENT_STYLE", "cassette")
+    k = 4  # drawn large, then scaled down for soft edges
+    S = s * k
+    img = Image.new("RGB", (S, S), VENT_BODY)
+    d = ImageDraw.Draw(img)
+    d.rectangle((0, 0, S - 1, S - 1), outline=VENT_EDGE, width=int(S * 0.018))
+    if style == "squares":
+        for m, w in ((0.09, 0.040), (0.19, 0.036), (0.285, 0.032), (0.37, 0.028)):
+            a, t = int(S * m), int(S * w)
+            d.rectangle((a, a, S - a, S - a), outline=VENT_SLOT, width=t)
+    elif style == "louvres":
+        m = int(S * 0.07)
+        d.rectangle((m, m, S - m, S - m), fill=VENT_EDGE)
+        n = 22
+        for i in range(n):
+            y = m + int((S - 2 * m) * (i + 0.5) / n)
+            t = int((S - 2 * m) / n * 0.55)
+            d.rectangle((m + int(S * 0.012), y - t // 2, S - m - int(S * 0.012), y + t // 2), fill=VENT_SLOT)
+    else:
+        m, t, inset = int(S * 0.055), int(S * 0.075), int(S * 0.16)
+        for box in ((inset, m, S - inset, m + t), (inset, S - m - t, S - inset, S - m),
+                    (m, inset, m + t, S - inset), (S - m - t, inset, S - m, S - inset)):
+            d.rounded_rectangle(box, radius=t // 3, fill=VENT_SLOT)
+        g = int(S * 0.24)
+        d.rectangle((g, g, S - g, S - g), fill=VENT_EDGE)
+        n = 16
+        for i in range(n):
+            y = g + int((S - 2 * g) * (i + 0.5) / n)
+            h = int((S - 2 * g) / n * 0.5)
+            d.rectangle((g + int(S * 0.012), y - h // 2, S - g - int(S * 0.012), y + h // 2), fill=VENT_SLOT)
+    os.makedirs(OUT, exist_ok=True)
+    path = os.path.join(OUT, "ceiling_vent.png")
+    img.resize((s, s), Image.LANCZOS).save(path, optimize=True)
+    return path
 
 
 # ------------------------------------------------------------------ P&IDs
@@ -491,7 +561,7 @@ def binder_spines(size, shelves, seed=4, ppm=1100):
     rng = random.Random(seed)
     w, h = size
     W, H = int(w * ppm), int(h * ppm)
-    img = Image.new("RGB", (W, H), (38, 39, 41))
+    img = Image.new("RGB", (W, H), (96, 98, 102))  # the bake darkens it a lot: any darker and the gaps go pure black
     d = ImageDraw.Draw(img)
     y = lambda z: H - int(z * ppm)  # noqa: E731  metres up from the bottom -> pixel row
     for z0 in shelves[:-1]:

@@ -8,6 +8,7 @@
 // Blender's X/Y). glTF swaps axes, so Blender (x, y) is three's (x, -z).
 import * as THREE from 'three';
 import { loadControlRoom } from './controlScene.js';
+import { addMugShadows } from './mugShadow.js';
 import { Outdoor, ROOM_HEADING, ROOM_ORIGIN } from './outdoor.js';
 import { Cctv } from './cctv.js';
 import { addVessel } from './vessel.js';
@@ -139,6 +140,7 @@ async function load() {
       mugs.push({ obj, coffee, sips: SIPS, rest: { p: obj.position.clone(), q: obj.quaternion.clone() } });
     }
   }
+  hooks.frame.push(addMugShadows(root, mugs.map((m) => m.obj)));
   for (const c of chairs) usable({ kind: 'chair', item: c }, c.obj);
   for (const m of mugs) usable({ kind: 'mug', item: m }, m.obj, m.coffee);
   for (const name of room.meta.movable ?? []) {
@@ -530,6 +532,10 @@ function drinking(dt) {
   if (tilt) holdQ.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), tilt));
   m.obj.position.copy(m.rest.p).lerp(holdP, k);
   m.obj.quaternion.copy(m.rest.q).slerp(holdQ, k);
+  if (!b.slurped && b.t > UP) {
+    b.slurped = true;
+    hooks.sip?.();   // story mode has the sound for it
+  }
   if (!b.sipped && b.t > UP + SIP * 0.5) {
     b.sipped = true;
     m.sips -= 1;
@@ -711,7 +717,7 @@ function showFrameTime(frame) {
 
 // Story mode (story.html) runs on top of this page: it adds per-frame steps
 // and render passes, and can hide the room while its prologue plays
-const hooks = { frame: [], render: [], reflect: [], hidden: false, covered: false, warmed: null };   // reflect: more scenes for the sea's mirror; covered: an opaque title is over the picture
+const hooks = { frame: [], render: [], reflect: [], hidden: false, covered: false, warmed: null, sip: null };   // reflect: more scenes for the sea's mirror; covered: an opaque title is over the picture
 
 // Behind the story's prologue or a solid title the room doesn't show, so it isn't drawn, apart
 // from a few frames once it and the CCTV have loaded, into a single pixel:

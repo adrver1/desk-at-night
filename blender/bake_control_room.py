@@ -1,7 +1,7 @@
 """
 Bake the control room's lighting and export it for the web viewer.
 
-    python blender/bake_control_room.py                       # 2048² atlas, 64 samples
+    python blender/bake_control_room.py                       # 3072² atlas, 4096 samples, ~20 min on an RTX card
     python blender/bake_control_room.py --res 512 --samples 8 # quick test
 
 Same scheme as build.py, with three light groups instead of moon and lamp:
@@ -33,6 +33,8 @@ import shutil
 import sys
 import time
 
+import numpy as np
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build as b  # noqa: E402  (imports bpy)
 import control_room as cr  # noqa: E402
@@ -63,7 +65,7 @@ def texel_weight(name):
         return 0.08
     if name in ("Ceiling", "CeilingNook") or name.startswith(("AirCassette", "WallNook", "Bulkhead")):
         return 0.2   # looked at more than expected: smudges show around the panels
-    if name.startswith(("Sofa", "CoffeeTable", "Kitchenette", "PlantNook", "FloorNook")):
+    if name.startswith(("Sofa", "CoffeeTable", "Kitchenette", "FloorNook")):
         return 0.15  # the rest corner, only seen from its doorway or up close
     if name.startswith(("Wall", "Floor", "Mullion", "Transom", "Link", "Meeting", "Glass", "Nook", "Pillar")):
         return 0.2
@@ -130,8 +132,8 @@ def screen_uvs(scene):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--res", type=int, default=2048)
-    p.add_argument("--samples", type=int, default=128)
+    p.add_argument("--res", type=int, default=3072)  # the laptop's story bench (?bench=bakes): same fps as 2048, 0.5 s more loading
+    p.add_argument("--samples", type=int, default=4096)
     p.add_argument("--device", default="auto")
     args = p.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
     os.makedirs(OUT, exist_ok=True)
@@ -142,6 +144,7 @@ def main():
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     scene.cycles.device = b.pick_device(args.device)
+    scene.cycles.use_adaptive_sampling = False  # on, it stops early and --samples buys much less
     scene.render.bake.use_selected_to_active = False
 
     print("building scene", flush=True)
@@ -179,12 +182,13 @@ def main():
         bpy.data.objects.remove(o)
 
     # Things the player can move or use (chairs spin, mugs get picked up,
-    # light panels get pressed), and the wall clock's hands, are baked with the room so they carry its
+    # light panels get pressed), the mice under the operators' hands (only a
+    # few cm, on a dark pad, so they keep their shadow), and the wall clock's hands, are baked with the room so they carry its
     # light, then split back out afterwards.
     # A vertex group per object survives the join and finds them again.
     movable = {}
     for o in scene.objects:
-        if o.name.startswith("Chair") or o.name.endswith(("Mug", "TouchPanel", "LightPanel", "Hand", "Lamp")):
+        if o.name.startswith("Chair") or o.name.endswith(("Mug", "Mouse", "TouchPanel", "LightPanel", "Hand", "Lamp")):
             movable[o.name] = (o.matrix_world.translation.copy(), o.matrix_world.to_euler().z)
             o.vertex_groups.new(name=o.name).add(range(len(o.data.vertices)), 1.0, "REPLACE")
             if o.name.endswith("Mug"):  # the coffee drops as it's drunk, so it moves on its own
@@ -207,6 +211,22 @@ def main():
         o = scene.objects[f"Whiteboard{name}Face"]
         boards[o.name] = (o.matrix_world.inverted(), size, draw)
         o.vertex_groups.new(name=o.name).add(range(len(o.data.vertices)), 1.0, "REPLACE")
+    # Lying flat instead of on a wall: name -> which way the picture faces (1 up,
+    # -1 down), its centre along the object's y, and its image
+    flats = {}
+    # The notepads' open page too: a small image of its ruled lines
+    for o in [o for o in scene.objects if o.type == "MESH" and o.name.endswith("Notepad")]:
+        slot = [i for i, mt in enumerate(o.data.materials) if mt.name == "PropRuled"][0]
+        vs = {v for f in o.data.polygons if f.material_index == slot for v in f.vertices}
+        o.vertex_groups.new(name=o.name + "Page").add(list(vs), 1.0, "REPLACE")
+        boards[o.name + "Page"] = (o.matrix_world.inverted(), cr.boards.NOTEPAD_PAGE[0], cr.boards.notepad_page)
+        flats[o.name + "Page"] = (1, cr.boards.NOTEPAD_PAGE[1], "board_notepad.png")
+    # The ceiling's air cassettes: a small image of their grilles on the face that looks down
+    for o in [o for o in scene.objects if o.type == "MESH" and o.name.startswith("AirCassette")]:
+        o.vertex_groups.new(name=o.name).add(range(len(o.data.vertices)), 1.0, "REPLACE")
+        xs, ys = [v.co.x for v in o.data.vertices], [v.co.y for v in o.data.vertices]
+        boards[o.name] = (o.matrix_world.inverted(), (max(xs) - min(xs), max(ys) - min(ys)), cr.boards.ceiling_vent)  # in its own units: it may be scaled
+        flats[o.name] = (-1, 0.0, "board_vent.png")
 
     glowing = [o for o in scene.objects if emissive(o)]
     b.texel_weight = texel_weight  # unwrap_weighted() looks it up by name
@@ -216,6 +236,23 @@ def main():
               and o.name[1:2].isdigit() and o.name[2:] == "Phone"]
     room = b.join_static(glowing + [sea] + phones)
     print(f"room: {len(room.data.polygons)} faces, {len(glowing)} emissive meshes", flush=True)
+
+    # The mugs get lifted and moved, so they must not leave a shadow on the
+    # desk (the browser draws one that follows them, mugShadow.js). They are
+    # lit by the room but invisible to its rays while baking, then join it again.
+    mug_names = sorted(n for n in movable if n.endswith("Mug"))
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.context.view_layer.objects.active = room
+    room.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    bpy.ops.mesh.select_all(action="DESELECT")
+    for name in mug_names:
+        room.vertex_groups.active_index = room.vertex_groups[name].index
+        bpy.ops.object.vertex_group_select()
+    bpy.ops.mesh.separate(type="SELECTED")
+    bpy.ops.object.mode_set(mode="OBJECT")
+    mugs = [o for o in bpy.context.selected_objects if o is not room][0]
+    mugs.visible_shadow = mugs.visible_diffuse = mugs.visible_glossy = mugs.visible_transmission = False
 
     imgs = {k: bpy.data.images.new(k, args.res, args.res, float_buffer=True, alpha=False)
             for k in ("albedo", "ceiling", "screens", "sky", *LAMPS)}
@@ -230,18 +267,38 @@ def main():
 
     print(f"baking {args.res}x{args.res} atlases, {args.samples} samples", flush=True)
     scene.cycles.samples = 1
-    b.bake(room, imgs["albedo"], {"COLOR"}, "albedo")
+    def bake_all(image, passes, label):
+        """The room, then the mugs on their own image, laid over it. Baked
+        together, the mugs' margin paints over whatever lies next to them in
+        the atlas; 2 texels stays inside the gap between islands."""
+        b.bake(room, image, passes, label)
+        over = bpy.data.images.new(f"mugs {label}", image.size[0], image.size[1], float_buffer=True, alpha=False)
+        b.bake(mugs, over, passes, label + " mugs", margin=2)
+        px, top = np.empty(len(image.pixels), np.float32), np.empty(len(over.pixels), np.float32)
+        image.pixels.foreach_get(px)
+        over.pixels.foreach_get(top)
+        px, top = px.reshape(-1, 4), top.reshape(-1, 4)
+        hit = top[:, :3].max(axis=1) > 0
+        px[hit] = top[hit]
+        image.pixels.foreach_set(px.ravel())
+
+    bake_all(imgs["albedo"], {"COLOR"}, "albedo")
     scene.cycles.samples = args.samples
     only("ceiling")
-    b.bake(room, imgs["ceiling"], {"DIRECT", "INDIRECT"}, "ceiling")
+    bake_all(imgs["ceiling"], {"DIRECT", "INDIRECT"}, "ceiling")
     only("screens")
-    b.bake(room, imgs["screens"], {"DIRECT", "INDIRECT"}, "screens")
+    bake_all(imgs["screens"], {"DIRECT", "INDIRECT"}, "screens")
     only("sky")
-    b.bake(room, imgs["sky"], {"DIRECT", "INDIRECT"}, "sky")
+    bake_all(imgs["sky"], {"DIRECT", "INDIRECT"}, "sky")
     for lamp in LAMPS:
         only(lamp)
-        b.bake(room, imgs[lamp], {"DIRECT", "INDIRECT"}, lamp)
+        bake_all(imgs[lamp], {"DIRECT", "INDIRECT"}, lamp)
     only(None)
+    bpy.ops.object.select_all(action="DESELECT")
+    mugs.select_set(True)
+    room.select_set(True)
+    bpy.context.view_layer.objects.active = room
+    bpy.ops.object.join()
     bpy.data.objects.remove(sea)
     spots = [[round(v, 4) for v in (*o.matrix_world.translation, o.matrix_world.to_euler().z)] for o in phones]
     for o in phones:
@@ -310,15 +367,16 @@ def main():
         o = scene.objects[name]
         uv = o.data.uv_layers.new(name="BoardUV")
         turn = to_local.to_3x3() @ o.matrix_world.to_3x3()
+        flat = flats.get(name)
         for f in o.data.polygons:
-            front = (turn @ f.normal).y < -0.5  # the writing faces -Y
+            front = (turn @ f.normal).z * flat[0] > 0.5 if flat else (turn @ f.normal).y < -0.5
             for li in f.loop_indices:
                 if not front:  # back and edges: the blank corner, not the writing mirrored
                     uv.data[li].uv = (0.002, 0.998)
                     continue
                 p = to_local @ (o.matrix_world @ o.data.vertices[o.data.loops[li].vertex_index].co)
-                uv.data[li].uv = (p.x / w + 0.5, 0.5 + p.z / h)
-        png = "board_" + name[len("Whiteboard"):-len("Face")].lower() + ".png"
+                uv.data[li].uv = (p.x / w + 0.5, 0.5 + (p.y - flat[1]) / h) if flat else (p.x / w + 0.5, 0.5 + p.z / h)
+        png = flat[2] if flat else "board_" + name[len("Whiteboard"):-len("Face")].lower() + ".png"
         shutil.copy(draw(), os.path.join(OUT, png))
         meta["boards"][name] = png
 

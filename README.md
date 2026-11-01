@@ -55,7 +55,7 @@ posts a step behind them, a door with an exit sign and two teleconference
 camera bars. `control_room.py` renders Cycles preview stills.
 
 ```bash
-.venv/bin/python blender/bake_control_room.py          # 2048² atlas, 128 samples, ~15 min on CPU
+.venv/bin/python blender/bake_control_room.py          # 3072² atlas, 4096 samples, ~20 min on an RTX card
 ```
 
 bakes it for the browser: one light map for the ceiling panels, one for the
