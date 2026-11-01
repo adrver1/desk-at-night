@@ -9,9 +9,7 @@ on:
       branches:
         description: Space-separated branch suffixes after claude/project-thread-
         default: >-
-          3uh5o4 4x6m6n 8m2yc0 91bbed ckdpds cuh8cj cwavu3 g1ul33 ijl69a irzlvs
-          j5m7jj mop8d3 nx0z49 oqxx3p pm8mcd pt1y2z qixla9 r4ufpt sgjyfl tqxnqz
-          ycaxcm 8o983q bi88o9 7dugxv icfhpr 5emi13
+          22tvf6 3abtrc 3if68o 4b3ylr 4gg6ri 6b9454 7vpu23 905vsa b9e1w0 ciaapo cuh8cj hysy7u qfaw89 qlye6v txba6l ed7p20
       dry_run:
         description: Only list what would be deleted
         type: boolean
