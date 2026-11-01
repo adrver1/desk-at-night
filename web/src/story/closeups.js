@@ -9,6 +9,8 @@
 // screen partly behind another one (a wall screen behind a desk monitor).
 // Anything in front of the monitor would be hidden by the canvas, so it is
 // for close-ups of screens with nobody in front. ?closeup=0 turns it off.
+// It also tells play.js which one or two screens a close-up is on
+// (hooks.focus), for the background blur around them (focusBlur.js).
 import * as THREE from 'three';
 import { drawSlots, contentOf, isFeed } from '../screens.js';
 import { LIVE } from '../controlScene.js';
@@ -90,14 +92,15 @@ export function closeups(game) {
   // the overlay's triangles), and feeds are known from the start
   const frames = new Map();
   const frameOf = (room, name) => { if (!frames.has(name)) frames.set(name, room.screenFrame(name, null)); return frames.get(name); };
-  const hideAll = () => { for (const o of pool) { o.canvas.style.display = 'none'; o.name = null; } game.room?.cover?.([]); };
+  const focused = new Set();   // screens the background blur was around last frame
+  const hideAll = () => { for (const o of pool) { o.canvas.style.display = 'none'; o.name = null; } game.room?.cover?.([]); game.hooks.focus = null; focused.clear(); };
   return (dt, now) => {
     const room = game.room, cam = game.camera, slots = room?.meta.screens?.slots;
     if (!slots || game.hooks.hidden || game.hooks.covered) { hideAll(); return; }
     const W = host.clientWidth, H = host.clientHeight;
     cam.updateMatrixWorld();
     // Screens big in the picture, the biggest first
-    const big = [], all = [];
+    const big = [], all = [], focus = [];
     for (const name of Object.keys(slots)) {
       const feed = isFeed(contentOf(name));
       const f = frameOf(room, name);
@@ -117,11 +120,27 @@ export function closeups(game) {
       // As something in front of others: the face and its monitor's bezel
       const mid = world[0].clone().lerp(world[2], 0.5);
       const rim = world.map((q) => project(q.clone().sub(mid).multiplyScalar(BEZEL).add(mid)));
-      all.push({ name, world, p: rim.some((x) => !x) ? p : rim });
-      if (feed || p.some((x) => x[0] < -W || x[0] > 2 * W || x[1] < -H || x[1] > 2 * H)) continue;   // a camera picture, or reaching far off the picture
+      const r = rim.some((x) => !x) ? p : rim;
+      all.push({ name, world, p: r });
+      if (p.some((x) => x[0] < -W || x[0] > 2 * W || x[1] < -H || x[1] > 2 * H)) continue;   // reaching far off the picture
       const share = area(clip(p, W, H)) / (W * H);
+      // the background blur (focusBlur.js) is around camera pictures too
+      if (share >= (focused.has(name) ? HIDE : SHOW)) focus.push({ name, rim: r, share, mid });
+      if (feed) continue;   // a camera picture stays in WebGL
       if (share >= (pool.some((o) => o.name === name) ? HIDE : SHOW)) big.push({ name, p, share, world });
     }
+    // Zoomed in on one or two screens: the rest of the picture goes soft.
+    // More than two big ones is a view of the desk, not a close-up
+    // Only screens about as far away as the biggest share its focus: a wall
+    // screen far behind a desk monitor goes soft with the rest
+    focused.clear();
+    const lead = focus.reduce((a, b) => (!a || b.share > a.share ? b : a), null);
+    const dist = lead?.mid.distanceTo(cam.position);
+    const sharp = focus.filter((f) => Math.abs(f.mid.distanceTo(cam.position) - dist) < 0.35 * dist);
+    if (lead && sharp.length <= MAX) {
+      for (const f of sharp) focused.add(f.name);
+      game.hooks.focus = { quads: sharp.map((f) => f.rim), dist };
+    } else game.hooks.focus = null;
     // The canvases lie over the whole picture, so a screen partly behind
     // another one (a wall screen behind a desk monitor) stays in WebGL, where
     // the depth test hides it (Adriaen, 2026-10-31). In front means wholly on

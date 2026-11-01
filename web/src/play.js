@@ -21,6 +21,7 @@ import { perfPanel, perfWatch, perfRow, perfStep } from './perf.js';
 import { buildTag } from './buildTag.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
+import { focusBlur } from './focusBlur.js';
 
 perfPanel(); // frame rate readout; tap it or press ` for the performance panel (see perf.js)
 buildTag(); // "PR #N" in the top left corner: which build this is (see buildTag.js, ?ver=0 hides it)
@@ -720,7 +721,7 @@ function showFrameTime(frame) {
 
 // Story mode (story.html) runs on top of this page: it adds per-frame steps
 // and render passes, and can hide the room while its prologue plays
-const hooks = { frame: [], render: [], reflect: [], hidden: false, covered: false, warmed: null, sip: null };   // reflect: more scenes for the sea's mirror; covered: an opaque title is over the picture
+const hooks = { frame: [], render: [], reflect: [], hidden: false, covered: false, warmed: null, sip: null, focus: null };   // reflect: more scenes for the sea's mirror; covered: an opaque title is over the picture; focus: the screens a close-up is on (story's closeups.js), for the background blur
 
 // Behind the story's prologue or a solid title the room doesn't show, so it isn't drawn, apart
 // from a few frames once it and the CCTV have loaded, into a single pixel:
@@ -743,12 +744,17 @@ function smoothEdges() {
   if (!fxaa.frame || fxaa.frame.image.width !== size.x || fxaa.frame.image.height !== size.y) {
     fxaa.frame?.dispose();
     fxaa.frame = new THREE.FramebufferTexture(size.x, size.y);
+    fxaa.frame.minFilter = fxaa.frame.magFilter = THREE.LinearFilter;   // the background blur (focusBlur.js) shrinks it with bilinear taps
     fxaa.quad.material.uniforms.tDiffuse.value = fxaa.frame;
     fxaa.quad.material.uniforms.resolution.value.set(1 / size.x, 1 / size.y);
   }
   renderer.copyFramebufferToTexture(fxaa.frame);
   fxaa.quad.render(renderer);
 }
+
+// Background blur around close-up screens (focusBlur.js): ?blur=c (default), a, b, or 0 for off.
+// Story mode only: play.html never sets hooks.focus
+const blur = focusBlur(renderer, new URLSearchParams(location.search).get('blur') ?? 'c');
 
 let last = performance.now();
 renderer.setAnimationLoop((now) => {
@@ -790,6 +796,7 @@ renderer.setAnimationLoop((now) => {
   renderer.render(scene, camera);
   for (const f of hooks.render) f(renderer, camera); // the story's own lit pass (characters), over the same depth
   if (fxaa) perfStep('fxaa', smoothEdges);   // warming too: its first use compiled for ~250 ms on the Arc laptop
+  perfStep('focus blur', () => blur.render(dt, hooks.focus, fxaa?.frame, { scene, camera, warm: tiny }));
   if (tiny) {
     renderer.getSize(fullSize);
     renderer.setViewport(0, 0, fullSize.x, fullSize.y);
@@ -822,7 +829,7 @@ window.__game = {
   outdoor(changes) { outdoor.set(changes); },
   // For story mode (src/story/): the room and everything in it, and a way
   // to hand the controls back to the player at a given spot
-  hooks, renderer, scene, camera, player, chairs, ready: null,
+  hooks, renderer, scene, camera, player, chairs, blur, ready: null,
   get room() { return room; }, get outdoor3() { return outdoor; }, get vessel() { return vessel; }, get birds() { return birds; },
   get playing() { return playing; },
   free(pos, yaw, pitch) {
