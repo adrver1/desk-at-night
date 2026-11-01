@@ -30,6 +30,13 @@ into every character's .glb as named glTF animations:
     phone_left, phone_left_down   the same with the left hand, for the
                  desk phone's handset (PHONE_DESK) to the left; the chair
                  is swivelled and rolled toward it by the player
+    radio        seated: reaches to the desk PA mic on the right
+                 (RADIO_BUTTON), keys its red talk button (RADIO_KEY s),
+                 leans in to the mic (RADIO_HEAD) and stays there from
+                 RADIO_TALK s while a player plays the reply (2 s)
+    radio_end    sits back, lets go of the button (RADIO_OFF s)  (0.9 s)
+    radio_left, radio_left_end   the same for a mic to the left
+                 (RADIO_STYLE picks how; RADIO_PREVIEW=1 bakes every style)
     fart         standing: a sneaky glance round, leans forward with
                  the right knee lifted and the hip popped, a little
                  shudder, then straightens up (neutral face); the puff is
@@ -56,6 +63,7 @@ by a world-space vector. Clips loop by repeating their first pose.
 """
 import json
 import math
+import os
 import struct
 
 import bpy
@@ -270,11 +278,12 @@ def shoulder_seated(r, side):
     return p + drop, rc
 
 
-def reach(r, side, wrist, hand_dir, palm=None, elbow_out=0.6, elbow_fwd=-0.2):
+def reach(r, side, wrist, hand_dir, palm=None, elbow_out=0.6, elbow_fwd=-0.2, shoulder=None):
     """Two-bone reach: put the side's wrist at `wrist` (character space)
     with the elbow dropped down and out, and the hand pointing along
-    hand_dir; palm is the world direction the palm should face."""
-    s, rc = shoulder_seated(r, side)
+    hand_dir; palm is the world direction the palm should face. shoulder
+    finds the shoulder joint (shoulder_seated unless given)."""
+    s, rc = (shoulder or shoulder_seated)(r, side)
     t = Vector(wrist)
     a, b = base.UPPER_ARM, base.FOREARM
     v = t - s
@@ -388,6 +397,96 @@ def mouse_keys(at=MOUSE_AT):
     return keys + [(84, mousing(1, at=at)), (96, mousing(0, at=at))]
 
 
+# The desk PA mic (blender/props.make_mic, placed by control_room.STATION_PROPS):
+# its red talk button and its foam head as seen from the chair, for the right
+# desk's mic, which stands to his right (the left desk's mirrors it)
+RADIO_BUTTON = (0.36, 0.59, 0.772)
+RADIO_HEAD = (0.33, 0.47, 1.10)
+# How he talks into it (Adriaen picks; every style is kept):
+#   hold    holds the button down and leans right in to the mic
+#   casual  holds the button, a small lean, mostly turns his head to it
+#   tap     taps the button on, leans in with his forearm on the desk,
+#           taps it off again
+RADIO_STYLES = ("hold", "casual", "tap")
+RADIO_STYLE = "hold"
+RADIO_PREVIEW = os.environ.get("RADIO_PREVIEW") == "1"
+RADIO_KEY = 14 / FPS                  # radio: the button goes down here (the radio keys)
+RADIO_TALK = 24 / FPS                 # radio: at the mic, ready to talk; holds this pose
+RADIO_OFF = 6 / FPS                   # radio_end: the button comes up here
+
+
+def shoulder_full(r, side):
+    """shoulder_seated with the spine and chest turned by their whole
+    rotations (twists and side bends too), for poses that lean sideways."""
+    def mat(bone):
+        spec = r.get(bone, (X, 0))
+        spec = spec if isinstance(spec, list) else [spec]
+        m = Matrix.Identity(3)
+        for ax, a in spec:
+            m = Matrix.Rotation(math.radians(a), 3, Vector(ax)) @ m
+        return m
+    rs = mat("spine")
+    rc = rs @ mat("chest")
+    s = Vector((side * base.SHOULDER.x, base.SHOULDER.y, base.SHOULDER.z))
+    p = Vector((0, 0, 1.0)) + rs @ Vector((0, 0, 0.18)) + rc @ (s - Vector((0, 0, 1.18)))
+    return p + Vector(r.get("hips_offset", (0, 0, 0))), rc
+
+
+# Leaned in to the mic, per style (fitted so his mouth ends 15 cm from the
+# foam for hold and tap, 22 cm for casual): spine bend forward, twist to the
+# mic, side bend; neck lift; head turn and lift; hips slid forward on the seat
+RADIO_LEAN = {"hold": (-38, 34, 4, 24, 10, 24, 0.10),
+              "casual": (-20, 24, 8, 18, 22, 16, 0.05),
+              "tap": (-35, 32, 6, 24, 6, 24, 0.10)}
+
+
+def radioing(side, reach_f, lean, press=0.0, style=RADIO_STYLE, talk=0.0):
+    """Seated by the desk mic on his side (1 right, -1 left): reach_f 0
+    resting to 1 the fingertips on the talk button, press pushes it down
+    (1 cm), lean 0 upright to 1 his mouth at the mic. talk nods the head a
+    little while he speaks. With style tap the hand leaves the button once
+    it is on and the forearm rests on the desk while he leans in."""
+    r = seated()
+    bend, twist, tilt, neck, turn, lift, slide = RADIO_LEAN[style]
+    # some lean already to reach the button, which is beyond his arm sitting upright
+    k = max(lean, reach_f * min(1.0, 13 / -bend))
+    r["spine"] = [(X, 6 + (bend - 6) * k), (Z, -side * twist * k), (Y, side * tilt * k)]
+    r["neck"] = (X, -5 + (neck + 5) * k)
+    r["head"] = [(Z, -side * turn * k), (X, -3 + (lift + 3) * k - 6 * reach_f * (1 - lean) - 3 * talk)]
+    r["hips_offset"] = (0.0, -0.02 + slide * k, SEAT_DROP)
+    if reach_f <= 0:
+        return r
+    button = Vector((side * RADIO_BUTTON[0], RADIO_BUTTON[1], RADIO_BUTTON[2]))
+    lap = Vector((side * 0.20, 0.30, 0.62))
+    hand = Vector((-side * 0.15, 0.75, -0.65)).normalized()
+    # the fingertips (a hand's length on from the wrist) on the button
+    w = button + Vector((0, 0, 0.012 - 0.01 * press)) - hand * 0.15
+    hd = hand
+    if style == "tap" and lean > 0:
+        # the hand off the button, forearm down on the desk edge before the mic
+        off = min(1.0, lean * 1.5)
+        w = w.lerp(Vector((side * 0.26, 0.40, 0.80)), off)
+        hd = hand.lerp(Vector((-side * 0.45, 0.85, -0.10)), off)
+    w = lap.lerp(w, reach_f)
+    reach(r, side, tuple(w), tuple(hd), palm=(0, 0, -1.0), elbow_out=0.8, elbow_fwd=-0.2, shoulder=shoulder_full)
+    return r
+
+
+def radio_keys(side=1, style=RADIO_STYLE):
+    """radio: reach, key the mic (RADIO_KEY), lean in to it (at RADIO_TALK)
+    and hold there while a player plays the reply; radio_end: sit back,
+    let go of the button (RADIO_OFF), hand back to the lap."""
+    p = lambda f, lean, press=0.0, talk=0.0: radioing(side, f, lean, press, style, talk)
+    if style == "tap":
+        on = [(0, p(0, 0)), (10, p(1, 0)), (13, p(1, 0, 1)), (16, p(1, 0)), (24, p(1, 1)),
+              (36, p(1, 1, talk=1)), (48, p(1, 1))]
+        off = [(0, p(1, 1)), (8, p(1, 0)), (10, p(1, 0, 1)), (13, p(1, 0)), (24, p(0, 0))]
+        return on, off
+    on = [(0, p(0, 0)), (10, p(1, 0)), (14, p(1, 0, 1)), (24, p(1, 1, 1)), (36, p(1, 1, 1, 1)), (48, p(1, 1, 1))]
+    off = [(0, p(1, 1, 1)), (6, p(1, 0.4, 1)), (10, p(1, 0.1)), (22, p(0, 0))]
+    return on, off
+
+
 # When the puff comes out in the fart clips, seconds from the clip start:
 # a player adds its cloud (and any sound) then
 FART_PUFF = (0.75, 1.25)
@@ -483,6 +582,13 @@ def clips():
     c["mouse_far"] = mouse_keys(MOUSE_FAR)
     c["phone"], c["phone_down"] = phone_keys()
     c["phone_left"], c["phone_left_down"] = phone_keys(-1, PHONE_DESK)
+    c["radio"], c["radio_end"] = radio_keys()
+    c["radio_left"], c["radio_left_end"] = radio_keys(-1)
+    if RADIO_PREVIEW:   # the other styles too, as radio_<style>[_left][_end], for picking
+        for st in RADIO_STYLES:
+            if st != RADIO_STYLE:
+                c[f"radio_{st}"], c[f"radio_{st}_end"] = radio_keys(1, st)
+                c[f"radio_{st}_left"], c[f"radio_{st}_left_end"] = radio_keys(-1, st)
     c["fart"] = fart_keys(farting)
     c["fart_seated"] = fart_keys(farting_seated)
     c["hug"] = [(0, hugging(0, 1)), (24, hugging(1, 0.4)), (48, hugging(0, 1)), (72, hugging(-1, 0.4)),
