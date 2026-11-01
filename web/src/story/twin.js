@@ -21,6 +21,7 @@
 // Screens: CODE_SCREEN shows 'twinCode', TWIN_SCREEN 'twin', and the chat's
 // report screen 'twinFix'.
 import * as THREE from 'three';
+import { SANS } from '../fonts.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CONTENT } from '../screens.js';
 import { LIVE } from '../controlScene.js';
@@ -509,7 +510,7 @@ export class Twin {
     const at = (v) => { const p = v.clone().project(this.camera); return [(p.x + 1) / 2 * w, (1 - p.y) / 2 * h]; };
     ctx.save();
     ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-    ctx.font = `600 ${15 * s}px system-ui, sans-serif`;
+    ctx.font = `600 ${15 * s}px ${SANS}`;
     ctx.fillText(T('Digital tvilling · sekundær innløpsseparator', 'Digital twin · secondary inlet separator'), 20 * s, 34 * s);
     // the length, as a dimension line under the vessel
     if (f.len > 0 && f.valve < 0.3) {
@@ -521,7 +522,7 @@ export class Twin {
       for (const [x, yy] of [[x0, y0], [x1, y1]]) { ctx.moveTo(x, yy - 8 * s); ctx.lineTo(x, yy + 8 * s); }
       ctx.stroke();
       const m = 8 - smooth(f.len);
-      ctx.font = `700 ${16 * s}px system-ui, sans-serif`; ctx.textAlign = 'center';
+      ctx.font = `700 ${16 * s}px ${SANS}`; ctx.textAlign = 'center';
       const label = `${T('Hovedseparasjonssone', 'Main separation zone')}: ${f.len < 1 ? m.toFixed(1).replace('.', T(',', '.')) : '7'} m`;
       const tw = ctx.measureText(label).width + 14 * s;
       ctx.fillStyle = '#0b141c'; ctx.fillRect((x0 + x1) / 2 - tw / 2, (y0 + y1) / 2 - 12 * s, tw, 22 * s);
@@ -553,7 +554,7 @@ export class Twin {
     ctx.beginPath(); ctx.arc(to[0], to[1], 3.5 * s, 0, 7); ctx.fillStyle = colour; ctx.fill();
     ctx.fillStyle = '#0b141ce6'; ctx.fillRect(x, y, cw, ch);
     ctx.strokeRect(x, y, cw, ch);
-    ctx.fillStyle = colour; ctx.font = `700 ${12 * s}px system-ui, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = colour; ctx.font = `700 ${12 * s}px ${SANS}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillText(title, x + pad, y + 7 * s);
     const px = x + pad + 4 * s, py = y + 26 * s, pw = cw - 2 * pad - 4 * s, ph = ch - 26 * s - pad;
     ctx.strokeStyle = '#ffffff55'; ctx.lineWidth = 1 * s;
@@ -562,7 +563,7 @@ export class Twin {
     ctx.beginPath();
     for (let i = 0; i <= 24; i++) { const z = i / 24, cx = px + z * pw, cy = py + ph * (1 - curve(z)); if (i) ctx.lineTo(cx, cy); else ctx.moveTo(cx, cy); }
     ctx.stroke();
-    ctx.fillStyle = '#ffffff99'; ctx.font = `${9 * s}px system-ui, sans-serif`;
+    ctx.fillStyle = '#ffffff99'; ctx.font = `${9 * s}px ${SANS}`;
     ctx.fillText(T('åpning →', 'opening →'), px + pw - 44 * s, py + ph + 1 * s);
     if (crossed) {
       ctx.strokeStyle = '#ff7a7a'; ctx.lineWidth = 3 * s;
@@ -597,10 +598,10 @@ export class Twin {
     ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * p); ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `700 ${18 * s}px system-ui, sans-serif`;
+    ctx.font = `700 ${18 * s}px ${SANS}`;
     ctx.fillText(p >= 1 ? '✓' : `${Math.round(p * 100)}%`, x, y + 1 * s);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    ctx.font = `600 ${15 * s}px system-ui, sans-serif`;
+    ctx.font = `600 ${15 * s}px ${SANS}`;
     ctx.fillText(p >= 1 ? T('Digital tvilling klar', 'Digital twin ready') : T('Bygger digital tvilling …', 'Building the digital twin …'), 20 * s, 34 * s);
   }
 }

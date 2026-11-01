@@ -23,8 +23,7 @@ const C = {
   bg: '#24282c', panel: '#2e3338', line: '#454b52', dim: '#7d858d', text: '#c9ced3', bright: '#eef1f3',
   value: '#9fd3ff', ai: '#8fe3c0', p1: '#ff5a4f', p2: '#ffb347', p3: '#f2e266', ok: '#7fbf7f',
 };
-const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+import { SANS, MONO } from './fonts.js';
 
 // ---------------------------------------------------------------- the made-up process
 

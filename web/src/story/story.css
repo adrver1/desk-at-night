@@ -7,7 +7,7 @@
   --amber: #f2b25c;
   --paper-sheet: #f3efe4;
   --ink: #1d2433;
-  --hand: "Caveat", "Segoe Print", cursive;
+  --hand: var(--body);   /* was Caveat; Instrument Sans since 2026-11-01 */
   --u: min(1vw, 1.78vh);   /* one unit of a 16:9 frame that fits the screen */
 }
 
@@ -506,7 +506,7 @@
 /* VS Code window (vscode.js), Dark Modern, laid out at 1440×810 and scaled to its box */
 .kg-card.vsw { border-radius: 0; box-shadow: none; background: transparent; }
 .vsw { position: relative; overflow: hidden; background: transparent; }
-.vsw .vsw-in { position: absolute; left: 0; top: 0; width: 1440px; height: 810px; transform-origin: 0 0; display: grid; grid-template-rows: 36px 1fr 24px; color: #ccc; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; text-align: left; }
+.vsw .vsw-in { position: absolute; left: 0; top: 0; width: 1440px; height: 810px; transform-origin: 0 0; display: grid; grid-template-rows: 36px 1fr 24px; color: #ccc; font: 13px/1.4 var(--body); text-align: left; }
 .vsw svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .vsw .tbar { display: grid; grid-template-columns: 200px 1fr 200px; align-items: center; background: #181818; border-bottom: 1px solid #2b2b2b; padding: 0 12px; }
 .vsw .dots { display: flex; gap: 8px; } .vsw .dots i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; } .vsw .dots i:nth-child(2) { background: #febc2e; } .vsw .dots i:nth-child(3) { background: #28c840; }

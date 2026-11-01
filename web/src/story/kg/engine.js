@@ -443,7 +443,7 @@ export class LiveSlide {
     if (e.both && k > 0.98) head(0.02, -1);
     if (e.label) {
       const [lx, ly] = q(0.5);
-      c.font = `600 ${Math.max(10, this.U((e.size ?? 0.42) * (KG_LOOK === 'b' ? 0.72 : 1)))}px ${KG_LOOK === 'b' ? '"Instrument Sans", system-ui, sans-serif' : 'Caveat, "Segoe Print", cursive'}`;
+      c.font = `600 ${Math.max(10, this.U((e.size ?? 0.42) * (KG_LOOK === 'b' ? 0.72 : 0.8)))}px "Instrument Sans", system-ui, sans-serif`;
       c.textAlign = 'center'; c.textBaseline = 'middle';
       c.globalAlpha = clamp((k - 0.5) * 2, 0, 1) * (s.fade ?? 1);
       const off = e.labelOff ?? [0, -0.3];

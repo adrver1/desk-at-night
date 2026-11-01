@@ -35,8 +35,7 @@ const C = {
   bg: '#24282c', panel: '#2e3338', line: '#454b52', dim: '#7d858d', text: '#c9ced3', bright: '#eef1f3',
   value: '#9fd3ff', ai: '#5fe0b7', p1: '#ff5a4f', p2: '#ffb347', ok: '#7fbf7f',
 };
-const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+import { SANS, MONO } from '../fonts.js';
 
 function text(ctx, s, x, y, { px = 14, color = C.text, weight = 500, align = 'left', mono = false } = {}) {
   ctx.font = `${weight} ${px}px ${mono ? MONO : SANS}`;

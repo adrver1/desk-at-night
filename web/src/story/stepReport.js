@@ -9,6 +9,7 @@
 // from the top down to it, then the filter goes to the step tests), stage 1 =
 // the best candidate (its trace opens, scrolls into view and draws). `age` is seconds since that message was sent.
 import { PRIVATE, PRIVATE_BASE } from '../privateNames.js';
+import { SANS } from '../fonts.js';
 
 const FILE = 'step-report.json';
 let data = null, asked = false;
@@ -25,7 +26,7 @@ const P = {
   bg: '#f3f4f6', card: '#ffffff', line: '#e1e4e8', ink: '#17212b', dim: '#69727c', head: '#842849', accent: '#b62d65',
   callout: '#f8eaf1', calloutBar: '#bf3672', badge: '#f9e9f0', badgeLine: '#ecc8d8', th: '#faf6f8', win: 'rgba(0,138,89,0.10)',
 };
-const FONT = 'Lato, Arial, "Helvetica Neue", sans-serif';
+const FONT = SANS;   // the report's own Lato swapped for the house font
 const PAGE = 1280;        // the page's width in its own px; the screen shows it whole
 const COL = [50, 1230];   // the content column (max-width 1180)
 const smooth = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
