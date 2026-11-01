@@ -304,8 +304,14 @@
 /* b: a box per chapter, its full name, dots for the beats */
 .nav-b .nav-ch { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 1px 6px; align-items: center; text-align: left;
   padding: 4px 6px; border-radius: 6px; background: #0007; border-top: 2px solid #ffffff22; }
-/* no box narrower than its key and longest word (the names clipped with 11 chapters); the rest shared by room() */
-.nav-b .nav-group, .nav-b .nav-row, .nav-b .nav-ch { min-width: min-content; }
+/* five boxes at a time, the current one in the middle: the strip of all chapters slides under the
+   window by --c (ui.navUpdate); the edges fade so it reads as more on either side */
+.nav-b .nav-track { --gap: 3px; --slot: calc((100cqw - 4 * var(--gap)) / 5); container-type: inline-size; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 3%, #000 97%, transparent); mask-image: linear-gradient(to right, transparent, #000 3%, #000 97%, transparent); }
+.nav-b .nav-strip { display: flex; gap: var(--gap); transform: translateX(calc((2 - var(--c, 0)) * (var(--slot) + var(--gap)))); transition: transform 0.6s cubic-bezier(0.3, 0.7, 0.2, 1); }
+.nav-b .nav-group, .nav-b .nav-row { display: contents; }
+.nav-b .nav-ch { flex: 0 0 var(--slot) !important; transition: opacity 0.6s; }
+.nav-b .nav-ch.off { pointer-events: none; }
 .nav-b .nav-ch:hover { background: #fff2; }
 .nav-b .nav-ch.done { border-top-color: #ffffff77; }
 .nav-b .nav-ch.now { border-top-color: var(--tungsten); background: #000a; color: #fff; }

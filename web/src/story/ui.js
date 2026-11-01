@@ -100,6 +100,11 @@ export class StoryUI {
     const prev = btn('nav-step', '‹', 'Back (←)', () => jump('back'));
     const next = btn('nav-step', '›', 'Next (Space)', () => jump('next'));
     const track = h('div', 'nav-track');
+    // b: a window of five boxes, the current chapter always in the middle one; the strip
+    // slides under it as the chapters change (Adriaen, 2026-11-01: 11 chapters maxed the bar out)
+    const strip = style === 'b' ? h('div', 'nav-strip') : track;
+    if (style === 'b') track.append(strip);
+    this.navStrip = style === 'b' ? strip : null;
     this.navParts = [];
     for (const g of groups) {
       const ge = h('div', 'nav-group');
@@ -125,7 +130,7 @@ export class StoryUI {
         this.navParts.push(part);
       }
       ge.append(row);
-      track.append(ge);
+      strip.append(ge);
     }
     this.navInfo = h('div', 'nav-info');
     e.append(prev, track, next);
@@ -143,8 +148,10 @@ export class StoryUI {
   navUpdate(c, i, waiting) {
     if (!this.el.nav) return;
     const chapters = this.navChapters;
+    this.navStrip?.style.setProperty('--c', c);
     this.navParts.forEach((p, k) => {
       const n = chapters[k].beats.length;
+      if (this.navStrip) p.classList.toggle('off', Math.abs(k - c) > 2);   // outside the window: no clicks
       p.classList.toggle('done', k < c);
       p.classList.toggle('now', k === c);
       const fill = p.querySelector('.nav-fill');
