@@ -371,6 +371,28 @@
     ]
    }
   },
+  "linter-why": {
+   "no": {
+    "title": "Linter – hvorfor eksisterer du?",
+    "bullets": [
+     "Vedlikehold: LLM-er er unikt egnet til å se forbindelser og holde orden",
+     "Kryssrefererer: Lenker notater som hører sammen",
+     "Fanger selvmotsigelser: Finner notater som sier hverandre imot",
+     "Fanger hull i dekningen: Ser hva wikien mangler",
+     "Følger standarden: Passer på at artiklene følger malen"
+    ]
+   },
+   "en": {
+    "title": "Linter – why do you exist?",
+    "bullets": [
+     "Upkeep: LLMs are uniquely suited to seeing connections and keeping order",
+     "Cross-references: Links notes that belong together",
+     "Catches contradictions: Finds notes that disagree",
+     "Catches gaps in coverage: Sees what the wiki is missing",
+     "Follows the standard: Makes sure articles follow the template"
+    ]
+   }
+  },
   "ctrl-13s": {
    "no": {
     "title": "Lysbilde 13: Linter-agenten på skjermen"
@@ -1004,9 +1026,26 @@
   },
   {
    "after": "new.ctrl13z",
+   "id": "new.ctrl13w",
+   "set": {
+    "overlay": null,
+    "shot": "side:Desk1Mon1Screen",
+    "thoughts": "dim",
+    "explain": 0,
+    "explainSlide": "linter-why",
+    "explainStep": true
+   },
+   "notes": "Inn på Linter som vinker på skjermen, halvlysbildet ved siden av over mørket: hvorfor den finnes. Space: ett argument til."
+  },
+  {
+   "after": "new.ctrl13w",
    "id": "new.ctrl14",
    "slide": "ctrl-14",
-   "notes": "Lysbilde 14."
+   "notes": "Lysbilde 14.",
+   "set": {
+    "explain": null,
+    "thoughts": null
+   }
   },
   {
    "after": "m.uc2",
