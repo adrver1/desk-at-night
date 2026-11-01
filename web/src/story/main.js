@@ -733,6 +733,9 @@ function frame(dt, now) {
   caller.update(dt);
   // letters being typed into a chat: the zoomed screen redrawn every frame, not at its own rate
   if (Object.entries(S.chatAt).some(([id, at]) => at > S.now && S.chatType[id])) game.room?.redrawFocus?.();
+  // the step report while it scrolls and draws (stepReport.js, about 6 s after its message): every frame, not
+  // the close-up's 8 a second, which made the scroll judder (Adriaen, 2026-11-01)
+  if (state.screens?.[REPORT_SCREEN] === 'report:step' && S.now - (S.chatAt.step ?? -99) < 6.5) game.room?.redrawAt?.(60, REPORT_SCREEN);
   cast?.update(dt, game.camera, S.now);
   ambience.set(Boolean(game.room) && !game.hooks.hidden && !game.hooks.covered && state.sound !== 'silence', state.sound === 'alarm');
   ambience.update(dt, game.camera);

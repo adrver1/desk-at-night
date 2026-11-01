@@ -3,7 +3,7 @@
 // screen: the cut-open separator live on the left, the trends of both tunings
 // on the right (dashed = old, solid = new) for pressure, the oil compartment
 // level with the gap bands, the oil valve and oil in water. Both run the new
-// model on the slugging well at 5x. S swaps which tuning the vessel shows.
+// model on the slugging well at 10x. S swaps which tuning the vessel shows.
 // No end card: the presenter moves on when the point is made.
 //
 // State key (content.js): retune: true shows it full screen, 'screen' on a
@@ -20,7 +20,7 @@ import { CONTENT } from '../screens.js';
 import { LIVE } from '../controlScene.js';
 import { SANS, MONO } from '../fonts.js';
 
-const SPEED = 5;
+const SPEED = 10;   // 10x (Adriaen, 2026-11-01: 5x too slow)
 const NAMES = { a: T('Gammel innstilling', 'Old tuning'), b: T('Ny innstilling', 'New tuning') };
 const TITLES = [T('Trykk, barg', 'Pressure, barg'), T('Nivå i oljekammeret, %', 'Oil compartment level, %'),
   T('Oljeventil, åpning %', 'Oil valve position, %'), T('Olje i vann, ppm', 'Oil in water, ppm')];
@@ -97,7 +97,7 @@ export class Retune {
   }
 
   label() {
-    this.tag.innerHTML = `${NAMES[this.show]} <small>${T('Sluggende brønn · 5x tid', 'Slugging well · 5x time')}</small>`;
+    this.tag.innerHTML = `${NAMES[this.show]} <small>${T('Sluggende brønn · 10x tid', 'Slugging well · 10x time')}</small>`;
   }
 
   resize() {
@@ -154,7 +154,7 @@ export class Retune {
     ctx.fillStyle = '#eef3f4'; ctx.font = `600 ${4.6 * u}px ${SANS}`;
     ctx.fillText(NAMES[this.show], 3 * u, 3 * u);
     ctx.fillStyle = '#9fb3ba'; ctx.font = `500 ${2.5 * u}px ${MONO}`;
-    ctx.fillText(T('Sluggende brønn · 5x tid', 'Slugging well · 5x time'), 3 * u, 8.6 * u);
+    ctx.fillText(T('Sluggende brønn · 10x tid', 'Slugging well · 10x time'), 3 * u, 8.6 * u);
     ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(6, 14, 18, 0.9)';
     ctx.fillRect(vw, 0, tw, h);

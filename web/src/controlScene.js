@@ -399,7 +399,7 @@ export async function loadControlRoom(renderer) {
     const atlas = canvasTexture(renderer, size * SCREEN_SCALE, size * SCREEN_SCALE);
     await fontsReady;   // the screens' canvas text (fonts.js); loading since the page opened
     drawSlots(atlas.image.getContext('2d'), slots, STATIC_T, SCREEN_SCALE);
-    screens = { atlas, meshes: [], overlays: new Map(), focus: null, drawn: -Infinity, focusDrawn: -Infinity, atlasTime: -1, atlasDrawn: -Infinity, t: 0, busy: new Map(), covered: new Set() };
+    screens = { atlas, meshes: [], overlays: new Map(), focus: null, drawn: -Infinity, focusDrawn: -Infinity, atlasTime: -1, atlasDrawn: -Infinity, t: 0, busy: new Map(), busyHz: new Map(), covered: new Set() };
   }
   const emitters = [];
   for (const [name, e] of Object.entries(meta.emitters)) {
@@ -696,9 +696,9 @@ export async function loadControlRoom(renderer) {
       // busy screens (redraw()) at their own rate, unless a page canvas covers them
       for (const [name, at] of screens.busy) {
         const o = screens.overlays.get(name);
-        if (!o?.tex || o === f || covered.has(name) || at > t || t - (o.drawnAt ?? -Infinity) < 1 / BUSY_HZ) continue;
+        if (!o?.tex || o === f || covered.has(name) || at > t || t - (o.drawnAt ?? -Infinity) < 1 / (screens.busyHz.get(name) ?? BUSY_HZ)) continue;
         o.drawnAt = t; draw(o, t);
-        if (t - at > BUSY_FOR) screens.busy.delete(name);
+        if (t - at > BUSY_FOR) { screens.busy.delete(name); screens.busyHz.delete(name); }
       }
       if (t - screens.drawn < 1 / SCREEN_HZ) return;
       screens.drawn = t;
@@ -776,13 +776,19 @@ export async function loadControlRoom(renderer) {
     // live screen in the room as redrawNow does
     redraw(...names) {
       if (!screens) return;
-      for (const n of names) screens.busy.set(n, screens.t);
+      for (const n of names) { screens.busy.set(n, screens.t); screens.busyHz.delete(n); }
+    },
+    // ... at a rate of its own: a scrolling page at 60 so it glides (story/main.js, the step report)
+    redrawAt(hz, ...names) {
+      if (!screens) return;
+      for (const n of names) { screens.busy.set(n, screens.t); screens.busyHz.set(n, hz); }
     },
     // Whether redraw() asked for this screen just now (story/closeups.js
     // draws such a screen's page canvas faster)
+    // and at what rate (0 when it isn't)
     busy(name) {
       const at = screens?.busy.get(name);
-      return at !== undefined && screens.t - at <= BUSY_FOR;
+      return at !== undefined && screens.t - at <= BUSY_FOR ? screens.busyHz.get(name) ?? BUSY_HZ : 0;
     },
     // The screens a page canvas covers right now (story/closeups.js): their
     // WebGL picture isn't seen, so it isn't redrawn; drawn again when uncovered
