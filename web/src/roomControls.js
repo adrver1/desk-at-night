@@ -120,7 +120,7 @@ export class RoomControls {
       const working = Math.min(Math.abs(this.setpoint - this.temp) / 1.0, 1); // fans run harder while it adjusts
       const t = this.audio.ctx.currentTime;
       this.audio.fans.gain.setTargetAtTime(0.55 + 0.45 * working, t, 0.5);
-      this.audio.master.gain.setTargetAtTime(0.5 * (this.volume / 100) ** 2, t, 0.1);
+      this.audio.master.gain.setTargetAtTime(0.5 * (this.volume / 100) ** 2 * (this.duck ?? 1), t, 0.1);   // duck: story mode dips it under a spoken line
     }
     if (this.dirty) this.draw();
   }

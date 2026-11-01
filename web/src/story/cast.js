@@ -81,8 +81,25 @@ const PHONE_DESK = [-0.36, 0.82, -0.58], ROLL = [0, 0.45, 0.8, 1.3];   // s: rol
 const PALM = new THREE.Matrix4().makeBasis(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -1, 0)).setPosition(0, 0.065, -0.03);
 const EAR = new THREE.Vector3(-0.165, 0.11, 0), MOUTH = new THREE.Vector3(-0.05, -0.035, -0.10);
 const EAR_NEAR = [0.32, 0.18], CRADLE_NEAR = [0.26, 0.12];   // m: blend from, to
+// The radio reply (Adriaen, 2026-11-01): now and then, or when a radio call
+// has come in (radioReply), he keys the desk PA mic's red button, leans in to
+// it and answers. anims.py radio / radio_left (the mic to his right at the
+// right desk, to his left at the left one) and radio_end; the clip's button
+// and talk times (s) per style. ?radio=hold|casual|tap picks a style baked
+// with RADIO_PREVIEW=1 (the glb's own `radio` is anims.RADIO_STYLE).
+const RADIO_STYLE = new URLSearchParams(location.search).get('radio');
+const RADIO_TIMES = { hold: { key: 14 / 24, talk: 24 / 24, off: 6 / 24 }, casual: { key: 14 / 24, talk: 24 / 24, off: 6 / 24 }, tap: { key: 13 / 24, talk: 24 / 24, off: 10 / 24 } };
+const RADIO_MIC_SIDE = [-1, 1];        // by chair: the left desk's mic stands to his left
+const RADIO_ODDS = 0.12;               // of a seated idle being a radio reply, unprompted
+const RADIO_TALK = [2, 3.5];           // s he talks for, unless the caller says
+// ?idle=<clip> makes every seated idle that one (sip, mouse, radio), for checks
+const IDLE_ONLY = new URLSearchParams(location.search).get('idle');
 const IDLES = new URLSearchParams(location.search).get('idles') !== '0';
 const IDLE_FIRST = [2, 5], IDLE_GAP = [6, 14];   // s before the first idle, and between one and the next
+function radioClips(b = RADIO_STYLE ? `radio_${RADIO_STYLE}` : 'radio') {
+  const names = [b, `${b}_end`, `${b}_left`, `${b}_left_end`];
+  return b === 'radio' ? names : [...names, ...radioClips('radio')];   // the asked-for style, else the glb's own
+}
 const wrap = (a) => ((a % (2 * Math.PI)) + 3 * Math.PI) % (2 * Math.PI) - Math.PI;
 const smooth = (x) => { const t = Math.min(1, Math.max(0, x)); return t * t * (3 - 2 * t); };
 
@@ -149,13 +166,13 @@ export class Cast {
       if (!gltf) return;
       const p = gltf.scene;
       const mixer = new THREE.AnimationMixer(p);
-      const act = Object.fromEntries(['idle', 'seated_idle', 'talk', 'blink', 'walk', 'stand_up', 'typing', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far', 'phone', 'phone_down', 'phone_left', 'phone_left_down'].map((n) => {
+      const act = Object.fromEntries(['idle', 'seated_idle', 'talk', 'blink', 'walk', 'stand_up', 'typing', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far', 'phone', 'phone_down', 'phone_left', 'phone_left_down', ...radioClips()].map((n) => {
         const clip = THREE.AnimationClip.findByName(gltf.animations, n);
         return [n, clip && mixer.clipAction(clip)];
       }));
       if (act.blink) act.blink.setLoop(THREE.LoopOnce);
       if (act.talk) { act.talk.play(); act.talk.setEffectiveWeight(0); }
-      for (const n of ['stand_up', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far', 'phone', 'phone_down', 'phone_left', 'phone_left_down']) if (act[n]) { act[n].setLoop(THREE.LoopOnce); act[n].clampWhenFinished = true; }
+      for (const n of ['stand_up', 'point', 'sip', 'sip_left', 'mouse', 'mouse_far', 'phone', 'phone_down', 'phone_left', 'phone_left_down', ...radioClips()]) if (act[n]) { act[n].setLoop(THREE.LoopOnce); act[n].clampWhenFinished = true; }
       const bones = {};
       p.traverse((o) => {
         if (o.isBone) bones[o.name] = o;
@@ -657,6 +674,10 @@ export class Cast {
     // coffee first, then mostly the mouse (Adriaen: less coffee, more mouse),
     // and never two sips in a row
     let name = sip && (!p.sipped || (p.lastIdle === mouse && Math.random() < 0.25)) ? (sip.side > 0 ? 'sip' : 'sip_left') : mouse;
+    // now and then a word on the radio instead (never twice in a row)
+    const radio = this.radioAt(p);
+    if (radio && !p.forceIdle && (IDLE_ONLY === 'radio' || (!IDLE_ONLY && p.lastIdle !== 'radio' && Math.random() < RADIO_ODDS))) return this.startRadio(p, radio);
+    if (IDLE_ONLY && IDLE_ONLY !== 'radio') p.forceIdle ??= IDLE_ONLY;
     if (p.forceIdle) { name = p.forceIdle === 'mouse' ? mouse : p.forceIdle; p.forceIdle = null; if (!name.startsWith('mouse') && !sip) return; }
     if (!p.act[name]) name = 'mouse';   // a model built before the sip clips
     const a = p.act[name];
@@ -665,11 +686,65 @@ export class Cast {
     p.lastIdle = name;
     p.fidget = { name, back: p.pose, t: 0, dur: a.getClip().duration, mug: name.startsWith('mouse') ? null : sip };
     this.fade(p, name, 0.35);
+    this.onIdle?.({ who: p.who, clip: name, dur: p.fidget.dur, side: sip?.side ?? 1, at: p.root });
+  }
+
+  // ------------------------------------------------------------ radio reply
+  // The radio clips for where he sits, if that desk has a mic and the model the clips
+  radioAt(p) {
+    const spot = SPOTS[p.at], chair = spot?.chair;
+    if (chair === undefined || spot.move || !RADIO_MIC_SIDE[chair]) return null;
+    const side = RADIO_MIC_SIDE[chair], names = radioClips();
+    let [inn, end, innL, endL] = names;
+    if (!p.act[inn]) [inn, end, innL, endL] = names.slice(4);
+    const clip = side > 0 ? inn : innL, down = side > 0 ? end : endL;
+    if (!p.act[clip] || !p.act[down]) return null;
+    return { side, clip, down, times: RADIO_TIMES[RADIO_STYLE] ?? RADIO_TIMES.hold };
+  }
+  // A radio call has come in: `who` answers it on the desk mic, if he sits at
+  // a desk and isn't busy. The sound is the caller's (ambience.js): onKey when
+  // the button goes down, onTalk(seconds) when his mouth is at the mic (his jaw
+  // moves along `mouth`, a voices.py track, or a generic one), onDone when the
+  // button comes up. talk: seconds (else 2 to 3.5). False if he can't answer.
+  radioReply(who, opts = {}) {
+    const p = this.people[who];
+    if (!p?.root.visible || p.call || p.task || p.queue.length || p.mouth || p.fidget?.radio) return false;
+    const sitting = p.pose === 'seated_idle' || p.pose === 'typing' || p.fidget;
+    const radio = sitting && this.radioAt(p);
+    if (!radio) return false;
+    this.endFidget(p);
+    this.startRadio(p, radio, opts);
+    return true;
+  }
+  startRadio(p, radio, opts = {}) {
+    const talk = opts.talk ?? RADIO_TALK[0] + Math.random() * (RADIO_TALK[1] - RADIO_TALK[0]);
+    const end = p.act[radio.down].getClip().duration;
+    const at = radio.times.talk + talk;
+    p.lastIdle = 'radio';
+    p.fidget = { name: radio.clip, back: p.pose, t: 0, dur: at + end,
+      radio: { ...radio, talk, at, opts, said: { key: false, talk: false, done: false } } };
+    this.fade(p, radio.clip, 0.35);
+    this.onIdle?.({ who: p.who, clip: 'radio', dur: p.fidget.dur, side: radio.side, at: p.root });
+  }
+  radioing(p, f, t) {
+    const r = f.radio, s = r.said, o = r.opts;
+    if (!s.key && t >= r.times.key) { s.key = true; o.onKey?.(); }
+    if (!s.talk && t >= r.times.talk) {
+      s.talk = true;
+      o.onTalk?.(r.talk);
+      // his jaw: the caller's track, or a made-up one (0-3 every 1/30 s, short words, small gaps)
+      p.mouth = o.mouth ?? Array.from({ length: Math.round(r.talk * 30) }, (_, i) => (Math.sin(i * 0.9) + Math.sin(i * 0.37) > -0.6 ? 1 + Math.floor(Math.random() * 3) : 0)).join('');
+      p.mouthT = 0;
+    }
+    if (t >= r.at && p.pose === f.name) { p.mouth = null; this.fade(p, r.down, 0.2); }
+    if (!s.done && t >= r.at + r.times.off) { s.done = true; o.onDone?.(); }
   }
   fidgeting(p, now, dt) {
     const f = p.fidget, t = (f.t += dt);   // the clip's own clock (dt, as the mixer has it)
     if (p.task || p.queue.length) return this.endFidget(p);
-    if (t >= f.dur - 0.3 && p.pose === f.name) this.fade(p, f.back, 0.3);
+    if (f.radio) this.radioing(p, f, t);
+    else if (t >= f.dur - 0.3 && p.pose === f.name) this.fade(p, f.back, 0.3);
+    if (f.radio && t >= f.dur - 0.3 && p.pose === f.radio.down) this.fade(p, f.back, 0.3);
     if (f.mug) this.holdMug(p, f, t);
     if (t >= f.dur) { this.endFidget(p); p.fidgetAt = now + IDLE_GAP[0] + Math.random() * (IDLE_GAP[1] - IDLE_GAP[0]); }
   }
@@ -702,6 +777,12 @@ export class Cast {
     if (!f) return;
     p.fidget = null;
     if (f.mug?.rest) { f.mug.m.mug.position.copy(f.mug.rest.pos); f.mug.m.mug.quaternion.copy(f.mug.rest.quat); }
+    if (f.radio) {
+      // cut off (a beat moved on): the button comes up, the made-up words stop
+      if (f.radio.said.key && !f.radio.said.done) f.radio.opts.onDone?.();
+      if (f.radio.said.talk && !f.radio.opts.mouth) p.mouth = null;
+      if (p.pose === f.radio.down) this.fade(p, f.back, 0.3);
+    }
     if (p.pose === f.name) this.fade(p, f.back, 0.3);
   }
 
@@ -762,7 +843,7 @@ export class Cast {
       if (neck) {
         const to = camera.position.clone();
         p.root.worldToLocal(to);
-        const want = THREE.MathUtils.clamp(Math.atan2(-to.x, -to.z), -0.75, 0.75) * 0.8;
+        const want = p.fidget?.radio ? 0 : THREE.MathUtils.clamp(Math.atan2(-to.x, -to.z), -0.75, 0.75) * 0.8;   // on the radio: at the mic
         p.turn += (want - p.turn) * Math.min(1, dt * 3);
         p.applied = p.turn * 0.5;
         neck.rotateY(p.applied);

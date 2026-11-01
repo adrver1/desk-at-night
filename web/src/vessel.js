@@ -174,15 +174,18 @@ export class SupplyVessel {
     sea.matrix.copy(this.toRoom);
     sea.add(wake.mesh);
     group.add(sea);
-    if (lights) {
-      // The room's own surfaces are baked; only the vessel uses these
-      this.hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
-      this.sun = new THREE.DirectionalLight(0xffffff, Math.PI);
-      group.add(this.hemi, this.sun, this.sun.target);
-    }
     const c = { group, root, glowing, radars, wake };
     this.copies.push(c);
-    return group;
+    if (!lights) return group;
+    // The room's own surfaces are baked; the vessel and the story's desk
+    // phones use these. Outside `group`, so they stay while the vessel is
+    // away: the room's scene keeps the same lights, and so the same shaders,
+    // all day (a light going away recompiled the phones on a beat change)
+    this.hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
+    this.sun = new THREE.DirectionalLight(0xffffff, Math.PI);
+    const outer = new THREE.Group();
+    outer.add(group, this.hemi, this.sun, this.sun.target);
+    return outer;
   }
 
   // Call the vessel in now (or send it away if it is already here)
@@ -238,6 +241,7 @@ export class SupplyVessel {
     if (!visible) {
       for (const c of this.copies) c.wake.clear();
       this.last = null;
+      this.light(outdoor.light, this.sun?.target.position);
       return;
     }
 
@@ -300,18 +304,23 @@ export class SupplyVessel {
       for (const [mat, k] of c.glowing) mat.emissiveIntensity = k * (0.03 + 0.97 * night);
       c.radars.forEach((r, i) => { r.rotation.y = spin(i % 2); });
     }
-    if (this.hemi) {
-      // By night the deck floodlights light the vessel up a little
-      this.hemi.color.copy(L.sky).multiplyScalar(Math.PI).add(FLOOD.clone().multiplyScalar(night));
-      this.hemi.groundColor.copy(L.sky).multiplyScalar(0.3);
-      this.sun.color.copy(L.sun);
-      const at = new THREE.Vector3().setFromMatrixPosition(m);
-      this.sun.position.copy(at).addScaledVector(L.sunDir, 200);
-      this.sun.target.position.copy(at);
-      this.sun.target.updateMatrixWorld();
-      this.fog.color.copy(L.fog);
-      this.fog.density.value = Math.LN2 / L.fogDistance;
-    }
+    this.light(L, new THREE.Vector3().setFromMatrixPosition(m));
+  }
+
+  // The lights of the copy that has them, from outdoor.js's light, aimed at `at`
+  light(L, at) {
+    if (!this.hemi) return;
+    const lsky = L.sky.r * 0.2126 + L.sky.g * 0.7152 + L.sky.b * 0.0722;
+    const night = 1 - THREE.MathUtils.smoothstep(lsky, 0.01, 0.15);
+    // By night the deck floodlights light the vessel up a little
+    this.hemi.color.copy(L.sky).multiplyScalar(Math.PI).add(FLOOD.clone().multiplyScalar(night));
+    this.hemi.groundColor.copy(L.sky).multiplyScalar(0.3);
+    this.sun.color.copy(L.sun);
+    this.sun.position.copy(at).addScaledVector(L.sunDir, 200);
+    this.sun.target.position.copy(at);
+    this.sun.target.updateMatrixWorld();
+    this.fog.color.copy(L.fog);
+    this.fog.density.value = Math.LN2 / L.fogDistance;
   }
 }
 
