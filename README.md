@@ -150,6 +150,7 @@ the discs at speed, and retracts the gear.
 
 ```bash
 .venv/bin/python blender/intro_export.py           # web/public/intro/: heli, platform, vessel, cast, intro.json
+.venv/bin/python blender/bake_platform.py          # intro/: the platform's sky and sun shading (after intro_export), ~6 min on an RTX card
 ```
 
 `intro.html` is the game's opening, also reached from the start card of

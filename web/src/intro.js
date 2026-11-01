@@ -116,8 +116,12 @@ function load(name) {
   return loader.parseAsync(buf.buffer, '');
 }
 const info = window.INTRO_INFO ?? await fetch(BASE + 'intro.json').then((r) => r.json());
+// The platform's shading from blender/bake_platform.py. ?pbake=0: as before 2026-11-01
+const BAKED = q.get('pbake') !== '0';
+const platformLight = BAKED ? await new THREE.TextureLoader().loadAsync(BASE + 'platform_light.png').catch(() => null) : null;
+if (platformLight) { platformLight.flipY = false; platformLight.channel = 1; platformLight.anisotropy = 4; }
 const [platform, vessel, heliModel, pilotModel, anims, ...people] = await Promise.all([
-  load('platform.glb'), load('vessel.glb').catch(() => null), load('heli.glb'), load('chars/heli_pilot_flying_headset.glb').catch(() => null),
+  (BAKED ? load('platform_lit.glb') : Promise.reject(new Error())).catch(() => load('platform.glb')), load('vessel.glb').catch(() => null), load('heli.glb'), load('chars/heli_pilot_flying_headset.glb').catch(() => null),
   load('chars/anims.glb').catch(() => null), ...CAST.map((c) => load(`chars/${c}_${OUTFIT}.glb`).catch(() => load(`chars/${c}.glb`)).catch(() => null)),
 ]);
 // The cast's clips, kept once in anims.glb (web/scripts/pack_chars.mjs); a model with its own plays those
@@ -129,6 +133,17 @@ const glowing = [];
 platform.scene.traverse((o) => {
   if (!o.isMesh) return;
   o.receiveShadow = true;    // the helicopter's and the crew's shadows on the helideck
+  // Not the helideck's painted ring: thin strips lying on the deck, they come out blotched in the bake
+  if (platformLight && o.geometry.attributes.uv1 && o.material.name !== 'PlatMarking') {
+    // Red: the sky this spot sees, for the sky's light. Green: whether the sun reaches it, for the sun's
+    o.material.aoMap = platformLight;
+    o.material.onBeforeCompile = (s) => {
+      s.fragmentShader = s.fragmentShader.replace('#include <aomap_fragment>', `#include <aomap_fragment>
+        float bakedSun = texture2D(aoMap, vAoMapUv).g;
+        reflectedLight.directDiffuse *= bakedSun;
+        reflectedLight.directSpecular *= bakedSun;`);
+    };
+  }
   if (o.material.name === 'PlatGlass') { o.material.transparent = true; o.material.opacity = 0.5; }
   if (o.material.emissive?.getHex()) glowing.push(o.material);
 });
