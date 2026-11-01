@@ -174,7 +174,8 @@ function trace(ctx, b, x, y, w, view) {
     const py0 = top + 72 + (1 - p.domain[1]) * plotH, py1 = top + 72 + (1 - p.domain[0]) * plotH;
     const [lo, hi] = p.range, yv = (v) => py1 - ((v - lo) / (hi - lo)) * (py1 - py0);
     label(ctx, p.title, L, py0 - 8, 15, '#2a3f5f');
-    ctx.fillStyle = P.win; ctx.fillRect(tx(b.window[0]), py0, tx(b.window[1]) - tx(b.window[0]), py1 - py0);
+    // the likely step test, marked once the trace is in: swept across left to right (Adriaen, 2026-11-01)
+    if (view.mark > 0) { ctx.fillStyle = P.win; ctx.fillRect(tx(b.window[0]), py0, (tx(b.window[1]) - tx(b.window[0])) * view.mark, py1 - py0); }
     // gridlines and ticks
     ctx.strokeStyle = '#eceef1'; ctx.lineWidth = 1;
     const ticks = p.ticks ?? niceTicks(lo, hi).map((v) => [v, String(v)]);
@@ -245,7 +246,7 @@ export function drawStepReport(ctx, w, h, stage, age, base) {
   if (!data) return;
   const k = w / PAGE, vh = h / k;
   // the scroll and the page's state along this message's timeline
-  const view = { filter: 0, open: 0, draw: 0, cursor: null };
+  const view = { filter: 0, open: 0, draw: 0, mark: 0, cursor: null };
   let scroll = 0;
   const at = (v) => page(ctx, data, v, true);
   if (stage === 0) {
@@ -253,7 +254,7 @@ export function drawStepReport(ctx, w, h, stage, age, base) {
     const m = at(view);
     scroll = ramp(age, 0.8, 3.8) * (m.catalogue - 60);   // one smooth scroll down to it (Adriaen, 2026-11-01)
   } else {
-    Object.assign(view, { filter: 1, open: ramp(age, 1.0, 1.8), draw: ramp(age, 3.4, 5.6) });
+    Object.assign(view, { filter: 1, open: ramp(age, 1.0, 1.8), draw: ramp(age, 3.4, 5.6), mark: ramp(age, 5.9, 7.1) });
     const m = at({ ...view, open: 1 });
     const chartTop = m.catalogue + 222 + 44 + 64 + 16 + 150;
     scroll = (m.catalogue - 60) + ramp(age, 1.6, 3.4) * (chartTop - 56 - (m.catalogue - 60));
