@@ -137,6 +137,26 @@ export class Cctv {
     this.start(cam, t, px ? THREE.MathUtils.clamp(Math.ceil(px / STEP) * STEP, WIDTH, MAX_WIDTH) : cam.target.width);
   }
 
+  // Compile the platform's shaders now, for a picture's target (no tone
+  // mapping, half float), instead of on the frame a camera first shows: the
+  // bench saw them compile on beat changes
+  compile() {
+    const r = this.renderer, prev = r.getRenderTarget();
+    r.setRenderTarget(this.workTarget(WIDTH));
+    r.compileAsync?.(this.scene, this.cams[0].camera).catch(() => {});
+    r.setRenderTarget(prev);
+  }
+
+  // A spare target `width` across to draw a picture in
+  workTarget(width) {
+    let work = this.work.get(width);
+    if (!work) {
+      this.work.set(width, work = new THREE.WebGLRenderTarget(width, Math.round(width * 9 / 16), { type: THREE.HalfFloatType, samples: SAMPLES }));
+      work.texture.name = 'cctv';
+    }
+    return work;
+  }
+
   resize(cam, width, filter) {
     cam.target.texture.magFilter = filter;
     cam.target.setSize(width, Math.round(width * 9 / 16));
@@ -161,12 +181,7 @@ export class Cctv {
     const at = cam.camera.getWorldPosition(new THREE.Vector3());
     this.sun.position.copy(at).addScaledVector(L.sunDir, 200);
     this.sun.target.position.copy(at);
-    const height = Math.round(width * 9 / 16);
-    let work = this.work.get(width);
-    if (!work) {
-      this.work.set(width, work = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType, samples: SAMPLES }));
-      work.texture.name = 'cctv';
-    }
+    const work = this.workTarget(width);
     const r = this.renderer, prev = r.getRenderTarget();
     r.setRenderTarget(work);
     this.outdoor.render(r, cam.camera); // clears, draws the sky and sea, clears depth

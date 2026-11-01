@@ -773,7 +773,7 @@ game.ready.then(async () => {
   await Promise.all([cast.load(), buddy.load(), workshop.load(), twin.load(), sound.loadIndex()]);
   // Their shaders compiled now, behind the Begin screen, not on the frame
   // each first shows (the bench saw 9 to 16 new programs on those frames)
-  for (const x of [cast, buddy, workshop, twin]) {
+  for (const x of [{ scene: game.scene }, cast, buddy, workshop, twin]) {   // the room too: things hidden until a beat shows them (the desk phones)
     if (!x?.scene) continue;
     const r = game.renderer, prev = r.getRenderTarget();
     r.setRenderTarget(x.rt ?? null);

@@ -113,7 +113,7 @@ async function load() {
   outdoor.set({ time: START_TIME });   // ?time= on the URL still wins (outdoorControls)
   // The deck cameras' live pictures; without them the screens draw their own
   const cctvReady = Cctv.load(renderer, outdoor);
-  cctvReady.then((c) => { cctv = c; if (c) room.setFeeds(c.feeds, c.gain); }).catch((e) => console.warn('cctv', e)).finally(() => { cctvSettled = true; });
+  cctvReady.then((c) => { cctv = c; if (c) { room.setFeeds(c.feeds, c.gain); c.compile(); } }).catch((e) => console.warn('cctv', e)).finally(() => { cctvSettled = true; });
   scene.add(outdoor.room);
   outdoorControls($('tpOutdoor'), outdoor);
   // The supply vessel: through the window, on the crane camera, and its row on the panel
@@ -711,14 +711,15 @@ function showFrameTime(frame) {
 
 // Story mode (story.html) runs on top of this page: it adds per-frame steps
 // and render passes, and can hide the room while its prologue plays
-const hooks = { frame: [], render: [], reflect: [], hidden: false, covered: false };   // reflect: more scenes for the sea's mirror; covered: an opaque title is over the picture
+const hooks = { frame: [], render: [], reflect: [], hidden: false, covered: false, warmed: null };   // reflect: more scenes for the sea's mirror; covered: an opaque title is over the picture
 
 // Behind the story's prologue or a solid title the room doesn't show, so it isn't drawn, apart
 // from a few frames once it and the CCTV have loaded, into a single pixel:
 // that compiles every shader (room, sea, mirror, CCTV) out of sight instead
 // of stalling the first frame after the intro
 const WARM = { frames: 10, ms: 2500 };   // and long enough for the CCTV to take a picture
-let warm = 0, warmFrom = 0, cctvSettled = false;
+let warm = 0, warmFrom = 0, cctvSettled = false, warmDone;
+hooks.warmed = new Promise((r) => { warmDone = r; });   // resolves once the warm-up has run (bench.js waits for it)
 const fullSize = new THREE.Vector2();
 
 // FXAA: the finished frame copied off the canvas and drawn back smoothed
@@ -748,7 +749,9 @@ renderer.setAnimationLoop((now) => {
   perfStep('player', () => update(dt));
   for (const f of hooks.frame) perfStep('story', () => f(dt, now));   // story mode (src/story/) steps here and may take the camera
   const tiny = hooks.hidden || hooks.covered;   // behind the story's prologue or a solid title: see WARM
+  if (tiny && cctvSettled && warm >= WARM.frames && now - warmFrom >= WARM.ms) warmDone();
   if (tiny && (!cctvSettled || (warm >= WARM.frames && now - warmFrom >= WARM.ms))) return;
+  if (!tiny) warmDone();   // drawing for real: nothing left to wait for (play.html never hides the room)
   if (tiny) {
     if (!warm++) warmFrom = now;
     renderer.setViewport(0, 0, 1, 1);
@@ -777,7 +780,7 @@ renderer.setAnimationLoop((now) => {
   outdoor.render(renderer, camera, { reflect: hooks.reflect.length ? [scene, ...hooks.reflect] : scene });   // the vessel mirrored in the sea
   renderer.render(scene, camera);
   for (const f of hooks.render) f(renderer, camera); // the story's own lit pass (characters), over the same depth
-  if (fxaa && !tiny) perfStep('fxaa', smoothEdges);
+  if (fxaa) perfStep('fxaa', smoothEdges);   // warming too: its first use compiled for ~250 ms on the Arc laptop
   if (tiny) {
     renderer.getSize(fullSize);
     renderer.setViewport(0, 0, fullSize.x, fullSize.y);
