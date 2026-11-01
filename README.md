@@ -149,6 +149,7 @@ the discs at speed, and retracts the gear.
 ### Helicopter intro
 
 ```bash
+.venv/bin/python blender/bake_trondheim.py          # story/trondheim/: ground shadows and Føniks's light, ~4 min on an RTX card
 .venv/bin/python blender/intro_export.py           # web/public/intro/: heli, platform, vessel, cast, intro.json
 ```
 
