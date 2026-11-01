@@ -4,9 +4,11 @@
 // blender/trondheim_surroundings.py). The camera glides down from the drone
 // view over the square (B) to Adriaen at the Føniks door (A).
 //
+// Baked by blender/bake_trondheim.py: the shadows on the ground and Føniks's own light.
+//
 // The models: story/trondheim/torvet.glb (the square, its blocks and the
 // column, from trondheim_surroundings.py) and story/trondheim/foniks.glb
-// (Føniks, from preview_trondheim.py --glb), both in the square's own frame:
+// (Føniks, from preview_trondheim.py --glb, then the bake), both in the square's own frame:
 // the column at the origin, metres, x east, north along -z. This place is
 // nowhere near the platform, so it draws on its own canvas over the game
 // while the room underneath rests (game.hooks.hidden).
@@ -17,6 +19,7 @@ import { FlagField, loadCloth } from '../flags.js';
 import flagCloth from '../flag-cloth/flag.bin?url';
 
 const BASE = 'story/trondheim/';
+const BAKED = new URLSearchParams(location.search).get('tbake') !== '0';   // ?tbake=0: the scene's live light alone, as before 2026-11-01
 const GLIDE = 8;   // s from the drone view down to the door (14 until Adriaen asked for a faster opening, 2026-10-29)
 const SKY = 0xf1f3f4;
 // Blender's frame (x east, y north, z up) to three's (y up, north along -z)
@@ -103,7 +106,7 @@ export class Trondheim {
       const loader = new GLTFLoader();
       const [torvet, foniks, me, ceo, flags] = await Promise.all([
         loader.loadAsync(`${BASE}torvet.glb`).catch((e) => { console.warn('trondheim: torvet.glb', e); return null; }),
-        loader.loadAsync(`${BASE}foniks.glb`).catch((e) => { console.warn('trondheim: foniks.glb', e); return null; }),
+        loader.loadAsync(`${BASE}${BAKED ? 'foniks_lit' : 'foniks'}.glb`).catch((e) => { console.warn('trondheim: foniks', e); return null; }),
         loadModel('bearded_operator').catch(() => null),   // one year ago: his own clothes, no PPE
         loadModel('glasses_ceo').catch(() => null),        // in town: no PPE either
         Promise.all([fetch(`${BASE}flags.json`).then((r) => r.json()), loadCloth('flag', flagCloth)])
@@ -117,6 +120,31 @@ export class Trondheim {
       sun.position.set(60, 90, 40);
       scene.add(sun, sun.target);
       for (const g of [torvet, foniks]) if (g) scene.add(g.scene);
+      if (BAKED) {
+        const texture = (name) => new THREE.TextureLoader().loadAsync(`${BASE}${name}`);
+        const [uGround, light] = await Promise.all([texture('ground.png'), texture('foniks_light.png')]);
+        uGround.anisotropy = 4;
+        light.flipY = false; light.colorSpace = THREE.SRGBColorSpace; light.channel = 1; light.anisotropy = 4;
+        // Føniks draws its baked light alone. three divides a basic material's light map by pi; the map holds light / 2
+        foniks?.scene.traverse((o) => {
+          if (!o.isMesh) return;
+          const m = o.material, g = o.geometry, palette = m.name.includes('Palette');
+          if (palette && g.attributes.color_1) g.setAttribute('color', g.attributes.color_1);   // the first set is the bake's blank one
+          o.material = new THREE.MeshBasicMaterial({ color: m.color, map: m.map, vertexColors: palette, lightMap: light, lightMapIntensity: 2 * Math.PI, side: m.side });
+        });
+        // The ground takes the baked shadows, read from above (bake_trondheim.py GROUND_CENTRE, GROUND_SIZE)
+        torvet?.scene.traverse((o) => {
+          if (!o.isMesh) return;
+          o.material.onBeforeCompile = (s) => {
+            s.uniforms.uGround = { value: uGround };
+            s.vertexShader = s.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vGroundPos; varying vec3 vGroundN;')
+              .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGroundPos = (modelMatrix * vec4(transformed, 1.0)).xyz; vGroundN = mat3(modelMatrix) * objectNormal;');
+            s.fragmentShader = s.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uGround; varying vec3 vGroundPos; varying vec3 vGroundN;')
+              .replace('#include <opaque_fragment>', `if (vGroundPos.y < 0.06 && normalize(vGroundN).y > 0.9) outgoingLight *= texture2D(uGround, vec2((vGroundPos.x + 20.0) / 340.0 + 0.5, (-vGroundPos.z - 25.0) / 340.0 + 0.5)).r;\n#include <opaque_fragment>`);
+          };
+          o.material.needsUpdate = true;
+        });
+      }
       if (flags) {
         const [{ hoists }, cloth] = flags;
         this.flags = new FlagField('flag', 'c', hoists.map(([x, y, z]) => ({ position: V(x, y, z) })), { cloth });
