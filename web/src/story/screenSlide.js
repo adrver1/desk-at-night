@@ -8,10 +8,12 @@
 import * as THREE from 'three';
 import { quadMatrix } from './closeups.js';
 import { LiveSlide } from './kg/engine.js';
+import { LIVE_SLIDES } from './kg/slides.js';
 
 const BOX = [1280, 720];   // the slide's layout size (story.css .slide.onscreen)
 const GREEN = '#1a9f6e', HALO = '#f7f5f0';
 const FLY = 1.4;   // s for the slide to fly from the full screen onto the monitor
+const FLY_DOWN = new URLSearchParams(location.search).get('flydown') === '1';   // the old fly-down entry, kept behind ?flydown=1
 
 export function screenSlide(o) {
   const { game, ui, shots, host } = o;   // o.cast is read each frame: the cast loads later
@@ -21,7 +23,7 @@ export function screenSlide(o) {
   const c = canvas.getContext('2d');
   const v = new THREE.Vector3();
   let shown = false, zoomT = null, thinkT = null, frame = null, frameOf = null;
-  let from = null, enterT = 0, lastOverlay = null;   // the full-screen slide before it, to fly down from
+  let from = null, enterT = 0, lastOverlay = null, lastFull = false;   // the full-screen slide before it, to fly down from
 
   const project = (p, W, H) => {
     const cam = game.camera;
@@ -39,11 +41,21 @@ export function screenSlide(o) {
     // slide stood down onto the monitor while the camera moves in (Adriaen, 2026-11-01)
     if (on && !shown) {
       from = null;
-      if (lastOverlay?.startsWith('slide:') && lastOverlay !== state.overlay && !el.classList.contains('onscreen')) {
+      // (Adriaen, 2026-11-01, ctrl-13s after ctrl-12) not a fly-down any more: cut to the room with the
+      // slide small on its monitor, and zoom in on it as any monitor shot does
+      if (FLY_DOWN && lastOverlay?.startsWith('slide:') && lastOverlay !== state.overlay && !el.classList.contains('onscreen')) {
         const r = el.getBoundingClientRect(), hr = host.getBoundingClientRect(), x0 = r.left - hr.left, y0 = r.top - hr.top, x1 = x0 + r.width, y1 = y0 + r.height;
         from = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
         enterT = now;
       }
+    }
+    // (Adriaen, 2026-11-01, ctrl-13s after ctrl-12) from a full-screen slide, not a fly-down any more: cut
+    // to the room with the slide small on its monitor, then zoom in on it as any monitor shot does; on the
+    // overlay's change, before the live slide is built, so the camera never sets off from the old shot
+    if (state.overlay !== lastOverlay) {
+      const to = state.overlay?.startsWith('slide:') ? LIVE_SLIDES[state.overlay.slice(6)] ?? {} : null;
+      if (!FLY_DOWN && to?.screen && lastFull) shots.cut(to.zoomShot ?? 'agentDesk');
+      if (to) lastFull = !to.screen; else if (state.overlay) lastFull = false;   // through a null overlay it holds
     }
     lastOverlay = state.overlay;
     el.classList.toggle('onscreen', on);
