@@ -295,6 +295,24 @@
    },
    "builds": 5
   },
+  "h-02s": {
+   "no": {
+    "title": "Flere agenter sammen, på skjermen"
+   },
+   "en": {
+    "title": "Multi-agent work, on a screen"
+   },
+   "builds": 3
+  },
+  "ctrl-08s": {
+   "no": {
+    "title": "Lysbilde 8 på skjermen"
+   },
+   "en": {
+    "title": "Deck slide 8, on a screen"
+   },
+   "builds": 5
+  },
   "ctrl-09": {
    "no": {
     "title": "Lysbilde 9 fra presentasjonen"
@@ -303,6 +321,15 @@
     "title": "Deck slide 9"
    },
    "builds": 5
+  },
+  "ctrl-09s": {
+   "no": {
+    "title": "Lysbilde 9 på skjermen"
+   },
+   "en": {
+    "title": "Deck slide 9, on a screen"
+   },
+   "builds": 4
   },
   "ctrl-13": {
    "no": {
@@ -869,7 +896,7 @@
    "notes": "Lysbilde 6. Skjult i PowerPoint-filen din, så den er utelatt her også."
   },
   {
-   "after": "m.s4",
+   "after": "m.uc4",
    "id": "c.pcs7",
    "chat": "pcs7",
    "notes": "Samtale: funksjonsblokkene."
@@ -881,7 +908,7 @@
    "notes": "Lysbilde 5."
   },
   {
-   "after": "new.ctrl05",
+   "after": "m.uc3",
    "id": "c.loops",
    "chat": "loops",
    "notes": "Samtale: sløyferapporten."
@@ -906,18 +933,36 @@
   },
   {
    "after": "new.ctrl08",
+   "id": "new.ctrl08s",
+   "slide": "ctrl-08s",
+   "set": {
+    "shot": "monitor:Desk1Mon0Screen"
+   },
+   "notes": "Lysbilde 8 på en skjerm i rommet. Siste klikk: kameraet trekker seg ut til Adriaen ved pulten."
+  },
+  {
+   "after": "new.ctrl08s",
    "id": "new.ctrl09",
    "slide": "ctrl-09",
    "notes": "Lysbilde 9."
   },
   {
    "after": "new.ctrl09",
+   "id": "new.ctrl09s",
+   "slide": "ctrl-09s",
+   "set": {
+    "shot": "monitor:Desk1Mon0Screen"
+   },
+   "notes": "Lysbilde 9 på samme skjerm som lysbilde 8, kameraet inn på skjermen igjen."
+  },
+  {
+   "after": "new.ctrl09s",
    "id": "new.ctrl13",
    "slide": "ctrl-13",
    "notes": "Lysbilde 13."
   },
   {
-   "after": "new.ctrl13",
+   "after": "new.ctrl12",
    "id": "new.ctrl14",
    "slide": "ctrl-14",
    "notes": "Lysbilde 14."
@@ -930,6 +975,9 @@
   }
  ],
  "hidden": [
+  "m.scd",
+  "new.ctrl08",
+  "new.ctrl09",
   "m.retune",
   "c.call",
   "y.steep",
@@ -982,6 +1030,26 @@
   "m.uc2": {
    "no": "Brukstilfelle 2",
    "en": "Use case 2"
+  },
+  "m.uc3": {
+   "no": "Brukstilfelle 3",
+   "en": "Use case 3"
+  },
+  "m.uc4": {
+   "no": "Brukstilfelle 4",
+   "en": "Use case 4"
+  },
+  "h.s2": {
+   "no": "Multi-agent systemer",
+   "en": "Multi-agent systems"
+  },
+  "h.s1": {
+   "no": "Kunnskapsgrafer",
+   "en": "Knowledge graphs"
+  },
+  "ep.zoom": {
+   "no": "Epilog",
+   "en": "Epilogue"
   }
  }
 }
