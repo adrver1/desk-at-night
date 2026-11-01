@@ -752,9 +752,9 @@ function smoothEdges() {
   fxaa.quad.render(renderer);
 }
 
-// Background blur around close-up screens (focusBlur.js): ?blur=c (default), a, b, or 0 for off.
-// Story mode only: play.html never sets hooks.focus
-const blur = focusBlur(renderer, new URLSearchParams(location.search).get('blur') ?? 'c');
+// Background blur around close-up screens (focusBlur.js): off unless ?blur=a, b or c
+// (Adriaen 2026-11-01: none of the three looked right). Story mode only: play.html never sets hooks.focus
+const blur = focusBlur(renderer, new URLSearchParams(location.search).get('blur') ?? '0');
 
 let last = performance.now();
 renderer.setAnimationLoop((now) => {
