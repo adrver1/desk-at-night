@@ -210,6 +210,7 @@ function apply(s, { instant = false } = {}) {
   buddy?.set(s);
   workshop?.set(s.build);
   twin?.set(s.twin);
+  if (twin) twin.settled = s.twin === 'fix' && s.screens?.Desk0Mon0Screen !== 'twinChat';   // the sim2 chat is over: the fixed twin, from the front
   thoughts.set(s.thoughts);
   explain.set(s.explain);
   retune.set(s.retune);

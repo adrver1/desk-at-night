@@ -21,7 +21,8 @@ import { LIVE } from '../controlScene.js';
 import { SANS, MONO } from '../fonts.js';
 
 const SPEED = 10;   // 10x (Adriaen, 2026-11-01: 5x too slow)
-const NAMES = { a: T('Gammel innstilling', 'Old tuning'), b: T('Ny innstilling', 'New tuning') };
+const NAMES = { a: T('Gammel tuning', 'Old tuning'), b: T('Ny tuning', 'New tuning') };
+const HEADS = { a: T('Gammel regulatortuning', 'Old controller tuning'), b: T('Ny regulatortuning', 'New controller tuning') };
 const TITLES = [T('Trykk, barg', 'Pressure, barg'), T('Nivå i oljekammeret, %', 'Oil compartment level, %'),
   T('Oljeventil, åpning %', 'Oil valve position, %'), T('Olje i vann, ppm', 'Oil in water, ppm')];
 
@@ -97,7 +98,7 @@ export class Retune {
   }
 
   label() {
-    this.tag.innerHTML = `${NAMES[this.show]} <small>${T('Sluggende brønn · 10x tid', 'Slugging well · 10x time')}</small>`;
+    this.tag.innerHTML = `${HEADS[this.show]} <small>${T('Sluggende brønn · 10x tid', 'Slugging well · 10x time')}</small>`;
   }
 
   resize() {
@@ -152,7 +153,7 @@ export class Retune {
     ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     ctx.shadowColor = '#000'; ctx.shadowBlur = u * 0.6;
     ctx.fillStyle = '#eef3f4'; ctx.font = `600 ${4.6 * u}px ${SANS}`;
-    ctx.fillText(NAMES[this.show], 3 * u, 3 * u);
+    ctx.fillText(HEADS[this.show], 3 * u, 3 * u);
     ctx.fillStyle = '#9fb3ba'; ctx.font = `500 ${2.5 * u}px ${MONO}`;
     ctx.fillText(T('Sluggende brønn · 10x tid', 'Slugging well · 10x time'), 3 * u, 8.6 * u);
     ctx.shadowBlur = 0;

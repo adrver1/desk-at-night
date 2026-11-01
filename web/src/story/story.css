@@ -451,8 +451,8 @@
 .speech-toast { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); z-index: 20; pointer-events: none; padding: 0.5em 1em; border-radius: 0.5em; background: #0b1116d9; color: #e8eef2; font: 600 calc(1.4 * var(--u)) var(--display, system-ui); opacity: 0; transition: opacity 0.3s; }
 .speech-toast.on { opacity: 1; }
 /* Today, the re-tuning outcome (retune.js): the cut-open separator live on the left, both tunings' trends on the right */
-.retune { position: absolute; inset: 0; z-index: 6; display: grid; grid-template-columns: 1fr min(34vw, calc(60 * var(--u))); background: #0b1216; opacity: 0; pointer-events: none; transition: opacity 0.5s; }
-.retune.on { opacity: 1; }
+.retune:not(.caller) { position: absolute; inset: 0; z-index: 6; display: grid; grid-template-columns: 1fr min(34vw, calc(60 * var(--u))); background: #0b1216; opacity: 0; pointer-events: none; transition: opacity 0.5s; }
+.retune.on:not(.caller) { opacity: 1; }
 .retune .view { position: relative; min-width: 0; }
 .retune .view canvas { display: block; width: 100%; height: 100%; }
 .retune .tag { position: absolute; left: calc(2 * var(--u)); top: calc(2 * var(--u)); font: 600 calc(2.4 * var(--u))/1.2 var(--display, system-ui); color: #eef3f4; text-shadow: 0 1px 3px #000; }
