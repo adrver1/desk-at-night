@@ -474,10 +474,16 @@ const chatOf = (c) => ({ title: tx(c.title), who: c.who, faces: c.faces ?? {}, s
 export const CHATS = Object.fromEntries(Object.entries(STORY.chats).map(([id, c]) => [id, chatOf(c)]));
 // the private build's own wording of a chat (overrides.json `chats`)
 export const setChat = (id, c) => { CHATS[id] = chatOf({ ...STORY.chats[id], ...c }); };
-// the story editor's wording, by message: { 2: { no, en } } (keeps each report's file)
-export const setChatText = (id, texts) => {
+// the story editor's wording, by message: { 2: { no, en } } (keeps each report's file).
+// own: the private build's wording (overrides.json chatText), which stands wherever the editor still
+// has the public text, since its Live stage sends every message (Adriaen, 2026-11-01: c.sim2 named no documents)
+export const setChatText = (id, texts, own, same = (a, b) => a === b) => {
   const c = STORY.chats[id];
-  if (c) CHATS[id] = chatOf({ ...c, messages: c.messages.map(([who, m], i) => [who, texts[i] ? { ...m, ...texts[i] } : m]) });
+  if (c) CHATS[id] = chatOf({ ...c, messages: c.messages.map(([who, m, ...rest], i) => {
+    let t = texts[i];
+    if (own?.[i] && (!t || (same(t.no ?? '', m.no ?? '') && same(t.en ?? '', m.en ?? '')))) t = own[i];
+    return [who, t ? { ...m, ...t } : m, ...rest];
+  }) });
 };
 // A chat beat (story.json inserted, `chat`): the chat on one of Adriaen's
 // monitors, its reports on the next; each press shows one more message
@@ -513,7 +519,7 @@ const ADR_SCREENS = (id) => ({ ...PLAN_SCREENS('chatPlan'), [SLUG_SCREEN]: id })
 const TOMORROW_CAST = { supervisor: { at: 'desk0typing' }, operator: { at: 'desk2typing' } };
 export const CLOSING = tx(STORY.closing);
 // The card before the prologue (main.js), editable in the story editor
-export const DISCLAIMER = tx(STORY.disclaimer ?? { no: 'Laget av landkrabber som aldri har vært offshore. Kunstnerisk frihet benyttet i design og historiefortelling, men teknologien er reell :)', en: 'Made by landlubbers who have never been offshore. Artistic licence taken in design and storytelling, but the technology is real :)' });
+export const DISCLAIMER = tx(STORY.disclaimer ?? { no: 'Laget av kontorrotter som aldri har vært offshore. Kunstnerisk frihet benyttet i design og historiefortelling, men teknologien er reell :)', en: 'Made by office rats who have never been offshore. Artistic licence taken in design and storytelling, but the technology is real :)' });
 
 const SHORT_CHAPTERS = [
   {
@@ -588,17 +594,15 @@ const SHORT_CHAPTERS = [
       // CtrlBuddy's first appearance (Adriaen, 2026-10-29), before his first chat (c.step):
       // the learning curve in two clicks (axes, then the curve), then he appears on the screen beside the operator;
       // all over the thoughts' dark, like the curve beats after them (Adriaen, 2026-10-30)
-      { id: 'm.curve1', set: { overlay: null, thoughts: 'dim', curve: 'axes', shot: 'curveDesk', buddyAt: CHAT_SCREEN, buddyWho: 'buddy', screens: null, cast: { operator: { at: 'desk0typing' } } },
-        notes: 'Ett år siden, kontrollrommet. Aksene: tid og læring.' },
+      // (Adriaen, 2026-11-01) what made it steep first: his face, and one thought bubble per click
+      { id: 'm.think', set: { overlay: null, curve: null, thoughts: true, shot: 'curveDesk', buddyAt: CHAT_SCREEN, buddyWho: 'buddy', screens: null, cast: { operator: { at: 'desk0typing' } } },
+        notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
+      // then the learning curve over the thoughts' dark, once his face and the bubbles have gone: the axes,
+      // the steep curve, and a second one over it, him and CtrlBuddy together, steeper and higher
+      // (Adriaen, 2026-11-01: the curve's second round, old m.curve3 and m.curve4, is gone; m.curve5 is now m.curve3)
+      { id: 'm.curve1', set: { thoughts: 'dim', curve: 'axes', curveLate: true }, notes: 'Ett år siden, kontrollrommet. Aksene: tid og læring.' },
       { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
-      // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
-      { id: 'm.think', set: { curve: null, thoughts: true }, notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
-      // (Adriaen, 2026-10-30) the curve again, and a second one over it: him and CtrlBuddy together, steeper
-      // and higher. Over the thoughts' dark, once his face and the bubbles have gone, in three clicks: the axes,
-      // the curve as before, then the new one
-      { id: 'm.curve3', set: { thoughts: 'dim', curve: 'axes', curveLate: true, shot: 'curveDesk' }, notes: 'Læringskurven igjen.' },
-      { id: 'm.curve4', set: { curve: 'plot' }, notes: 'Den bratte kurven, som før.' },
-      { id: 'm.curve5', set: { curve: 'both' }, notes: 'Med CtrlBuddy: brattere, og høyere. Menneske + KI får gjort mer, raskere.' },
+      { id: 'm.curve3', set: { curve: 'both' }, notes: 'Med CtrlBuddy: brattere, og høyere. Menneske + KI får gjort mer, raskere.' },
       // (Adriaen, 2026-10-30) how he was made: VS Code on one monitor, his agent file typed in section by
       // section, and on the one beside it Ola fitting him together part by part (workshop.js)
       { id: 'm.build', set: { curve: null, thoughts: null, call: null, phone: null, explain: null, build: true, shot: 'pair:Desk0Mon0Screen,Desk0Mon1Screen',
@@ -618,6 +622,12 @@ const SHORT_CHAPTERS = [
       // then the call: he picks up in the room behind, his portrait moves aside for the caller's,
       // and the separator comes up once the caller has said who it is
       // m.what1-5 over the dark (Adriaen, 2026-10-30), which lifts as the camera turns to the phone; the use case's headline over it
+    ],
+  },
+  {
+    // (Adriaen, 2026-11-01) the first use case is a chapter of its own; it carries on where one year ago left off
+    key: 4, id: 'use-case-1', name: T('Brukstilfelle 1', 'Use case 1'), carry: true,
+    beats: [
       { id: 'm.ring', set: { thoughts: null, curve: null, explain: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' }, do: [{ sound: 'ringtone', times: 6 }],
         card: { text: T('Brukstilfelle 1: Separatorregulering', 'Use case 1: Separator control'), small: true, top: true },
         notes: 'Telefonen ringer. Space: han tar den.' },
@@ -633,9 +643,6 @@ const SHORT_CHAPTERS = [
           { set: { phone: null } }, { wait: 0.65 }, { sound: 'hangup' }, { wait: 0.9 }, { set: { call: null } }, { card: null }, { wait: 0.6 }],
         end: { call: null, phone: null },
         notes: 'Separatoren deres slugger, og de spør den nye operatøren om råd. Han legger på.' },
-      // (Adriaen, 2026-10-29) after the call he turns to CtrlBuddy, still waving on his screen: the click
-      { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen', explain: null, buddyPointer: true }, do: [{ card: null }, { wait: 0.8 }, { buddy: 'click' }],
-        notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
       // (Adriaen, 2026-10-30) the separator's digital twin, after the simulator chat (c.sim); moved to the year-ago call with c.sim and c.sim2 (Adriaen, 2026-10-31): VS Code with the
       // CasADi model typed in section by section, and beside it the separator put together over its blueprint
       // while CtrlBuddy beams each part in (twin.js), as the CtrlBuddy build (m.build)
@@ -643,7 +650,8 @@ const SHORT_CHAPTERS = [
         screens: { Desk0Mon0Screen: 'twinCode', Desk0Mon1Screen: 'twin' } },
         notes: 'Vi bygde en digital tvilling av separatoren i CasADi: geometri, massebalanser, overløp og ventiler. Hver del av koden er en del av separatoren.' },
       // after c.sim2 and c.step, which story.json inserts before it (Adriaen, 2026-10-31)
-      { id: 'm.retune', set: { overlay: null, twin: null, retune: true },
+      // on a monitor in the room, not full screen (Adriaen, 2026-11-01)
+      { id: 'm.retune', set: { overlay: null, twin: null, retune: 'screen', shot: 'monitor:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'retune' } },
         notes: 'Gammel og ny innstilling av nivåregulatoren side om side, på den nye modellen: strømningen holdes jevn, nivået får drive innenfor båndet. S bytter hvilken separatoren viser.' },
     ],
   },
@@ -698,7 +706,7 @@ const SHORT_CHAPTERS = [
     base: { act: 4, time: 22.0, shot: 'desk', ...DESK, graph: 5, graphOn: 'band', screens: { Wall0Screen: 'graph', Wall1Screen: 'graph', Wall2Screen: 'graph', Wall3Screen: 'graph', Wall4Screen: 'graph', Wall5Screen: 'graph', Wall6Screen: 'graph' } },
     beats: [
       { id: 'ep.zoom', set: { shot: 'epilogue' }, notes: 'The camera pulls back through the window to the platform at night, the graph glowing inside.' },
-      { id: 'ep.line', do: [{ card: { text: CLOSING, small: true } }], notes: 'TODO(Adriaen): pick the closing line (CLOSING in content.js). Then into the brainstorm.' },
+      { id: 'ep.line', notes: 'The camera rests on the platform at night. Then into the brainstorm. (Closing card removed, Adriaen 2026-11-01.)' },
     ],
   },
 ];
@@ -744,7 +752,10 @@ function applyStory(chapters) {
       const nb = { id: add.id, notes: add.notes ?? '', set: { overlay: add.slide ? `slide:${add.slide}` : null } };
       if (add.chat) {
         nb.chat = add.chat;
-        nb.set = { ...nb.set, shot: `monitor:${CHAT_SCREEN}`, screens: { [CHAT_SCREEN]: `chat:${add.chat}`, [REPORT_SCREEN]: `report:${add.chat}` }, chats: { [add.chat]: 0 }, thoughts: null, call: null, phone: null };   // main.js enter types the first message
+        // part of a chat: the messages after `from` up to `upto` (one chat over several beats, Adriaen 2026-11-01)
+        if (add.from) nb.from = add.from;
+        if (add.upto) nb.upto = add.upto;
+        nb.set = { ...nb.set, shot: `monitor:${CHAT_SCREEN}`, screens: { [CHAT_SCREEN]: `chat:${add.chat}`, [REPORT_SCREEN]: `report:${add.chat}` }, chats: { [add.chat]: add.from ?? 0 }, thoughts: null, call: null, phone: null };   // main.js enter types the first message
         // a chat's own stage (story.json chats.<id>.set): its camera, screens and state, e.g. sim2's twin beside it
         const own = STORY.chats[add.chat]?.set;
         if (own) nb.set = { ...nb.set, ...own, screens: { ...nb.set.screens, ...own.screens } };

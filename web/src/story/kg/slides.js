@@ -100,12 +100,13 @@ const ROBOT_TEXT = {
 };
 const H02 = {
   id: 'h-02', builds: 3,
-  focus: (b) => [[0, 0, 0], [-4.8, -0.5, 3], [0, -0.5, 3], [4.8, -0.5, 3]][b],
+  focus: (b) => [[0, 0, 0], [-4.8, 0, 3], [0, 0, 3], [4.8, 0, 3]][b],
   elements: [
     title(T('CtrlBuddy – hva er det?', 'CtrlBuddy – what is it?')),
     sub(T('… Én av flere agenter', '… One of several agents')),
     ...['buddy', 'scholar', 'nurse'].flatMap((k, i) => [
-      fig(ROBOT[k], -4.8 + i * 4.8, -1.75, 3.6, i + 1, { rot: [0.25, 0, -0.25][i] }),
+      // half portraits, as in the deck (Adriaen, 2026-11-01): big, cut off at the waist
+      fig(ROBOT[k], -4.8 + i * 4.8, -4.3, 6.4, i + 1, { rot: [0.25, 0, -0.25][i], cut: 0.42 }),
       text(ROBOT_TEXT[k], -4.8 + i * 4.8, -2.05, 4.3, i + 1, { cls: 'robot', anchor: [0.5, 0] }),
     ]),
   ],
@@ -123,17 +124,17 @@ const H08 = {
     fig(ROBOT.buddy, ...LOOP.buddy, 2.9, 0, {}),
     fig(ROBOT.scholar, ...LOOP.scholar, 2.5, 0, { rot: 0.45 }),
     fig(ROBOT.nurse, ...LOOP.nurse, 2.5, 0, { rot: -0.45 }),
-    arrow([-1.3, 1.7], [-4.3, -0.9], T('Leder', 'Leads'), 1, { bend: 0.22, labelOff: [-0.35, 0.25] }),
-    arrow([1.3, 1.7], [4.3, -0.9], T('Leder', 'Leads'), 1, { bend: -0.22, labelOff: [0.35, 0.25] }),
+    arrow([-1.3, 1.7], [-4.3, -0.9], T('Leder', 'Leads'), 1, { bend: 0.22, labelOff: [-0.55, 0.45], chunky: true }),
+    arrow([1.3, 1.7], [4.3, -0.9], T('Leder', 'Leads'), 1, { bend: -0.22, labelOff: [0.55, 0.45], chunky: true }),
     prop(() => books(7), ...LOOP.books, 2, { scale: 1.25, rot: 0.25 }),
-    arrow([-3.9, -3.3], [-1.0, -3.5], T('Skriver', 'Writes'), 2, { bend: 0.25, labelOff: [0, -0.45] }),
+    arrow([-3.9, -3.3], [-1.0, -3.5], T('Skriver', 'Writes'), 2, { bend: 0.25, labelOff: [0, -0.5], chunky: true }),
     draw((ctx) => stream(ctx, [-4.3, -2.3], [-0.5, -3.3], { kind: 'page' }), 2),
-    arrow([0, -2.6], [0, -0.5], T('Blir lest av', 'Is read by'), 3, { bend: 0, lw: 0.12, labelOff: [1.0, 0] }),
+    arrow([0, -2.6], [0, -0.5], T('Blir lest av', 'Is read by'), 3, { bend: 0, lw: 0.12, labelOff: [1.2, 0], chunky: true }),
     draw((ctx) => stream(ctx, [0, -2.7], [0, -0.3], { kind: 'read', lift: 0, speed: 0.9 }), 3),
-    arrow([3.9, -3.3], [1.0, -3.5], T('Korrigerer', 'Corrects'), 4, { bend: -0.25, labelOff: [0, -0.45] }),
+    arrow([3.9, -3.3], [1.0, -3.5], T('Korrigerer', 'Corrects'), 4, { bend: -0.25, labelOff: [0, -0.5], chunky: true }),
     draw((ctx) => stream(ctx, [4.3, -2.3], [0.5, -3.3], { kind: 'tick', n: 2, speed: 0.5 }), 4),
     fig(OLA, 6.3, 1.1, 2.5, 5, { seat: 'props/workstation.glb', rot: -1.05, act: () => 'typing' }),
-    arrow([1.6, 2.4], [4.7, 2.75], T('Samhandler med', 'Works with'), 5, { bend: -0.25, both: true, labelOff: [0, 0.35] }),
+    arrow([1.6, 2.4], [4.7, 2.75], T('Samhandler med', 'Works with'), 5, { bend: -0.25, both: true, labelOff: [0, 0.52], chunky: true }),
   ],
 };
 
@@ -143,13 +144,13 @@ const H08 = {
 // its own editor group under its file, then the agent picker in the chat.
 const AGENT_FILES = {
   buddy: ['CtrlBuddy', T(
-    ['---', 'name: CtrlBuddy', 'description: Reguleringsingeniørens orkestrator. Diagnostikk, navigasjon, spørsmål og rapporter om reguleringssløyfer.', "tools: ['edit', 'codebase', 'fetch', 'search', 'runCommands']", "agents: ['Kompilator', 'Linter']", '---', '', '# CtrlBuddy — Orkestrator', '', 'Du eier steg 1, 3, 4 og 5 i Karpathys pipeline:', 'ta inn spørsmålet, naviger i wikien,', 'diagnostiser, lag utdata.', '', '## Delegering', '- Nye kilder i `raw/` → @Kompilator', '- Helsesjekk etter endringer → @Linter'],
+    ['---', 'name: CtrlBuddy', 'description: Reguleringsingeniørens orkestrator. Diagnostikk, navigasjon, spørsmål og rapporter om reguleringssløyfer.', "tools: ['edit', 'codebase', 'fetch', 'search', 'runCommands']", "agents: ['Compiler', 'Linter']", '---', '', '# CtrlBuddy — Orkestrator', '', 'Du eier steg 1, 3, 4 og 5 i Karpathys pipeline:', 'ta inn spørsmålet, naviger i wikien,', 'diagnostiser, lag utdata.', '', '## Delegering', '- Nye kilder i `raw/` → @Compiler', '- Helsesjekk etter endringer → @Linter'],
     ['---', 'name: CtrlBuddy', "description: The control engineer's orchestrator. Diagnostics, navigation, questions and reports on control loops.", "tools: ['edit', 'codebase', 'fetch', 'search', 'runCommands']", "agents: ['Compiler', 'Linter']", '---', '', '# CtrlBuddy — Orchestrator', '', "You own steps 1, 3, 4 and 5 of Karpathy's pipeline:", 'take the question in, navigate the wiki,', 'diagnose, produce the output.', '', '## Delegating', '- New sources in `raw/` → @Compiler', '- Health check after changes → @Linter'])],
   scholar: ['Compiler', T(
-    ['---', 'name: Kompilator', 'description: Leser filer fra raw/ og lager atomiske wiki-artikler. Eier Karpathy steg 2 (Kompiler).', "tools: ['edit', 'codebase', 'fetch', 'search']", '---', '', '# Kompilator — Raw → Wiki', '', 'Inn: artikler, rapporter, leverandør-', 'dokumenter og datasett i `raw/`.', 'Ut: én idé per notat i `wiki/`, med kilder.', '', '## Regler', '- Ett begrep per notat: `pid-regulator.md`', '- Lenk beslektede notater med [[wikilenker]]', '- Oppgi kilden: `kilde: raw/…`'],
+    ['---', 'name: Compiler', 'description: Leser filer fra raw/ og lager atomiske wiki-artikler. Eier Karpathy steg 2 (Kompiler).', "tools: ['edit', 'codebase', 'fetch', 'search']", '---', '', '# Compiler — Raw → Wiki', '', 'Inn: artikler, rapporter, leverandør-', 'dokumenter og datasett i `raw/`.', 'Ut: én idé per notat i `wiki/`, med kilder.', '', '## Regler', '- Ett begrep per notat: `pid-regulator.md`', '- Lenk beslektede notater med [[wikilenker]]', '- Oppgi kilden: `kilde: raw/…`'],
     ['---', 'name: Compiler', 'description: Reads files from raw/ and writes atomic wiki articles. Owns Karpathy step 2 (Compile).', "tools: ['edit', 'codebase', 'fetch', 'search']", '---', '', '# Compiler — Raw → Wiki', '', 'In: papers, reports, vendor documents', 'and data sets in `raw/`.', 'Out: one idea per note in `wiki/`, with sources.', '', '## Rules', '- One concept per note: `pid-controller.md`', '- Link related notes with [[wikilinks]]', '- Give the source: `source: raw/…`'])],
   nurse: ['Linter', T(
-    ['---', 'name: Linter', 'description: Validerer wiki-helse. Frontmatter, ødelagte lenker, motsetninger, foreldreløse notater. Eier Karpathy steg 6 (Lint).', "tools: ['codebase', 'runCommands', 'search']", '---', '', '# Linter — Wiki-helse', '', 'Kjør etter at @Kompilator har lagt til', 'artikler, før en større overlevering,', 'og hver uke.', '', '## Sjekkliste', '- Alle notater har `kilde:` og `oppdatert:`', '- Ingen [[lenker]] til notater som mangler', '- Ingen notater uten innkommende lenker'],
+    ['---', 'name: Linter', 'description: Validerer wiki-helse. Frontmatter, ødelagte lenker, motsetninger, foreldreløse notater. Eier Karpathy steg 6 (Lint).', "tools: ['codebase', 'runCommands', 'search']", '---', '', '# Linter — Wiki-helse', '', 'Kjør etter at @Compiler har lagt til', 'artikler, før en større overlevering,', 'og hver uke.', '', '## Sjekkliste', '- Alle notater har `kilde:` og `oppdatert:`', '- Ingen [[lenker]] til notater som mangler', '- Ingen notater uten innkommende lenker'],
     ['---', 'name: Linter', "description: Checks the wiki's health. Front matter, broken links, contradictions, orphan notes. Owns Karpathy step 6 (Lint).", "tools: ['codebase', 'runCommands', 'search']", '---', '', '# Linter — Wiki health', '', 'Run after @Compiler has added', 'articles, before a bigger handover,', 'and weekly.', '', '## Checklist', '- Every note has `source:` and `updated:`', '- No [[links]] to notes that are missing', '- No notes without incoming links'])],
 };
 const AGENTS9 = ['buddy', 'scholar', 'nurse'];
@@ -185,7 +186,7 @@ const H09 = {
             { me: true, from: 4, t: T('Hvor bor dere egentlig?', 'Where do you actually live?') },
             { from: 4, t: T('Vi er bare <code>.agent.md</code>-filer i <code>.github/agents</code> i dette prosjektet. Velg hvem av oss du vil snakke med nedenfor.', 'We are just <code>.agent.md</code> files in <code>.github/agents</code> in this project. Pick which of us to talk to below.') },
           ],
-          menu: { from: 4, items: AGENTS9.map((k) => [T(...{ buddy: ['CtrlBuddy', 'CtrlBuddy'], scholar: ['Kompilator', 'Compiler'], nurse: ['Linter', 'Linter'] }[k]), T(...{ buddy: ['orkestrator', 'orchestrator'], scholar: ['raw → wiki', 'raw → wiki'], nurse: ['wiki-helse', 'wiki health'] }[k])]) },
+          menu: { from: 4, items: AGENTS9.map((k) => [T(...{ buddy: ['CtrlBuddy', 'CtrlBuddy'], scholar: ['Compiler', 'Compiler'], nurse: ['Linter', 'Linter'] }[k]), T(...{ buddy: ['orkestrator', 'orchestrator'], scholar: ['raw → wiki', 'raw → wiki'], nurse: ['wiki-helse', 'wiki health'] }[k])]) },
         },
         status: 'Ln 2, Col 7',
       }),

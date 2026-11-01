@@ -21,13 +21,14 @@
 // Screens: CODE_SCREEN shows 'twinCode', TWIN_SCREEN 'twin', and the chat's
 // report screen 'twinFix'.
 import * as THREE from 'three';
+import { SANS } from '../fonts.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { CONTENT } from '../screens.js';
 import { LIVE } from '../controlScene.js';
 import { Separator, DIM } from '../separator.js';
 import { makeSeparatorSim } from '../separatorSim.js';
 import { Valve } from '../valve.js';
-import { S } from './storyScreens.js';
+import { S, reportMedia } from './storyScreens.js';
 import { CHATS } from './content.js';
 import { loadModel } from './cast.js';
 import { PRIVATE, OVERRIDES } from '../privateNames.js';
@@ -41,7 +42,38 @@ const smooth = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3
 const BLUE = 0x5fd6ff;
 const SHORT = 1 / 8;   // the correction: 8 m to 7 m
 const EQP = 30;        // rangeability of the equal-percentage curve
-const FIX_WAIT = 1.8;  // s after its message before a correction starts (the camera's way back from the report)
+const FIX_WAIT = 0.3;  // s after his message is sent before its correction starts
+// Each correction is made in the code first (Adriaen, 2026-11-01): a VS Code
+// window comes up over the twin, CtrlBuddy changes the parameter, the window
+// goes, then the twin changes. CODE_T s in all; the edit in EDIT.
+const CODE_T = 4.6, EDIT = [1.2, 2.6];
+const PARAMS = [
+  '# Separator parameters, from the drawing and the datasheets',
+  'L_main = 8.0              # m, main separation zone',
+  'L_oil_zone = 2.0          # m',
+  'R_vessel = 1.5            # m',
+  '',
+  '# Level valve (oil outlet)',
+  "valve_char_oil = 'equal_percentage'",
+  'Cv_oil = 180',
+];
+const EDITS = {
+  len: { line: 1, from: '8.0', to: '7.0', say: T('Endrer L_main fra 8,0 til 7,0 m, som i GA-tegningen.', 'Changing L_main from 8.0 to 7.0 m, as in the GA drawing.') },
+  valve: { line: 6, from: "'equal_percentage'", to: "'linear'", say: T('Endrer ventilkarakteristikken til lineær, som i databladet.', 'Changing the valve characteristic to linear, as in the datasheet.') },
+};
+const ramp = (x, a, b) => Math.max(0, Math.min(1, (x - a) / (b - a)));
+const HOP = 1.6;      // s, CtrlBuddy's flight between the twin's screen and the report's
+
+// Turn a bone so its length (+Y) points along a world direction, blended by w (as workshop.js aim)
+function aim(bone, want, w = 1) {
+  if (!bone || w <= 0) return;
+  bone.updateMatrixWorld(true);
+  const qb = bone.getWorldQuaternion(new THREE.Quaternion());
+  const now = new THREE.Vector3(0, 1, 0).applyQuaternion(qb);
+  const world = new THREE.Quaternion().setFromUnitVectors(now, now.clone().lerp(want, w).normalize()).multiply(qb);
+  bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(world));
+  bone.updateMatrixWorld(true);
+}
 const SWAP = 'water';  // the valve the correction swaps (its datasheet: the water outlet's level valve)
 
 // Python colours on top of the shared VS Code look
@@ -158,26 +190,38 @@ export class Twin {
     this.rt.texture.userData.raw = true;
     this.rt.texture.colorSpace = THREE.LinearSRGBColorSpace;
     this.at = new THREE.Vector3();   // the part being placed
+    // The report beside it (Desk0Mon2, content 'twinDoc'): the document CtrlBuddy fetched, on a plane in a
+    // scene of its own, and him flown in from the twin's screen, pointing at what it shows (Adriaen, 2026-11-01)
+    const dc = document.createElement('canvas');
+    dc.width = 1280; dc.height = 768;
+    this.doc = { scene: new THREE.Scene(), camera: new THREE.PerspectiveCamera(30, 640 / 384, 0.1, 40), rt: new THREE.WebGLRenderTarget(1280, 768, { samples: 4 }),   // a document to read: twice the twin's
+      canvas: dc, tex: new THREE.CanvasTexture(dc), at: new THREE.Vector3(-6, -0.4, 1), point: new THREE.Vector3(), w: 0, key: '', away: false };
+    this.doc.rt.texture.userData.raw = true;
+    this.doc.rt.texture.colorSpace = THREE.LinearSRGBColorSpace;
+    this.doc.tex.colorSpace = THREE.SRGBColorSpace;
     this.build();
     game.hooks.render.push((renderer) => {
       if (!this.on || !this.ready) return;
       // Only while its monitor is in view (once first, so it never shows black), at 30 fps
       const seen = this.game.room?.feedsShown(this.game.camera);
-      if (this.shot && seen && !['twin', 'twinFix'].some((id) => seen.has(id))) return;
+      if (this.shot && seen && !['twin', 'twinFix', 'twinDoc'].some((id) => seen.has(id))) return;
       if (this.shot && (this.skip = !this.skip)) return;
       this.shot = true;
       const prev = renderer.getRenderTarget(), clip = renderer.localClippingEnabled;
       renderer.localClippingEnabled = true;
       renderer.setRenderTarget(this.rt);
       renderer.render(this.scene, this.camera);
+      if (this.mode === 'fix' && this.doc.bud && (!seen || seen.has('twinDoc'))) { renderer.setRenderTarget(this.doc.rt); renderer.clear(); renderer.render(this.doc.scene, this.doc.camera); }
       renderer.setRenderTarget(prev);
       renderer.localClippingEnabled = clip;
     });
     CONTENT.twinCode = ['VS Code', (ctx, w, h) => this.drawCode(ctx, w, h)];
     CONTENT.twin = ['Digital twin', (ctx, w, h) => this.drawRing(ctx, w, h)];
     CONTENT.twinFix = ['Digital twin', (ctx, w, h) => this.drawFix(ctx, w, h)];
+    CONTENT.twinDoc = ['Report', () => {}];   // all in the picture (updateDoc)
     for (const id of ['twinCode', 'twin', 'twinFix']) if (!LIVE.includes(id)) LIVE.push(id);
     this.fix = { len: 0, valve: 0 };
+    this.codeAt = {};   // when each correction's code window came up
   }
 
   // The blueprint floor, the separator (glass cut, as in the re-tuning beat), the beam
@@ -261,8 +305,43 @@ export class Twin {
       if (idle) mix.clipAction(idle).play();
       this.mixers.push(mix);
       this.budAt = new THREE.Vector3(-1, 0, 3);
+      this.hop = 0;   // 0 by the twin, 1 at the report
+      this.budBones = bones(this.bud);
       this.bud.position.copy(this.budAt);
       this.scene.add(this.bud);
+    }
+    // the report's scene: the document filling the picture, and a second CtrlBuddy for it
+    const d = this.doc, ph = 2 * 6 * Math.tan(THREE.MathUtils.degToRad(15)), pw = ph * d.camera.aspect;
+    d.camera.position.set(0, 0, 6);
+    d.camera.updateMatrixWorld();
+    d.size = [pw, ph];
+    d.plane = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), new THREE.MeshBasicMaterial({ map: d.tex, toneMapped: false }));
+    d.scene.background = new THREE.Color(0x14191f);
+    d.scene.add(d.plane, new THREE.HemisphereLight(0xffffff, 0x404040, 0.9));
+    const key = new THREE.DirectionalLight(0xffffff, 1.1);
+    key.position.set(2, 3, 5);
+    d.scene.add(key);
+    d.scene.environment = this.scene.environment;
+    d.scene.environmentIntensity = 0.3;
+    // a soft shadow on the page under him, so the grey robot stands off the white paper
+    const sc = document.createElement('canvas');
+    sc.width = sc.height = 128;
+    const sg = sc.getContext('2d'), grad = sg.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(10,20,30,0.55)'); grad.addColorStop(1, 'rgba(10,20,30,0)');
+    sg.fillStyle = grad; sg.fillRect(0, 0, 128, 128);
+    d.shadow = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.3), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), transparent: true, depthWrite: false, toneMapped: false }));
+    d.scene.add(d.shadow);
+    const bud2 = await loadModel('control_buddy').catch(() => null);
+    if (bud2) {
+      d.bud = bud2.scene;
+      d.bud.scale.setScalar(0.45);
+      d.bones = bones(d.bud);
+      d.mixer = new THREE.AnimationMixer(d.bud);
+      const idle = clip(bud2, 'idle');
+      if (idle) d.mixer.clipAction(idle).play();
+      d.bud.position.copy(d.at);
+      d.bud.traverse((m) => { if (m.isMesh) m.frustumCulled = false; });
+      d.scene.add(d.bud);
     }
     for (const o of [this.op, this.bud]) o?.traverse((m) => { if (m.isMesh) m.frustumCulled = false; });
     this.ready = true;
@@ -276,8 +355,8 @@ export class Twin {
     this.mode = mode;
     this.on = Boolean(mode);
     this.fix = { len: 0, valve: 0 };
-    this.marked = {};
-    this.game.room?.setFeeds({ twin: this.rt.texture, twinFix: this.rt.texture });
+    this.codeAt = {};   // when each correction's code window came up
+    this.game.room?.setFeeds({ twin: this.rt.texture, twinFix: this.rt.texture, twinDoc: this.doc.rt.texture });
     if (mode && !was) {
       this.t = mode === 'fix' ? DUR : 0;   // its own clock: a jump between beats runs the story clock on fast
       this.p = mode === 'fix' ? 1 : 0;
@@ -331,13 +410,21 @@ export class Twin {
       const want = new THREE.Vector3(Math.min(3.6, this.at.x + 1.6), Math.max(-1.6, this.at.y - 0.3), 2.6);
       if (!key || key === 'run') want.set(2.4, -1.6, 2.8);
       this.budAt.lerp(want, Math.min(1, dt * 2.5));
-      this.bud.position.copy(this.budAt);
+      // one flight to the report's screen on the right and back (Adriaen: smooth and continuous): the first
+      // half takes him out past the twin's right edge, the second (updateDoc) in from the report's left edge
+      const to = this.doc.away ? 1 : 0;
+      this.hop += Math.sign(to - this.hop) * Math.min(Math.abs(to - this.hop), dt / HOP);
+      const a = Math.min(1, smooth(this.hop) * 2);
+      const ndc = this.budAt.clone().project(this.camera);
+      const exit = new THREE.Vector3(1.3, ndc.y, ndc.z).unproject(this.camera);
+      this.bud.position.copy(this.budAt).lerp(exit, a);
       this.bud.position.y += Math.sin(this.t * 2) * 0.06;
+      this.bud.visible = a < 1;
       // turned half way between the part and us (the crew look down their -Z)
       const look = this.at.clone().sub(this.budAt).setY(0).normalize().add(this.camera.position.clone().sub(this.budAt).setY(0).normalize());
       this.bud.rotation.y = Math.atan2(-look.x, -look.z);
       const from = this.bud.position.clone().add(new THREE.Vector3(0, 1.05, 0));
-      const busy = key && key !== 'run' && k[placing] > 0;
+      const busy = key && key !== 'run' && k[placing] > 0 && this.hop === 0;
       this.beam.visible = Boolean(busy);
       if (busy) {
         this.beam.position.copy(from);
@@ -347,6 +434,7 @@ export class Twin {
       }
     }
     for (const m of this.mixers) m.update(dt);
+    this.updateDoc(dt);
     // Ola's head follows the part
     if (this.opHead) {
       this.opHead.updateMatrixWorld(true);
@@ -360,19 +448,67 @@ export class Twin {
   }
 
   // The corrections, as far as the chat has come: the messages marked twin: 'len' and 'valve' (story.json chats.sim2)
+  // The report's screen: the last document handed over, and CtrlBuddy there while it is the chat's last
+  // message, flown in from the left and pointing at the part it is about (story.json show `point`, shares
+  // of the picture; the middle when there is none or it hasn't loaded)
+  updateDoc(dt) {
+    const d = this.doc;
+    if (this.mode !== 'fix' || !d.bud) { d.away = false; return; }
+    const msgs = CHATS.sim2?.messages ?? [], n = S.chats.sim2 ?? 0, last = msgs[n - 1];
+    const shown = msgs.slice(0, n).filter(([who]) => who === 'show').pop();
+    const file = shown?.[2]?.file, media = file && S.reports ? reportMedia(file) : null;
+    const iw = media?.naturalWidth, ih = media?.naturalHeight, [W, H] = [d.canvas.width, d.canvas.height];
+    const key = `${n}|${iw || 0}`;
+    if (key !== d.key) {   // drawn again only when it changes (an upload)
+      d.key = key;
+      const ctx = d.canvas.getContext('2d');
+      ctx.clearRect(0, 0, W, H);
+      CONTENT['report:sim2']?.[1](ctx, W, H);
+      d.tex.needsUpdate = true;
+    }
+    let [u, v] = [0.5, 0.45];
+    const pt = shown?.[2]?.point;
+    if (pt && iw) { const k = Math.min(W / iw, H / ih); u = ((W - iw * k) / 2 + pt[0] * iw * k) / W; v = ((H - ih * k) / 2 + pt[1] * ih * k) / H; }
+    d.point.set((u - 0.5) * d.size[0], (0.5 - v) * d.size[1], 0.02);
+    d.away = last?.[0] === 'show';
+    // the second half of the flight from the twin (update): in from the left edge to beside the highlight
+    const want = d.point.clone().add(new THREE.Vector3(0.48, -0.5, 0.9));
+    d.at.lerp(want, Math.min(1, dt * 2.2));
+    const b = Math.max(0, smooth(this.hop) * 2 - 1), ndc = d.at.clone().project(d.camera);
+    const enter = new THREE.Vector3(-1.3, ndc.y, ndc.z).unproject(d.camera);
+    d.bud.position.copy(enter).lerp(d.at, b);
+    d.bud.position.y += Math.sin(this.t * 2) * 0.03;
+    d.bud.visible = d.shadow.visible = b > 0;
+    d.shadow.position.set(d.bud.position.x + 0.12, d.bud.position.y + 0.22, 0.03);
+    const look = d.point.clone().sub(d.bud.position).setY(0).normalize().add(d.camera.position.clone().sub(d.at).setY(0).normalize());
+    d.bud.rotation.y = Math.atan2(-look.x, -look.z);
+    d.mixer.update(dt);
+    // the arm up at it once he is there
+    const near = b > 0.9 ? Math.max(0, 1 - d.bud.position.distanceTo(want) / 0.6) : 0;
+    d.w += (near - d.w) * Math.min(1, dt * 4);
+    const sh = d.bones.upper_armR?.getWorldPosition(new THREE.Vector3());
+    if (sh && d.w > 0.01) { const dir = d.point.clone().sub(sh).normalize(); aim(d.bones.upper_armR, dir, d.w); aim(d.bones.forearmR, dir, d.w); }
+  }
+
   correct(dt) {
     const f = this.fix, nv = this.newValve, oldG = this.sep.valves[SWAP].group;
     const shown = this.mode === 'fix' ? (CHATS.sim2?.messages ?? []).slice(0, S.chats.sim2 ?? 0) : [];
-    // each change waits until the camera is back from the report before it (Adriaen, 2026-10-30)
-    const since = (this.marked ??= {});
+    // each change starts once his message saying so is sent (he only starts typing once the camera is back
+    // from the report before it: main.js chatTo; Adriaen, 2026-10-30 / 2026-11-01)
+    // and only on the click after it (main.js chatStep; Adriaen, 2026-11-01)
     const has = (k) => {
-      if (!shown.some(([, , m]) => m?.twin === k)) { delete since[k]; return false; }
-      since[k] ??= this.t;
-      return this.t - since[k] > FIX_WAIT;
+      const i = shown.findIndex(([, , m]) => m?.twin === k);
+      return i >= 0 && S.acts.has(`sim2:${i + 1}`) && (i < shown.length - 1 || S.now - (S.chatAt.sim2 ?? -99) > FIX_WAIT);
+    };
+    // the code window first; jumped to (the chat set at once), straight to the change
+    const go = (k) => {
+      if (!has(k)) { this.codeAt[k] = null; return false; }
+      this.codeAt[k] ??= (S.chatAt.sim2 ?? -99) < 0 ? -99 : S.now;
+      return S.now - this.codeAt[k] > CODE_T - 0.3;
     };
     const toward = (v, to) => (to > v ? Math.min(to, v + dt * 0.6) : Math.max(to, v - dt * 0.6));
-    f.len = toward(f.len, has('len') ? 1 : 0);
-    f.valve = toward(f.valve, has('valve') ? 1 : 0);
+    f.len = toward(f.len, go('len') ? 1 : 0);
+    f.valve = toward(f.valve, go('valve') ? 1 : 0);
     this.sep.group.scale.x = 1 - SHORT * smooth(f.len);
     // the equal-percentage valve lifts out and hangs to the side; the new one drops into its place
     const out = smooth(f.valve * 1.6);
@@ -397,13 +533,11 @@ export class Twin {
   // The twin beside the chat about the real separator, with the corrections pointed out;
   // the report the chat hands over at the end (the tuning tool) takes the screen
   drawFix(ctx, w, h) {
-    const n = S.chats.sim2 ?? 0, last = CHATS.sim2?.messages[n - 1];
-    if (last?.[0] === 'show') { CONTENT['report:sim2']?.[1](ctx, w, h); return; }
     const s = w / 640, f = this.fix;
     const at = (v) => { const p = v.clone().project(this.camera); return [(p.x + 1) / 2 * w, (1 - p.y) / 2 * h]; };
     ctx.save();
     ctx.fillStyle = '#fff'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-    ctx.font = `600 ${15 * s}px system-ui, sans-serif`;
+    ctx.font = `600 ${15 * s}px ${SANS}`;
     ctx.fillText(T('Digital tvilling · sekundær innløpsseparator', 'Digital twin · secondary inlet separator'), 20 * s, 34 * s);
     // the length, as a dimension line under the vessel
     if (f.len > 0 && f.valve < 0.3) {
@@ -415,7 +549,7 @@ export class Twin {
       for (const [x, yy] of [[x0, y0], [x1, y1]]) { ctx.moveTo(x, yy - 8 * s); ctx.lineTo(x, yy + 8 * s); }
       ctx.stroke();
       const m = 8 - smooth(f.len);
-      ctx.font = `700 ${16 * s}px system-ui, sans-serif`; ctx.textAlign = 'center';
+      ctx.font = `700 ${16 * s}px ${SANS}`; ctx.textAlign = 'center';
       const label = `${T('Hovedseparasjonssone', 'Main separation zone')}: ${f.len < 1 ? m.toFixed(1).replace('.', T(',', '.')) : '7'} m`;
       const tw = ctx.measureText(label).width + 14 * s;
       ctx.fillStyle = '#0b141c'; ctx.fillRect((x0 + x1) / 2 - tw / 2, (y0 + y1) / 2 - 12 * s, tw, 22 * s);
@@ -434,6 +568,26 @@ export class Twin {
       }
       ctx.globalAlpha = 1;
     }
+    for (const k of ['len', 'valve']) if (this.codeAt[k] != null && S.now - this.codeAt[k] < CODE_T) this.drawEdit(ctx, w, h, k, S.now - this.codeAt[k]);
+    ctx.restore();
+  }
+
+  // The VS Code window over the twin while a correction is made in the code
+  drawEdit(ctx, w, h, k, c) {
+    const e = EDITS[k], a = Math.min(1, c / 0.3, (CODE_T - c) / 0.4), grow = 0.94 + 0.06 * smooth(c / 0.3);
+    const ww = w * 0.94 * grow, hh = h * 0.84 * grow, x = (w - ww) / 2, y = (h - hh) / 2 + h * 0.04;
+    // the old value deleted, then the new one typed in, a character at a time
+    const p = ramp(c, ...EDIT), n = e.from.length + e.to.length, i = Math.round(p * n);
+    const val = i <= e.from.length ? e.from.slice(0, e.from.length - i) : e.to.slice(0, i - e.from.length);
+    const lines = PARAMS.map((l, j) => (j === e.line ? l.replace(e.from, val) : k === 'valve' && j === EDITS.len.line ? l.replace(EDITS.len.from, EDITS.len.to) : l)).map(py);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#0008'; ctx.fillRect(0, 0, w, h);
+    drawVSCode(ctx, {
+      title: 'separator-twin — Visual Studio Code', tab: 'params.py',
+      tree: [{ t: '▾ SEPARATOR-TWIN' }, { t: '▾ model', lvl: 1 }, { t: TAB, lvl: 2 }, { t: 'params.py', lvl: 2, hl: true }, { t: '▾ data', lvl: 1 }, { t: 'drawing.pdf', lvl: 2 }, { t: 'datasheet.pdf', lvl: 2 }],
+      lines, caret: c > EDIT[0] - 0.4 && c < EDIT[1] + 0.6, caretAt: [e.line, PARAMS[e.line].indexOf(e.from) + val.length], chat: [{ t: e.say }], pick: 'CtrlBuddy',
+    }, x, y, ww, hh);
     ctx.restore();
   }
 
@@ -447,7 +601,7 @@ export class Twin {
     ctx.beginPath(); ctx.arc(to[0], to[1], 3.5 * s, 0, 7); ctx.fillStyle = colour; ctx.fill();
     ctx.fillStyle = '#0b141ce6'; ctx.fillRect(x, y, cw, ch);
     ctx.strokeRect(x, y, cw, ch);
-    ctx.fillStyle = colour; ctx.font = `700 ${12 * s}px system-ui, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = colour; ctx.font = `700 ${12 * s}px ${SANS}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillText(title, x + pad, y + 7 * s);
     const px = x + pad + 4 * s, py = y + 26 * s, pw = cw - 2 * pad - 4 * s, ph = ch - 26 * s - pad;
     ctx.strokeStyle = '#ffffff55'; ctx.lineWidth = 1 * s;
@@ -456,7 +610,7 @@ export class Twin {
     ctx.beginPath();
     for (let i = 0; i <= 24; i++) { const z = i / 24, cx = px + z * pw, cy = py + ph * (1 - curve(z)); if (i) ctx.lineTo(cx, cy); else ctx.moveTo(cx, cy); }
     ctx.stroke();
-    ctx.fillStyle = '#ffffff99'; ctx.font = `${9 * s}px system-ui, sans-serif`;
+    ctx.fillStyle = '#ffffff99'; ctx.font = `${9 * s}px ${SANS}`;
     ctx.fillText(T('åpning →', 'opening →'), px + pw - 44 * s, py + ph + 1 * s);
     if (crossed) {
       ctx.strokeStyle = '#ff7a7a'; ctx.lineWidth = 3 * s;
@@ -491,10 +645,10 @@ export class Twin {
     ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * p); ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `700 ${18 * s}px system-ui, sans-serif`;
+    ctx.font = `700 ${18 * s}px ${SANS}`;
     ctx.fillText(p >= 1 ? '✓' : `${Math.round(p * 100)}%`, x, y + 1 * s);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    ctx.font = `600 ${15 * s}px system-ui, sans-serif`;
+    ctx.font = `600 ${15 * s}px ${SANS}`;
     ctx.fillText(p >= 1 ? T('Digital tvilling klar', 'Digital twin ready') : T('Bygger digital tvilling …', 'Building the digital twin …'), 20 * s, 34 * s);
   }
 }

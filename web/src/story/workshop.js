@@ -27,6 +27,7 @@ import { LIVE } from '../controlScene.js';
 import { loadModel } from './cast.js';
 import { drawVSCode } from './vscode.js';
 import { T } from './lang.js';
+import { SANS } from '../fonts.js';
 
 export const CODE_SCREEN = 'Desk0Mon0Screen', SHOP_SCREEN = 'Desk0Mon1Screen';
 const DUR = 8;   // s, the whole build (Adriaen, 2026-10-30: twice as fast)
@@ -333,10 +334,10 @@ export class Workshop {
     ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * p); ctx.stroke();
     ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `700 ${18 * s}px system-ui, sans-serif`;
+    ctx.font = `700 ${18 * s}px ${SANS}`;
     ctx.fillText(p >= 1 ? '✓' : `${Math.round(p * 100)}%`, x, y + 1 * s);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    ctx.font = `600 ${15 * s}px system-ui, sans-serif`;
+    ctx.font = `600 ${15 * s}px ${SANS}`;
     ctx.fillText(p >= 1 ? T('CtrlBuddy er klar', 'CtrlBuddy is ready') : T('Bygger CtrlBuddy …', 'Building CtrlBuddy …'), 20 * s, 34 * s);
   }
 }

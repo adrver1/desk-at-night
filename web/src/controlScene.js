@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { roomVertex } from './shaders.js';
+import { fontsReady } from './fonts.js';
 import { drawSlots, assign, contentOf, setOutside, setFeeds, isFeed } from './screens.js';
 import { SunShadow } from './sunShadow.js';
 import { clock } from './outdoor.js';
@@ -396,6 +397,7 @@ export async function loadControlRoom(renderer) {
   if (meta.screens) {
     const { canvas: size, slots } = meta.screens;
     const atlas = canvasTexture(renderer, size * SCREEN_SCALE, size * SCREEN_SCALE);
+    await fontsReady;   // the screens' canvas text (fonts.js); loading since the page opened
     drawSlots(atlas.image.getContext('2d'), slots, STATIC_T, SCREEN_SCALE);
     screens = { atlas, meshes: [], overlays: new Map(), focus: null, drawn: -Infinity, focusDrawn: -Infinity, atlasTime: -1, atlasDrawn: -Infinity, t: 0, busy: new Map(), covered: new Set() };
   }

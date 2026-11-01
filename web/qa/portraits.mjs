@@ -6,7 +6,8 @@ const ROOT = new URL('../../', import.meta.url).pathname;
 const FACES = {
   adriaen: ['web/public/story/chars/bearded_operator.glb', 180, 0.2],
   supervisor: ['web/public/story/chars/blazer_lead.glb', 180, 0.2],
-  ctrlbuddy: ['characters/control_buddy/control_buddy.glb', 180, 0.3],
+  // turned to his right, toward the conversation (Adriaen, 2026-11-01: he looked away to the left)
+  ctrlbuddy: ['characters/control_buddy/control_buddy.glb', 215, 0.3],
   ceo: ['web/public/story/chars/glasses_ceo.glb', 180, 0.2],
   // likenesses of real people: the private build only (git-ignored),
   // master copy in the project files' story-private/faces/
