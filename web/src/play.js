@@ -18,10 +18,12 @@ import { RoomControls } from './roomControls.js';
 import { CONTENT, DEFAULT_LAYOUT, contentOf, screenLabel } from './screens.js';
 import { Highlight } from './highlight.js';
 import { perfPanel, perfWatch, perfRow, perfStep } from './perf.js';
+import { buildTag } from './buildTag.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 
 perfPanel(); // frame rate readout; tap it or press ` for the performance panel (see perf.js)
+buildTag(); // "PR #N" in the top left corner: which build this is (see buildTag.js, ?ver=0 hides it)
 
 const EYE = 1.65;          // standing eye height, m
 const SEATED_EYE = 1.18;

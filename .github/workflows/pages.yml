@@ -24,6 +24,8 @@ jobs:
         working-directory: web
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 200   # vite.config.js reads the latest merged PR number from the log
       - uses: actions/setup-node@v4
         with:
           node-version: 22
