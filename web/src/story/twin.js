@@ -473,10 +473,10 @@ export class Twin {
     const shown = this.mode === 'fix' ? (CHATS.sim2?.messages ?? []).slice(0, S.chats.sim2 ?? 0) : [];
     // each change starts once his message saying so is sent (he only starts typing once the camera is back
     // from the report before it: main.js chatTo; Adriaen, 2026-10-30 / 2026-11-01)
+    // and only on the click after it (main.js chatStep; Adriaen, 2026-11-01)
     const has = (k) => {
       const i = shown.findIndex(([, , m]) => m?.twin === k);
-      if (i < 0) return false;
-      return i < shown.length - 1 || S.now - (S.chatAt.sim2 ?? -99) > FIX_WAIT;
+      return i >= 0 && S.acts.has(`sim2:${i + 1}`) && (i < shown.length - 1 || S.now - (S.chatAt.sim2 ?? -99) > FIX_WAIT);
     };
     const toward = (v, to) => (to > v ? Math.min(to, v + dt * 0.6) : Math.max(to, v - dt * 0.6));
     f.len = toward(f.len, has('len') ? 1 : 0);

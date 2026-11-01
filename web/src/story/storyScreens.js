@@ -21,6 +21,7 @@ export const S = {
   notices: [],                     // [agent, text, at] the agents' feed
   tool: null, toolAt: 0,           // the Act 2 demo and when it started
   now: 0,                          // story clock, s
+  acts: new Set(),                 // chat messages whose action (story.json `twin`) has had its click
   clock: '12:00',                  // game time, for the headers
   images: {},                      // private tool screenshots, if any
   chats: {}, chatAt: {}, chatType: {},           // messages shown per chat (content.js CHATS) and when the last came

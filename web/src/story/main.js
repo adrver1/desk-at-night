@@ -137,14 +137,24 @@ const chatDone = (s, b) => (b.chat ? { ...s, chats: { ...s.chats, [b.chat]: CHAT
 function chatStep(dir) {
   const b = CHAPTERS[chapter]?.beats[beat], id = b?.chat;
   if (!id || running) return false;
-  const n = (state.chats?.[id] ?? 0) + dir;
+  const n0 = state.chats?.[id] ?? 0, n = n0 + dir;
+  // a message that sets something going in the room (the twin's corrections) does it on a click of its own
+  // after it is sent, and a click back undoes that first (Adriaen, 2026-11-01)
+  const act = `${id}:${n0}`;
+  if (CHATS[id].messages[n0 - 1]?.[2]?.twin) {
+    if (dir > 0 && !S.acts.has(act)) { S.acts.add(act); return true; }
+    if (dir < 0 && S.acts.delete(act)) return true;
+  }
   if (n < 1 || n > CHATS[id].messages.length) return false;
   chatTo(id, n, dir > 0);
   return true;
 }
+// those clicks (chatStep): had for the first `upto` messages of a chat, still to come for the rest
+const actsTo = (id, n, upto) => CHATS[id]?.messages.forEach((m, i) => S.acts[i < upto ? 'add' : 'delete'](`${id}:${i + 1}`));
 function chatTo(id, n, typing) {
   const show = CHATS[id].messages[n - 1][0] === 'show';
   apply(merge(state, { chats: { ...state.chats, [id]: n }, shot: show ? CHATS[id].reportShot ?? `monitor:${REPORT_SCREEN}` : CHATS[id].shot ?? `monitor:${CHAT_SCREEN}` }));
+  actsTo(id, n, typing ? n - 1 : n);   // this message's click still to come when it is sent now
   // our reply to a report waits for the camera's way back from it, so the typing is seen (Adriaen, 2026-11-01)
   const wait = typing && CHATS[id].messages[n - 1]?.[0] === 'me' && CHATS[id].messages[n - 2]?.[0] === 'show' ? REPLY_WAIT : 0;
   if (typing) S.chatAt[id] = S.now + wait + typed(id, n, wait);
@@ -184,7 +194,7 @@ function apply(s, { instant = false } = {}) {
   if (s.tool !== prev.tool) S.toolAt = S.now;
   S.tool = s.tool;
   // Chats: as many messages as the state says, the newest already typed
-  for (const [id, n] of Object.entries(s.chats ?? {})) if (S.chats[id] !== n) { S.chats[id] = n; S.chatAt[id] = -99; }
+  for (const [id, n] of Object.entries(s.chats ?? {})) if (S.chats[id] !== n) { S.chats[id] = n; S.chatAt[id] = -99; actsTo(id, n, n); }
   game.room?.redrawNow?.();   // the screens show this state from the next frame on, not a quarter second late
   // Somewhere else than the control room (one year ago: Trondheim)
   // (its own canvas covers the room, so the room isn't drawn behind it)
@@ -295,7 +305,7 @@ function rush(step, my) {
   if (step.chat) {
     const id = step.chat, n = (state.chats?.[id] ?? 0) + 1;
     state.chats = { ...state.chats, [id]: n };
-    S.chats[id] = n; S.chatAt[id] = -99;
+    S.chats[id] = n; S.chatAt[id] = -99; actsTo(id, n, n);
     return CHATS[id].messages[n - 1]?.[0] === 'ai' ? 1.2 : 0.2;
   }
   if (step.buddy === 'click') { buddy?.clicked(); return 0; }
@@ -336,7 +346,7 @@ async function run(step, my) {
     const n = (state.chats?.[id] ?? 0) + 1;
     state.chats = { ...state.chats, [id]: n };
     const wait = typed(id, n);
-    S.chats[id] = n; S.chatAt[id] = S.now + wait;
+    S.chats[id] = n; S.chatAt[id] = S.now + wait; actsTo(id, n, n);
     game.room?.redrawNow?.();
     return sleep(0.3);
   }
@@ -677,7 +687,7 @@ function prologueFrame() {
   cue('aim-free', 38, () => { intro.aim = null; });
   // Rotor sound: a drone in the cabin, the thump outside on the descent,
   // running down after touchdown
-  cue('rotor-in', 0, () => sound.rotor(0.09, 2, 'inside'));
+  cue('rotor-in', 0, () => sound.rotor(0.15, 2, 'inside'));   // louder over the credits (Adriaen, 2026-11-01)
   // Music over the flight if the file is there (see story/README.md), unless
   // the Sola opening started it already; it plays on until Space
   cue('music', 0.5, () => sound.music(MUSIC));
