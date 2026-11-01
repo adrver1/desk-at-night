@@ -27,7 +27,7 @@ import { LIVE } from '../controlScene.js';
 import { Separator, DIM } from '../separator.js';
 import { makeSeparatorSim } from '../separatorSim.js';
 import { Valve } from '../valve.js';
-import { S } from './storyScreens.js';
+import { S, reportMedia } from './storyScreens.js';
 import { CHATS } from './content.js';
 import { loadModel } from './cast.js';
 import { PRIVATE, OVERRIDES } from '../privateNames.js';
@@ -169,24 +169,35 @@ export class Twin {
     this.rt.texture.userData.raw = true;
     this.rt.texture.colorSpace = THREE.LinearSRGBColorSpace;
     this.at = new THREE.Vector3();   // the part being placed
+    // The report beside it (Desk0Mon2, content 'twinDoc'): the document CtrlBuddy fetched, on a plane in a
+    // scene of its own, and him flown in from the twin's screen, pointing at what it shows (Adriaen, 2026-11-01)
+    const dc = document.createElement('canvas');
+    dc.width = 1280; dc.height = 768;
+    this.doc = { scene: new THREE.Scene(), camera: new THREE.PerspectiveCamera(30, 640 / 384, 0.1, 40), rt: new THREE.WebGLRenderTarget(1280, 768, { samples: 4 }),   // a document to read: twice the twin's
+      canvas: dc, tex: new THREE.CanvasTexture(dc), at: new THREE.Vector3(-6, -0.4, 1), point: new THREE.Vector3(), w: 0, key: '', away: false };
+    this.doc.rt.texture.userData.raw = true;
+    this.doc.rt.texture.colorSpace = THREE.LinearSRGBColorSpace;
+    this.doc.tex.colorSpace = THREE.SRGBColorSpace;
     this.build();
     game.hooks.render.push((renderer) => {
       if (!this.on || !this.ready) return;
       // Only while its monitor is in view (once first, so it never shows black), at 30 fps
       const seen = this.game.room?.feedsShown(this.game.camera);
-      if (this.shot && seen && !['twin', 'twinFix'].some((id) => seen.has(id))) return;
+      if (this.shot && seen && !['twin', 'twinFix', 'twinDoc'].some((id) => seen.has(id))) return;
       if (this.shot && (this.skip = !this.skip)) return;
       this.shot = true;
       const prev = renderer.getRenderTarget(), clip = renderer.localClippingEnabled;
       renderer.localClippingEnabled = true;
       renderer.setRenderTarget(this.rt);
       renderer.render(this.scene, this.camera);
+      if (this.mode === 'fix' && this.doc.bud && (!seen || seen.has('twinDoc'))) { renderer.setRenderTarget(this.doc.rt); renderer.clear(); renderer.render(this.doc.scene, this.doc.camera); }
       renderer.setRenderTarget(prev);
       renderer.localClippingEnabled = clip;
     });
     CONTENT.twinCode = ['VS Code', (ctx, w, h) => this.drawCode(ctx, w, h)];
     CONTENT.twin = ['Digital twin', (ctx, w, h) => this.drawRing(ctx, w, h)];
     CONTENT.twinFix = ['Digital twin', (ctx, w, h) => this.drawFix(ctx, w, h)];
+    CONTENT.twinDoc = ['Report', () => {}];   // all in the picture (updateDoc)
     for (const id of ['twinCode', 'twin', 'twinFix']) if (!LIVE.includes(id)) LIVE.push(id);
     this.fix = { len: 0, valve: 0 };
   }
@@ -276,6 +287,38 @@ export class Twin {
       this.bud.position.copy(this.budAt);
       this.scene.add(this.bud);
     }
+    // the report's scene: the document filling the picture, and a second CtrlBuddy for it
+    const d = this.doc, ph = 2 * 6 * Math.tan(THREE.MathUtils.degToRad(15)), pw = ph * d.camera.aspect;
+    d.camera.position.set(0, 0, 6);
+    d.size = [pw, ph];
+    d.plane = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), new THREE.MeshBasicMaterial({ map: d.tex, toneMapped: false }));
+    d.scene.background = new THREE.Color(0x14191f);
+    d.scene.add(d.plane, new THREE.HemisphereLight(0xffffff, 0x404040, 0.9));
+    const key = new THREE.DirectionalLight(0xffffff, 1.1);
+    key.position.set(2, 3, 5);
+    d.scene.add(key);
+    d.scene.environment = this.scene.environment;
+    d.scene.environmentIntensity = 0.3;
+    // a soft shadow on the page under him, so the grey robot stands off the white paper
+    const sc = document.createElement('canvas');
+    sc.width = sc.height = 128;
+    const sg = sc.getContext('2d'), grad = sg.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(10,20,30,0.55)'); grad.addColorStop(1, 'rgba(10,20,30,0)');
+    sg.fillStyle = grad; sg.fillRect(0, 0, 128, 128);
+    d.shadow = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.3), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), transparent: true, depthWrite: false, toneMapped: false }));
+    d.scene.add(d.shadow);
+    const bud2 = await loadModel('control_buddy').catch(() => null);
+    if (bud2) {
+      d.bud = bud2.scene;
+      d.bud.scale.setScalar(0.45);
+      d.bones = bones(d.bud);
+      d.mixer = new THREE.AnimationMixer(d.bud);
+      const idle = clip(bud2, 'idle');
+      if (idle) d.mixer.clipAction(idle).play();
+      d.bud.position.copy(d.at);
+      d.bud.traverse((m) => { if (m.isMesh) m.frustumCulled = false; });
+      d.scene.add(d.bud);
+    }
     for (const o of [this.op, this.bud]) o?.traverse((m) => { if (m.isMesh) m.frustumCulled = false; });
     this.ready = true;
   }
@@ -288,7 +331,7 @@ export class Twin {
     this.mode = mode;
     this.on = Boolean(mode);
     this.fix = { len: 0, valve: 0 };
-    this.game.room?.setFeeds({ twin: this.rt.texture, twinFix: this.rt.texture });
+    this.game.room?.setFeeds({ twin: this.rt.texture, twinFix: this.rt.texture, twinDoc: this.doc.rt.texture });
     if (mode && !was) {
       this.t = mode === 'fix' ? DUR : 0;   // its own clock: a jump between beats runs the story clock on fast
       this.p = mode === 'fix' ? 1 : 0;
@@ -341,15 +384,12 @@ export class Twin {
       // beside it, a little in front, so we see him three-quarter on
       const want = new THREE.Vector3(Math.min(3.6, this.at.x + 1.6), Math.max(-1.6, this.at.y - 0.3), 2.6);
       if (!key || key === 'run') want.set(2.4, -1.6, 2.8);
-      // while the length is put right he hovers by the dimension line's box and points at it (Adriaen, 2026-11-01)
-      this.pointW = this.mode === 'fix' ? Math.max(0, Math.min(1, this.fix.len * 3, (0.3 - this.fix.valve) * 6)) : 0;
-      this.box = this.sep.group.localToWorld(new THREE.Vector3(0, DIM.ground + 0.2, 2.2));
-      if (this.pointW > 0) want.copy(this.box).add(new THREE.Vector3(2.4, 1.0, 4.5));   // above the box's right end, well in front of the skid
+      if (this.doc.away) want.set(9, -0.6, 3);   // off to the right, into the report's screen beside it
       this.budAt.lerp(want, Math.min(1, dt * 2.5));
       this.bud.position.copy(this.budAt);
       this.bud.position.y += Math.sin(this.t * 2) * 0.06;
       // turned half way between the part and us (the crew look down their -Z)
-      const look = (this.pointW > 0 ? this.box : this.at).clone().sub(this.budAt).setY(0).normalize().add(this.camera.position.clone().sub(this.budAt).setY(0).normalize());
+      const look = this.at.clone().sub(this.budAt).setY(0).normalize().add(this.camera.position.clone().sub(this.budAt).setY(0).normalize());
       this.bud.rotation.y = Math.atan2(-look.x, -look.z);
       const from = this.bud.position.clone().add(new THREE.Vector3(0, 1.05, 0));
       const busy = key && key !== 'run' && k[placing] > 0;
@@ -362,10 +402,7 @@ export class Twin {
       }
     }
     for (const m of this.mixers) m.update(dt);
-    if (this.bud && this.pointW > 0) {
-      const B = this.budBones, sh = B.upper_armR?.getWorldPosition(new THREE.Vector3());
-      if (sh) { const d = this.box.clone().sub(sh).normalize(); aim(B.upper_armR, d, this.pointW); aim(B.forearmR, d, this.pointW); }
-    }
+    this.updateDoc(dt);
     // Ola's head follows the part
     if (this.opHead) {
       this.opHead.updateMatrixWorld(true);
@@ -379,6 +416,44 @@ export class Twin {
   }
 
   // The corrections, as far as the chat has come: the messages marked twin: 'len' and 'valve' (story.json chats.sim2)
+  // The report's screen: the last document handed over, and CtrlBuddy there while it is the chat's last
+  // message, flown in from the left and pointing at the part it is about (story.json show `point`, shares
+  // of the picture; the middle when there is none or it hasn't loaded)
+  updateDoc(dt) {
+    const d = this.doc;
+    if (this.mode !== 'fix' || !d.bud) { d.away = false; return; }
+    const msgs = CHATS.sim2?.messages ?? [], n = S.chats.sim2 ?? 0, last = msgs[n - 1];
+    const shown = msgs.slice(0, n).filter(([who]) => who === 'show').pop();
+    const file = shown?.[2]?.file, media = file && S.reports ? reportMedia(file) : null;
+    const iw = media?.naturalWidth, ih = media?.naturalHeight, [W, H] = [d.canvas.width, d.canvas.height];
+    const key = `${n}|${iw || 0}`;
+    if (key !== d.key) {   // drawn again only when it changes (an upload)
+      d.key = key;
+      const ctx = d.canvas.getContext('2d');
+      ctx.clearRect(0, 0, W, H);
+      CONTENT['report:sim2']?.[1](ctx, W, H);
+      d.tex.needsUpdate = true;
+    }
+    let [u, v] = [0.5, 0.45];
+    const pt = shown?.[2]?.point;
+    if (pt && iw) { const k = Math.min(W / iw, H / ih); u = ((W - iw * k) / 2 + pt[0] * iw * k) / W; v = ((H - ih * k) / 2 + pt[1] * ih * k) / H; }
+    d.point.set((u - 0.5) * d.size[0], (0.5 - v) * d.size[1], 0.02);
+    d.away = last?.[0] === 'show';
+    const want = d.away ? d.point.clone().add(new THREE.Vector3(0.48, -0.5, 0.9)) : new THREE.Vector3(-d.size[0] / 2 - 1.2, -0.4, 1);
+    d.at.lerp(want, Math.min(1, dt * 2.2));
+    d.bud.position.copy(d.at);
+    d.bud.position.y += Math.sin(this.t * 2) * 0.03;
+    d.shadow.position.set(d.at.x + 0.12, d.at.y + 0.22, 0.03);
+    const look = d.point.clone().sub(d.at).setY(0).normalize().add(d.camera.position.clone().sub(d.at).setY(0).normalize());
+    d.bud.rotation.y = Math.atan2(-look.x, -look.z);
+    d.mixer.update(dt);
+    // the arm up at it once he is there
+    const near = d.away ? Math.max(0, 1 - d.at.distanceTo(want) / 0.6) : 0;
+    d.w += (near - d.w) * Math.min(1, dt * 4);
+    const sh = d.bones.upper_armR?.getWorldPosition(new THREE.Vector3());
+    if (sh && d.w > 0.01) { const dir = d.point.clone().sub(sh).normalize(); aim(d.bones.upper_armR, dir, d.w); aim(d.bones.forearmR, dir, d.w); }
+  }
+
   correct(dt) {
     const f = this.fix, nv = this.newValve, oldG = this.sep.valves[SWAP].group;
     const shown = this.mode === 'fix' ? (CHATS.sim2?.messages ?? []).slice(0, S.chats.sim2 ?? 0) : [];
@@ -416,8 +491,6 @@ export class Twin {
   // The twin beside the chat about the real separator, with the corrections pointed out;
   // the report the chat hands over at the end (the tuning tool) takes the screen
   drawFix(ctx, w, h) {
-    const n = S.chats.sim2 ?? 0, last = CHATS.sim2?.messages[n - 1];
-    if (last?.[0] === 'show') { CONTENT['report:sim2']?.[1](ctx, w, h); return; }
     const s = w / 640, f = this.fix;
     const at = (v) => { const p = v.clone().project(this.camera); return [(p.x + 1) / 2 * w, (1 - p.y) / 2 * h]; };
     ctx.save();

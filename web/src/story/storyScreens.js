@@ -431,7 +431,7 @@ function report(ctx, w, h, id) {
   text(ctx, title, w / 2, top + (h - top) * 0.62, { px: 22 * s, weight: 600, color: C.bright, align: 'center' });
 }
 const reportFiles = {};
-function reportMedia(file) {
+export function reportMedia(file) {
   if (!(file in reportFiles)) {
     const video = /\.(mp4|webm)$/i.test(file);
     const el = reportFiles[file] = document.createElement(video ? 'video' : 'img');

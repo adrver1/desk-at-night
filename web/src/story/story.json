@@ -656,10 +656,10 @@
    "set": {
     "twin": "fix",
     "shot": "pair:Desk0Mon0Screen,Desk0Mon1Screen",
-    "reportShot": "monitor:Desk0Mon1Screen",
     "screens": {
      "Desk0Mon0Screen": "chat:sim2",
-     "Desk0Mon1Screen": "twinFix"
+     "Desk0Mon1Screen": "twinFix",
+     "Desk0Mon2Screen": "twinDoc"
     }
    },
    "messages": [
@@ -682,7 +682,11 @@
      {
       "no": "GA-tegning av separatoren",
       "en": "Separator general arrangement drawing",
-      "file": "ga-drawing.webp"
+      "file": "ga-drawing.webp",
+      "point": [
+       0.6,
+       0.24
+      ]
      }
     ],
     [
@@ -705,7 +709,11 @@
      {
       "no": "Datablad for nivåventilen",
       "en": "The level valve's datasheet",
-      "file": "valve-datasheet.webp"
+      "file": "valve-datasheet.webp",
+      "point": [
+       0.435,
+       0.519
+      ]
      }
     ],
     [
