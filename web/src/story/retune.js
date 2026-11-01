@@ -6,14 +6,19 @@
 // model on the slugging well at 5x. S swaps which tuning the vessel shows.
 // No end card: the presenter moves on when the point is made.
 //
-// State key (content.js): retune: true shows it, null hides it. It has its
-// own renderer, made the first time it shows, and runs only while shown.
+// State key (content.js): retune: true shows it full screen, 'screen' on a
+// room monitor instead (screen content 'retune', Adriaen 2026-11-01), null
+// hides it. It has its own renderer, made the first time it shows, and runs
+// only while shown.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { perfWatch } from '../perf.js';
 import { Separator, DIM } from '../separator.js';
 import { SeparatorCompare, drawTrend } from '../separatorCompare.js';
 import { T } from './lang.js';
+import { CONTENT } from '../screens.js';
+import { LIVE } from '../controlScene.js';
+import { SANS, MONO } from '../fonts.js';
 
 const SPEED = 5;
 const NAMES = { a: T('Gammel innstilling', 'Old tuning'), b: T('Ny innstilling', 'New tuning') };
@@ -31,6 +36,8 @@ export class Retune {
     this.legend = el.querySelector('.legend');
     this.trendCanvases = TITLES.map(() => { const c = document.createElement('canvas'); el.querySelector('.trends').append(c); return c; });
     this.on = false;
+    this.mode = null;   // 'full' (the overlay) or 'screen' (a room monitor)
+    this.screen = null;   // the monitor picture's size, [view width, height]
     this.show = 'b';
     this.renderer = null;
     addEventListener('keydown', (e) => {
@@ -38,10 +45,12 @@ export class Retune {
       this.show = this.show === 'a' ? 'b' : 'a';
       this.label();
     });
+    CONTENT.retune = ['Re-tuning', (ctx, w, h) => this.drawScreen(ctx, w, h)];
+    if (!LIVE.includes('retune')) LIVE.push('retune');
   }
 
   build() {
-    const r = this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true });
+    const r = this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, preserveDrawingBuffer: true });   // kept, for the monitor to copy
     r.toneMapping = THREE.AgXToneMapping;
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.localClippingEnabled = true;
@@ -69,12 +78,15 @@ export class Retune {
 
   // A fresh run each time it shows: both tunings from the same start
   set(on) {
-    on = Boolean(on);
-    if (on === this.on) return;
-    this.on = on;
-    this.el.classList.toggle('on', on);
-    if (!on) return;
+    const mode = on === 'screen' ? 'screen' : on ? 'full' : null, was = this.mode;
+    if (mode === was) return;
+    this.mode = mode;
+    this.on = Boolean(mode);
+    this.el.classList.toggle('on', mode === 'full');
+    this.size = null;
+    if (!mode) return;
     if (!this.renderer) this.build();
+    if (was) return;   // from the monitor to full screen or back: the same run goes on
     this.cmp = new SeparatorCompare('tuning');
     this.cmp.slugging = true;
     this.cmp.trends.forEach((tr, i) => { tr.title = TITLES[i]; });
@@ -89,11 +101,11 @@ export class Retune {
   }
 
   resize() {
-    const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
+    const [w, h] = this.mode === 'screen' ? this.screen ?? [0, 0] : [this.canvas.clientWidth, this.canvas.clientHeight];
     const key = `${w}x${h}`;
     if (!w || key === this.size) return;
     this.size = key;
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(this.mode === 'screen' ? 1 : Math.min(devicePixelRatio, 1.5));
     this.renderer.setSize(w, h, false);
     const cam = this.camera;
     cam.aspect = w / h;
@@ -102,7 +114,7 @@ export class Retune {
     cam.position.set(1.0, 2.2, dist).add(this.target);
     cam.lookAt(this.target);
     cam.updateProjectionMatrix();
-    for (const c of this.trendCanvases) { const r = c.getBoundingClientRect(); c.width = r.width * devicePixelRatio; c.height = r.height * devicePixelRatio; }
+    if (this.mode === 'full') for (const c of this.trendCanvases) { const r = c.getBoundingClientRect(); c.width = r.width * devicePixelRatio; c.height = r.height * devicePixelRatio; }
   }
 
   update(dt) {
@@ -114,6 +126,43 @@ export class Retune {
     this.sep.update(dt * SPEED, s.stir);
     this.resize();
     this.renderer.render(this.scene, this.camera);
-    this.cmp.trends.forEach((tr, i) => drawTrend(this.trendCanvases[i], this.cmp, tr));
+    this.cmp.trends.forEach((tr, i) => drawTrend(this.trendCanvases[i], this.cmp, tr, this.mode === 'screen' ? this.trendD : undefined));
+  }
+
+  // On a room monitor: the separator on the left, the four trends on the
+  // right, as the overlay lays them out
+  drawScreen(ctx, w, h) {
+    ctx.fillStyle = '#0b1216';
+    ctx.fillRect(0, 0, w, h);
+    if (this.mode !== 'screen') return;
+    const u = h / 100, vw = Math.round(w * 0.62), tw = w - vw, pad = 3 * u;
+    const top = 9 * u, th = (h - top - pad) / 4 - 1.6 * u;
+    if (this.screen?.[0] !== vw || this.screen?.[1] !== h) {
+      this.screen = [vw, h];
+      this.size = null;
+      this.trendD = u / 4;
+      for (const c of this.trendCanvases) { c.width = Math.round(tw - 2 * pad); c.height = Math.round(th); }
+    }
+    ctx.drawImage(this.canvas, 0, 0, vw, h);
+    ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.shadowColor = '#000'; ctx.shadowBlur = u * 0.6;
+    ctx.fillStyle = '#eef3f4'; ctx.font = `600 ${4.6 * u}px ${SANS}`;
+    ctx.fillText(NAMES[this.show], 3 * u, 3 * u);
+    ctx.fillStyle = '#9fb3ba'; ctx.font = `500 ${2.5 * u}px ${MONO}`;
+    ctx.fillText(T('Sluggende brønn · 5x tid', 'Slugging well · 5x time'), 3 * u, 8.6 * u);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(6, 14, 18, 0.9)';
+    ctx.fillRect(vw, 0, tw, h);
+    // the legend: new solid, old dashed
+    ctx.font = `500 ${2.6 * u}px ${SANS}`; ctx.textBaseline = 'middle';
+    let x = vw + pad;
+    for (const [k, dash] of [['b', []], ['a', [u, u * 0.8]]]) {
+      ctx.strokeStyle = k === 'b' ? '#f2b544' : '#9fb3ba'; ctx.lineWidth = 0.45 * u; ctx.setLineDash(dash);
+      ctx.beginPath(); ctx.moveTo(x, top / 2 + u); ctx.lineTo(x + 5 * u, top / 2 + u); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#eef3f4'; ctx.fillText(NAMES[k], x + 6.4 * u, top / 2 + u);
+      x += 6.4 * u + ctx.measureText(NAMES[k]).width + 4 * u;
+    }
+    this.trendCanvases.forEach((c, i) => ctx.drawImage(c, vw + pad, top + i * (th + 1.6 * u)));
   }
 }

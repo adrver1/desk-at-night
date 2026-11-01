@@ -163,7 +163,7 @@ export function vscode(opts = {}) {
 // The same window painted for an in-room monitor. lines: one per row, either
 // [[text, colour key], ...] runs or a plain string (coloured by a guess).
 // tree rows may still carry '▾ '/'▸ ' in front of folder names.
-export function drawVSCode(ctx, { title = 'VS Code', tree = [], tab = '', tabs, lines = [], caret = false, chat = [], pick = '' } = {}, x = 0, y = 0, w = ctx.canvas.width, h = ctx.canvas.height) {
+export function drawVSCode(ctx, { title = 'VS Code', tree = [], tab = '', tabs, lines = [], caret = false, caretAt = null, chat = [], pick = '' } = {}, x = 0, y = 0, w = ctx.canvas.width, h = ctx.canvas.height) {
   const C = VS_COL, fs = w / 64, lh = fs * 1.45, pad = fs * 0.8;
   const mono = `${fs}px ${MONO}`, ui = (k = 1, wt = 400) => `${wt} ${fs * k}px ${SANS}`;
   const top = y + fs * 2.2, bot = y + h - fs * 1.6, a1 = x + fs * 2.6, c1 = a1 + w * 0.2, c2 = x + w - w * 0.27;
@@ -234,23 +234,27 @@ export function drawVSCode(ctx, { title = 'VS Code', tree = [], tab = '', tabs, 
   };
   const gx = c1 + fs * 2.6, l0 = top + fs * 4.5, rows = Math.floor((bot - l0) / lh);
   const shown = lines.slice(-rows);
-  let endX = gx + pad;
+  let endX = gx + pad, caretY = l0 + (shown.length - 1) * lh;
   ctx.font = mono;
   shown.forEach((l, i) => {
-    const ly = l0 + i * lh, last = i === shown.length - 1;
+    // the caret's line: the last, or caretAt [line, characters in] (an edit inside the file)
+    const ly = l0 + i * lh, last = caretAt ? lines.length - shown.length + i === caretAt[0] : i === shown.length - 1;
     if (last && caret) rect('#ffffff0a', c1, ly - lh / 2, c2 - c1, lh);
     ctx.textAlign = 'right'; ctx.fillStyle = last && caret ? C.text : C.faint;
     ctx.fillText(String(lines.length - shown.length + i + 1), gx, ly);
     ctx.textAlign = 'left';
     let lx = gx + pad;
+    let n = 0, at = null;
     for (const [t, k] of typeof l === 'string' ? guess(l) : l) {
       ctx.fillStyle = C[k] ?? C.text;
       ctx.fillText(t, lx, ly);
+      if (last && caretAt && at === null && n + t.length >= caretAt[1]) at = lx + ctx.measureText(t.slice(0, caretAt[1] - n)).width;
+      n += t.length;
       lx += ctx.measureText(t).width;
     }
-    endX = lx;
+    if (caretAt ? last : i === shown.length - 1) { endX = at ?? lx; caretY = ly; }
   });
-  if (caret && shown.length && (performance.now() / 500 | 0) % 2 === 0) rect(C.hl, endX + 1, l0 + (shown.length - 1) * lh - fs * 0.55, Math.max(1, fs * 0.1), fs * 1.1);
+  if (caret && shown.length && (performance.now() / 500 | 0) % 2 === 0) rect(C.hl, endX + 1, caretY - fs * 0.55, Math.max(1, fs * 0.1), fs * 1.1);
   // chat, word-wrapped, with the input box and the agent picker at the bottom
   rect(C.side, c2, top, x + w - c2, bot - top); rect(C.line, c2, top, 1, bot - top);
   ctx.font = ui(0.72); ctx.fillStyle = C.text; ctx.fillText('CHAT', c2 + pad, top + fs * 1.1);

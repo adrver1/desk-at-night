@@ -132,7 +132,9 @@ function stateAt(c, i) {
 
 const endOf = (c) => { const bs = CHAPTERS[c].beats, b = bs[bs.length - 1]; return chatDone(merge(stateAt(c, bs.length - 1), b.end), b); };
 // A chat beat once past: every message shown
-const chatDone = (s, b) => (b.chat ? { ...s, chats: { ...s.chats, [b.chat]: CHATS[b.chat].messages.length } } : s);
+const chatDone = (s, b) => (b.chat ? { ...s, chats: { ...s.chats, [b.chat]: chatEnd(b) } } : s);
+// where a chat beat's messages end: the whole chat, or its part (content.js `upto`)
+const chatEnd = (b) => b.upto ?? CHATS[b.chat].messages.length;
 
 // A chat beat's clicks: one message more (or less), the camera on the chat,
 // or on the report beside it when the message hands one over
@@ -147,7 +149,7 @@ function chatStep(dir) {
     if (dir > 0 && !S.acts.has(act)) { S.acts.add(act); return true; }
     if (dir < 0 && S.acts.delete(act)) return true;
   }
-  if (n < 1 || n > CHATS[id].messages.length) return false;
+  if (n < (b.from ?? 0) + 1 || n > chatEnd(b)) return false;
   chatTo(id, n, dir > 0);
   return true;
 }
@@ -277,10 +279,10 @@ async function enter(c, i, { instant = false, skipDo = false, at = 0 } = {}) {
     }
     if (rushing) cast?.rush(game.camera, S.now);
   } else if (b.end) apply(merge(state, b.end), { instant: true });
-  if (skipDo && b.chat) chatTo(b.chat, CHATS[b.chat].messages.length, false);
+  if (skipDo && b.chat) chatTo(b.chat, chatEnd(b), false);
   if (skipDo && thoughts.on) thoughts.show(Infinity);   // stepped back into: every bubble
   if (my !== token) return;
-  if (!skipDo && b.chat && !state.chats?.[b.chat]) chatTo(b.chat, 1, true);   // a chat opens with its first message, typed out
+  if (!skipDo && b.chat && (state.chats?.[b.chat] ?? 0) <= (b.from ?? 0)) chatTo(b.chat, (b.from ?? 0) + 1, true);   // a chat (or its part) opens with its first message, typed out
   running = false; waiting = true;
   showHud();
   if (b.auto && !skipDo && !free) next();
