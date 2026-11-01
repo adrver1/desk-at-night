@@ -155,9 +155,9 @@ export class Sound {
   }
 
   // Someone typing for `secs`: uneven keystrokes, now and then the space bar's deeper knock
-  typing(secs = 0.9) {
+  typing(secs = 0.9, delay = 0) {
     if (!this.ctx) return;
-    let t = this.ctx.currentTime + 0.02;
+    let t = this.ctx.currentTime + 0.02 + delay;
     const end = t + secs;
     while (t < end) {
       const space = Math.random() < 0.15;

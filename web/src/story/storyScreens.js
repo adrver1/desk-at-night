@@ -338,14 +338,18 @@ function wrap(ctx, s, maxW) {
 // A chat with an agent: the person's messages on the right, the agent's on
 // the left, newest at the bottom; the agent types for a moment first
 function chat(ctx, w, h, id) {
-  const c = CHATS[id], s = w / 640, n = S.chats[id] ?? 0, age = S.now - (S.chatAt[id] ?? -99);
+  const c = CHATS[id], s = w / 640, age = S.now - (S.chatAt[id] ?? -99);
+  // our own message not started yet (main.js chatTo: it waits for the camera): not there at all
+  let n = S.chats[id] ?? 0;
+  const held = n && c.messages[n - 1]?.[0] === 'me' && age < -(S.chatType[id] || 1);
+  if (held) n--;
   rect(ctx, 0, 0, w, h, '#14191f');
   const top = header(ctx, w, c.title, S.clock, '#1c2a27');
   agentIcon(ctx, w - 110 * s, 15 * s, 8 * s);
   const px = 15 * s, lh = 20 * s, pad = 10 * s, maxW = w * 0.58, fr = 30 * s, gap = 2 * fr + 22 * s;
   ctx.font = `500 ${px}px ${SANS}`;
   // a chat that continues another (story.json `continues`, Adriaen 2026-10-31) shows that one's messages above its own
-  const before = c.continues ? CHATS[c.continues]?.messages ?? [] : [], last = n ? before.length + n - 1 : -1;
+  const before = c.continues ? CHATS[c.continues]?.messages ?? [] : [], last = n && !held ? before.length + n - 1 : -1;
   const bubbles = [...before, ...c.messages.slice(0, n)].map(([who, msg], i) => {
     const typing = who === 'ai' && i === last && age < 1.4;
     const lines = typing ? ['•••'] : who === 'show' ? [`▤  ${msg}`] : wrap(ctx, msg, maxW - 2 * pad);

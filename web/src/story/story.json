@@ -715,14 +715,6 @@
       "en": "… yep, you're right. It's linear.",
       "twin": "valve"
      }
-    ],
-    [
-     "show",
-     {
-      "no": "Verktøy for regulatortuning",
-      "en": "Controller tuning tool",
-      "file": "sim-3.webp"
-     }
     ]
    ],
    "continues": "sim"
@@ -830,7 +822,7 @@
    "after": "m.twin",
    "id": "c.sim2",
    "chat": "sim2",
-   "notes": "Samtale: modellen parametrisert for den ekte separatoren; CtrlBuddy retter lengden (tvillingen endrer lengde) og ventilkarakteristikken (ventilen byttes, med kurvene), så tuningverktøyet."
+   "notes": "Samtale: modellen parametrisert for den ekte separatoren; CtrlBuddy retter lengden (tvillingen endrer lengde) og ventilkarakteristikken (ventilen byttes, med kurvene)."
   },
   {
    "after": "m.s3",

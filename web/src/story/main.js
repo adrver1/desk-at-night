@@ -15,7 +15,7 @@ import '../play.js';
 import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN, CREW_NAMES, DISCLAIMER } from './content.js';
 import { T, SPEECH, cycleSpeech } from './lang.js';
 import lines from './lines.json';
-import { PRIVATE as PRIVATE_ON, OVERRIDES, realDeep } from '../privateNames.js';
+import { PRIVATE as PRIVATE_ON, OVERRIDES, realDeep, real } from '../privateNames.js';
 import { StoryUI } from './ui.js';
 import { Sound } from './sound.js';
 import { Cast } from './cast.js';
@@ -87,7 +87,8 @@ function applyOverrides(o) {
     for (const [id, v] of Object.entries(o.cards ?? {})) Object.assign(c.CARDS[id] ?? {}, v);
     for (const [id, v] of Object.entries(o.slides ?? {})) c.SLIDES[id] = { ...c.SLIDES[id], ...(v.no || v.en ? T(v.no ?? v.en, v.en ?? v.no) : v) };
     for (const [id, v] of Object.entries(o.chats ?? {})) c.setChat(id, v);
-    for (const [id, v] of Object.entries(o.chatText ?? {})) c.setChatText(id, v);
+    const own = PRIVATE_ON && o !== OVERRIDES ? OVERRIDES.chatText : null;   // the editor's Live stage in the private build
+    for (const [id, v] of Object.entries(o.chatText ?? {})) c.setChatText(id, v, own?.[id], (a, b) => a === b || a === real(b));
   });
 }
 ui.findSlides(PRIVATE_ON);
@@ -140,17 +141,20 @@ function chatStep(dir) {
 function chatTo(id, n, typing) {
   const show = CHATS[id].messages[n - 1][0] === 'show';
   apply(merge(state, { chats: { ...state.chats, [id]: n }, shot: show ? CHATS[id].reportShot ?? `monitor:${REPORT_SCREEN}` : CHATS[id].shot ?? `monitor:${CHAT_SCREEN}` }));
-  if (typing) S.chatAt[id] = S.now + typed(id, n);
+  // our reply to a report waits for the camera's way back from it, so the typing is seen (Adriaen, 2026-11-01)
+  const wait = typing && CHATS[id].messages[n - 1]?.[0] === 'me' && CHATS[id].messages[n - 2]?.[0] === 'show' ? REPLY_WAIT : 0;
+  if (typing) S.chatAt[id] = S.now + wait + typed(id, n, wait);
 }
+const REPLY_WAIT = 1.8;
 
 // Our own message in a chat (Adriaen, 2026-10-29): typed out letter by letter
 // to keyboard clacks, quickly; done when the result is in (s to wait)
 const TYPE_CPS = 32, TYPE_TIME = [0.7, 3.5];
-function typed(id, n) {
+function typed(id, n, wait = 0) {
   const m = CHATS[id].messages[n - 1];
   if (m?.[0] !== 'me') return 0;
   const secs = Math.min(TYPE_TIME[1], Math.max(TYPE_TIME[0], String(m[1]).length / TYPE_CPS));
-  sound.typing(secs);
+  sound.typing(secs, wait);
   S.chatType[id] = secs;
   return secs;
 }

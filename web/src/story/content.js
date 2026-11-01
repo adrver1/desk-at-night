@@ -474,10 +474,16 @@ const chatOf = (c) => ({ title: tx(c.title), who: c.who, faces: c.faces ?? {}, s
 export const CHATS = Object.fromEntries(Object.entries(STORY.chats).map(([id, c]) => [id, chatOf(c)]));
 // the private build's own wording of a chat (overrides.json `chats`)
 export const setChat = (id, c) => { CHATS[id] = chatOf({ ...STORY.chats[id], ...c }); };
-// the story editor's wording, by message: { 2: { no, en } } (keeps each report's file)
-export const setChatText = (id, texts) => {
+// the story editor's wording, by message: { 2: { no, en } } (keeps each report's file).
+// own: the private build's wording (overrides.json chatText), which stands wherever the editor still
+// has the public text, since its Live stage sends every message (Adriaen, 2026-11-01: c.sim2 named no documents)
+export const setChatText = (id, texts, own, same = (a, b) => a === b) => {
   const c = STORY.chats[id];
-  if (c) CHATS[id] = chatOf({ ...c, messages: c.messages.map(([who, m], i) => [who, texts[i] ? { ...m, ...texts[i] } : m]) });
+  if (c) CHATS[id] = chatOf({ ...c, messages: c.messages.map(([who, m, ...rest], i) => {
+    let t = texts[i];
+    if (own?.[i] && (!t || (same(t.no ?? '', m.no ?? '') && same(t.en ?? '', m.en ?? '')))) t = own[i];
+    return [who, t ? { ...m, ...t } : m, ...rest];
+  }) });
 };
 // A chat beat (story.json inserted, `chat`): the chat on one of Adriaen's
 // monitors, its reports on the next; each press shows one more message

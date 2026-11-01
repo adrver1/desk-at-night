@@ -41,7 +41,18 @@ const smooth = (x) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3
 const BLUE = 0x5fd6ff;
 const SHORT = 1 / 8;   // the correction: 8 m to 7 m
 const EQP = 30;        // rangeability of the equal-percentage curve
-const FIX_WAIT = 1.8;  // s after its message before a correction starts (the camera's way back from the report)
+const FIX_WAIT = 0.3;  // s after his message is sent before its correction starts
+
+// Turn a bone so its length (+Y) points along a world direction, blended by w (as workshop.js aim)
+function aim(bone, want, w = 1) {
+  if (!bone || w <= 0) return;
+  bone.updateMatrixWorld(true);
+  const qb = bone.getWorldQuaternion(new THREE.Quaternion());
+  const now = new THREE.Vector3(0, 1, 0).applyQuaternion(qb);
+  const world = new THREE.Quaternion().setFromUnitVectors(now, now.clone().lerp(want, w).normalize()).multiply(qb);
+  bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(world));
+  bone.updateMatrixWorld(true);
+}
 const SWAP = 'water';  // the valve the correction swaps (its datasheet: the water outlet's level valve)
 
 // Python colours on top of the shared VS Code look
@@ -261,6 +272,7 @@ export class Twin {
       if (idle) mix.clipAction(idle).play();
       this.mixers.push(mix);
       this.budAt = new THREE.Vector3(-1, 0, 3);
+      this.budBones = bones(this.bud);
       this.bud.position.copy(this.budAt);
       this.scene.add(this.bud);
     }
@@ -276,7 +288,6 @@ export class Twin {
     this.mode = mode;
     this.on = Boolean(mode);
     this.fix = { len: 0, valve: 0 };
-    this.marked = {};
     this.game.room?.setFeeds({ twin: this.rt.texture, twinFix: this.rt.texture });
     if (mode && !was) {
       this.t = mode === 'fix' ? DUR : 0;   // its own clock: a jump between beats runs the story clock on fast
@@ -330,11 +341,15 @@ export class Twin {
       // beside it, a little in front, so we see him three-quarter on
       const want = new THREE.Vector3(Math.min(3.6, this.at.x + 1.6), Math.max(-1.6, this.at.y - 0.3), 2.6);
       if (!key || key === 'run') want.set(2.4, -1.6, 2.8);
+      // while the length is put right he hovers by the dimension line's box and points at it (Adriaen, 2026-11-01)
+      this.pointW = this.mode === 'fix' ? Math.max(0, Math.min(1, this.fix.len * 3, (0.3 - this.fix.valve) * 6)) : 0;
+      this.box = this.sep.group.localToWorld(new THREE.Vector3(0, DIM.ground + 0.2, 2.2));
+      if (this.pointW > 0) want.copy(this.box).add(new THREE.Vector3(2.4, 1.0, 4.5));   // above the box's right end, well in front of the skid
       this.budAt.lerp(want, Math.min(1, dt * 2.5));
       this.bud.position.copy(this.budAt);
       this.bud.position.y += Math.sin(this.t * 2) * 0.06;
       // turned half way between the part and us (the crew look down their -Z)
-      const look = this.at.clone().sub(this.budAt).setY(0).normalize().add(this.camera.position.clone().sub(this.budAt).setY(0).normalize());
+      const look = (this.pointW > 0 ? this.box : this.at).clone().sub(this.budAt).setY(0).normalize().add(this.camera.position.clone().sub(this.budAt).setY(0).normalize());
       this.bud.rotation.y = Math.atan2(-look.x, -look.z);
       const from = this.bud.position.clone().add(new THREE.Vector3(0, 1.05, 0));
       const busy = key && key !== 'run' && k[placing] > 0;
@@ -347,6 +362,10 @@ export class Twin {
       }
     }
     for (const m of this.mixers) m.update(dt);
+    if (this.bud && this.pointW > 0) {
+      const B = this.budBones, sh = B.upper_armR?.getWorldPosition(new THREE.Vector3());
+      if (sh) { const d = this.box.clone().sub(sh).normalize(); aim(B.upper_armR, d, this.pointW); aim(B.forearmR, d, this.pointW); }
+    }
     // Ola's head follows the part
     if (this.opHead) {
       this.opHead.updateMatrixWorld(true);
@@ -363,12 +382,12 @@ export class Twin {
   correct(dt) {
     const f = this.fix, nv = this.newValve, oldG = this.sep.valves[SWAP].group;
     const shown = this.mode === 'fix' ? (CHATS.sim2?.messages ?? []).slice(0, S.chats.sim2 ?? 0) : [];
-    // each change waits until the camera is back from the report before it (Adriaen, 2026-10-30)
-    const since = (this.marked ??= {});
+    // each change starts once his message saying so is sent (he only starts typing once the camera is back
+    // from the report before it: main.js chatTo; Adriaen, 2026-10-30 / 2026-11-01)
     const has = (k) => {
-      if (!shown.some(([, , m]) => m?.twin === k)) { delete since[k]; return false; }
-      since[k] ??= this.t;
-      return this.t - since[k] > FIX_WAIT;
+      const i = shown.findIndex(([, , m]) => m?.twin === k);
+      if (i < 0) return false;
+      return i < shown.length - 1 || S.now - (S.chatAt.sim2 ?? -99) > FIX_WAIT;
     };
     const toward = (v, to) => (to > v ? Math.min(to, v + dt * 0.6) : Math.max(to, v - dt * 0.6));
     f.len = toward(f.len, has('len') ? 1 : 0);
