@@ -489,6 +489,7 @@ function toggleFree() {
   free = !free;
   host.classList.toggle('mode-free', free);
   if (free) {
+    game.room.useSeparateMaps();   // the wall panel and the lamp switch them
     token++;
     sound.cut();
     stopPrologue();

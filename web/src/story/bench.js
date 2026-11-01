@@ -11,16 +11,16 @@
 // URL: ?bench=1 (all), ?bench=quick (three beats, two ratios),
 // ?bench=closeup (close-up beats with the sharp close-up canvases of
 // closeups.js and without, ?closeup=0, at the page's own pixel ratio),
-// ?bench=bakes and ?bench=bakesquick (the room's light maps at each size, and
-// what they cost to load; needs a server that picks the files by ?variant=,
-// so it starts and ends on today's maps to show if the laptop got hot).
+// ?bench=bakes and ?bench=bakesquick (the room's separate light maps against the
+// merged one, and what they cost to load; it starts and ends on the same maps
+// to show if the laptop got hot).
 // Each pass is a reload with its own URL options (?benchpass=N).
 const BEATS = ['c.sim', 'm.build', 'm.twin', 'm.what1', 't.coffee', 'new.ctrl08', 'h.s1', 'ep.line'];
 const AA = [{ aa: 'msaa' }, { aa: 'fxaa' }, { aa: '0', label: 'no aa' }];
 const BAKES = [
-  { label: 'today' },
-  { variant: 'final4_3072', label: 'surfaces' },
-  { label: 'today again' },
+  { merged: '0', label: 'separate' },
+  { label: 'merged' },
+  { merged: '0', label: 'separate again' },
 ];
 const MODES = {
   full: { beats: BEATS, ratios: 5, passes: AA },
@@ -30,7 +30,7 @@ const MODES = {
   bakes: { beats: ['c.step', 'c.sim', 'm.build', 'm.twin', 'ep.line', 'm.what1'], ratios: 0, passes: BAKES, warm: 60000, post: true },
   bakesquick: { beats: ['c.sim', 'm.what1'], ratios: 0, passes: BAKES, warm: 60000, post: true },
 };
-const OPTIONS = ['aa', 'closeup', 'sharp', 'variant'];
+const OPTIONS = ['aa', 'closeup', 'sharp', 'merged'];
 const BUILD = typeof __BUILD__ === 'string' ? __BUILD__ : 'dev';   // the URL options passes set
 const SETTLE = 1500, MEASURE = 3000;   // ms per beat and setting
 const KEY = 'storyBench';
