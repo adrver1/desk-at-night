@@ -29,7 +29,7 @@ const MODES = {
   closeup: { beats: ['c.step', 'c.sim', 'm.build', 'm.twin', 'ep.line', 'm.what1'], ratios: 0,
     passes: [{ closeup: '0', label: 'no closeups' }, { label: 'closeups' }] },
   blur: { beats: ['t.plan', 'c.loops', 'm.call2', 'new.ctrl08', 'h.s1', 'm.back'], ratios: 0,
-    passes: [{ blur: '0', label: 'no blur' }, { blur: 'a', label: 'blur a' }, { blur: 'b', label: 'blur b' }, { blur: 'c', label: 'blur c' }], focus: true },
+    passes: [{ blur: '0', label: 'no blur' }, { blur: 'a', label: 'blur a' }, { blur: 'b', label: 'blur b' }, { blur: 'c', label: 'blur c' }] },
   bakes: { beats: ['c.step', 'c.sim', 'm.build', 'm.twin', 'ep.line', 'm.what1'], ratios: 0, passes: BAKES, warm: 60000, post: true },
   bakesquick: { beats: ['c.sim', 'm.what1'], ratios: 0, passes: BAKES, warm: 60000, post: true },
 };
@@ -235,8 +235,6 @@ export async function runBench(story) {
       const g0 = performance.now();
       if (!story.goto(beat)) continue;
       const gotoMs = performance.now() - g0;
-      // ?bench=blur: most close-ups start wide, so wait (up to 8 s) for the camera to reach the screens
-      if (mode.focus) for (let t = 0; t < 8000 && !story.game.hooks.focus; t += 100) await wait(100);
       const j = await longest(SETTLE, tagOf);
       const m = await measure(MEASURE, tagOf);
       state.results.push({ setting, beat, ...m, jump: j.ms, jumpTag: `goto ${gotoMs.toFixed(0)} ms | ${j.tag}` });
