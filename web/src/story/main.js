@@ -626,7 +626,10 @@ function prologueFrame() {
   if (!intro) return;
   if (prologue.seek) { const pro = prologue.seek, at = prologue.seekAt || 0; prologue.seek = null; if (pro !== 'takeoff' || SOLA_OPEN || at) proSeek(intro, PRO_START[pro](intro) + at, { music: true }); }
   const t = intro.t;
-  if (prologue.black && t > 0.5) prologue.black.classList.remove('on');
+  if (prologue.black && t > 0.5) {
+    if (irisWait) { prologue.black.remove(); prologue.black = null; irisOpen(irisWait); irisWait = null; }   // the Begin screen opens onto the flight
+    else prologue.black.classList.remove('on');
+  }
   // The navigator follows the subchapters as the intro plays through them
   const beats = CHAPTERS[chapter].beats;
   let k = beat;
@@ -795,7 +798,7 @@ game.ready.then(async () => {
   warmUp();
   go.disabled = false;
   go.textContent = T('Start', 'Begin');
-  if (!begin.parentNode) enter(chapter, beat, { instant: true });
+  if (started && !CHAPTERS[chapter].prologue) enter(chapter, beat, { instant: true });   // started before the room was in (the flight doesn't need it)
   // Sharp close-up screens, laid over the picture (closeups.js); ?closeup=0 for none
   if (q.get('closeup') !== '0') game.hooks.frame.push(closeups(game));
   // ?bench=1: the frame rate benchmark (bench.js)
@@ -831,12 +834,13 @@ function warmUp() {
 }
 
 let wantBeat = null, wantAt = 0;   // __story.goto before Start
+let started = false, irisWait = null;   // the Begin screen waiting for the intro (start, prologueFrame)
 function start() {
-  if (!begin.parentNode) return;
+  if (!begin.parentNode || started) return;
   if (go.disabled && !q.has('chapter')) {
     // The prologue can start before the room is ready: it loads underneath
   }
-  irisOpen(begin);
+  started = true;
   game.hooks.hidden = false;   // the prologue hides it again
   if (!q.has('nofs') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
   game.controls.startAudio();
@@ -851,6 +855,12 @@ function start() {
   // ?beat=<beat id> (the story script editor's ▶ links): that beat, wherever it is now
   const want = wantBeat ?? q.get('beat');
   if (want) CHAPTERS.forEach((ch, ci) => { const bi = ch.beats.findIndex((b) => b.id === want); if (bi >= 0) { chapter = ci; beat = bi; } });
+  // Into the flight, the Begin screen stays up until the intro's first frames are in and then opens
+  // straight onto them, with no fade from black (prologueFrame; Adriaen, 2026-11-01). Elsewhere it opens now.
+  if (CHAPTERS[chapter].prologue && CHAPTERS[chapter].beats[beat]?.pro !== 'sola') {
+    irisWait = begin;
+    setTimeout(() => { if (irisWait) { irisOpen(irisWait); irisWait = null; } }, 8000);   // should the intro never get going
+  } else irisOpen(begin);
   if (CHAPTERS[chapter].prologue || game.room) enter(chapter, beat, { instant: true, at: wantBeat ? wantAt : 0 });
   if (q.get('mode') === 'free') game.ready.then(() => setTimeout(toggleFree, 300));
 }
@@ -863,7 +873,7 @@ window.__story = {
   goto: (id, { at = 0 } = {}) => {
     const ci = CHAPTERS.findIndex((ch) => ch.beats.some((b) => b.id === id));
     if (ci < 0) return false;
-    if (begin.parentNode) { wantBeat = id; wantAt = at; return true; }   // Start (a tap in the game, so sound may play) goes there
+    if (!started) { wantBeat = id; wantAt = at; return true; }   // Start (a tap in the game, so sound may play) goes there
     game.ready.then(() => enter(ci, CHAPTERS[ci].beats.findIndex((b) => b.id === id), { at }));
     return true;
   },

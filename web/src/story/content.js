@@ -513,7 +513,7 @@ const ADR_SCREENS = (id) => ({ ...PLAN_SCREENS('chatPlan'), [SLUG_SCREEN]: id })
 const TOMORROW_CAST = { supervisor: { at: 'desk0typing' }, operator: { at: 'desk2typing' } };
 export const CLOSING = tx(STORY.closing);
 // The card before the prologue (main.js), editable in the story editor
-export const DISCLAIMER = tx(STORY.disclaimer ?? { no: 'Laget av landkrabber som aldri har vært offshore. Kunstnerisk frihet benyttet i design og historiefortelling, men teknologien er reell :)', en: 'Made by landlubbers who have never been offshore. Artistic licence taken in design and storytelling, but the technology is real :)' });
+export const DISCLAIMER = tx(STORY.disclaimer ?? { no: 'Laget av kontorrotter som aldri har vært offshore. Kunstnerisk frihet benyttet i design og historiefortelling, men teknologien er reell :)', en: 'Made by office rats who have never been offshore. Artistic licence taken in design and storytelling, but the technology is real :)' });
 
 const SHORT_CHAPTERS = [
   {
@@ -588,17 +588,15 @@ const SHORT_CHAPTERS = [
       // CtrlBuddy's first appearance (Adriaen, 2026-10-29), before his first chat (c.step):
       // the learning curve in two clicks (axes, then the curve), then he appears on the screen beside the operator;
       // all over the thoughts' dark, like the curve beats after them (Adriaen, 2026-10-30)
-      { id: 'm.curve1', set: { overlay: null, thoughts: 'dim', curve: 'axes', shot: 'curveDesk', buddyAt: CHAT_SCREEN, buddyWho: 'buddy', screens: null, cast: { operator: { at: 'desk0typing' } } },
-        notes: 'Ett år siden, kontrollrommet. Aksene: tid og læring.' },
+      // (Adriaen, 2026-11-01) what made it steep first: his face, and one thought bubble per click
+      { id: 'm.think', set: { overlay: null, curve: null, thoughts: true, shot: 'curveDesk', buddyAt: CHAT_SCREEN, buddyWho: 'buddy', screens: null, cast: { operator: { at: 'desk0typing' } } },
+        notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
+      // then the learning curve over the thoughts' dark, once his face and the bubbles have gone: the axes,
+      // the steep curve, and a second one over it, him and CtrlBuddy together, steeper and higher
+      // (Adriaen, 2026-11-01: the curve's second round, old m.curve3 and m.curve4, is gone; m.curve5 is now m.curve3)
+      { id: 'm.curve1', set: { thoughts: 'dim', curve: 'axes', curveLate: true }, notes: 'Ett år siden, kontrollrommet. Aksene: tid og læring.' },
       { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
-      // (Adriaen, 2026-10-29) what made it steep: his face, and one thought bubble per click
-      { id: 'm.think', set: { curve: null, thoughts: true }, notes: 'Alt jeg måtte lære: organisasjonen, fagspråket, alle forkortelsene, petroleumsfag, assetene. Space: én boble til.' },
-      // (Adriaen, 2026-10-30) the curve again, and a second one over it: him and CtrlBuddy together, steeper
-      // and higher. Over the thoughts' dark, once his face and the bubbles have gone, in three clicks: the axes,
-      // the curve as before, then the new one
-      { id: 'm.curve3', set: { thoughts: 'dim', curve: 'axes', curveLate: true, shot: 'curveDesk' }, notes: 'Læringskurven igjen.' },
-      { id: 'm.curve4', set: { curve: 'plot' }, notes: 'Den bratte kurven, som før.' },
-      { id: 'm.curve5', set: { curve: 'both' }, notes: 'Med CtrlBuddy: brattere, og høyere. Menneske + KI får gjort mer, raskere.' },
+      { id: 'm.curve3', set: { curve: 'both' }, notes: 'Med CtrlBuddy: brattere, og høyere. Menneske + KI får gjort mer, raskere.' },
       // (Adriaen, 2026-10-30) how he was made: VS Code on one monitor, his agent file typed in section by
       // section, and on the one beside it Ola fitting him together part by part (workshop.js)
       { id: 'm.build', set: { curve: null, thoughts: null, call: null, phone: null, explain: null, build: true, shot: 'pair:Desk0Mon0Screen,Desk0Mon1Screen',
@@ -633,9 +631,6 @@ const SHORT_CHAPTERS = [
           { set: { phone: null } }, { wait: 0.65 }, { sound: 'hangup' }, { wait: 0.9 }, { set: { call: null } }, { card: null }, { wait: 0.6 }],
         end: { call: null, phone: null },
         notes: 'Separatoren deres slugger, og de spør den nye operatøren om råd. Han legger på.' },
-      // (Adriaen, 2026-10-29) after the call he turns to CtrlBuddy, still waving on his screen: the click
-      { id: 'm.buddy2', auto: true, set: { shot: 'monitor:Desk0Mon1Screen', explain: null, buddyPointer: true }, do: [{ card: null }, { wait: 0.8 }, { buddy: 'click' }],
-        notes: 'Musepekeren klikker på CtrlBuddy. Samtalen starter.' },
       // (Adriaen, 2026-10-30) the separator's digital twin, after the simulator chat (c.sim); moved to the year-ago call with c.sim and c.sim2 (Adriaen, 2026-10-31): VS Code with the
       // CasADi model typed in section by section, and beside it the separator put together over its blueprint
       // while CtrlBuddy beams each part in (twin.js), as the CtrlBuddy build (m.build)
