@@ -887,7 +887,7 @@
    "notes": "Lysbilde 6. Skjult i PowerPoint-filen din, så den er utelatt her også."
   },
   {
-   "after": "m.s4",
+   "after": "m.uc4",
    "id": "c.pcs7",
    "chat": "pcs7",
    "notes": "Samtale: funksjonsblokkene."
@@ -899,7 +899,7 @@
    "notes": "Lysbilde 5."
   },
   {
-   "after": "new.ctrl05",
+   "after": "m.uc3",
    "id": "c.loops",
    "chat": "loops",
    "notes": "Samtale: sløyferapporten."
@@ -966,6 +966,7 @@
   }
  ],
  "hidden": [
+  "m.scd",
   "new.ctrl08",
   "new.ctrl09",
   "m.retune",
@@ -1020,6 +1021,14 @@
   "m.uc2": {
    "no": "Brukstilfelle 2",
    "en": "Use case 2"
+  },
+  "m.uc3": {
+   "no": "Brukstilfelle 3",
+   "en": "Use case 3"
+  },
+  "m.uc4": {
+   "no": "Brukstilfelle 4",
+   "en": "Use case 4"
   }
  }
 }
