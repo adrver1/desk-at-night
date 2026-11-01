@@ -9,6 +9,7 @@ import { reflectable } from '../outdoor.js';
 import { privateSigns } from '../privateNames.js';
 
 const FLIGHT = 16;   // s from the chair to the last frame
+const CURTAINS_OPEN = 0.4;   // s into the flight when the drawn curtains start to open (4 s travel, curtains.js)
 const FLOOD = new THREE.Color(0xffd9a0).multiplyScalar(0.22), FLOOD_LOW = new THREE.Color(0xffd9a0).multiplyScalar(0.08);   // the platform's lights, overall
 // The glb carries the night materials with their emission off (the intro is
 // by day), so they are lit here by name: colour, strength, halo colour
@@ -147,11 +148,22 @@ export class Epilogue {
     if (!this.game.hooks.reflect.includes(this.scene)) this.game.hooks.reflect.push(this.scene);
     o.mirrorScale = 0.5;   // the lights' reflections at a quarter blink on and off as the camera moves (Adriaen, 2026-11-01)
     this.t0 = performance.now();
+    // the curtains drawn when the flight starts, opening as the camera heads for the window (Adriaen, 2026-11-01)
+    this.curtains(false, true);
+    this.opened = false; this.lastWall = null;
+  }
+
+  curtains(open, now = false) {
+    const c = this.game.controls, r = this.game.room?.curtains;
+    if (!c || !r) return;
+    c.setCurtains(open);
+    r.set(open, now);
   }
 
   hide() {
     if (!this.on) return;
     this.on = false;
+    this.curtains(true, true);
     if (this.inside) this.inside.visible = true;
     const r = this.game.hooks.reflect, i = r.indexOf(this.scene);
     if (i >= 0) r.splice(i, 1);
@@ -183,6 +195,12 @@ export class Epilogue {
     this.inside ??= this.game.room.root.getObjectByName('Outside');
     if (this.inside) this.inside.visible = !out;
     this.t = (performance.now() - this.t0) / 1000;   // wall clock, so a slow frame rate doesn't stretch it
+    if (!this.opened && this.t > CURTAINS_OPEN) { this.opened = true; this.curtains(true); }
+    // the room steps them by its frame time, capped on slow frames; catch them up to the wall clock
+    // the flight runs on, so they are open before the camera reaches the window whatever the frame rate
+    const wall = performance.now() / 1000, gap = wall - (this.lastWall ?? wall) - dt;
+    this.lastWall = wall;
+    if (this.opened && gap > 0) this.game.room?.curtains?.step(gap);
     const L = this.game.outdoor3.light;
     // The sky, plus the platform's own floodlights at night
     this.hemi.color.copy(L.sky).multiplyScalar(Math.PI).add(FLOOD);

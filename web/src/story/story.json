@@ -370,6 +370,46 @@
      "Knowledge base: Nordhav Energi-specific domain knowledge | More about this later"
     ]
    }
+  },
+  "linter-why": {
+   "no": {
+    "title": "Linter – hvorfor eksisterer du?",
+    "bullets": [
+     "Vedlikehold: LLM-er er unikt egnet til å se forbindelser og holde orden",
+     "Kryssrefererer: Lenker notater som hører sammen",
+     "Fanger selvmotsigelser: Finner notater som sier hverandre imot",
+     "Fanger hull i dekningen: Ser hva wikien mangler",
+     "Følger standarden: Passer på at artiklene følger malen"
+    ]
+   },
+   "en": {
+    "title": "Linter – why do you exist?",
+    "bullets": [
+     "Upkeep: LLMs are uniquely suited to seeing connections and keeping order",
+     "Cross-references: Links notes that belong together",
+     "Catches contradictions: Finds notes that disagree",
+     "Catches gaps in coverage: Sees what the wiki is missing",
+     "Follows the standard: Makes sure articles follow the template"
+    ]
+   }
+  },
+  "ctrl-13s": {
+   "no": {
+    "title": "Lysbilde 13: Linter-agenten på skjermen"
+   },
+   "en": {
+    "title": "Deck slide 13: the linter agent on a screen"
+   },
+   "builds": 0
+  },
+  "ctrl-13z": {
+   "no": {
+    "title": "Lysbilde 13: Ola og Linter"
+   },
+   "en": {
+    "title": "Deck slide 13: Ola and the linter"
+   },
+   "builds": 1
   }
  },
  "chats": {
@@ -607,8 +647,8 @@
     [
      "ai",
      {
-      "no": "Jeg bruker ABB LoopInsight-ferdigheten min på historikken. Her er sløyfene som trenger oppmerksomhet.",
-      "en": "I run my ABB LoopInsight skill on the history. Here are the loops that need attention."
+      "no": "Jeg bruker ABB LoopInsight-skillen min for å koble på API'et og sjekker ut hvilke sløyfer som trenger oppmerksomhet.",
+      "en": "I use my ABB LoopInsight skill to connect to the API and check which loops need attention."
      }
     ],
     [
@@ -963,9 +1003,49 @@
   },
   {
    "after": "new.ctrl12",
+   "id": "new.ctrl13s",
+   "slide": "ctrl-13s",
+   "set": {
+    "shot": "monitor:Desk1Mon0Screen"
+   },
+   "notes": "Samme VS Code på skjermen, de andre filene lukket: bare Linter.agent.md, med linter-agenten under."
+  },
+  {
+   "after": "new.ctrl13s",
+   "id": "new.ctrl13z",
+   "slide": "ctrl-13z",
+   "set": {
+    "buddyAt": "Desk1Mon1Screen",
+    "buddyWho": "linter",
+    "buddy": "splash",
+    "screens": {
+     "Desk1Mon1Screen": "buddy"
+    }
+   },
+   "notes": "Kameraet trekker seg ut til Ola ved pulten; Linter vinker på skjermen til høyre. Klikk: tankeboblen «Hvorfor eksisterer du?»."
+  },
+  {
+   "after": "new.ctrl13z",
+   "id": "new.ctrl13w",
+   "set": {
+    "overlay": null,
+    "shot": "side:Desk1Mon1Screen",
+    "thoughts": "dim",
+    "explain": 0,
+    "explainSlide": "linter-why",
+    "explainStep": true
+   },
+   "notes": "Inn på Linter som vinker på skjermen, halvlysbildet ved siden av over mørket: hvorfor den finnes. Space: ett argument til."
+  },
+  {
+   "after": "new.ctrl13w",
    "id": "new.ctrl14",
    "slide": "ctrl-14",
-   "notes": "Lysbilde 14."
+   "notes": "Lysbilde 14.",
+   "set": {
+    "explain": null,
+    "thoughts": null
+   }
   },
   {
    "after": "m.uc2",
@@ -1000,7 +1080,8 @@
   "b.forward",
   "b.room",
   "m.docs",
-  "m.s5"
+  "m.s5",
+  "new.ctrl13"
  ],
  "closing": {
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",

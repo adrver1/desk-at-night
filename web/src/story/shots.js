@@ -34,6 +34,15 @@ export class Shots {
     this.k = 0;
   }
 
+  // Cut straight to a shot (no glide), so the next go() glides on from there
+  cut(name) {
+    const pose = this.target(name);
+    if (!pose) return;
+    this.held = true;
+    this.name = name; this.pose = pose; this.k = 1; this.from = null;
+    this.update(0);   // this frame already, not the next: the frame is drawn before shots update again
+  }
+
   // Free mode takes the camera back
   release() {
     this.held = false;

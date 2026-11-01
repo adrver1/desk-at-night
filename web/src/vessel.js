@@ -162,6 +162,10 @@ export class SupplyVessel {
       m.side = THREE.DoubleSide;
       if (fog) addFog(m, this);
       if (m.emissive?.getHex()) glowing.push([m, m.emissiveIntensity]);
+      // The lit cabin windows sit on the bridge's glass band at the same 3 cm off the wall
+      // (supply_vessel.py _on), so from afar they fought it and flickered (Adriaen, 2026-11-01):
+      // drawn a little nearer than the glass
+      if (/LitWindow/.test(src.name)) { m.polygonOffset = true; m.polygonOffsetFactor = -2; m.polygonOffsetUnits = -4; }
       o.material = m;
     });
     const group = new THREE.Group();

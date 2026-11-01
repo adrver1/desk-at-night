@@ -214,7 +214,7 @@ function apply(s, { instant = false } = {}) {
   twin?.set(s.twin);
   if (twin) twin.settled = s.twin === 'fix' && s.screens?.Desk0Mon0Screen !== 'twinChat';   // the sim2 chat is over: the fixed twin, from the front
   thoughts.set(s.thoughts);
-  explain.set(s.explain);
+  explain.set(s.explain, s.explainSlide, s.explainStep);
   retune.set(s.retune);
   caller.set(s.call, s.callStage);
   if (!s.call || s.callStage !== 'ring') sound.hangUp();   // the phone stops ringing once the call is over or answered
@@ -286,6 +286,7 @@ async function enter(c, i, { instant = false, skipDo = false, at = 0 } = {}) {
   } else if (b.end) apply(merge(state, b.end), { instant: true });
   if (skipDo && b.chat) chatTo(b.chat, chatEnd(b), false);
   if (skipDo && thoughts.on) thoughts.show(Infinity);   // stepped back into: every bubble
+  if (skipDo && explain.stepping) explain.show(Infinity);
   if (my !== token) return;
   if (!skipDo && b.chat && (state.chats?.[b.chat] ?? 0) <= (b.from ?? 0)) chatTo(b.chat, (b.from ?? 0) + 1, true);   // a chat (or its part) opens with its first message, typed out
   running = false; waiting = true;
@@ -455,6 +456,7 @@ function next() {
   if (ui.advanceVote()) return;
   if (!running && ui.stepBuild(1)) return;
   if (thoughts.step(1)) return;
+  if (explain.step(1)) return;
   if (chatStep(1)) return;
   const b = CHAPTERS[chapter].beats[beat];
   if (running && b.skip !== 'next') {
@@ -479,6 +481,7 @@ function back() {
   if (free) return;
   if (ui.stepBuild(-1)) return;
   if (thoughts.step(-1)) return;
+  if (explain.step(-1)) return;
   if (chatStep(-1)) return;
   // a slide we step back into shows all its clicks
   if (beat > 0 || chapter > 0) ui.buildFromEnd = true;
