@@ -127,6 +127,8 @@ export class Ambience {
       p.typingBus?.gain.setTargetAtTime(0, now, 0.05);   // hands off the keyboard
       if (Math.random() < 0.2) this.creak(now, p);
       if (p.ackWanted && f.name.startsWith('mouse')) { s.ack = true; p.ackWanted = false; }   // this one acks the alarms
+      // a radio reply he makes unprompted (cast.js, 1 in 8 idles): give it its sound too
+      if (f.radio && !f.radio.opts?.onKey) f.radio.opts = { ...f.radio.opts, ...this.replyHooks(p) };
     }
     if (!f || !s || s.f !== f) return;
     const at = (k, t, fn) => { if (!s.done[k] && f.t >= t) { s.done[k] = true; fn(); } };
@@ -286,19 +288,27 @@ export class Ambience {
     const len = R(1.4, 3.2);
     this.transmit(t + 0.05, len, up, R(105, 150));
     if (Math.random() < 0.5) return;
-    const at = t + len + R(0.8, 1.6), op = seated.find((p) => SPOTS[p.at].chair === 0) ?? seated[0];
-    const start = Math.max(0, at - this.ctx.currentTime) * 1000;
+    const start = Math.max(0, t + len + R(0.8, 1.6) - this.ctx.currentTime) * 1000;
     setTimeout(() => {
-      const now = () => this.ctx.currentTime;
-      let talk = 0;
-      const who = Object.keys(this.cast.people).find((k) => this.cast.people[k] === op);
-      const ok = who && this.cast.radioReply?.(who, {
-        onKey: () => this.squelch(now(), up, 0.06),
-        onTalk: (s) => { talk = s; this.transmit(now(), s, up, R(100, 140), { open: false, tail: false }); },
-        onDone: () => this.squelch(now(), up, 0.08, 0.18),
-      });
-      if (!ok && !talk) this.transmit(now(), R(0.8, 1.6), up, R(100, 140));
+      // whoever sits at a desk with a mic answers (the operator's chair first)
+      const first = (p) => (SPOTS[p.at]?.chair === 0 ? 0 : 1), order = [...seated].sort((a, b) => first(a) - first(b));
+      const names = order.map((op) => Object.keys(this.cast.people).find((k) => this.cast.people[k] === op));
+      if (!names.some((who) => who && this.cast.radioReply?.(who, this.replyHooks(this.cast.people[who])))) {
+        this.transmit(this.ctx.currentTime, R(0.8, 1.6), up, R(100, 140));   // someone off screen
+      }
     }, start);
+  }
+  // His side of the radio while the reply clip plays (cast.js radioing):
+  // the button's squelch, the same muffled blabla as the calls (Adriaen: no
+  // real lines unless a story beat needs one), the tail as he lets go
+  replyHooks(p) {
+    const d = this.place(p), up = this.gain(1.5), now = () => this.ctx.currentTime;
+    up.connect(d);
+    return {
+      onKey: () => this.squelch(now(), up, 0.06),
+      onTalk: (secs) => this.transmit(now(), secs, up, R(100, 140), { open: false, tail: false }),
+      onDone: () => this.squelch(now(), up, 0.08, 0.18),
+    };
   }
   squelch(t, dest, level, dur = 0.07) { this.hiss(t, dur, 1800, 0.8, level, dest); }
   transmit(t, len, dest, f0, { open = true, tail = true } = {}) {
