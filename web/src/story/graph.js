@@ -4,6 +4,7 @@
 // grows a level at a time as agents use and add knowledge; new nodes pulse.
 import { GRAPH } from './content.js';
 import { T } from './lang.js';
+import { SANS } from '../fonts.js';
 
 export const KIND = {
   equipment: ['#9fb4c8', T('Utstyr', 'Equipment')],
@@ -49,14 +50,14 @@ export function drawGraph(ctx, w, h, { level = 1, since = 99, t = 0, labels = tr
     if (n.kind === 'agent') ctx.roundRect(x - r, y - r, 2 * r, 2 * r, r * 0.35); else ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
     if (labels) {
-      ctx.font = `500 ${Math.max(9, s * 0.05)}px system-ui, sans-serif`;
+      ctx.font = `500 ${Math.max(9, s * 0.05)}px ${SANS}`;
       ctx.fillStyle = fresh(n) ? '#ffffff' : 'rgba(225,232,240,0.85)';
       ctx.fillText(n.label, x, y + r * 1.5);
     }
   }
   if (legend) {
     const kinds = Object.entries(KIND);
-    ctx.font = `500 ${Math.max(9, s * 0.045)}px system-ui, sans-serif`;
+    ctx.font = `500 ${Math.max(9, s * 0.045)}px ${SANS}`;
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
     let x = w * 0.04;

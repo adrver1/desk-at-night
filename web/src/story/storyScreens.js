@@ -13,6 +13,7 @@ import { drawGraph } from './graph.js';
 import { AGENTS, ORG, SPEAKERS, CHATS, GOV_DOCS } from './content.js';
 import { PRIVATE, PRIVATE_BASE, OVERRIDES } from '../privateNames.js';
 import { T } from './lang.js';
+import { drawStepReport } from './stepReport.js';
 
 export const S = {
   wi: 'normal', wiAt: 0,          // water injection phase and when it began (s, story clock)
@@ -21,6 +22,7 @@ export const S = {
   notices: [],                     // [agent, text, at] the agents' feed
   tool: null, toolAt: 0,           // the Act 2 demo and when it started
   now: 0,                          // story clock, s
+  acts: new Set(),                 // chat messages whose action (story.json `twin`) has had its click
   clock: '12:00',                  // game time, for the headers
   images: {},                      // private tool screenshots, if any
   chats: {}, chatAt: {}, chatType: {},           // messages shown per chat (content.js CHATS) and when the last came
@@ -33,8 +35,7 @@ const C = {
   bg: '#24282c', panel: '#2e3338', line: '#454b52', dim: '#7d858d', text: '#c9ced3', bright: '#eef1f3',
   value: '#9fd3ff', ai: '#5fe0b7', p1: '#ff5a4f', p2: '#ffb347', ok: '#7fbf7f',
 };
-const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-const MONO = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+import { SANS, MONO } from '../fonts.js';
 
 function text(ctx, s, x, y, { px = 14, color = C.text, weight = 500, align = 'left', mono = false } = {}) {
   ctx.font = `${weight} ${px}px ${mono ? MONO : SANS}`;
@@ -338,14 +339,20 @@ function wrap(ctx, s, maxW) {
 // A chat with an agent: the person's messages on the right, the agent's on
 // the left, newest at the bottom; the agent types for a moment first
 function chat(ctx, w, h, id) {
-  const c = CHATS[id], s = w / 640, n = S.chats[id] ?? 0, age = S.now - (S.chatAt[id] ?? -99);
+  const c = CHATS[id], s = w / 640, age = S.now - (S.chatAt[id] ?? -99);
+  // our own message not started yet (main.js chatTo: it waits for the camera): not there at all
+  let n = S.chats[id] ?? 0;
+  const held = n && c.messages[n - 1]?.[0] === 'me' && age < -(S.chatType[id] || 1);
+  if (held) n--;
   rect(ctx, 0, 0, w, h, '#14191f');
   const top = header(ctx, w, c.title, S.clock, '#1c2a27');
   agentIcon(ctx, w - 110 * s, 15 * s, 8 * s);
   const px = 15 * s, lh = 20 * s, pad = 10 * s, maxW = w * 0.58, fr = 30 * s, gap = 2 * fr + 22 * s;
   ctx.font = `500 ${px}px ${SANS}`;
   // a chat that continues another (story.json `continues`, Adriaen 2026-10-31) shows that one's messages above its own
-  const before = c.continues ? CHATS[c.continues]?.messages ?? [] : [], last = n ? before.length + n - 1 : -1;
+  const before = [], seen = new Set([id]);   // the whole chain: c.step continues c.sim2, which continues c.sim
+  for (let k = c.continues; k && CHATS[k] && !seen.has(k); k = CHATS[k].continues) { seen.add(k); before.unshift(...CHATS[k].messages); }
+  const last = n && !held ? before.length + n - 1 : -1;
   const bubbles = [...before, ...c.messages.slice(0, n)].map(([who, msg], i) => {
     const typing = who === 'ai' && i === last && age < 1.4;
     const lines = typing ? ['•••'] : who === 'show' ? [`▤  ${msg}`] : wrap(ctx, msg, maxW - 2 * pad);
@@ -413,7 +420,13 @@ function report(ctx, w, h, id) {
   const m = CHATS[id].messages.slice(0, n).filter(([who]) => who === 'show').pop();
   rect(ctx, 0, 0, w, h, '#14191f');
   if (!m) { text(ctx, T('Venter på agenten …', 'Waiting for the agent …'), w / 2, h / 2, { px: 15 * s, color: C.dim, align: 'center' }); return; }
-  const [, title, { file } = {}] = m;
+  const [, title, { file, page } = {}] = m;
+  // a report redrawn as its page (stepReport.js), at its step: which of this page's messages this is
+  if (page === 'stepReport') {
+    const stage = CHATS[id].messages.slice(0, n).filter(([, , x]) => x?.page === page).length - 1;
+    drawStepReport(ctx, w, h, stage, S.now - (S.chatAt[id] ?? -99), S.reports);
+    return;
+  }
   const media = file && S.reports ? reportMedia(file) : null;
   const iw = media?.videoWidth || media?.naturalWidth, ih = media?.videoHeight || media?.naturalHeight;
   if (iw && (media.complete || media.readyState >= 2)) {
@@ -427,7 +440,7 @@ function report(ctx, w, h, id) {
   text(ctx, title, w / 2, top + (h - top) * 0.62, { px: 22 * s, weight: 600, color: C.bright, align: 'center' });
 }
 const reportFiles = {};
-function reportMedia(file) {
+export function reportMedia(file) {
   if (!(file in reportFiles)) {
     const video = /\.(mp4|webm)$/i.test(file);
     const el = reportFiles[file] = document.createElement(video ? 'video' : 'img');

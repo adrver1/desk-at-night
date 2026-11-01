@@ -15,7 +15,7 @@ import '../play.js';
 import { CHAPTERS, ACTS, TITLE, CREDITS, SPEAKERS, CHATS, CHAT_SCREEN, REPORT_SCREEN, CREW_NAMES, DISCLAIMER } from './content.js';
 import { T, SPEECH, cycleSpeech } from './lang.js';
 import lines from './lines.json';
-import { PRIVATE as PRIVATE_ON, OVERRIDES, realDeep } from '../privateNames.js';
+import { PRIVATE as PRIVATE_ON, OVERRIDES, realDeep, real } from '../privateNames.js';
 import { StoryUI } from './ui.js';
 import { Sound } from './sound.js';
 import { Ambience } from './ambience.js';
@@ -91,7 +91,8 @@ function applyOverrides(o) {
     for (const [id, v] of Object.entries(o.cards ?? {})) Object.assign(c.CARDS[id] ?? {}, v);
     for (const [id, v] of Object.entries(o.slides ?? {})) c.SLIDES[id] = { ...c.SLIDES[id], ...(v.no || v.en ? T(v.no ?? v.en, v.en ?? v.no) : v) };
     for (const [id, v] of Object.entries(o.chats ?? {})) c.setChat(id, v);
-    for (const [id, v] of Object.entries(o.chatText ?? {})) c.setChatText(id, v);
+    const own = PRIVATE_ON && o !== OVERRIDES ? OVERRIDES.chatText : null;   // the editor's Live stage in the private build
+    for (const [id, v] of Object.entries(o.chatText ?? {})) c.setChatText(id, v, own?.[id], (a, b) => a === b || a === real(b));
   });
 }
 ui.findSlides(PRIVATE_ON);
@@ -123,11 +124,13 @@ const merge = (a, b) => {
 // earlier beat's set and end, then its own set
 function stateAt(c, i) {
   const ch = CHAPTERS[c];
-  let s = merge({ act: 0, graph: 0, alarms: null, overlay: null, boatLabel: null, org: null, tool: null, chats: null, place: null, sound: 'room' }, ch.base);
+  // a chapter that carries on (content.js `carry`) starts where the one before it ends
+  let s = ch.carry && c > 0 ? endOf(c - 1) : merge({ act: 0, graph: 0, alarms: null, overlay: null, boatLabel: null, org: null, tool: null, chats: null, place: null, sound: 'room' }, ch.base);
   for (let k = 0; k < i; k++) s = chatDone(merge(merge(s, ch.beats[k].set), ch.beats[k].end), ch.beats[k]);
   return merge(s, ch.beats[i].set);
 }
 
+const endOf = (c) => { const bs = CHAPTERS[c].beats, b = bs[bs.length - 1]; return chatDone(merge(stateAt(c, bs.length - 1), b.end), b); };
 // A chat beat once past: every message shown
 const chatDone = (s, b) => (b.chat ? { ...s, chats: { ...s.chats, [b.chat]: CHATS[b.chat].messages.length } } : s);
 
@@ -136,25 +139,38 @@ const chatDone = (s, b) => (b.chat ? { ...s, chats: { ...s.chats, [b.chat]: CHAT
 function chatStep(dir) {
   const b = CHAPTERS[chapter]?.beats[beat], id = b?.chat;
   if (!id || running) return false;
-  const n = (state.chats?.[id] ?? 0) + dir;
+  const n0 = state.chats?.[id] ?? 0, n = n0 + dir;
+  // a message that sets something going in the room (the twin's corrections) does it on a click of its own
+  // after it is sent, and a click back undoes that first (Adriaen, 2026-11-01)
+  const act = `${id}:${n0}`;
+  if (CHATS[id].messages[n0 - 1]?.[2]?.twin) {
+    if (dir > 0 && !S.acts.has(act)) { S.acts.add(act); return true; }
+    if (dir < 0 && S.acts.delete(act)) return true;
+  }
   if (n < 1 || n > CHATS[id].messages.length) return false;
   chatTo(id, n, dir > 0);
   return true;
 }
+// those clicks (chatStep): had for the first `upto` messages of a chat, still to come for the rest
+const actsTo = (id, n, upto) => CHATS[id]?.messages.forEach((m, i) => S.acts[i < upto ? 'add' : 'delete'](`${id}:${i + 1}`));
 function chatTo(id, n, typing) {
   const show = CHATS[id].messages[n - 1][0] === 'show';
   apply(merge(state, { chats: { ...state.chats, [id]: n }, shot: show ? CHATS[id].reportShot ?? `monitor:${REPORT_SCREEN}` : CHATS[id].shot ?? `monitor:${CHAT_SCREEN}` }));
-  if (typing) S.chatAt[id] = S.now + typed(id, n);
+  actsTo(id, n, typing ? n - 1 : n);   // this message's click still to come when it is sent now
+  // our reply to a report waits for the camera's way back from it, so the typing is seen (Adriaen, 2026-11-01)
+  const wait = typing && CHATS[id].messages[n - 1]?.[0] === 'me' && CHATS[id].messages[n - 2]?.[0] === 'show' ? REPLY_WAIT : 0;
+  if (typing) S.chatAt[id] = S.now + wait + typed(id, n, wait);
 }
+const REPLY_WAIT = 1.8;
 
 // Our own message in a chat (Adriaen, 2026-10-29): typed out letter by letter
 // to keyboard clacks, quickly; done when the result is in (s to wait)
 const TYPE_CPS = 32, TYPE_TIME = [0.7, 3.5];
-function typed(id, n) {
+function typed(id, n, wait = 0) {
   const m = CHATS[id].messages[n - 1];
   if (m?.[0] !== 'me') return 0;
   const secs = Math.min(TYPE_TIME[1], Math.max(TYPE_TIME[0], String(m[1]).length / TYPE_CPS));
-  sound.typing(secs);
+  sound.typing(secs, wait);
   S.chatType[id] = secs;
   return secs;
 }
@@ -180,7 +196,7 @@ function apply(s, { instant = false } = {}) {
   if (s.tool !== prev.tool) S.toolAt = S.now;
   S.tool = s.tool;
   // Chats: as many messages as the state says, the newest already typed
-  for (const [id, n] of Object.entries(s.chats ?? {})) if (S.chats[id] !== n) { S.chats[id] = n; S.chatAt[id] = -99; }
+  for (const [id, n] of Object.entries(s.chats ?? {})) if (S.chats[id] !== n) { S.chats[id] = n; S.chatAt[id] = -99; actsTo(id, n, n); }
   game.room?.redrawNow?.();   // the screens show this state from the next frame on, not a quarter second late
   // Somewhere else than the control room (one year ago: Trondheim)
   // (its own canvas covers the room, so the room isn't drawn behind it)
@@ -291,7 +307,7 @@ function rush(step, my) {
   if (step.chat) {
     const id = step.chat, n = (state.chats?.[id] ?? 0) + 1;
     state.chats = { ...state.chats, [id]: n };
-    S.chats[id] = n; S.chatAt[id] = -99;
+    S.chats[id] = n; S.chatAt[id] = -99; actsTo(id, n, n);
     return CHATS[id].messages[n - 1]?.[0] === 'ai' ? 1.2 : 0.2;
   }
   if (step.buddy === 'click') { buddy?.clicked(); return 0; }
@@ -332,7 +348,7 @@ async function run(step, my) {
     const n = (state.chats?.[id] ?? 0) + 1;
     state.chats = { ...state.chats, [id]: n };
     const wait = typed(id, n);
-    S.chats[id] = n; S.chatAt[id] = S.now + wait;
+    S.chats[id] = n; S.chatAt[id] = S.now + wait; actsTo(id, n, n);
     game.room?.redrawNow?.();
     return sleep(0.3);
   }
@@ -630,7 +646,10 @@ function prologueFrame() {
   if (!intro) return;
   if (prologue.seek) { const pro = prologue.seek, at = prologue.seekAt || 0; prologue.seek = null; if (pro !== 'takeoff' || SOLA_OPEN || at) proSeek(intro, PRO_START[pro](intro) + at, { music: true }); }
   const t = intro.t;
-  if (prologue.black && t > 0.5) prologue.black.classList.remove('on');
+  if (prologue.black && t > 0.5) {
+    if (irisWait) { prologue.black.remove(); prologue.black = null; irisOpen(irisWait); irisWait = null; }   // the Begin screen opens onto the flight
+    else prologue.black.classList.remove('on');
+  }
   // The navigator follows the subchapters as the intro plays through them
   const beats = CHAPTERS[chapter].beats;
   let k = beat;
@@ -670,7 +689,7 @@ function prologueFrame() {
   cue('aim-free', 38, () => { intro.aim = null; });
   // Rotor sound: a drone in the cabin, the thump outside on the descent,
   // running down after touchdown
-  cue('rotor-in', 0, () => sound.rotor(0.09, 2, 'inside'));
+  cue('rotor-in', 0, () => sound.rotor(0.15, 2, 'inside'));   // louder over the credits (Adriaen, 2026-11-01)
   // Music over the flight if the file is there (see story/README.md), unless
   // the Sola opening started it already; it plays on until Space
   cue('music', 0.5, () => sound.music(MUSIC));
@@ -802,7 +821,7 @@ game.ready.then(async () => {
   warmUp();
   go.disabled = false;
   go.textContent = T('Start', 'Begin');
-  if (!begin.parentNode) enter(chapter, beat, { instant: true });
+  if (started && !CHAPTERS[chapter].prologue) enter(chapter, beat, { instant: true });   // started before the room was in (the flight doesn't need it)
   // Sharp close-up screens, laid over the picture (closeups.js); ?closeup=0 for none
   if (q.get('closeup') !== '0') game.hooks.frame.push(closeups(game));
   // ?bench=1: the frame rate benchmark (bench.js)
@@ -838,12 +857,13 @@ function warmUp() {
 }
 
 let wantBeat = null, wantAt = 0;   // __story.goto before Start
+let started = false, irisWait = null;   // the Begin screen waiting for the intro (start, prologueFrame)
 function start() {
-  if (!begin.parentNode) return;
+  if (!begin.parentNode || started) return;
   if (go.disabled && !q.has('chapter')) {
     // The prologue can start before the room is ready: it loads underneath
   }
-  irisOpen(begin);
+  started = true;
   game.hooks.hidden = false;   // the prologue hides it again
   if (!q.has('nofs') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
   game.controls.startAudio();
@@ -859,6 +879,12 @@ function start() {
   // ?beat=<beat id> (the story script editor's ▶ links): that beat, wherever it is now
   const want = wantBeat ?? q.get('beat');
   if (want) CHAPTERS.forEach((ch, ci) => { const bi = ch.beats.findIndex((b) => b.id === want); if (bi >= 0) { chapter = ci; beat = bi; } });
+  // Into the flight, the Begin screen stays up until the intro's first frames are in and then opens
+  // straight onto them, with no fade from black (prologueFrame; Adriaen, 2026-11-01). Elsewhere it opens now.
+  if (CHAPTERS[chapter].prologue && CHAPTERS[chapter].beats[beat]?.pro !== 'sola') {
+    irisWait = begin;
+    setTimeout(() => { if (irisWait) { irisOpen(irisWait); irisWait = null; } }, 8000);   // should the intro never get going
+  } else irisOpen(begin);
   if (CHAPTERS[chapter].prologue || game.room) enter(chapter, beat, { instant: true, at: wantBeat ? wantAt : 0 });
   if (q.get('mode') === 'free') game.ready.then(() => setTimeout(toggleFree, 300));
 }
@@ -871,7 +897,7 @@ window.__story = {
   goto: (id, { at = 0 } = {}) => {
     const ci = CHAPTERS.findIndex((ch) => ch.beats.some((b) => b.id === id));
     if (ci < 0) return false;
-    if (begin.parentNode) { wantBeat = id; wantAt = at; return true; }   // Start (a tap in the game, so sound may play) goes there
+    if (!started) { wantBeat = id; wantAt = at; return true; }   // Start (a tap in the game, so sound may play) goes there
     game.ready.then(() => enter(ci, CHAPTERS[ci].beats.findIndex((b) => b.id === id), { at }));
     return true;
   },

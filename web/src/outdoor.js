@@ -906,6 +906,11 @@ export class Outdoor {
     this.room.add(this.glass);
     // The opening's corners, for drawing only what shows through it (render())
     this.clip = SEA_CLIP;
+    // The mirror picture's size, of the screen's: a quarter is plenty for a
+    // rough sea, but small lights (the epilogue's night platform and vessel)
+    // fall between its pixels and blink as the camera moves, so the epilogue
+    // asks for half
+    this.mirrorScale = 0.25;
     this.window = { x: lo.x, corners: [[lo.y, lo.z], [lo.y, hi.z], [hi.y, hi.z], [hi.y, lo.z]].map(([y, z]) => new THREE.Vector3(lo.x, y, z)) };
     this.rain.material.uniforms.uMaxX.value = lo.x - 0.4;
   }
@@ -1101,7 +1106,7 @@ export class Outdoor {
     if (!screen) return null;
     // The sea seen through the window is mirrored where the window's mirror
     // image shows to the mirror camera, give or take the waves' nudge
-    const m = this.mirrorView(cam), w = Math.ceil(size.x / 4), h = Math.ceil(size.y / 4), y = this.seaLevel;
+    const m = this.mirrorView(cam), w = Math.ceil(size.x * this.mirrorScale), h = Math.ceil(size.y * this.mirrorScale), y = this.seaLevel;
     const world = front.map((p) => p.clone().applyMatrix4(cam.matrixWorld)).map((p) => { p.y = 2 * y - p.y; return p; });
     const mirror = screenBox(inFront(world, m), m, w, h, MIRROR_NUDGE * Math.max(w, h) + 2);
     return { screen, mirror: mirror ?? new THREE.Vector4(0, 0, 1, 1) };
@@ -1165,7 +1170,7 @@ export class Outdoor {
   // The mirror picture: `scene` seen from under the sea, at a quarter of the
   // screen's resolution (half of a render target's); only inside `box` if given
   renderMirror(renderer, scene, camera, out, box = null) {
-    const size = out ? new THREE.Vector2(out.width, out.height).multiplyScalar(0.5) : renderer.getDrawingBufferSize(new THREE.Vector2()).multiplyScalar(0.25);
+    const size = out ? new THREE.Vector2(out.width, out.height).multiplyScalar(0.5) : renderer.getDrawingBufferSize(new THREE.Vector2()).multiplyScalar(this.mirrorScale);
     size.ceil();
     const id = out ? out.width : 0;
     let target = this.mirrorTargets.get(id);

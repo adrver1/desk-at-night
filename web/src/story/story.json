@@ -460,7 +460,7 @@
      {
       "no": "Steptest-katalog",
       "en": "Step-test catalogue",
-      "file": "step-1.webp"
+      "page": "stepReport"
      }
     ],
     [
@@ -468,7 +468,7 @@
      {
       "no": "Den beste kandidaten",
       "en": "The best candidate",
-      "file": "step-2.webp"
+      "page": "stepReport"
      }
     ]
    ],
@@ -478,8 +478,14 @@
     "ai": "ctrlbuddy"
    },
    "set": {
-    "twin": null
-   }
+    "twin": "fix",
+    "shot": "pair:Desk0Mon0Screen,Desk0Mon1Screen",
+    "screens": {
+     "Desk0Mon0Screen": "chat:step",
+     "Desk0Mon1Screen": "twinFix"
+    }
+   },
+   "continues": "sim2"
   },
   "sim": {
    "title": {
@@ -656,10 +662,10 @@
    "set": {
     "twin": "fix",
     "shot": "pair:Desk0Mon0Screen,Desk0Mon1Screen",
-    "reportShot": "monitor:Desk0Mon1Screen",
     "screens": {
      "Desk0Mon0Screen": "chat:sim2",
-     "Desk0Mon1Screen": "twinFix"
+     "Desk0Mon1Screen": "twinFix",
+     "Desk0Mon2Screen": "twinDoc"
     }
    },
    "messages": [
@@ -682,7 +688,11 @@
      {
       "no": "GA-tegning av separatoren",
       "en": "Separator general arrangement drawing",
-      "file": "ga-drawing.webp"
+      "file": "ga-drawing.webp",
+      "point": [
+       0.6,
+       0.24
+      ]
      }
     ],
     [
@@ -705,7 +715,11 @@
      {
       "no": "Datablad for nivåventilen",
       "en": "The level valve's datasheet",
-      "file": "valve-datasheet.webp"
+      "file": "valve-datasheet.webp",
+      "point": [
+       0.435,
+       0.519
+      ]
      }
     ],
     [
@@ -714,14 +728,6 @@
       "no": "… jepp, du har rett. Den er lineær.",
       "en": "… yep, you're right. It's linear.",
       "twin": "valve"
-     }
-    ],
-    [
-     "show",
-     {
-      "no": "Verktøy for regulatortuning",
-      "en": "Controller tuning tool",
-      "file": "sim-3.webp"
      }
     ]
    ],
@@ -821,7 +827,7 @@
    "notes": "Samme samtale som chat (versjon B): Nordhav Beta skriver, separatoren som video på skjermen ved siden av."
   },
   {
-   "after": "m.buddy2",
+   "after": "m.slug",
    "id": "c.sim",
    "chat": "sim",
    "notes": "Samtale: han vil lære ved å gjøre, CtrlBuddy bygger en generisk separatormodell."
@@ -830,7 +836,7 @@
    "after": "m.twin",
    "id": "c.sim2",
    "chat": "sim2",
-   "notes": "Samtale: modellen parametrisert for den ekte separatoren; CtrlBuddy retter lengden (tvillingen endrer lengde) og ventilkarakteristikken (ventilen byttes, med kurvene), så tuningverktøyet."
+   "notes": "Samtale: modellen parametrisert for den ekte separatoren; CtrlBuddy retter lengden (tvillingen endrer lengde) og ventilkarakteristikken (ventilen byttes, med kurvene)."
   },
   {
    "after": "m.s3",
@@ -927,5 +933,5 @@
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",
   "en": "This part isn't ours to decide. It's yours."
  },
- "chapterNames": {}
+ "chapterNames": {"pro.sola": {"no": "Prolog", "en": "Prologue"}, "t.open": {"no": "Framtidens EIGA", "en": "EIGA of tomorrow"}, "y.card": {"no": "Bakgrunn", "en": "Background"}, "m.ring": {"no": "Brukstilfelle 1", "en": "Use case 1"}}
 }
