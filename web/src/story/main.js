@@ -18,6 +18,7 @@ import lines from './lines.json';
 import { PRIVATE as PRIVATE_ON, OVERRIDES, realDeep } from '../privateNames.js';
 import { StoryUI } from './ui.js';
 import { Sound } from './sound.js';
+import { Ambience } from './ambience.js';
 import { Cast } from './cast.js';
 import { Call } from './call.js';
 import { S, addStoryScreens } from './storyScreens.js';
@@ -51,6 +52,9 @@ const ui = new StoryUI(host, { privateBase: PRIVATE, publicBase: 'story/' });
 const NAV = new URLSearchParams(location.search).get('nav') ?? 'b';
 if (NAV !== '0') ui.nav(CHAPTERS, NAV, (c, i) => { sound.wake(); return c === 'next' ? next() : c === 'back' ? back() : enter(c, i, { instant: true }); });
 const sound = new Sound();
+// The room's background life (ambience.js): dips with the aircon under every spoken line
+const ambience = new Ambience(sound, null);
+sound.onDuck = (on) => { ambience.duck(on); if (game.controls) game.controls.duck = on ? 0.5 : 1; };
 const call = new Call(ui.el.call);
 const trondheim = new Trondheim(host);
 let cast = null, shots = null, epilogue = null, clockFace = null, buddy = null, workshop = null, twin = null;
@@ -205,7 +209,7 @@ function apply(s, { instant = false } = {}) {
   if (s.sound === 'alarm') sound.startAlarm(); else sound.stopAlarm();
   if (game.controls) game.controls.setVolume(s.sound === 'silence' ? 0 : roomVolume);
 }
-let roomVolume = 40;
+let roomVolume = 34;   // the aircon, a little quieter under the room's other sounds (Adriaen, 2026-11-01)
 
 function setTime(h) {
   h = ((h % 24) + 24) % 24;
@@ -709,6 +713,8 @@ function frame(dt, now) {
   // letters being typed into a chat: the zoomed screen redrawn every frame, not at its own rate
   if (Object.entries(S.chatAt).some(([id, at]) => at > S.now && S.chatType[id])) game.room?.redrawFocus?.();
   cast?.update(dt, game.camera, S.now);
+  ambience.set(Boolean(game.room) && !game.hooks.hidden && !game.hooks.covered && state.sound !== 'silence', state.sound === 'alarm');
+  ambience.update(dt, game.camera);
   buddy?.update(dt, S.now);
   workshop?.update(dt);
   twin?.update(dt);
@@ -764,6 +770,7 @@ begin.addEventListener('click', start);
 game.ready.then(async () => {
   shots = new Shots(game);
   cast = new Cast(game);
+  ambience.cast = cast;
   buddy = new Buddy(game, CHAT_SCREEN);
   workshop = new Workshop(game);
   twin = new Twin(game);
@@ -841,6 +848,7 @@ function start() {
   if (!q.has('nofs') && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
   game.controls.startAudio();
   sound.start(game.controls.audio?.ctx);
+  if (q.get('ambience') !== '0') ambience.start();   // ?ambience=0: only the aircon, as before
   sound.preload(Object.keys(lines).filter((k) => !k.startsWith('_')));
   const [qc, qb] = (q.get('chapter') ?? '1').split('.').map(Number);   // ?chapter=N or N.beat
   const c = Math.max(0, CHAPTERS.findIndex((ch) => ch.key === qc));
@@ -857,7 +865,7 @@ function start() {
 
 // For automated screenshots and checks
 window.__story = {
-  start, next, back, override: applyOverrides,
+  start, next, back, override: applyOverrides, ambience,
   // the story editor's live stage: play a beat by its id, with its moves and lines
   // (at: seconds into it, as the editor's timeline places its moments)
   goto: (id, { at = 0 } = {}) => {
