@@ -349,7 +349,9 @@ function chat(ctx, w, h, id) {
   const px = 15 * s, lh = 20 * s, pad = 10 * s, maxW = w * 0.58, fr = 30 * s, gap = 2 * fr + 22 * s;
   ctx.font = `500 ${px}px ${SANS}`;
   // a chat that continues another (story.json `continues`, Adriaen 2026-10-31) shows that one's messages above its own
-  const before = c.continues ? CHATS[c.continues]?.messages ?? [] : [], last = n && !held ? before.length + n - 1 : -1;
+  const before = [], seen = new Set([id]);   // the whole chain: c.step continues c.sim2, which continues c.sim
+  for (let k = c.continues; k && CHATS[k] && !seen.has(k); k = CHATS[k].continues) { seen.add(k); before.unshift(...CHATS[k].messages); }
+  const last = n && !held ? before.length + n - 1 : -1;
   const bubbles = [...before, ...c.messages.slice(0, n)].map(([who, msg], i) => {
     const typing = who === 'ai' && i === last && age < 1.4;
     const lines = typing ? ['•••'] : who === 'show' ? [`▤  ${msg}`] : wrap(ctx, msg, maxW - 2 * pad);

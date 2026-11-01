@@ -478,8 +478,14 @@
     "ai": "ctrlbuddy"
    },
    "set": {
-    "twin": null
-   }
+    "twin": "fix",
+    "shot": "pair:Desk0Mon0Screen,Desk0Mon1Screen",
+    "screens": {
+     "Desk0Mon0Screen": "chat:step",
+     "Desk0Mon1Screen": "twinFix"
+    }
+   },
+   "continues": "sim2"
   },
   "sim": {
    "title": {
