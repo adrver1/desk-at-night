@@ -173,6 +173,9 @@ export async function runBench(story) {
   const state = pass > 0 ? saved : { results: [] };
   state.mode = q.get('bench'); state.pass = pass;
   state.builds = [...new Set([...(state.builds ?? []), BUILD])];
+  // As in the presentation, where the warm-up runs behind the Begin screen:
+  // otherwise the first beat's jump times shader compiles and first uploads
+  await Promise.race([story.game.hooks.warmed, wait(15000)]);
   story.start();
   document.querySelector('.iris')?.remove();
   window.__perf?.setView?.('full');
