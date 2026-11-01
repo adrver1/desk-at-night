@@ -15,17 +15,17 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Helicopter } from './helicopter.js';
 import { privateSigns } from './privateNames.js';
 
-// Pixels across (16:9, shown pixelated) and pictures a second for all the
+// Pixels across (16:9) and pictures a second for all the
 // shown cameras together, taken in turn: ?cctv=256,3 sets both
 const [WIDTH, HZ] = (new URLSearchParams(location.search).get('cctv') ?? '256,3').split(',').map(Number);
 // The camera on a screen the player zooms in on: sharp and smooth, while
 // the screen fills the view and little else is drawn
 const FOCUS_WIDTH = 1024, FOCUS_HZ = 15;
-// How the pictures look (?cctvlook=): pixel, WIDTH across shown blocky (as
-// before 2026-11); smooth, the same size filtered and antialiased; sized,
+// How the pictures look (?cctvlook=): sized (Adriaen's pick, 2026-11-01),
 // filtered and antialiased, each taken as wide as its widest screen shows it
-// (in steps of STEP, from WIDTH up to MAX_WIDTH)
-const LOOK = new URLSearchParams(location.search).get('cctvlook') ?? 'pixel';
+// (in steps of STEP, from WIDTH up to MAX_WIDTH); smooth, WIDTH across,
+// filtered and antialiased; pixel, WIDTH across shown blocky (as before)
+const LOOK = new URLSearchParams(location.search).get('cctvlook') ?? 'sized';
 const MAX_WIDTH = 768, STEP = 128;
 const FILTER = LOOK === 'pixel' ? THREE.NearestFilter : THREE.LinearFilter, SAMPLES = LOOK === 'pixel' ? 0 : 4;
 // On time: within this much of the quickest recent frame (the display's
