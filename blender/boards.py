@@ -19,6 +19,7 @@ import math
 import os
 import random
 
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -105,6 +106,75 @@ def ceiling_vent(style=None, s=512):
     path = os.path.join(OUT, "ceiling_vent.png")
     img.resize((s, s), Image.LANCZOS).save(path, optimize=True)
     return path
+
+
+# ---------------------------------------------------------------- surfaces
+# Small repeating images for the big surfaces: the atlas is far too coarse for
+# fibres and grain. Each wraps at its edges.
+
+def _soft(shape, sigma, rng):
+    """Random noise blurred with a wrap-around Gaussian (sigma in pixels, y and x), so it tiles. About -1 to 1."""
+    h, w = shape
+    fy, fx = np.fft.fftfreq(h)[:, None], np.fft.rfftfreq(w)[None, :]
+    g = np.exp(-2 * (math.pi ** 2) * ((fy * sigma[0]) ** 2 + (fx * sigma[1]) ** 2))
+    a = np.fft.irfft2(np.fft.rfft2(rng.standard_normal((h, w))) * g, s=(h, w))
+    return a / (a.std() * 2.5)
+
+
+def _tile(a, name):
+    os.makedirs(OUT, exist_ok=True)
+    path = os.path.join(OUT, name)
+    Image.fromarray(np.clip(a + 0.5, 0, 255).astype(np.uint8)).save(path, optimize=True)
+    return path
+
+
+CARPET_SQUARE = (  # one carpet square, as bands of rectangles: (band's share of the square, ((share of the band, grey, ribbed), ...))
+    # the darkest stays off the edges: touching it would line up with the turned neighbours into a zigzag
+    (0.28, ((0.58, 94, False), (0.42, 104, False))),
+    (0.44, ((0.22, 104, False), (0.54, 78, True), (0.24, 91, False))),
+    (0.28, ((0.36, 99, False), (0.64, 89, False))),
+)
+
+
+def tile_carpet(s=1024):
+    """The real carpet, 2 m across: 1 m squares, each made of the same rectangles (CARPET_SQUARE), turned a quarter
+    from each square to the next, so squares side by side run opposite ways and diagonal ones the same."""
+    rng = np.random.default_rng(21)
+    t = s // 2
+    square = np.empty((t, t))
+    y = 0
+    for j, (share, cells) in enumerate(CARPET_SQUARE):
+        Y = t if j == len(CARPET_SQUARE) - 1 else y + round(share * t)
+        x = 0
+        for i, (part, grey, ribbed) in enumerate(cells):
+            X = t if i == len(cells) - 1 else x + round(part * t)
+            square[y:Y, x:X] = grey
+            if ribbed:  # ribs about 12 mm apart, along the band
+                square[y:Y, x:X] += 11 * np.sin(np.arange(Y - y) * 2 * math.pi / 6)[:, None]
+            x = X
+        y = Y
+    grey = np.block([[square, np.rot90(square)], [np.rot90(square), square]])
+    grey += _soft((s, s), (0.7, 0.7), rng) * 6 + _soft((s, s), (1.5, 1.5), rng) * 5
+    return _tile(grey[..., None] * np.array((1.0, 0.985, 0.99)), "tile_carpet.png")
+
+
+def tile_desk(s=1024):
+    """Pale birch veneer, 1 m square, as on the real desks: nearly even, with the faintest grain along the desk."""
+    rng = np.random.default_rng(5)
+    grain = _soft((s, s), (1.2, 120), rng) * 0.5 + _soft((s, s), (7, 220), rng) * 0.5
+    return _tile(np.array((217, 197, 161), float) + grain[..., None] * np.array((5, 5, 6), float), "tile_desk.png")
+
+
+def tile_ceiling(s=768):
+    """A suspended ceiling's 0.6 m tile, its grid at the edges in line with the light panels: fissured mineral
+    board with a pale metal T-bar."""
+    rng = np.random.default_rng(9)
+    a = np.full((s, s, 3), 231.0)
+    a += (_soft((s, s), (0.9, 0.9), rng) * 9 + _soft((s, s), (1.2, 7), rng) * 5)[..., None]
+    bar = max(2, round(s * 0.008 / 0.6))
+    for m in (a[:bar], a[-bar:], a[:, :bar], a[:, -bar:]):
+        m[...] = 176
+    return _tile(a, "tile_ceiling.png")
 
 
 # ------------------------------------------------------------------ P&IDs

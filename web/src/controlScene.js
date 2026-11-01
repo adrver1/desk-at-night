@@ -380,13 +380,15 @@ export async function loadControlRoom(renderer) {
   // overrides.json `boards` lists (the desk photo frames' portraits)
   const own = (png) => fetch(`${PRIVATE_BASE}control/${png}`).then((r) => (r.ok ? r.arrayBuffer() : bytes(png)));
   const boardBufs = await Promise.all(boards.map(([, png]) => (OVERRIDES.boards?.includes(png) ? own(png) : bytes(png))));
-  for (const [i, [name]] of boards.entries()) {
+  for (const [i, [name, png]] of boards.entries()) {
     const mesh = gltf.scene.getObjectByName(name);
     if (!mesh) continue;
     const board = material.clone();
     board.vertexShader = boardVertex;
     board.defines = { BOARD: '', USE_UV1: '' };
-    board.uniforms = { ...material.uniforms, uBoard: { value: await texture(renderer, boardBufs[i], true) } };
+    const image = await texture(renderer, boardBufs[i], true);
+    if (png.startsWith('tile_')) image.wrapS = image.wrapT = THREE.RepeatWrapping;   // floor, desks, ceiling: a small image over and over
+    board.uniforms = { ...material.uniforms, uBoard: { value: image } };
     mesh.material = board;
     renderer.initTexture(board.uniforms.uBoard.value);   // uploaded now, not on the frame a board first comes into view
   }

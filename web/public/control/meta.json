@@ -1,7 +1,7 @@
 {
-  "scaleCeiling": 1.5509411096572876,
-  "scaleScreens": 0.2808935344219208,
-  "scaleSky": 0.7257680296897888,
+  "scaleCeiling": 1.551923155784607,
+  "scaleScreens": 0.28110864758491516,
+  "scaleSky": 0.7221600413322449,
   "seaLevel": -52.7,
   "encoding": "L = pow(texel, 3) * scale",
   "resolution": 3072,
@@ -75,7 +75,7 @@
     "floorlamp": {
       "map": "light_floorlamp.png",
       "body": "FloorLamp",
-      "scale": 2.209712028503418
+      "scale": 2.176586627960205
     }
   },
   "boards": {
@@ -90,7 +90,13 @@
     "S1NotepadPage": "board_notepad.png",
     "AirCassette0": "board_vent.png",
     "AirCassette1": "board_vent.png",
-    "AirCassette2": "board_vent.png"
+    "AirCassette2": "board_vent.png",
+    "Floor": "tile_carpet.png",
+    "FloorNook": "tile_carpet.png",
+    "Desk0Top": "tile_desk.png",
+    "Desk1Top": "tile_desk.png",
+    "Ceiling": "tile_ceiling.png",
+    "CeilingNook": "tile_ceiling.png"
   },
   "layout": {
     "desks": [

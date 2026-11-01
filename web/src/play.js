@@ -95,7 +95,7 @@ const keys = new Set();
 const touch = { move: new THREE.Vector2() };
 let room, outdoor, cctv, vessel, birds, layout, playing = false, panelOpen = false;
 const lamps = {}; // the rest corner's lamps: name -> { on, w (eased brightness) }
-const chairs = [], mugs = [], pickables = [], items = [];
+const chairs = [], mugs = [], pickables = [], items = [], blockers = [];
 const raycaster = new THREE.Raycaster();
 raycaster.far = REACH;
 let target = null; // { kind: 'chair' | 'mug' | 'panel' | 'switch' | 'screen', item, meshes }
@@ -159,7 +159,8 @@ async function load() {
     lamps[name] = { on: true, w: 1 };
     usable({ kind: 'lamp', item: name }, root.getObjectByName(room.meta.lamps[name].body), ...room.lampMeshes(name));
   }
-  pickables.push(root.getObjectByName('Room')); // so walls and desks block the view of things behind them
+  blockers.push(...['Room', 'Desk0Top', 'Desk1Top', 'Floor', 'FloorNook', 'Ceiling', 'CeilingNook'].map((n) => root.getObjectByName(n)).filter(Boolean));
+  pickables.push(...blockers); // so walls and desks block the view of things behind them
   setUpScreenPicker();
   clearSpawn();
   lookAt(-0.6, 2.2);
@@ -317,7 +318,7 @@ function usableAt(ndc) {
 // A screen further out, which can be zoomed in on (the room still hides them)
 function screenAt(ndc) {
   screenRay.setFromCamera(ndc, camera);
-  const far = screenRay.intersectObjects([room.root.getObjectByName('Room'), ...room.screenMeshes], false)[0];
+  const far = screenRay.intersectObjects([...blockers, ...room.screenMeshes], false)[0];
   const name = far && room.screenMeshes.includes(far.object) ? room.screenAt(far) : null;
   return name ? { kind: 'screen', item: name } : null;
 }
