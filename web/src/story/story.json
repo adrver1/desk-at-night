@@ -625,8 +625,8 @@
     [
      "ai",
      {
-      "no": "I run my ABB LoopInsight skill on the history. Here are the loops that need attention.",
-      "en": "I run my ABB LoopInsight skill on the history. Here are the loops that need attention."
+      "no": "Jeg bruker ABB LoopInsight-skillen min for å koble på API'et og sjekker ut hvilke sløyfer som trenger oppmerksomhet.",
+      "en": "I use my ABB LoopInsight skill to connect to the API and check which loops need attention."
      }
     ],
     [
