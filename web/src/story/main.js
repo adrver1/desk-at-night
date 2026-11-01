@@ -167,8 +167,9 @@ function chatTo(id, n, typing) {
 const REPLY_WAIT = 1.8;
 
 // Our own message in a chat (Adriaen, 2026-10-29): typed out letter by letter
-// to keyboard clacks, quickly; done when the result is in (s to wait)
-const TYPE_CPS = 32, TYPE_TIME = [0.7, 3.5];
+// to keyboard clacks, quickly; done when the result is in (s to wait). Faster since 2026-11-01
+// (Adriaen: snappier chats; was 32 letters a second, 0.7 to 3.5 s)
+const TYPE_CPS = 55, TYPE_TIME = [0.4, 2.0];
 function typed(id, n, wait = 0) {
   const m = CHATS[id].messages[n - 1];
   if (m?.[0] !== 'me') return 0;
