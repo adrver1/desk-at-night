@@ -137,11 +137,16 @@ export class Retune {
     if (this.mode !== 'screen') return;
     const u = h / 100, vw = Math.round(w * 0.62), tw = w - vw, pad = 3 * u;
     const top = 9 * u, th = (h - top - pad) / 4 - 1.6 * u;
-    if (this.screen?.[0] !== vw || this.screen?.[1] !== h) {
-      this.screen = [vw, h];
+    // drawn both into the room's small slot texture and the sharp close-up canvas (closeups.js):
+    // the 3D view and the trends render at the biggest size asked for so far (up to 1440 px high),
+    // and are scaled down for the small one, so the close-up stays sharp (Adriaen, 2026-11-01)
+    const H = Math.min(1440, Math.max(h, this.screenH ?? 0)), k = H / h;
+    if (H !== this.screenH) {
+      this.screenH = H;
+      this.screen = [Math.round(vw * k), H];
       this.size = null;
-      this.trendD = u / 4;
-      for (const c of this.trendCanvases) { c.width = Math.round(tw - 2 * pad); c.height = Math.round(th); }
+      this.trendD = u * k / 4;
+      for (const c of this.trendCanvases) { c.width = Math.round((tw - 2 * pad) * k); c.height = Math.round(th * k); }
     }
     ctx.drawImage(this.canvas, 0, 0, vw, h);
     ctx.textBaseline = 'top'; ctx.textAlign = 'left';
@@ -163,6 +168,6 @@ export class Retune {
       ctx.fillStyle = '#eef3f4'; ctx.fillText(NAMES[k], x + 6.4 * u, top / 2 + u);
       x += 6.4 * u + ctx.measureText(NAMES[k]).width + 4 * u;
     }
-    this.trendCanvases.forEach((c, i) => ctx.drawImage(c, vw + pad, top + i * (th + 1.6 * u)));
+    this.trendCanvases.forEach((c, i) => ctx.drawImage(c, vw + pad, top + i * (th + 1.6 * u), tw - 2 * pad, th));
   }
 }

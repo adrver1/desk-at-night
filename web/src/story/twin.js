@@ -43,9 +43,9 @@ const BLUE = 0x5fd6ff;
 const SHORT = 1 / 8;   // the correction: 8 m to 7 m
 const EQP = 30;        // rangeability of the equal-percentage curve
 const FIX_WAIT = 0.3;  // s after his message is sent before its correction starts
-// Each correction is made in the code first (Adriaen, 2026-11-01): a VS Code
-// window comes up over the twin, CtrlBuddy changes the parameter, the window
-// goes, then the twin changes. CODE_T s in all; the edit in EDIT.
+// Each correction is made in the code too (Adriaen, 2026-11-01): a VS Code
+// window comes up over the chat on the left screen (twinChat) while the twin
+// on the right changes with the typing, both at once. CODE_T s in all; the edit in EDIT.
 const CODE_T = 4.6, EDIT = [1.2, 2.6];
 const PARAMS = [
   '# Separator parameters, from the drawing and the datasheets',
@@ -219,7 +219,12 @@ export class Twin {
     CONTENT.twin = ['Digital twin', (ctx, w, h) => this.drawRing(ctx, w, h)];
     CONTENT.twinFix = ['Digital twin', (ctx, w, h) => this.drawFix(ctx, w, h)];
     CONTENT.twinDoc = ['Report', () => {}];   // all in the picture (updateDoc)
-    for (const id of ['twinCode', 'twin', 'twinFix']) if (!LIVE.includes(id)) LIVE.push(id);
+    // sim2's chat with the code window over it while a correction is typed
+    CONTENT.twinChat = ['CtrlBuddy', (ctx, w, h) => {
+      CONTENT['chat:sim2']?.[1](ctx, w, h);
+      for (const k of ['len', 'valve']) if (this.codeAt[k] != null && S.now - this.codeAt[k] < CODE_T) this.drawEdit(ctx, w, h, k, S.now - this.codeAt[k]);
+    }];
+    for (const id of ['twinCode', 'twin', 'twinFix', 'twinChat']) if (!LIVE.includes(id)) LIVE.push(id);
     this.fix = { len: 0, valve: 0 };
     this.codeAt = {};   // when each correction's code window came up
   }
@@ -500,11 +505,11 @@ export class Twin {
       const i = shown.findIndex(([, , m]) => m?.twin === k);
       return i >= 0 && S.acts.has(`sim2:${i + 1}`) && (i < shown.length - 1 || S.now - (S.chatAt.sim2 ?? -99) > FIX_WAIT);
     };
-    // the code window first; jumped to (the chat set at once), straight to the change
+    // the code window comes up and the twin changes as the new value is typed; jumped to (the chat set at once), straight to the change
     const go = (k) => {
       if (!has(k)) { this.codeAt[k] = null; return false; }
       this.codeAt[k] ??= (S.chatAt.sim2 ?? -99) < 0 ? -99 : S.now;
-      return S.now - this.codeAt[k] > CODE_T - 0.3;
+      return S.now - this.codeAt[k] > EDIT[0];
     };
     const toward = (v, to) => (to > v ? Math.min(to, v + dt * 0.6) : Math.max(to, v - dt * 0.6));
     f.len = toward(f.len, go('len') ? 1 : 0);
@@ -568,11 +573,10 @@ export class Twin {
       }
       ctx.globalAlpha = 1;
     }
-    for (const k of ['len', 'valve']) if (this.codeAt[k] != null && S.now - this.codeAt[k] < CODE_T) this.drawEdit(ctx, w, h, k, S.now - this.codeAt[k]);
     ctx.restore();
   }
 
-  // The VS Code window over the twin while a correction is made in the code
+  // The VS Code window over the chat (twinChat) while a correction is made in the code
   drawEdit(ctx, w, h, k, c) {
     const e = EDITS[k], a = Math.min(1, c / 0.3, (CODE_T - c) / 0.4), grow = 0.94 + 0.06 * smooth(c / 0.3);
     const ww = w * 0.94 * grow, hh = h * 0.84 * grow, x = (w - ww) / 2, y = (h - hh) / 2 + h * 0.04;

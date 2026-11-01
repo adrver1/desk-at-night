@@ -98,6 +98,7 @@ const ROBOT_TEXT = {
   scholar: T('<b>«Akademikeren»</b>Samler kunnskap i en Karpathy-kunnskapsbase', '<b>“The Scholar”</b>Gathers knowledge in a Karpathy knowledge base'),
   nurse: T('<b>«Redaktøren»</b>Sørger for at kunnskapsbasen er sunn', '<b>“The Editor”</b>Keeps the knowledge base healthy'),
 };
+const HALF = 0.42;   // half portraits: the share of the height cut off
 const H02 = {
   id: 'h-02', builds: 3,
   focus: (b) => [[0, 0, 0], [-4.8, 0, 3], [0, 0, 3], [4.8, 0, 3]][b],
@@ -106,7 +107,7 @@ const H02 = {
     sub(T('… Én av flere agenter', '… One of several agents')),
     ...['buddy', 'scholar', 'nurse'].flatMap((k, i) => [
       // half portraits, as in the deck (Adriaen, 2026-11-01): big, cut off at the waist
-      fig(ROBOT[k], -4.8 + i * 4.8, -4.3, 6.4, i + 1, { rot: [0.25, 0, -0.25][i], cut: 0.42 }),
+      fig(ROBOT[k], -4.8 + i * 4.8, -4.3, 6.4, i + 1, { rot: [0.25, 0, -0.25][i], cut: HALF }),
       text(ROBOT_TEXT[k], -4.8 + i * 4.8, -2.05, 4.3, i + 1, { cls: 'robot', anchor: [0.5, 0] }),
     ]),
   ],
@@ -121,9 +122,10 @@ const H08 = {
   elements: [
     title(T('CtrlBuddy – hva er det?', 'CtrlBuddy – what is it?')),
     sub(T('… Én av flere agenter', '… One of several agents')),
-    fig(ROBOT.buddy, ...LOOP.buddy, 2.9, 0, {}),
-    fig(ROBOT.scholar, ...LOOP.scholar, 2.5, 0, { rot: 0.45 }),
-    fig(ROBOT.nurse, ...LOOP.nurse, 2.5, 0, { rot: -0.45 }),
+    // half portraits, as on h-02 (Adriaen, 2026-11-01): cut at the same share, so the glide over
+    // from h-02 keeps them cut; feet set below their spot so the top part stands where the whole one did
+    ...[['buddy', 2.9, 0], ['scholar', 2.5, 0.45], ['nurse', 2.5, -0.45]].map(([k, h, rot]) =>
+      fig(ROBOT[k], LOOP[k][0], LOOP[k][1] - HALF * h / (1 - HALF), h / (1 - HALF), 0, { rot, cut: HALF })),
     arrow([-1.3, 1.7], [-4.3, -0.9], T('Leder', 'Leads'), 1, { bend: 0.22, labelOff: [-0.55, 0.45], chunky: true }),
     arrow([1.3, 1.7], [4.3, -0.9], T('Leder', 'Leads'), 1, { bend: -0.22, labelOff: [0.55, 0.45], chunky: true }),
     prop(() => books(7), ...LOOP.books, 2, { scale: 1.25, rot: 0.25 }),

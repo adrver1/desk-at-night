@@ -671,7 +671,7 @@
     "twin": "fix",
     "shot": "pair:Desk0Mon0Screen,Desk0Mon1Screen",
     "screens": {
-     "Desk0Mon0Screen": "chat:sim2",
+     "Desk0Mon0Screen": "twinChat",
      "Desk0Mon1Screen": "twinFix",
      "Desk0Mon2Screen": "twinDoc"
     }
