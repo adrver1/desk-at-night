@@ -650,7 +650,8 @@ const SHORT_CHAPTERS = [
         screens: { Desk0Mon0Screen: 'twinCode', Desk0Mon1Screen: 'twin' } },
         notes: 'Vi bygde en digital tvilling av separatoren i CasADi: geometri, massebalanser, overløp og ventiler. Hver del av koden er en del av separatoren.' },
       // after c.sim2 and c.step, which story.json inserts before it (Adriaen, 2026-10-31)
-      { id: 'm.retune', set: { overlay: null, twin: null, retune: true },
+      // on a monitor in the room, not full screen (Adriaen, 2026-11-01)
+      { id: 'm.retune', set: { overlay: null, twin: null, retune: 'screen', shot: 'monitor:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'retune' } },
         notes: 'Gammel og ny innstilling av nivåregulatoren side om side, på den nye modellen: strømningen holdes jevn, nivået får drive innenfor båndet. S bytter hvilken separatoren viser.' },
     ],
   },
@@ -751,7 +752,10 @@ function applyStory(chapters) {
       const nb = { id: add.id, notes: add.notes ?? '', set: { overlay: add.slide ? `slide:${add.slide}` : null } };
       if (add.chat) {
         nb.chat = add.chat;
-        nb.set = { ...nb.set, shot: `monitor:${CHAT_SCREEN}`, screens: { [CHAT_SCREEN]: `chat:${add.chat}`, [REPORT_SCREEN]: `report:${add.chat}` }, chats: { [add.chat]: 0 }, thoughts: null, call: null, phone: null };   // main.js enter types the first message
+        // part of a chat: the messages after `from` up to `upto` (one chat over several beats, Adriaen 2026-11-01)
+        if (add.from) nb.from = add.from;
+        if (add.upto) nb.upto = add.upto;
+        nb.set = { ...nb.set, shot: `monitor:${CHAT_SCREEN}`, screens: { [CHAT_SCREEN]: `chat:${add.chat}`, [REPORT_SCREEN]: `report:${add.chat}` }, chats: { [add.chat]: add.from ?? 0 }, thoughts: null, call: null, phone: null };   // main.js enter types the first message
         // a chat's own stage (story.json chats.<id>.set): its camera, screens and state, e.g. sim2's twin beside it
         const own = STORY.chats[add.chat]?.set;
         if (own) nb.set = { ...nb.set, ...own, screens: { ...nb.set.screens, ...own.screens } };

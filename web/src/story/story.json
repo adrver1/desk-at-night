@@ -458,6 +458,14 @@
     [
      "show",
      {
+      "no": "Steptest-rapport",
+      "en": "Step-test report",
+      "page": "stepReport"
+     }
+    ],
+    [
+     "show",
+     {
       "no": "Steptest-katalog",
       "en": "Step-test catalogue",
       "page": "stepReport"
@@ -836,7 +844,23 @@
    "after": "m.twin",
    "id": "c.sim2",
    "chat": "sim2",
-   "notes": "Samtale: modellen parametrisert for den ekte separatoren; CtrlBuddy retter lengden (tvillingen endrer lengde) og ventilkarakteristikken (ventilen byttes, med kurvene)."
+   "notes": "Samtale: modellen parametrisert med data for den ekte separatoren.",
+   "upto": 1
+  },
+  {
+   "after": "c.sim2",
+   "id": "c.sim2b",
+   "chat": "sim2",
+   "from": 1,
+   "upto": 4,
+   "notes": "CtrlBuddy fant GA-tegningen: hovedseparasjonssonen er 7 m, ikke 8 m. Tvillingen endrer lengde."
+  },
+  {
+   "after": "c.sim2b",
+   "id": "c.sim2c",
+   "chat": "sim2",
+   "from": 4,
+   "notes": "CtrlBuddy fant databladet: nivåventilen er lineær, ikke likeprosentlig. Ventilen byttes, med kurvene."
   },
   {
    "after": "m.s3",
@@ -899,7 +923,7 @@
    "notes": "Lysbilde 14."
   },
   {
-   "after": "c.sim2",
+   "after": "c.sim2c",
    "id": "c.step",
    "chat": "step",
    "notes": "Samtale: hvert trykk viser én melding, så rapporten på skjermen ved siden av."
@@ -933,5 +957,22 @@
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",
   "en": "This part isn't ours to decide. It's yours."
  },
- "chapterNames": {"pro.sola": {"no": "Prolog", "en": "Prologue"}, "t.open": {"no": "Framtidens EIGA", "en": "EIGA of tomorrow"}, "y.card": {"no": "Bakgrunn", "en": "Background"}, "m.ring": {"no": "Brukstilfelle 1", "en": "Use case 1"}}
+ "chapterNames": {
+  "pro.sola": {
+   "no": "Prolog",
+   "en": "Prologue"
+  },
+  "t.open": {
+   "no": "Framtidens EIGA",
+   "en": "EIGA of tomorrow"
+  },
+  "y.card": {
+   "no": "Bakgrunn",
+   "en": "Background"
+  },
+  "m.ring": {
+   "no": "Brukstilfelle 1",
+   "en": "Use case 1"
+  }
+ }
 }

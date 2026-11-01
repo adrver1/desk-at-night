@@ -80,6 +80,8 @@ for i, b in enumerate(beats):
         if b.get('chat'): add['chat'] = b['chat']   # a chat beat (story.json chats)
         if b.get('card') is not None: add['card'] = {'no': b['card'].get('text', ''), 'en': b['card'].get('en', b['card'].get('text', ''))}
         if b.get('notes'): add['notes'] = b['notes']
+        for k in ('from', 'upto'):   # part of a chat (content.js applyStory)
+            if b.get(k) is not None: add[k] = b[k]
         story['inserted'].append(add); changed.append(f'new beat {bid}')
     else:
         if b.get('notes', '') != base.get('notes', ''): o['notes'] = b['notes']

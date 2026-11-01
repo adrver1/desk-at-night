@@ -5,8 +5,9 @@
 // The data is public/story/reports/step-report.json (made up) or, with
 // ?private=1, the real report's in story/private/reports/.
 //
-// drawStepReport(ctx, w, h, stage, age): stage 0 = the catalogue (scrolls
-// from the top down to it, then the filter goes to the step tests), stage 1 =
+// drawStepReport(ctx, w, h, stage, age): stage 0 = the top of the page, still;
+// 1 = the catalogue (scrolls from the top down to it, then the filter goes to
+// the step tests), 2 =
 // the best candidate (its trace opens, scrolls into view and draws). `age` is seconds since that message was sent.
 import { PRIVATE, PRIVATE_BASE } from '../privateNames.js';
 import { SANS } from '../fonts.js';
@@ -250,7 +251,9 @@ export function drawStepReport(ctx, w, h, stage, age, base) {
   const view = { filter: 0, open: 0, draw: 0, mark: 0, cursor: null };
   let scroll = 0;
   const at = (v) => page(ctx, data, v, true);
-  if (stage === 0) {
+  if (stage <= 0) {
+    // the top of the page, still, so the title can be read and talked through (Adriaen, 2026-11-01)
+  } else if (stage === 1) {
     view.filter = ramp(age, 4.4, 4.9);
     const m = at(view);
     scroll = ramp(age, 0.8, 3.8) * (m.catalogue - 60);   // one smooth scroll down to it (Adriaen, 2026-11-01)

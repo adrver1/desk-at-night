@@ -55,12 +55,16 @@ function loadGlb(base, name) {
 }
 
 // One person or robot: the model on a holder, its clips, and a crossfade
-function makeFigure(g, { tint } = {}) {
+// `cut`: shown only above that share of its height, a half portrait (place() moves the plane)
+function makeFigure(g, { tint, cut } = {}) {
   const root = SkeletonUtils.clone(g.scene);
+  const plane = cut ? new THREE.Plane(new THREE.Vector3(0, 1, 0), 0) : null;
   root.traverse((o) => {
     if (!o.isMesh) return;
     o.frustumCulled = false;
-    if (tint) { o.material = o.material.clone(); o.material.color.lerp(new THREE.Color(tint), 0.5); }
+    if (tint || plane) o.material = o.material.clone();
+    if (tint) o.material.color.lerp(new THREE.Color(tint), 0.5);
+    if (plane) o.material.clippingPlanes = [plane];
   });
   const holder = new THREE.Group();
   holder.add(root);
@@ -72,7 +76,7 @@ function makeFigure(g, { tint } = {}) {
   let cur = acts.idle;
   cur?.play();
   return {
-    holder, mixer, h0: box.max.y - box.min.y || 1.8,
+    holder, mixer, plane, h0: box.max.y - box.min.y || 1.8,
     play(name) {
       const a = acts[name] || acts.idle;
       if (!a || a === cur) return;
@@ -178,6 +182,7 @@ export class LiveSlide {
   initGL() {
     if (this.renderer) return;
     const r = this.renderer = new THREE.WebGLRenderer({ canvas: this.gl, antialias: true, alpha: true });
+    r.localClippingEnabled = true;   // half-portrait figures (makeFigure cut)
     r.outputColorSpace = THREE.SRGBColorSpace;
     this.scene = new THREE.Scene();
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.6));
@@ -395,6 +400,7 @@ export class LiveSlide {
       o.scale.setScalar(e.h / it.fig.h0 * sc);
     } else o.scale.setScalar((e.scale ?? 1) * sc);
     o.position.set(x, y + (1 - sc) * 0.5, e.z ?? (KG_LOOK === 'b' ? 0.6 : 0));
+    if (it.fig?.plane) it.fig.plane.constant = -(o.position.y + e.cut * e.h * sc);
     o.rotation.y = (s.rot ?? e.rot ?? 0) + (o.userData.spin ? t * o.userData.spin : 0);
     o.visible = s.s > 0.01;
     // the name over the head, when it has one
@@ -420,6 +426,37 @@ export class LiveSlide {
   }
 
   // a curved arrow from e.p0 to e.p1 (slide units) that draws itself in
+  // A chunky arrow, as in the deck (Adriaen, 2026-11-01): a filled band that
+  // follows the curve, with a broad head (two with `both`), drawn as far as k
+  chunky(e, k, q, colr, c) {
+    const w = this.U(e.cw ?? 0.3), hl = w * 1.5, hw = w * 1.15, N = 40;
+    const pts = [], len = [0];
+    for (let i = 0; i <= N; i++) pts.push(q((i / N) * k));
+    for (let i = 1; i <= N; i++) len.push(len[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    const L = len[N];
+    if (L < hl * 1.2) return;
+    const at = (d) => {   // the point and direction at arc length d
+      let i = 1; while (i < N && len[i] < d) i++;
+      const f = (d - len[i - 1]) / Math.max(1e-6, len[i] - len[i - 1]);
+      const [x0, y0] = pts[i - 1], [x1, y1] = pts[i], l = Math.hypot(x1 - x0, y1 - y0) || 1;
+      return [x0 + (x1 - x0) * f, y0 + (y1 - y0) * f, (x1 - x0) / l, (y1 - y0) / l];
+    };
+    const d0 = e.both ? hl : 0, d1 = L - hl, M = 24, left = [], right = [];
+    for (let i = 0; i <= M; i++) {
+      const [x, y, dx, dy] = at(d0 + ((d1 - d0) * i) / M);
+      left.push([x - dy * w / 2, y + dx * w / 2]); right.push([x + dy * w / 2, y - dx * w / 2]);
+    }
+    c.beginPath();
+    [...left, ...right.reverse()].forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+    c.closePath(); c.fill();
+    const head = (base, tip) => {
+      const [x, y, dx, dy] = at(base), [tx, ty] = at(tip);
+      c.beginPath(); c.moveTo(tx, ty); c.lineTo(x - dy * hw, y + dx * hw); c.lineTo(x + dy * hw, y - dx * hw); c.closePath(); c.fill();
+    };
+    head(d1 - 0.5, L);
+    if (e.both) head(d0 + 0.5, 0);
+  }
+
   arrow(e, s, { over: c, t }) {
     const p0 = typeof e.p0 === 'function' ? e.p0(t) : e.p0, p1 = typeof e.p1 === 'function' ? e.p1(t) : e.p1;
     const [ax, ay] = this.P(...p0), [bx, by] = this.P(...p1);
@@ -431,10 +468,13 @@ export class LiveSlide {
     c.save();
     c.strokeStyle = colr; c.fillStyle = colr; c.lineWidth = lw; c.lineCap = 'round';
     c.globalAlpha = Math.min(1, k * 2) * (s.fade ?? 1);
+    if (e.chunky) { this.chunky(e, k, q, colr, c); } else {
     c.beginPath();
     for (let i = 0; i <= 24; i++) { const [x, y] = q((i / 24) * k); i ? c.lineTo(x, y) : c.moveTo(x, y); }
     c.stroke();
+    }
     const head = (u, dir) => {
+      if (e.chunky) return;
       const [x, y] = q(u), [x2, y2] = q(u - dir * 0.04), ang = Math.atan2(y - y2, x - x2), hs = lw * 2.6;
       c.beginPath(); c.moveTo(x + Math.cos(ang) * hs * 0.5, y + Math.sin(ang) * hs * 0.5);
       c.lineTo(x - Math.cos(ang - 0.55) * hs, y - Math.sin(ang - 0.55) * hs); c.lineTo(x - Math.cos(ang + 0.55) * hs, y - Math.sin(ang + 0.55) * hs); c.fill();

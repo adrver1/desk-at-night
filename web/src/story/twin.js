@@ -43,6 +43,25 @@ const BLUE = 0x5fd6ff;
 const SHORT = 1 / 8;   // the correction: 8 m to 7 m
 const EQP = 30;        // rangeability of the equal-percentage curve
 const FIX_WAIT = 0.3;  // s after his message is sent before its correction starts
+// Each correction is made in the code first (Adriaen, 2026-11-01): a VS Code
+// window comes up over the twin, CtrlBuddy changes the parameter, the window
+// goes, then the twin changes. CODE_T s in all; the edit in EDIT.
+const CODE_T = 4.6, EDIT = [1.2, 2.6];
+const PARAMS = [
+  '# Separator parameters, from the drawing and the datasheets',
+  'L_main = 8.0              # m, main separation zone',
+  'L_oil_zone = 2.0          # m',
+  'R_vessel = 1.5            # m',
+  '',
+  '# Level valve (oil outlet)',
+  "valve_char_oil = 'equal_percentage'",
+  'Cv_oil = 180',
+];
+const EDITS = {
+  len: { line: 1, from: '8.0', to: '7.0', say: T('Endrer L_main fra 8,0 til 7,0 m, som i GA-tegningen.', 'Changing L_main from 8.0 to 7.0 m, as in the GA drawing.') },
+  valve: { line: 6, from: "'equal_percentage'", to: "'linear'", say: T('Endrer ventilkarakteristikken til lineær, som i databladet.', 'Changing the valve characteristic to linear, as in the datasheet.') },
+};
+const ramp = (x, a, b) => Math.max(0, Math.min(1, (x - a) / (b - a)));
 const HOP = 1.6;      // s, CtrlBuddy's flight between the twin's screen and the report's
 
 // Turn a bone so its length (+Y) points along a world direction, blended by w (as workshop.js aim)
@@ -202,6 +221,7 @@ export class Twin {
     CONTENT.twinDoc = ['Report', () => {}];   // all in the picture (updateDoc)
     for (const id of ['twinCode', 'twin', 'twinFix']) if (!LIVE.includes(id)) LIVE.push(id);
     this.fix = { len: 0, valve: 0 };
+    this.codeAt = {};   // when each correction's code window came up
   }
 
   // The blueprint floor, the separator (glass cut, as in the re-tuning beat), the beam
@@ -335,6 +355,7 @@ export class Twin {
     this.mode = mode;
     this.on = Boolean(mode);
     this.fix = { len: 0, valve: 0 };
+    this.codeAt = {};   // when each correction's code window came up
     this.game.room?.setFeeds({ twin: this.rt.texture, twinFix: this.rt.texture, twinDoc: this.doc.rt.texture });
     if (mode && !was) {
       this.t = mode === 'fix' ? DUR : 0;   // its own clock: a jump between beats runs the story clock on fast
@@ -479,9 +500,15 @@ export class Twin {
       const i = shown.findIndex(([, , m]) => m?.twin === k);
       return i >= 0 && S.acts.has(`sim2:${i + 1}`) && (i < shown.length - 1 || S.now - (S.chatAt.sim2 ?? -99) > FIX_WAIT);
     };
+    // the code window first; jumped to (the chat set at once), straight to the change
+    const go = (k) => {
+      if (!has(k)) { this.codeAt[k] = null; return false; }
+      this.codeAt[k] ??= (S.chatAt.sim2 ?? -99) < 0 ? -99 : S.now;
+      return S.now - this.codeAt[k] > CODE_T - 0.3;
+    };
     const toward = (v, to) => (to > v ? Math.min(to, v + dt * 0.6) : Math.max(to, v - dt * 0.6));
-    f.len = toward(f.len, has('len') ? 1 : 0);
-    f.valve = toward(f.valve, has('valve') ? 1 : 0);
+    f.len = toward(f.len, go('len') ? 1 : 0);
+    f.valve = toward(f.valve, go('valve') ? 1 : 0);
     this.sep.group.scale.x = 1 - SHORT * smooth(f.len);
     // the equal-percentage valve lifts out and hangs to the side; the new one drops into its place
     const out = smooth(f.valve * 1.6);
@@ -541,6 +568,26 @@ export class Twin {
       }
       ctx.globalAlpha = 1;
     }
+    for (const k of ['len', 'valve']) if (this.codeAt[k] != null && S.now - this.codeAt[k] < CODE_T) this.drawEdit(ctx, w, h, k, S.now - this.codeAt[k]);
+    ctx.restore();
+  }
+
+  // The VS Code window over the twin while a correction is made in the code
+  drawEdit(ctx, w, h, k, c) {
+    const e = EDITS[k], a = Math.min(1, c / 0.3, (CODE_T - c) / 0.4), grow = 0.94 + 0.06 * smooth(c / 0.3);
+    const ww = w * 0.94 * grow, hh = h * 0.84 * grow, x = (w - ww) / 2, y = (h - hh) / 2 + h * 0.04;
+    // the old value deleted, then the new one typed in, a character at a time
+    const p = ramp(c, ...EDIT), n = e.from.length + e.to.length, i = Math.round(p * n);
+    const val = i <= e.from.length ? e.from.slice(0, e.from.length - i) : e.to.slice(0, i - e.from.length);
+    const lines = PARAMS.map((l, j) => (j === e.line ? l.replace(e.from, val) : k === 'valve' && j === EDITS.len.line ? l.replace(EDITS.len.from, EDITS.len.to) : l)).map(py);
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#0008'; ctx.fillRect(0, 0, w, h);
+    drawVSCode(ctx, {
+      title: 'separator-twin — Visual Studio Code', tab: 'params.py',
+      tree: [{ t: '▾ SEPARATOR-TWIN' }, { t: '▾ model', lvl: 1 }, { t: TAB, lvl: 2 }, { t: 'params.py', lvl: 2, hl: true }, { t: '▾ data', lvl: 1 }, { t: 'drawing.pdf', lvl: 2 }, { t: 'datasheet.pdf', lvl: 2 }],
+      lines, caret: c > EDIT[0] - 0.4 && c < EDIT[1] + 0.6, caretAt: [e.line, PARAMS[e.line].indexOf(e.from) + val.length], chat: [{ t: e.say }], pick: 'CtrlBuddy',
+    }, x, y, ww, hh);
     ctx.restore();
   }
 
