@@ -519,6 +519,8 @@ export const BUDDY_WHO = {
   buddy: { model: 'control_buddy', name: () => 'CtrlBuddy', sub: () => T('Din assistent for prosessregulering', 'Your process control assistant') },   // (Adriaen, 2026-10-30)
   // Per's business-plan agent tomorrow: CtrlBuddy's model, its own name (Adriaen, 2026-10-29)
   planner: { model: 'control_buddy', name: () => 'PlanBuddy', sub: () => T('Din assistent for forretningsplanen', 'Your business-plan assistant') },
+  // the linter waving beside Adriaen's slide screen (ctrl-13z; Adriaen, 2026-11-01)
+  linter: { model: 'control_buddy_nurse', name: () => 'Linter', sub: () => T('Holder kunnskapsbasen sunn', 'Keeps the knowledge base healthy') },
   scholar: { model: 'control_buddy_scholar', name: () => T('Forretningsplan-agent', 'Business-plan agent'), sub: () => T('Utkast, tall og kilder til planen', 'Drafts, figures and sources for the plan') },
 };
 export const BUDDY_LOOKS = {

@@ -223,6 +223,42 @@ const H09 = {
 // ctrl-09 on the same monitor as ctrl-08s, the camera back in on it (Adriaen, 2026-11-01)
 const H09S = { ...H09, id: 'ctrl-09s', screen: 'Desk1Mon0Screen', zoomAt: Infinity };
 
+// ------------------------------------------------------------ slide 13, again (Adriaen, 2026-11-01)
+// The same VS Code on the monitor, the others closed: Linter.agent.md alone,
+// the linter agent under it (gliding over from its group on ctrl-09s). On the
+// next beat (ctrl-13z) the camera pulls back to Adriaen at his desk, the linter
+// waving on the screen to the right (content.js), and on the click he thinks
+// "Why do you exist?" (screenSlide.js think)
+const H13S = {
+  id: 'ctrl-13s', builds: 0, glideIn: true, onBuild: H09.onBuild,
+  screen: 'Desk1Mon0Screen', zoomAt: Infinity,
+  elements: [
+    H09.elements[0],
+    {
+      kind: 'card', cls: 'vsw see-through', x: 0, y: 0, w: 16, h: 9, anchor: [0.5, 0.5],
+      html: vscodeWindow({
+        tree: [{ t: '.github', dir: 'open' }, { t: 'agents', lvl: 1, dir: 'open' },
+          ...AGENTS9.map((k) => ({ t: `${AGENT_FILES[k][0]}.agent.md`, lvl: 2, git: 'U', sel: k === 'nurse' })),
+          { t: 'instructions', lvl: 1, dir: 'closed' }, { t: 'prompts', lvl: 1, dir: 'closed' },
+          ...['raw', 'wiki', 'scripts', 'tests'].map((t) => ({ t, dir: 'closed' })), { t: 'README.md' }],
+        groups: [{ tab: 'Linter.agent.md', crumbs: ['.github', 'agents', 'Linter.agent.md'], lines: AGENT_FILES.nurse[1], cur: 2 }],
+        chat: {
+          pick: 'Linter',
+          msgs: [{ me: true, t: T('Hvor bor dere egentlig?', 'Where do you actually live?') },
+            { t: T('Vi er bare <code>.agent.md</code>-filer i <code>.github/agents</code> i dette prosjektet. Velg hvem av oss du vil snakke med nedenfor.', 'We are just <code>.agent.md</code> files in <code>.github/agents</code> in this project. Pick which of us to talk to below.'), who: 'CtrlBuddy' }],
+        },
+        status: 'Ln 2, Col 7',
+      }),
+    },
+    fig(ROBOT.nurse, groupX(0, 1), -4.1 - HALF * H9, H9, 0, { cut: HALF, rot: -0.25 }),
+  ],
+};
+const H13Z = {
+  ...H13S, id: 'ctrl-13z', builds: 1,
+  zoomAt: 0, zoomShot: 'agentDesk', who: 'operator',
+  think: T('Hvorfor eksisterer du?', 'Why do you exist?'), thinkAt: 1,
+};
+
 // ------------------------------------------------------------ slide 10: Karpathy
 const MINI = { s: 0.48, x: 4.9, y: -1.75 };
 const mini = (x, y) => [MINI.x + x * MINI.s, MINI.y + y * MINI.s];
@@ -506,4 +542,4 @@ const H04 = {
   ],
 };
 
-export const LIVE_SLIDES = Object.fromEntries([H02, H02S, H08, H08S, H09, H09S, H01, H11, H12, H13, H14, H04].map((s) => [s.id, s]));
+export const LIVE_SLIDES = Object.fromEntries([H02, H02S, H08, H08S, H09, H09S, H13S, H13Z, H01, H11, H12, H13, H14, H04].map((s) => [s.id, s]));

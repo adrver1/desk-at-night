@@ -370,6 +370,24 @@
      "Knowledge base: Nordhav Energi-specific domain knowledge | More about this later"
     ]
    }
+  },
+  "ctrl-13s": {
+   "no": {
+    "title": "Lysbilde 13: Linter-agenten på skjermen"
+   },
+   "en": {
+    "title": "Deck slide 13: the linter agent on a screen"
+   },
+   "builds": 0
+  },
+  "ctrl-13z": {
+   "no": {
+    "title": "Lysbilde 13: Ola og Linter"
+   },
+   "en": {
+    "title": "Deck slide 13: Ola and the linter"
+   },
+   "builds": 1
   }
  },
  "chats": {
@@ -962,6 +980,29 @@
    "notes": "Lysbilde 13."
   },
   {
+   "after": "new.ctrl09s",
+   "id": "new.ctrl13s",
+   "slide": "ctrl-13s",
+   "set": {
+    "shot": "monitor:Desk1Mon0Screen"
+   },
+   "notes": "Samme VS Code på skjermen, de andre filene lukket: bare Linter.agent.md, med linter-agenten under."
+  },
+  {
+   "after": "new.ctrl13s",
+   "id": "new.ctrl13z",
+   "slide": "ctrl-13z",
+   "set": {
+    "buddyAt": "Desk1Mon1Screen",
+    "buddyWho": "linter",
+    "buddy": "splash",
+    "screens": {
+     "Desk1Mon1Screen": "buddy"
+    }
+   },
+   "notes": "Kameraet trekker seg ut til Ola ved pulten; Linter vinker på skjermen til høyre. Klikk: tankeboblen «Hvorfor eksisterer du?»."
+  },
+  {
    "after": "new.ctrl12",
    "id": "new.ctrl14",
    "slide": "ctrl-14",
@@ -1000,7 +1041,8 @@
   "b.forward",
   "b.room",
   "m.docs",
-  "m.s5"
+  "m.s5",
+  "new.ctrl13"
  ],
  "closing": {
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",

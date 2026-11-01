@@ -20,7 +20,7 @@ export function screenSlide(o) {
   host.append(canvas);
   const c = canvas.getContext('2d');
   const v = new THREE.Vector3();
-  let shown = false, zoomT = null, frame = null, frameOf = null;
+  let shown = false, zoomT = null, thinkT = null, frame = null, frameOf = null;
   let from = null, enterT = 0, lastOverlay = null;   // the full-screen slide before it, to fly down from
 
   const project = (p, W, H) => {
@@ -91,7 +91,7 @@ export function screenSlide(o) {
     c.scale(dpr, dpr);
     c.fillStyle = GREEN;
     c.shadowColor = '#0008'; c.shadowBlur = 12 * u;
-    LiveSlide.prototype.chunky.call({ U: () => 16 * u }, { both: true }, k, q, GREEN, c);
+    if (def.roomArrow) LiveSlide.prototype.chunky.call({ U: () => 16 * u }, { both: true }, k, q, GREEN, c);   // ctrl-13z: no arrow, a thought
     c.shadowBlur = 0;
     if (def.roomArrow && k > 0.5) {
       // the words follow the arrow, on its outside, read left to right (Adriaen, 2026-11-01)
@@ -122,5 +122,39 @@ export function screenSlide(o) {
       }
     }
     c.restore();
+    if (def.think && lv.build >= def.thinkAt) drawThink(c, def.think, hp, u, dpr, now - (thinkT ??= now));
+    else thinkT = null;
   };
+}
+
+// A thought bubble over the person's head: a cloud with the words, two little
+// puffs trailing down to them (ctrl-13z; Adriaen, 2026-11-01)
+function drawThink(c, text, hp, u, dpr, since) {
+  const k = Math.min(1, since / 0.45), e = 1 - (1 - k) ** 3;
+  c.save();
+  c.scale(dpr, dpr);
+  c.font = `600 ${Math.round(24 * u)}px "Instrument Sans", system-ui, sans-serif`;
+  const tw = c.measureText(text).width, w = tw + 70 * u, h = 84 * u;
+  const cx = hp[0] - 70 * u, cy = hp[1] - 185 * u;
+  c.globalAlpha = e;
+  c.fillStyle = HALO; c.strokeStyle = '#1b2a33'; c.lineWidth = 2.5 * u;
+  c.shadowColor = '#0006'; c.shadowBlur = 14 * u;
+  const puff = (x, y, r) => { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill(); c.stroke(); };
+  // the trail first, from the head up
+  puff(hp[0] - 8 * u, hp[1] - 58 * u, 7 * u * e);
+  puff(hp[0] - 24 * u, hp[1] - 90 * u, 11 * u * e);
+  // the cloud: bumps round an ellipse, drawn as one filled path then outlined
+  const rx = w / 2 * (0.85 + 0.15 * e), ry = h / 2 * (0.85 + 0.15 * e), n = 11;
+  c.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const a0 = (i / n) * Math.PI * 2, a1 = ((i + 1) / n) * Math.PI * 2, am = (a0 + a1) / 2;
+    const p0 = [cx + Math.cos(a0) * rx, cy + Math.sin(a0) * ry], p1 = [cx + Math.cos(a1) * rx, cy + Math.sin(a1) * ry];
+    if (i === 0) c.moveTo(...p0);
+    if (i < n) c.quadraticCurveTo(cx + Math.cos(am) * rx * 1.22, cy + Math.sin(am) * ry * 1.3, ...p1);
+  }
+  c.closePath();
+  c.fill(); c.shadowBlur = 0; c.stroke();
+  c.fillStyle = '#1b2a33'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillText(text, cx, cy + 1 * u);
+  c.restore();
 }
