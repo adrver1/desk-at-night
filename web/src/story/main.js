@@ -124,11 +124,13 @@ const merge = (a, b) => {
 // earlier beat's set and end, then its own set
 function stateAt(c, i) {
   const ch = CHAPTERS[c];
-  let s = merge({ act: 0, graph: 0, alarms: null, overlay: null, boatLabel: null, org: null, tool: null, chats: null, place: null, sound: 'room' }, ch.base);
+  // a chapter that carries on (content.js `carry`) starts where the one before it ends
+  let s = ch.carry && c > 0 ? endOf(c - 1) : merge({ act: 0, graph: 0, alarms: null, overlay: null, boatLabel: null, org: null, tool: null, chats: null, place: null, sound: 'room' }, ch.base);
   for (let k = 0; k < i; k++) s = chatDone(merge(merge(s, ch.beats[k].set), ch.beats[k].end), ch.beats[k]);
   return merge(s, ch.beats[i].set);
 }
 
+const endOf = (c) => { const bs = CHAPTERS[c].beats, b = bs[bs.length - 1]; return chatDone(merge(stateAt(c, bs.length - 1), b.end), b); };
 // A chat beat once past: every message shown
 const chatDone = (s, b) => (b.chat ? { ...s, chats: { ...s.chats, [b.chat]: CHATS[b.chat].messages.length } } : s);
 

@@ -622,6 +622,12 @@ const SHORT_CHAPTERS = [
       // then the call: he picks up in the room behind, his portrait moves aside for the caller's,
       // and the separator comes up once the caller has said who it is
       // m.what1-5 over the dark (Adriaen, 2026-10-30), which lifts as the camera turns to the phone; the use case's headline over it
+    ],
+  },
+  {
+    // (Adriaen, 2026-11-01) the first use case is a chapter of its own; it carries on where one year ago left off
+    key: 4, id: 'use-case-1', name: T('Brukstilfelle 1', 'Use case 1'), carry: true,
+    beats: [
       { id: 'm.ring', set: { thoughts: null, curve: null, explain: null, call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' }, do: [{ sound: 'ringtone', times: 6 }],
         card: { text: T('Brukstilfelle 1: Separatorregulering', 'Use case 1: Separator control'), small: true, top: true },
         notes: 'Telefonen ringer. Space: han tar den.' },

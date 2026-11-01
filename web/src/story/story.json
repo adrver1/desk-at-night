@@ -933,5 +933,5 @@
   "no": "Denne delen er ikke vår å bestemme. Den er deres.",
   "en": "This part isn't ours to decide. It's yours."
  },
- "chapterNames": {}
+ "chapterNames": {"pro.sola": {"no": "Prolog", "en": "Prologue"}, "t.open": {"no": "Framtidens EIGA", "en": "EIGA of tomorrow"}, "y.card": {"no": "Bakgrunn", "en": "Background"}, "m.ring": {"no": "Brukstilfelle 1", "en": "Use case 1"}}
 }
