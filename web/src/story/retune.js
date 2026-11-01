@@ -150,13 +150,14 @@ export class Retune {
       for (const c of this.trendCanvases) { c.width = Math.round((tw - 2 * pad) * k); c.height = Math.round(th * k); }
     }
     ctx.drawImage(this.canvas, 0, 0, vw, h);
-    ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    // the heading centred over the separator, clear of the call bubble's rounded corners (Adriaen, 2026-11-01)
+    ctx.textBaseline = 'top'; ctx.textAlign = 'center';
     ctx.shadowColor = '#000'; ctx.shadowBlur = u * 0.6;
     ctx.fillStyle = '#eef3f4'; ctx.font = `600 ${4.6 * u}px ${SANS}`;
-    ctx.fillText(HEADS[this.show], 3 * u, 3 * u);
+    ctx.fillText(HEADS[this.show], vw / 2, 3 * u);
     ctx.fillStyle = '#9fb3ba'; ctx.font = `500 ${2.5 * u}px ${MONO}`;
-    ctx.fillText(T('Sluggende brønn · 10x tid', 'Slugging well · 10x time'), 3 * u, 8.6 * u);
-    ctx.shadowBlur = 0;
+    ctx.fillText(T('Sluggende brønn · 10x tid', 'Slugging well · 10x time'), vw / 2, 8.6 * u);
+    ctx.shadowBlur = 0; ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(6, 14, 18, 0.9)';
     ctx.fillRect(vw, 0, tw, h);
     // the legend: new solid, old dashed

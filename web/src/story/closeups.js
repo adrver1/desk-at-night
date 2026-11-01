@@ -28,7 +28,7 @@ const BEZEL = 1.08, IN_FRONT = 0.1;
 
 // The CSS matrix3d that maps a w×h box onto the quad p (four [x, y] corners:
 // top left, top right, bottom right, bottom left)
-function quadMatrix(w, h, p) {
+export function quadMatrix(w, h, p) {
   const [[x0, y0], [x1, y1], [x2, y2], [x3, y3]] = p;
   const dx1 = x1 - x2, dx2 = x3 - x2, dy1 = y1 - y2, dy2 = y3 - y2;
   const sx = x0 - x1 + x2 - x3, sy = y0 - y1 + y2 - y3;

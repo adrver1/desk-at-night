@@ -684,10 +684,29 @@ const SHORT_CHAPTERS = [
         do: [{ wait: 0.8 }, { say: 'm.back1' }, { say: 'm.back2' }],
         end: { call: null, phone: null, retune: null },
         notes: 'Han gir dem de nye reguleringsparameterne; de har testet dem, og de fungerer. Den nye innstillingen går til neste klikk.' },
+    ],
+  },
+  // the loop report and the function blocks, each its own use case with a title beat (Adriaen, 2026-11-01);
+  // story.json hangs c.loops and c.pcs7 on the title beats
+  {
+    key: 4, id: 'use-case-3', name: T('Brukstilfelle 3', 'Use case 3'), carry: true,
+    beats: [
       // moved here from today's tools with m.s4 and the chats story.json hangs on it (c.pcs7, ctrl-05, c.loops):
-      // these are use cases too (Adriaen, 2026-11-01)
+      // these are use cases too (Adriaen, 2026-11-01); m.scd hidden (Adriaen, 2026-11-01: "delete this beat"),
+      // so it and m.s4 (with ctrl-05, both hidden) sit before the title beat, which sets everything they did back
       { id: 'm.scd', set: { overlay: null, retune: null, shot: 'monitor:Desk0Mon2Screen', tool: 'scd', screens: { Desk0Mon2Screen: 'scd' } }, notes: 'The I-005 logic tester: a missing interlock found on a laptop.' },
       { id: 'm.s4', set: { overlay: 'slide:m-04' } },
+      { id: 'm.uc3', set: { overlay: null, twin: null, retune: null, tool: null, screens: null, call: null, phone: null, thoughts: null, explain: null, shot: 'phoneDesk' },
+        card: { text: T('Brukstilfelle 3: Sløyfeovervåking', 'Use case 3: Loop monitoring'), small: true, dim: true },
+        notes: 'Brukstilfelle 3: hvilke sløyfer skal overvåkes, og hvilke trenger ny tuning.' },
+    ],
+  },
+  {
+    key: 4, id: 'use-case-4', name: T('Brukstilfelle 4', 'Use case 4'), carry: true,
+    beats: [
+      { id: 'm.uc4', set: { overlay: null, twin: null, retune: null, call: null, phone: null, thoughts: null, explain: null, shot: 'phoneDesk' },
+        card: { text: T('Brukstilfelle 4: PCS7-funksjonsblokker', 'Use case 4: PCS7 function blocks'), small: true, dim: true },
+        notes: 'Brukstilfelle 4: hvordan funksjonsblokkene i PCS7 virker.' },
     ],
   },
   {
@@ -704,7 +723,7 @@ const SHORT_CHAPTERS = [
     base: { act: 2, time: 13.2, shot: 'desk', ...DESK, cast: { operator: { at: 'desk2' } }, screens: { Desk0Mon2Screen: 'stepTest', Desk0Mon3Screen: 'riser', Desk0Mon4Screen: 'govDocs' } },
     beats: [
       // multi-agent work opens today's tools (Adriaen, 2026-10-30), its deck slides with it
-      { id: 'h.s2', set: { overlay: 'slide:h-02' }, notes: 'Multi-agent work.' },
+      { id: 'h.s2', set: { overlay: 'slide:h-02s', shot: 'monitor:Desk1Mon0Screen' }, notes: 'Multi-agent work, on the monitor as ctrl-08s after it.' },
       { id: 'm.riser', set: { overlay: null, shot: 'monitor:Desk0Mon3Screen', tool: 'riser', screens: { Desk0Mon3Screen: 'riser' } }, notes: 'The riser simulator, open loop: it fills and blows through.' },
       { id: 'm.antislug', set: { tool: 'antiSlug', screens: { Desk0Mon3Screen: 'antiSlug' } }, notes: 'Anti-slug control tuned on the model. Seeing is believing.' },
       { id: 'm.s3', set: { overlay: 'slide:m-03' } },
@@ -791,6 +810,7 @@ function applyStory(chapters) {
         const own = STORY.chats[add.chat]?.set;
         if (own) nb.set = { ...nb.set, ...own, screens: { ...nb.set.screens, ...own.screens } };
       }
+      if (add.set) nb.set = { ...nb.set, ...add.set };   // its own camera or screens (a slide on a room screen)
       if (add.card) nb.card = { text: tx(add.card), solid: !!add.solid };
       if (STORY.callouts[add.id]) nb.callouts = STORY.callouts[add.id].map((c) => ({ ...c, label: tx(c.label), text: tx(c.text) }));
       const after = ch.beats[i + 1];

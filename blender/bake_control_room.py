@@ -13,6 +13,8 @@ Same scheme as build.py, with three light groups instead of moon and lamp:
                        the browser tints with the live sky (outdoor.js)
     light_<lamp>.png   irradiance from each of the rest corner's lamps (LAMPS),
                        which the player switches on and off
+    light_merged.png   ceiling, screens and lamps in one, as story mode has
+                       them: it never changes them (controlScene.js STORY_MAP)
     board_*.png        what is pinned and written on the whiteboards, drawn
                        by boards.py; too fine for the atlas, so each board
                        surface has a second UV set onto its own image
@@ -54,6 +56,7 @@ GROUPS = {
 # Lamps the player switches one by one, each with a light map of its own,
 # and the object that is the lamp itself (to aim at)
 LAMPS = {"floorlamp": "FloorLamp"}
+STORY_CEILING = 3.0  # the ceiling's weight in story mode (play.js FULL_LIGHT at full)
 
 
 def texel_weight(name):
@@ -328,9 +331,13 @@ def main():
         bpy.data.objects.remove(o)
 
     b.save_albedo(b.pixels(imgs["albedo"]), os.path.join(OUT, "albedo.png"))
+    clean = {k: b.pixels(b.denoise(imgs[k])) for k in ("ceiling", "screens", *LAMPS)}
+    # Story mode's one map: its fixed lights, weighed as the game weighs them (play.js FULL_LIGHT, full ceiling)
+    story = STORY_CEILING * clean["ceiling"] + clean["screens"] + sum(clean[lamp] for lamp in LAMPS)
     meta = {
-        "scaleCeiling": b.save_light(b.pixels(b.denoise(imgs["ceiling"])), os.path.join(OUT, "light_ceiling.png")),
-        "scaleScreens": b.save_light(b.pixels(b.denoise(imgs["screens"])), os.path.join(OUT, "light_screens.png")),
+        "scaleCeiling": b.save_light(clean["ceiling"], os.path.join(OUT, "light_ceiling.png")),
+        "scaleScreens": b.save_light(clean["screens"], os.path.join(OUT, "light_screens.png")),
+        "scaleMerged": b.save_light(story, os.path.join(OUT, "light_merged.png")),
         "scaleSky": b.save_light(b.pixels(b.denoise(imgs["sky"])), os.path.join(OUT, "light_sky.png")),
         "seaLevel": round(-cr.PLATFORM_OFFSET.z, 3),  # in the room's frame, m
         "encoding": "L = pow(texel, 3) * scale",
@@ -338,7 +345,7 @@ def main():
         "samples": args.samples,
         "emitters": {},
         "lamps": {lamp: {"map": f"light_{lamp}.png", "body": body,
-                         "scale": b.save_light(b.pixels(b.denoise(imgs[lamp])), os.path.join(OUT, f"light_{lamp}.png"),
+                         "scale": b.save_light(clean[lamp], os.path.join(OUT, f"light_{lamp}.png"),
                                                     percentile=99.98)}  # lit only in its corner of the atlas
                   for lamp, body in LAMPS.items()},
     }

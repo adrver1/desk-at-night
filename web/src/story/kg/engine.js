@@ -158,8 +158,9 @@ export function globe() {
 // ------------------------------------------------------------ the slide
 
 export class LiveSlide {
-  constructor(host, { publicBase }) {
+  constructor(host, { publicBase, privateBase }) {
     this.base = publicBase;
+    this.privateBase = privateBase;   // ?private=1: pictures kept out of the public build (an img with `private`)
     this.el = document.createElement('div');
     this.el.className = `kg kg-${KG_LOOK}`;
     this.under = document.createElement('canvas');
@@ -229,7 +230,8 @@ export class LiveSlide {
   }
 
   resize() {
-    const r = this.el.getBoundingClientRect();
+    // the layout size, not the box on screen: on a room screen (main.js screenSlide) the slide is transformed
+    const r = { width: this.el.clientWidth, height: this.el.clientHeight };
     if (!r.width) return;
     this.W = r.width; this.H = r.height;
     const dpr = this.dpr = Math.min(2, devicePixelRatio || 1);
@@ -330,7 +332,7 @@ export class LiveSlide {
     if (['text', 'bubble', 'tag', 'img', 'card', 'title'].includes(e.kind)) {
       const d = it.dom = document.createElement(e.kind === 'img' ? 'img' : 'div');
       d.className = `kg-${e.kind} ${e.cls ?? ''}`;
-      if (e.kind === 'img') d.src = this.base + e.src;
+      if (e.kind === 'img') { if (e.private && !this.privateBase) d.hidden = true; else d.src = (e.private ? this.privateBase : this.base) + e.src; }
       else d.innerHTML = e.html;
       if (e.w) d.style.width = `calc(var(--sw) * ${e.w / 16 * 100})`;
       if (e.h) d.style.height = `calc(var(--sw) * ${e.h / 16 * 100})`;

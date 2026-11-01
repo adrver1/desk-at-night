@@ -30,6 +30,7 @@ import { Trondheim } from './trondheim.js';
 import { ClockFace } from './clockFace.js';
 import { Buddy } from './buddy.js';
 import { closeups } from './closeups.js';
+import { screenSlide } from './screenSlide.js';
 import { Workshop } from './workshop.js';
 import { Twin } from './twin.js';
 import { Retune } from './retune.js';
@@ -108,6 +109,7 @@ if (PRIVATE_ON) for (const id of ['stepTest', 'riser', 'antiSlug', 'scd', 'govDo
 let chapter = 0, beat = 0;     // where we are
 let token = 0;                 // bumps when a beat is left, so its steps stop
 let running = false, waiting = false;
+let onScreen = null;           // screenSlide.js, made once the camera is there
 let state = {};                // the state the current beat set up
 let free = false, notesOn = false;
 const prologue = { frame: null, t: 0, cues: new Set(), ended: false };
@@ -489,6 +491,7 @@ function toggleFree() {
   free = !free;
   host.classList.toggle('mode-free', free);
   if (free) {
+    game.room.useSeparateMaps();   // the wall panel and the lamp switch them
     token++;
     sound.cut();
     stopPrologue();
@@ -733,6 +736,8 @@ function frame(dt, now) {
     } else ui.boat(null);
     if (state.org || state.graphOn === 'overlay') ui.org(state.graphOn === 'overlay' ? 'graph' : state.org, S.graph, S.now - S.graphAt, S.now);
   }
+  // a live slide on a room screen (ctrl-08s): laid over the monitor, the camera pulling back on its last click
+  if (shots && !free) (onScreen ??= screenSlide({ game, ui, shots, host, get cast() { return cast; } }))(state, S.now);
   caller.update(dt);
   // letters being typed into a chat: the zoomed screen redrawn every frame, not at its own rate
   if (Object.entries(S.chatAt).some(([id, at]) => at > S.now && S.chatType[id])) game.room?.redrawFocus?.();
