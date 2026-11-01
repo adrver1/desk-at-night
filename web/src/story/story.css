@@ -411,10 +411,10 @@
 .caller { position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; transition: opacity 0.5s; background: radial-gradient(ellipse at 50% 52%, #0b1116cc 0 38%, #0b111699 70%); }
 .caller.on { opacity: 1; }
 .caller .them { opacity: 0; transition: opacity 0.5s 0.4s; }
-.caller.talk .them, .caller.sep .them { opacity: 1; }
+.caller.talk .them, .caller.sep .them, .caller.retune .them { opacity: 1; }
 .caller .me { transition: left 0.9s cubic-bezier(.4,0,.2,1), top 0.9s cubic-bezier(.4,0,.2,1), width 0.9s cubic-bezier(.4,0,.2,1); }
 /* ringing (and before): his face where the thoughts had it, so it stays put from m.think */
-.caller:not(.talk):not(.sep) .me { left: 50%; top: 52%; width: min(22vh, 18vw); }
+.caller:not(.talk):not(.sep):not(.retune) .me { left: 50%; top: 52%; width: min(22vh, 18vw); }
 .caller .who { position: absolute; top: 46%; margin: 0; width: min(22vh, 15vw); transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: calc(1 * var(--u)); }
 .caller .who img { width: 100%; aspect-ratio: 1; border-radius: 50%; background: #1d2a33; border: calc(0.5 * var(--u)) solid #e8eef2; object-fit: cover; box-shadow: 0 1vh 4vh #0008; }
 .caller .who figcaption { color: #e8eef2; font: 700 calc(1.7 * var(--u)) var(--display, system-ui); white-space: nowrap; text-shadow: 0 0.3vh 1vh #000a; }
@@ -422,7 +422,12 @@
 .caller .me { left: 88%; top: 58%; width: min(16vh, 11vw); }
 .caller .speech { position: absolute; left: 51%; top: 44%; width: min(56vw, 88vh); aspect-ratio: 16 / 9; transform: translate(-50%, -50%) scale(0.6); opacity: 0;
   transition: opacity 0.35s 0.25s, transform 0.5s 0.25s cubic-bezier(.3,1.4,.5,1); background: radial-gradient(ellipse at 50% 40%, #f4f1e8, #d9dde0); border-radius: calc(4 * var(--u)); box-shadow: 0 0.6vh 2.5vh #0007; }
-.caller.sep .speech { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.caller.sep .speech, .caller.retune .speech { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+/* the call back (m.back): the retune screen in the bubble instead of the 3D separator, pointing at the operator who shows it */
+.caller .speech canvas.flat { display: none; }
+.caller.retune .speech canvas:not(.flat) { display: none; }
+.caller.retune .speech canvas.flat { display: block; }
+.caller.retune .speech .tail { left: auto; right: calc(-3.2 * var(--u)); top: 62%; border-right: 0; border-left: calc(3.4 * var(--u)) solid #e8e8e4; }
 .caller .speech canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; }
 /* the tail points back at the caller */
 .caller .speech .tail { position: absolute; left: calc(-3.2 * var(--u)); top: 46%; width: 0; height: 0; border-top: calc(2.2 * var(--u)) solid transparent; border-bottom: calc(2.2 * var(--u)) solid transparent; border-right: calc(3.4 * var(--u)) solid #e8e8e4; }

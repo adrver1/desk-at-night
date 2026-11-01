@@ -655,11 +655,12 @@ const SHORT_CHAPTERS = [
         notes: 'Gammel og ny innstilling av nivåregulatoren side om side, på den nye modellen: strømningen holdes jevn, nivået får drive innenfor båndet. S bytter hvilken separatoren viser.' },
       // (Adriaen, 2026-11-01) they ring back, seen from the side as in the first call (m.call): he gives them
       // the new tuning, they have tried it and it works
-      { id: 'm.back', set: { overlay: null, retune: null, thoughts: null, explain: null, call: 'neighbour', callStage: 'ring', phone: null, shot: 'phoneDesk' },
+      // the new tuning in the call's bubble, as the separator was in the first call (Adriaen, 2026-11-01)
+      { id: 'm.back', set: { overlay: null, retune: 'screen', thoughts: null, explain: null, call: 'neighbour', callStage: 'ring', phone: null, shot: 'phoneDesk' },
         do: [{ sound: 'ringtone', times: 2 }, { wait: 4.6 }, { set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
-          { set: { callStage: 'talk' } }, { wait: 0.6 }, { say: 'm.call0' }, { say: 'm.back1' }, { say: 'm.back2' }, { wait: 0.4 },
+          { set: { callStage: 'talk' } }, { wait: 0.6 }, { say: 'm.call0' }, { set: { callStage: 'retune' } }, { wait: 0.5 }, { say: 'm.back1' }, { say: 'm.back2' }, { wait: 0.4 },
           { set: { phone: null } }, { wait: 0.65 }, { sound: 'hangup' }, { wait: 0.9 }, { set: { call: null } }],
-        end: { call: null, phone: null },
+        end: { call: null, phone: null, retune: null },
         notes: 'Nordhav Beta ringer tilbake. Han gir dem de nye reguleringsparameterne; de har testet dem, og de fungerer.' },
     ],
   },
