@@ -7,8 +7,7 @@
 //
 // drawStepReport(ctx, w, h, stage, age): stage 0 = the catalogue (scrolls
 // from the top down to it, then the filter goes to the step tests), stage 1 =
-// the best candidate (its trace opens, scrolls into view, draws and is read
-// along with a cursor). `age` is seconds since that message was sent.
+// the best candidate (its trace opens, scrolls into view and draws). `age` is seconds since that message was sent.
 import { PRIVATE, PRIVATE_BASE } from '../privateNames.js';
 
 const FILE = 'step-report.json';
@@ -250,15 +249,14 @@ export function drawStepReport(ctx, w, h, stage, age, base) {
   let scroll = 0;
   const at = (v) => page(ctx, data, v, true);
   if (stage === 0) {
-    view.filter = ramp(age, 8.4, 8.9);
+    view.filter = ramp(age, 4.4, 4.9);
     const m = at(view);
-    scroll = ramp(age, 1.2, 3.0) * 250 + ramp(age, 5.0, 7.2) * (m.catalogue - 60 - 250);
+    scroll = ramp(age, 0.8, 3.8) * (m.catalogue - 60);   // one smooth scroll down to it (Adriaen, 2026-11-01)
   } else {
     Object.assign(view, { filter: 1, open: ramp(age, 1.0, 1.8), draw: ramp(age, 3.4, 5.6) });
     const m = at({ ...view, open: 1 });
     const chartTop = m.catalogue + 222 + 44 + 64 + 16 + 150;
     scroll = (m.catalogue - 60) + ramp(age, 1.6, 3.4) * (chartTop - 56 - (m.catalogue - 60));
-    if (age > 6) view.cursor = 0.12 + 0.76 * ((Math.sin((age - 6) * 0.35 - Math.PI / 2) + 1) / 2);
   }
   ctx.save();
   ctx.scale(k, k);
