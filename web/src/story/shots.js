@@ -99,6 +99,8 @@ export class Shots {
       case 'buddyDesk_right': return this.look(new THREE.Vector3(0.2, 1.75, -1.1), new THREE.Vector3(2.15, 1.0, -2.0), 42);
       // the learning curve beside the operator: turned a little right, so he sits further left and the graph has room
       case 'phoneDesk': return this.look(new THREE.Vector3(-2.5, 1.75, 0.55), new THREE.Vector3(-0.45, 0.9, -1.6), 58);   // the call: the left desk with its phone, left of the portrait
+      // Adriaen at the right desk and the monitor left of him, from his left (the slide on a screen pulling back: screenSlide.js)
+      case 'agentDesk': return this.look(new THREE.Vector3(-0.1, 2.05, -0.55), new THREE.Vector3(0.95, 1.0, -2.0), 50);
       case 'curveDesk': return this.look(new THREE.Vector3(-0.2, 1.75, -1.1), new THREE.Vector3(-1.9, 1.0, -2.45), 42);
       case 'adriaen': return this.look(new THREE.Vector3(2.5, 1.45, -0.35), new THREE.Vector3(1.45, 1.1, -1.95), 55);   // his profile, the monitors beyond
       default: break;

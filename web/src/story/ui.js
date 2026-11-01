@@ -4,7 +4,7 @@
 // pinned to things in the room. Plain DOM, styled by story.css; main.js says
 // what to show.
 import { SPEAKERS, CLIPBOARD, STAR_DIMS, STARS, STAR_ROWS, SAFETY_LINE, CARDS, LEVELS, VOTES, VOTE_URL, SLIDES, LOGS, NOTICES, AGENTS, ORG, NEVER, PLAIN_CARDS, SEARCH, SLIDE_ORDER } from './content.js';
-import { T } from './lang.js';
+import { T, LANG } from './lang.js';
 import { drawGraph } from './graph.js';
 import { LiveSlide, KG_LOOK } from './kg/engine.js';
 import { LIVE_SLIDES } from './kg/slides.js';
@@ -103,14 +103,23 @@ export class StoryUI {
     this.navParts = [];
     for (const g of groups) {
       const ge = h('div', 'nav-group');
-      const room = (x) => x.ch.name.length + 4;   // b: a box as wide as its name wants
+      // b: a box as wide as its name wants on two lines, and never less than its longest word
+      // (Kunnskapsgrafer ran into the next box once there were 11 chapters)
+      // long compounds may break at an s-joint near their middle (Bruks-tilfelle, Kunnskaps-grafer) so
+      // 11 boxes fit; only those words, as hyphens:auto broke every word
+      const shy = (t) => t.replace(/[\p{L}]{12,}/gu, (w) => {
+        const at = [...w.matchAll(/s(?=[^aeiouyæøås])/g)].map((m) => m.index + 1).filter((i) => i > 3 && i < w.length - 3);
+        const i = at.sort((a, b) => Math.abs(a - w.length / 2) - Math.abs(b - w.length / 2))[0];
+        return i ? `${w.slice(0, i)}\u00ad${w.slice(i)}` : w;
+      });
+      const room = (x) => Math.max(Math.ceil(x.ch.name.length / 2), ...x.ch.name.split(/\s+/).map((w) => w.length)) + 2;
       ge.style.flexGrow = style === 'b' ? g.chs.reduce((n, x) => n + room(x), 0) : g.chs.reduce((n, x) => n + x.ch.beats.length, 0);
       if (style === 'c') ge.append(h('div', 'nav-act', esc(g.name)));
       const row = h('div', 'nav-row');
       for (const { ch, c, label } of g.chs) {
         const part = btn('nav-ch', '', `${ch.key} · ${ch.name}`, () => jump(c, 0));
         part.style.flexGrow = style === 'b' ? room({ ch }) : ch.beats.length;
-        part.innerHTML = style === 'b' ? `<span class="nav-key">${ch.key}</span><span class="nav-label">${esc(ch.name)}</span><span class="nav-dots"></span>`
+        part.innerHTML = style === 'b' ? `<span class="nav-key">${ch.key}</span><span class="nav-label" lang="${LANG === 'en' ? 'en' : 'nb'}">${shy(esc(ch.name))}</span><span class="nav-dots"></span>`
           : `<span class="nav-fill"></span>${style === 'c' ? `<span class="nav-tip">${ch.key} · ${esc(label)}</span>` : ''}`;
         row.append(part);
         this.navParts.push(part);
@@ -246,7 +255,7 @@ export class StoryUI {
     const live = KG_LOOK !== 'deck' && LIVE_SLIDES[id];
     e.classList.toggle('live', !!live);
     if (live) {
-      this.live ??= new LiveSlide(e, { publicBase: this.publicBase });
+      this.live ??= new LiveSlide(e, { publicBase: this.publicBase, privateBase: this.privateOn ? this.privateBase : null });
       e.prepend(this.live.el);
       this.build = null;
       this.live.show(live, fromEnd);
@@ -269,6 +278,7 @@ export class StoryUI {
   // (<id>.bNN.webp) for slides with builds, or with ?private=1 a PNG of the
   // same name in the private folder, when there is one
   findSlides(privateOn) {
+    this.privateOn = privateOn;
     const load = (name, done) => {
       const img = new Image();
       img.onload = () => done(img);
