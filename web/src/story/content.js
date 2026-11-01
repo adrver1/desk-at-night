@@ -705,7 +705,7 @@ const SHORT_CHAPTERS = [
     base: { act: 4, time: 22.0, shot: 'desk', ...DESK, graph: 5, graphOn: 'band', screens: { Wall0Screen: 'graph', Wall1Screen: 'graph', Wall2Screen: 'graph', Wall3Screen: 'graph', Wall4Screen: 'graph', Wall5Screen: 'graph', Wall6Screen: 'graph' } },
     beats: [
       { id: 'ep.zoom', set: { shot: 'epilogue' }, notes: 'The camera pulls back through the window to the platform at night, the graph glowing inside.' },
-      { id: 'ep.line', do: [{ card: { text: CLOSING, small: true } }], notes: 'TODO(Adriaen): pick the closing line (CLOSING in content.js). Then into the brainstorm.' },
+      { id: 'ep.line', notes: 'The camera rests on the platform at night. Then into the brainstorm. (Closing card removed, Adriaen 2026-11-01.)' },
     ],
   },
 ];

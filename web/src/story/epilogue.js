@@ -145,6 +145,7 @@ export class Epilogue {
     o.set({ clouds: 0, fog: 0, rain: 0, wind: -3 / 22, swellHs: 0 });   // wind 0 m/s (3 + 22 w)
     if (v) v.mode = 'alongside';
     if (!this.game.hooks.reflect.includes(this.scene)) this.game.hooks.reflect.push(this.scene);
+    o.mirrorScale = 0.5;   // the lights' reflections at a quarter blink on and off as the camera moves (Adriaen, 2026-11-01)
     this.t0 = performance.now();
   }
 
@@ -154,6 +155,7 @@ export class Epilogue {
     if (this.inside) this.inside.visible = true;
     const r = this.game.hooks.reflect, i = r.indexOf(this.scene);
     if (i >= 0) r.splice(i, 1);
+    this.game.outdoor3.mirrorScale = 0.25;
     if (this.was) {
       const { clouds, fog, rain, wind, swellHs } = this.was.weather;
       this.game.outdoor3.set({ clouds, fog, rain, wind, swellHs });
