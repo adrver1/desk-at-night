@@ -34,6 +34,7 @@ import sys
 import time
 
 import numpy as np
+from PIL import Image, ImageDraw, ImageFilter
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build as b  # noqa: E402  (imports bpy)
@@ -227,6 +228,16 @@ def main():
         xs, ys = [v.co.x for v in o.data.vertices], [v.co.y for v in o.data.vertices]
         boards[o.name] = (o.matrix_world.inverted(), (max(xs) - min(xs), max(ys) - min(ys)), cr.boards.ceiling_vent)  # in its own units: it may be scaled
         flats[o.name] = (-1, 0.0, "board_vent.png")
+    # The big surfaces: a small image repeating every `size` metres. Not a part of the room's join, so light still comes from the atlas
+    for names, size, facing, draw, png in (
+            (("Floor", "FloorNook"), 2.0, 1, cr.boards.tile_carpet, "tile_carpet.png"),
+            (("Desk0Top", "Desk1Top"), 1.0, 1, cr.boards.tile_desk, "tile_desk.png"),
+            (("Ceiling", "CeilingNook"), 0.6, -1, cr.boards.tile_ceiling, "tile_ceiling.png")):
+        for name in names:
+            o = scene.objects[name]
+            o.vertex_groups.new(name=name).add(range(len(o.data.vertices)), 1.0, "REPLACE")
+            boards[name] = (o.matrix_world.inverted(), (size, size), draw)
+            flats[name] = (facing, 0.0, png)
 
     glowing = [o for o in scene.objects if emissive(o)]
     b.texel_weight = texel_weight  # unwrap_weighted() looks it up by name
@@ -240,7 +251,8 @@ def main():
     # The mugs get lifted and moved, so they must not leave a shadow on the
     # desk (the browser draws one that follows them, mugShadow.js). They are
     # lit by the room but invisible to its rays while baking, then join it again.
-    mug_names = sorted(n for n in movable if n.endswith("Mug"))
+    # The wall clock's hands too: baked at 12, their shadow stayed on the dial as they turned.
+    mug_names = sorted(n for n in movable if n.endswith(("Mug", "Hand")))
     bpy.ops.object.select_all(action="DESELECT")
     bpy.context.view_layer.objects.active = room
     room.select_set(True)
@@ -267,6 +279,17 @@ def main():
 
     print(f"baking {args.res}x{args.res} atlases, {args.samples} samples", flush=True)
     scene.cycles.samples = 1
+    def mug_texels(res, cache={}):
+        """Which texels of the atlas the mugs and hands cover, grown by the bake's margin: flat, bottom row first.
+        From their UVs, as a black hand's colour can't tell a baked texel from an empty one."""
+        if res not in cache:
+            mask = Image.new("L", (res, res))
+            draw, uv = ImageDraw.Draw(mask), mugs.data.uv_layers.active.data
+            for f in mugs.data.polygons:
+                draw.polygon([(uv[li].uv[0] * res, uv[li].uv[1] * res) for li in f.loop_indices], fill=255, outline=255)
+            cache[res] = np.asarray(mask.filter(ImageFilter.MaxFilter(5))).ravel() > 0
+        return cache[res]
+
     def bake_all(image, passes, label):
         """The room, then the mugs on their own image, laid over it. Baked
         together, the mugs' margin paints over whatever lies next to them in
@@ -278,7 +301,7 @@ def main():
         image.pixels.foreach_get(px)
         over.pixels.foreach_get(top)
         px, top = px.reshape(-1, 4), top.reshape(-1, 4)
-        hit = top[:, :3].max(axis=1) > 0
+        hit = mug_texels(image.size[0])
         px[hit] = top[hit]
         image.pixels.foreach_set(px.ravel())
 

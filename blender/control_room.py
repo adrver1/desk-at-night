@@ -408,7 +408,7 @@ def build_shell(m):
     # like the real room (they follow the ducts, not a pattern), plus
     # air-conditioning cassettes; two more panels light the rest corner
     for i, (gx_, gy) in enumerate([(-7, -4), (-4, -5), (-1, -3), (3, -5), (6, -3), (-6, 0), (-2, 1), (2, -1),
-                                   (5, 1), (8, -1), (-5, 4), (0, 5), (4, 4), (-8, 6), (-2, 7), (2, 8, ), (2, -8), (6, -8)]):
+                                   (5, 1), (8, -1), (-5, 4), (0, 5), (4, 4), (-8, 6), (-2, 7), (2, 7), (2, -8), (6, -8)]):
         box(f"Led{i}", (0.58, 0.58, 0.01), (gx_ * 0.6, gy * 0.6, Z - 0.004), m["led_panel"])
     for i, (gx_, gy) in enumerate([(-3, 3), (6, -5), (-6, -4)]):
         box(f"AirCassette{i}", (0.62, 0.62, 0.04), (gx_ * 0.6, gy * 0.6, Z - 0.02), m["post"])

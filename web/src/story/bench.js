@@ -19,7 +19,7 @@ const BEATS = ['c.sim', 'm.build', 'm.twin', 'm.what1', 't.coffee', 'new.ctrl08'
 const AA = [{ aa: 'msaa' }, { aa: 'fxaa' }, { aa: '0', label: 'no aa' }];
 const BAKES = [
   { label: 'today' },
-  { variant: 'final_3072', label: 'new bake' },
+  { variant: 'final4_3072', label: 'surfaces' },
   { label: 'today again' },
 ];
 const MODES = {
@@ -122,7 +122,7 @@ async function measure(ms, tagOf) {
 // the download inside that, and the maps' size on the GPU (read from the PNG
 // headers: width × height × 4 bytes, a third more for mipmaps)
 async function loadCost(label, readyMs, capped) {
-  const baked = performance.getEntriesByType('resource').filter((e) => /\/control\/(light_\w+\.png|albedo\.png|scene\.glb)/.test(e.name));
+  const baked = performance.getEntriesByType('resource').filter((e) => /\/control\/(light_\w+\.png|tile_\w+\.png|albedo\.png|scene\.glb)/.test(e.name));
   const pngs = baked.filter((e) => e.name.includes('.png')).map((e) => e.name);
   const sizes = await Promise.all(pngs.map(async (name) => {
     const head = new DataView(await (await fetch(name, { headers: { Range: 'bytes=0-23' } })).arrayBuffer());
