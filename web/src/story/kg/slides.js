@@ -4,7 +4,7 @@
 // team), as everywhere in the public build.
 import { T } from '../lang.js';
 import { Graph } from './graph.js';
-import { books, globe, table, col, KG_LOOK } from './engine.js';
+import { books, globe, col, KG_LOOK } from './engine.js';
 import { vscodeWindow, vscodeStep, fitVSCode } from '../vscode.js';
 
 // ------------------------------------------------------------ helpers
@@ -145,7 +145,7 @@ const H08 = {
 // works with the user, it pulls back to show the screen and Adriaen at his desk, the green
 // arrow between them drawn in the room (main.js screenSlide)
 const H08S = {
-  ...H08, id: 'ctrl-08s', glideIn: false,
+  ...H08, id: 'ctrl-08s',   // glideIn as ctrl-08: the agents slide over from h-02 while the slide flies onto the monitor
   screen: 'Desk1Mon0Screen', zoomAt: 5, zoomShot: 'agentDesk', who: 'operator',
   roomArrow: T('Samhandler med', 'Works with'),
   elements: H08.elements.slice(0, -2),
@@ -215,6 +215,9 @@ const H09 = {
     draw((ctx) => { const k = Math.min(1, ctx.since * 1.2); ring(ctx, -5.8, 2.72, 1.55, 0.6, k); ring(ctx, 6.1, -1.86, 1.8, 0.55, Math.max(0, k * 1.5 - 0.5)); }, 4, { delay: 0.6 }),
   ],
 };
+
+// ctrl-09 on the same monitor as ctrl-08s, the camera back in on it (Adriaen, 2026-11-01)
+const H09S = { ...H09, id: 'ctrl-09s', screen: 'Desk1Mon0Screen', zoomAt: Infinity };
 
 // ------------------------------------------------------------ slide 10: Karpathy
 const MINI = { s: 0.48, x: 4.9, y: -1.75 };
@@ -479,16 +482,15 @@ const H14 = {
 };
 
 // ------------------------------------------------------------ slide 15: conclusion
-// The deck's picture (the three agents round a laptop at night) as the cast
-// itself: half portraits behind their table, the bullets one per click
+// The deck's picture (the three agents round a laptop at night) beside the
+// bullets, one per click
 const H04 = {
   id: 'h-04', builds: 6,
   focus: () => [0, 0, 0],
   elements: [
     title(T('Konklusjon', 'Conclusion')),
-    ...[['scholar', 2.3, 0.35], ['buddy', 4.75, 0], ['nurse', 7.0, -0.35]].map(([k, x, rot]) =>
-      fig(ROBOT[k], x, -4.6, k === 'buddy' ? 6.2 : 5.6, 0, { rot, cut: HALF })),
-    prop(table, 4.7, -2.15, 0, { z: 3 }),
+    // the deck's own picture, kept (Adriaen, 2026-11-01); private (story/private, ?private=1) until cleared for the public build
+    { kind: 'img', private: true, src: 'slides/h-04-team.png', x: 1.2, y: 2.75, w: 6.4, h: 6.4, from: 0, cls: 'pic' },
     ...[
       [T('Å sette opp agenter og agentteam er overraskende enkelt, prøv det!', 'Setting up agents and agent teams is surprisingly easy. Try it!'), 0],
       [T('Skaper verdi på flere måter:', 'Creates value in several ways:'), 0],
@@ -500,4 +502,4 @@ const H04 = {
   ],
 };
 
-export const LIVE_SLIDES = Object.fromEntries([H02, H08, H08S, H09, H01, H11, H12, H13, H14, H04].map((s) => [s.id, s]));
+export const LIVE_SLIDES = Object.fromEntries([H02, H08, H08S, H09, H09S, H01, H11, H12, H13, H14, H04].map((s) => [s.id, s]));

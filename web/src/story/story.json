@@ -313,6 +313,15 @@
    },
    "builds": 5
   },
+  "ctrl-09s": {
+   "no": {
+    "title": "Lysbilde 9 på skjermen"
+   },
+   "en": {
+    "title": "Deck slide 9, on a screen"
+   },
+   "builds": 4
+  },
   "ctrl-13": {
    "no": {
     "title": "Lysbilde 13 fra presentasjonen"
@@ -930,6 +939,15 @@
   },
   {
    "after": "new.ctrl09",
+   "id": "new.ctrl09s",
+   "slide": "ctrl-09s",
+   "set": {
+    "shot": "monitor:Desk1Mon0Screen"
+   },
+   "notes": "Lysbilde 9 på samme skjerm som lysbilde 8, kameraet inn på skjermen igjen."
+  },
+  {
+   "after": "new.ctrl09s",
    "id": "new.ctrl13",
    "slide": "ctrl-13",
    "notes": "Lysbilde 13."
@@ -949,6 +967,7 @@
  ],
  "hidden": [
   "new.ctrl08",
+  "new.ctrl09",
   "m.retune",
   "c.call",
   "y.steep",

@@ -246,7 +246,7 @@ export class StoryUI {
     const live = KG_LOOK !== 'deck' && LIVE_SLIDES[id];
     e.classList.toggle('live', !!live);
     if (live) {
-      this.live ??= new LiveSlide(e, { publicBase: this.publicBase });
+      this.live ??= new LiveSlide(e, { publicBase: this.publicBase, privateBase: this.privateOn ? this.privateBase : null });
       e.prepend(this.live.el);
       this.build = null;
       this.live.show(live, fromEnd);
@@ -269,6 +269,7 @@ export class StoryUI {
   // (<id>.bNN.webp) for slides with builds, or with ?private=1 a PNG of the
   // same name in the private folder, when there is one
   findSlides(privateOn) {
+    this.privateOn = privateOn;
     const load = (name, done) => {
       const img = new Image();
       img.onload = () => done(img);
