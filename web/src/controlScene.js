@@ -44,6 +44,17 @@ const BUSY_HZ = 20, BUSY_FOR = 0.25; // screens asked for with redraw() (typing,
 // ?cull=0: the room's sun shadow drawn all day and every camera picture taken (docs/performance.md)
 const CULL = new URLSearchParams(location.search).get('cull') !== '0';
 const viewFrustum = new THREE.Frustum(), viewMatrix = new THREE.Matrix4();
+// How many pixels across a screen overlay shows as, in a picture `width`
+// pixels wide seen by `camera` (its face found once; screens don't move)
+const _fa = new THREE.Vector3(), _fb = new THREE.Vector3();
+function shownWidth(o, camera, width) {
+  o.frame ??= faceFrame(o.mesh, null);   // as sharpen() caches it
+  if (!o.frame) return 0;
+  _fa.copy(o.frame.at(0, 0.5)).project(camera);
+  _fb.copy(o.frame.at(1, 0.5)).project(camera);
+  if (_fa.z > 1 || _fb.z > 1) return width;   // reaching behind the camera: big
+  return Math.hypot(_fb.x - _fa.x, (_fb.y - _fa.y) / camera.aspect) / 2 * width;
+}
 const SCREEN_SCALE = matchMedia('(pointer: coarse)').matches ? 0.5 : 1;
 // Screens drawn at the size they show at: a screen in view gets its own
 // texture with as many texels as it covers canvas pixels (in steps of half
@@ -734,9 +745,11 @@ export async function loadControlRoom(renderer) {
     // Which camera pictures some screen shows right now (to skip the others)
     // With `camera`, only the screens in its view: a camera picture nobody
     // sees isn't taken (cctv.js still takes each one once, so a screen that
-    // turns into view never starts out black)
-    feedsShown(camera = null) {
-      const shown = new Set();
+    // turns into view never starts out black). Then also how wide each
+    // picture shows, in pixels of a picture `width` across (the widest
+    // screen showing it), for cctv.js to take it at that size
+    feedsShown(camera = null, width = 0) {
+      const shown = new Map();
       if (camera) {
         camera.updateMatrixWorld();
         viewFrustum.setFromProjectionMatrix(viewMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
@@ -744,7 +757,8 @@ export async function loadControlRoom(renderer) {
       if (screens) for (const o of screens.overlays.values()) {
         if (!o.mesh.visible || !o.mesh.material.uniforms.uFeed.value) continue;
         if (camera && !viewFrustum.intersectsObject(o.mesh)) continue;
-        shown.add(contentOf(o.name));
+        const id = contentOf(o.name);
+        shown.set(id, Math.max(shown.get(id) ?? 0, camera && width ? shownWidth(o, camera, width) : 0));
       }
       return shown;
     },
