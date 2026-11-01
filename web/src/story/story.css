@@ -430,17 +430,17 @@
    magenta square bullets, line drawings), the right half of a full .slide (same height and right edge,
    rounded, shadowed, the same margins: 5%/6%, which like the .slide's are of the stage's width) beside him, one part per beat */
 .explain { position: absolute; left: 50%; top: 50%; width: min(43vw, calc(150vh * 0.43)); aspect-ratio: 8 / 9; max-width: 100%; z-index: 6; pointer-events: none; opacity: 0; transform: translate(3%, -50%); transition: opacity 0.45s, transform 0.5s cubic-bezier(.3,1.1,.5,1);
-  background: #fff; color: #1d1d1f; border-radius: 6px; box-shadow: 0 20px 70px #000c; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 5% 6%; box-sizing: border-box; container-type: inline-size; font-family: Aptos, 'Segoe UI', Arial, system-ui, sans-serif; }
+  background: #fff; color: #1d1d1f; border-radius: 6px; box-shadow: 0 20px 70px #000c; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 5% 6%; box-sizing: border-box; container-type: inline-size; font-family: var(--body); }
 .explain.on { opacity: 1; transform: translate(0, -50%); }
-.explain h2 { margin: 0 0 6.4cqw; font: 700 8.8cqw/1.1 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; letter-spacing: -0.01em; }
+.explain h2 { margin: 0 0 6.4cqw; font: 700 8.8cqw/1.1 var(--body); letter-spacing: -0.01em; }
 .explain ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4.4cqw; }
 .explain li { display: grid; grid-template-columns: 10.4cqw 1fr; gap: 4cqw; align-items: center; opacity: 0; transform: translateY(2cqw); transition: opacity 0.4s, transform 0.45s cubic-bezier(.3,1.3,.5,1); }
 .explain li.in { opacity: 1; transform: none; }
 .explain li svg { width: 100%; aspect-ratio: 1; fill: none; stroke: #1d1d1f; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.explain li b { display: flex; align-items: center; gap: 0.5em; font: 700 5.3cqw/1.2 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; }
+.explain li b { display: flex; align-items: center; gap: 0.5em; font: 700 5.3cqw/1.2 var(--body); }
 .explain li b::before { content: ''; width: 0.42em; height: 0.42em; background: #c2185b; flex: none; }
-.explain li i { display: block; margin: 1.2cqw 0 0 calc(5.3cqw * 0.92); font: italic 600 3.7cqw/1.2 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; color: #c2185b; }   /* the bullet's aside after ' | ' */
-.explain li span { display: block; margin-left: calc(5.3cqw * 0.92); font: 400 4.2cqw/1.3 Aptos, 'Segoe UI', Arial, system-ui, sans-serif; color: #333; }
+.explain li i { display: block; margin: 1.2cqw 0 0 calc(5.3cqw * 0.92); font: italic 600 3.7cqw/1.2 var(--body); color: #c2185b; }   /* the bullet's aside after ' | ' */
+.explain li span { display: block; margin-left: calc(5.3cqw * 0.92); font: 400 4.2cqw/1.3 var(--body); color: #333; }
 /* V / U: which voice and subtitles (main.js speechToast) */
 .speech-toast { position: absolute; left: 50%; top: 5%; transform: translateX(-50%); z-index: 20; pointer-events: none; padding: 0.5em 1em; border-radius: 0.5em; background: #0b1116d9; color: #e8eef2; font: 600 calc(1.4 * var(--u)) var(--display, system-ui); opacity: 0; transition: opacity 0.3s; }
 .speech-toast.on { opacity: 1; }
@@ -487,7 +487,7 @@
 .kg-text.foot { text-align: center; font: 600 calc(var(--sw) * 0.95)/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--soft); }
 .kg-text.check { font-size: calc(var(--sw) * 1.6); display: flex; gap: 0.5em; align-items: baseline; }
 .kg-text.check .tick { color: var(--green); font-weight: 800; }
-.kg-text.globe-w { font: 400 calc(var(--sw) * 4)/1 Georgia, "Times New Roman", serif; color: #6c737c; }
+.kg-text.globe-w { font: 400 calc(var(--sw) * 4)/1 var(--body); color: #6c737c; }
 .kg-tag { font: 700 calc(var(--sw) * 0.85)/1 var(--body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); white-space: nowrap; }
 .kg-node { font: 600 max(8px, calc(var(--sw) * 0.75))/1 var(--body); color: #253041; background: #ffffffe6; padding: 0.22em 0.45em; border-radius: 99px; box-shadow: 0 1px 3px #18202c22; white-space: nowrap; }
 .kg-node.hub { color: #fff; background: #253041; }
@@ -585,7 +585,7 @@
 .kg-card.note dd span { background: #8a6ad855; color: #e0d4ff; padding: 0 0.4em; border-radius: 99px; margin-right: 0.3em; }
 .kg-card.note a { color: #b9a2f0; text-decoration: underline; }
 .kg-card.note p { margin: 0.4em 0; }
-.kg-card.note .formula { font: italic 1.15em/1.4 Georgia, serif; text-align: center; color: #fff; margin: 0.6em 0; }
+.kg-card.note .formula { font: italic 1.15em/1.4 var(--body); text-align: center; color: #fff; margin: 0.6em 0; }
 /* the diorama: light text on the night, glassy panels */
 .kg-b { --ink: #e8edf2; --soft: #a9b4c2; --green: #3fcf8e; --magenta: #ff6f91; }
 .kg-b .kg-title { text-shadow: 0 2px 18px #000c; }
