@@ -489,8 +489,8 @@ const H04 = {
   focus: () => [0, 0, 0],
   elements: [
     title(T('Konklusjon', 'Conclusion')),
-    // the deck's own picture, kept (Adriaen, 2026-11-01); private (story/private, ?private=1) until cleared for the public build
-    { kind: 'img', private: true, src: 'slides/h-04-team.png', x: 1.2, y: 2.75, w: 6.4, h: 6.4, from: 0, cls: 'pic' },
+    // the deck's own picture, kept (Adriaen, 2026-11-01; cleared for the public build, it has been shown in public)
+    { kind: 'img', src: 'slides/h-04-team.webp', x: 1.2, y: 2.75, w: 6.4, h: 6.4, from: 0, cls: 'pic' },
     ...[
       [T('Å sette opp agenter og agentteam er overraskende enkelt, prøv det!', 'Setting up agents and agent teams is surprisingly easy. Try it!'), 0],
       [T('Skaper verdi på flere måter:', 'Creates value in several ways:'), 0],
