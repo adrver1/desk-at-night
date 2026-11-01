@@ -228,13 +228,22 @@ const roomFragment = /* glsl */ `
     #else
     vec3 albedo = texture2D(uAlbedo, vUv).rgb;
     #endif
+    #ifdef MERGED
+    vec3 eCeiling = decode(uLightCeiling, uScaleCeiling);   // ceiling, screens and lamp in one map, weighed at bake time
+    vec3 eScreens = vec3(0.0);
+    #else
     vec3 eCeiling = uCeiling * decode(uLightCeiling, uScaleCeiling);
     vec3 eScreens = uScreens * decode(uLightScreens, uScaleScreens);
+    #endif
     vec3 eSky = uSky * decode(uLightSky, uScaleSky);
     #ifndef OUTSIDE
     eSky *= uSkyPass;
     #endif
+    #ifdef MERGED
+    vec3 eLamps = vec3(0.0);
+    #else
     vec3 eLamps = uLamp0 * decode(uLightLamp0, uScaleLamp0) + uLamp1 * decode(uLightLamp1, uScaleLamp1);
+    #endif
     vec3 n = normalize(vNormal);
     float facing = dot(n, uSunDir);
     #ifdef OUTSIDE
@@ -285,6 +294,11 @@ async function bytes(name) {
 // get a little, which keeps the floor and desks sharp at a glance.
 // ?aniso=old gives every map the GPU's most (16 on most), as before 2026-10-26
 const ANISO_OLD = new URLSearchParams(location.search).get('aniso') === 'old';
+// Story mode never changes the ceiling, screens or lamp, so it has them in one
+// map (light_merged.png), which leaves two maps fewer on the GPU, 100 MB at
+// 3072². Free play switches them, so it loads the separate maps when it starts
+// (useSeparateMaps). Laptop bench 2026-11-01: same fps. ?merged=0 turns it off.
+const STORY_MAP = /story\.html$/.test(location.pathname) && new URLSearchParams(location.search).get('merged') !== '0';
 const ANISO_COLOUR = 4;
 
 async function texture(renderer, buffer, srgb) {
@@ -301,12 +315,13 @@ async function texture(renderer, buffer, srgb) {
 export async function loadControlRoom(renderer) {
   const meta = await fetch(SCENE + 'meta.json', FRESH).then((r) => { if (!r.ok) throw new Error('Could not load meta.json. Run blender/bake_control_room.py first.'); return r.json(); });
   const lamps = Object.entries(meta.lamps ?? {}).slice(0, 2); // [name, { map, scale }]
+  const MERGED = STORY_MAP && Boolean(meta.scaleMerged);
   const [glb, albedoBuf, ceilBuf, scrBuf, skyBuf, ...lampBufs] = await Promise.all([
-    bytes('scene.glb'), bytes('albedo.png'), bytes('light_ceiling.png'), bytes('light_screens.png'),
-    meta.scaleSky ? bytes('light_sky.png') : null, ...lamps.map(([, l]) => bytes(l.map)),
+    bytes('scene.glb'), bytes('albedo.png'), bytes(MERGED ? 'light_merged.png' : 'light_ceiling.png'), MERGED ? null : bytes('light_screens.png'),
+    meta.scaleSky ? bytes('light_sky.png') : null, ...(MERGED ? [] : lamps.map(([, l]) => bytes(l.map))),
   ]);
   const [albedo, lightCeiling, lightScreens, lightSky, ...lampMaps] = await Promise.all([
-    texture(renderer, albedoBuf, true), texture(renderer, ceilBuf, false), texture(renderer, scrBuf, false),
+    texture(renderer, albedoBuf, true), texture(renderer, ceilBuf, false), scrBuf ? texture(renderer, scrBuf, false) : blackMap(),
     skyBuf ? texture(renderer, skyBuf, false) : blackMap(),
     ...lampBufs.map((buf) => texture(renderer, buf, false)),
   ]);
@@ -322,9 +337,10 @@ export async function loadControlRoom(renderer) {
   const material = new THREE.ShaderMaterial({
     vertexShader: sunVertex,
     fragmentShader: roomFragment,
+    defines: MERGED ? { MERGED: '' } : {},
     uniforms: {
       uAlbedo: { value: albedo }, uLightCeiling: { value: lightCeiling }, uLightScreens: { value: lightScreens },
-      uScaleCeiling: { value: meta.scaleCeiling }, uScaleScreens: { value: meta.scaleScreens },
+      uScaleCeiling: { value: MERGED ? meta.scaleMerged : meta.scaleCeiling }, uScaleScreens: { value: meta.scaleScreens },
       uCeiling: { value: 1 }, uScreens: { value: 1 }, uMode: { value: 0 },
       uLightSky: { value: lightSky }, uScaleSky: { value: meta.scaleSky ?? 0 }, uSky: { value: new THREE.Color(0, 0, 0) },
       uSun: { value: new THREE.Color(0, 0, 0) }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
@@ -350,11 +366,14 @@ export async function loadControlRoom(renderer) {
   };
   if (curtains) { gltf.scene.add(curtains.group); letIn(); }
   // The platform outside the window: the same atlas, plus the sun
+  const roomMaterials = [material];   // all with the room's light uniforms: their values are shared
+  let separate = null;
   const outsideMesh = gltf.scene.getObjectByName('Outside');
   let outside = null;
   if (outsideMesh) {
     outside = material.clone();
-    outside.defines = { OUTSIDE: '' };
+    roomMaterials.push(outside);
+    outside.defines = { ...material.defines, OUTSIDE: '' };
     outside.uniforms = { ...material.uniforms, ...shadows.platform.uniforms, uFogColor: { value: new THREE.Color() }, uFogDistance: { value: 1e5 } };
     outsideMesh.material = outside;
   }
@@ -384,8 +403,9 @@ export async function loadControlRoom(renderer) {
     const mesh = gltf.scene.getObjectByName(name);
     if (!mesh) continue;
     const board = material.clone();
+    roomMaterials.push(board);
     board.vertexShader = boardVertex;
-    board.defines = { BOARD: '', USE_UV1: '' };
+    board.defines = { ...material.defines, BOARD: '', USE_UV1: '' };
     const image = await texture(renderer, boardBufs[i], true);
     if (png.startsWith('tile_')) image.wrapS = image.wrapT = THREE.RepeatWrapping;   // floor, desks, ceiling: a small image over and over
     board.uniforms = { ...material.uniforms, uBoard: { value: image } };
@@ -607,6 +627,24 @@ export async function loadControlRoom(renderer) {
       outside.uniforms.uFogDistance.value = fogDistance;
     },
     // Set the light mix: weights for the two groups, and the debug view
+    // Free play: from the merged map to the separate ones it can switch.
+    // The lights look the same until they load, as nothing has moved yet.
+    async useSeparateMaps() {
+      if (!('MERGED' in material.defines) || separate) return separate;
+      separate = (async () => {
+        const [ceiling, screenLight, ...lampMaps] = await Promise.all(['light_ceiling.png', 'light_screens.png', ...lamps.map(([, l]) => l.map)]
+          .map(async (name) => texture(renderer, await bytes(name), false)));
+        const u = material.uniforms;
+        for (const t of [ceiling, screenLight, ...lampMaps]) renderer.initTexture(t);
+        u.uLightCeiling.value.dispose();
+        u.uLightCeiling.value = ceiling;
+        u.uScaleCeiling.value = meta.scaleCeiling;
+        u.uLightScreens.value = screenLight;
+        lampMaps.forEach((t, i) => { u[`uLightLamp${i}`].value = t; });
+        for (const m of roomMaterials) { delete m.defines.MERGED; m.needsUpdate = true; }
+      })().catch((e) => console.warn('separate light maps', e));
+      return separate;
+    },
     setLights(ceiling, screens, mode = 0) {
       const u = material.uniforms;
       u.uCeiling.value = ceiling;
