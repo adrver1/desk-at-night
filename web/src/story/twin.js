@@ -42,6 +42,7 @@ const BLUE = 0x5fd6ff;
 const SHORT = 1 / 8;   // the correction: 8 m to 7 m
 const EQP = 30;        // rangeability of the equal-percentage curve
 const FIX_WAIT = 0.3;  // s after his message is sent before its correction starts
+const HOP = 1.6;      // s, CtrlBuddy's flight between the twin's screen and the report's
 
 // Turn a bone so its length (+Y) points along a world direction, blended by w (as workshop.js aim)
 function aim(bone, want, w = 1) {
@@ -283,6 +284,7 @@ export class Twin {
       if (idle) mix.clipAction(idle).play();
       this.mixers.push(mix);
       this.budAt = new THREE.Vector3(-1, 0, 3);
+      this.hop = 0;   // 0 by the twin, 1 at the report
       this.budBones = bones(this.bud);
       this.bud.position.copy(this.budAt);
       this.scene.add(this.bud);
@@ -290,6 +292,7 @@ export class Twin {
     // the report's scene: the document filling the picture, and a second CtrlBuddy for it
     const d = this.doc, ph = 2 * 6 * Math.tan(THREE.MathUtils.degToRad(15)), pw = ph * d.camera.aspect;
     d.camera.position.set(0, 0, 6);
+    d.camera.updateMatrixWorld();
     d.size = [pw, ph];
     d.plane = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), new THREE.MeshBasicMaterial({ map: d.tex, toneMapped: false }));
     d.scene.background = new THREE.Color(0x14191f);
@@ -384,15 +387,22 @@ export class Twin {
       // beside it, a little in front, so we see him three-quarter on
       const want = new THREE.Vector3(Math.min(3.6, this.at.x + 1.6), Math.max(-1.6, this.at.y - 0.3), 2.6);
       if (!key || key === 'run') want.set(2.4, -1.6, 2.8);
-      if (this.doc.away) want.set(9, -0.6, 3);   // off to the right, into the report's screen beside it
       this.budAt.lerp(want, Math.min(1, dt * 2.5));
-      this.bud.position.copy(this.budAt);
+      // one flight to the report's screen on the right and back (Adriaen: smooth and continuous): the first
+      // half takes him out past the twin's right edge, the second (updateDoc) in from the report's left edge
+      const to = this.doc.away ? 1 : 0;
+      this.hop += Math.sign(to - this.hop) * Math.min(Math.abs(to - this.hop), dt / HOP);
+      const a = Math.min(1, smooth(this.hop) * 2);
+      const ndc = this.budAt.clone().project(this.camera);
+      const exit = new THREE.Vector3(1.3, ndc.y, ndc.z).unproject(this.camera);
+      this.bud.position.copy(this.budAt).lerp(exit, a);
       this.bud.position.y += Math.sin(this.t * 2) * 0.06;
+      this.bud.visible = a < 1;
       // turned half way between the part and us (the crew look down their -Z)
       const look = this.at.clone().sub(this.budAt).setY(0).normalize().add(this.camera.position.clone().sub(this.budAt).setY(0).normalize());
       this.bud.rotation.y = Math.atan2(-look.x, -look.z);
       const from = this.bud.position.clone().add(new THREE.Vector3(0, 1.05, 0));
-      const busy = key && key !== 'run' && k[placing] > 0;
+      const busy = key && key !== 'run' && k[placing] > 0 && this.hop === 0;
       this.beam.visible = Boolean(busy);
       if (busy) {
         this.beam.position.copy(from);
@@ -439,16 +449,20 @@ export class Twin {
     if (pt && iw) { const k = Math.min(W / iw, H / ih); u = ((W - iw * k) / 2 + pt[0] * iw * k) / W; v = ((H - ih * k) / 2 + pt[1] * ih * k) / H; }
     d.point.set((u - 0.5) * d.size[0], (0.5 - v) * d.size[1], 0.02);
     d.away = last?.[0] === 'show';
-    const want = d.away ? d.point.clone().add(new THREE.Vector3(0.48, -0.5, 0.9)) : new THREE.Vector3(-d.size[0] / 2 - 1.2, -0.4, 1);
+    // the second half of the flight from the twin (update): in from the left edge to beside the highlight
+    const want = d.point.clone().add(new THREE.Vector3(0.48, -0.5, 0.9));
     d.at.lerp(want, Math.min(1, dt * 2.2));
-    d.bud.position.copy(d.at);
+    const b = Math.max(0, smooth(this.hop) * 2 - 1), ndc = d.at.clone().project(d.camera);
+    const enter = new THREE.Vector3(-1.3, ndc.y, ndc.z).unproject(d.camera);
+    d.bud.position.copy(enter).lerp(d.at, b);
     d.bud.position.y += Math.sin(this.t * 2) * 0.03;
-    d.shadow.position.set(d.at.x + 0.12, d.at.y + 0.22, 0.03);
-    const look = d.point.clone().sub(d.at).setY(0).normalize().add(d.camera.position.clone().sub(d.at).setY(0).normalize());
+    d.bud.visible = d.shadow.visible = b > 0;
+    d.shadow.position.set(d.bud.position.x + 0.12, d.bud.position.y + 0.22, 0.03);
+    const look = d.point.clone().sub(d.bud.position).setY(0).normalize().add(d.camera.position.clone().sub(d.at).setY(0).normalize());
     d.bud.rotation.y = Math.atan2(-look.x, -look.z);
     d.mixer.update(dt);
     // the arm up at it once he is there
-    const near = d.away ? Math.max(0, 1 - d.at.distanceTo(want) / 0.6) : 0;
+    const near = b > 0.9 ? Math.max(0, 1 - d.bud.position.distanceTo(want) / 0.6) : 0;
     d.w += (near - d.w) * Math.min(1, dt * 4);
     const sh = d.bones.upper_armR?.getWorldPosition(new THREE.Vector3());
     if (sh && d.w > 0.01) { const dir = d.point.clone().sub(sh).normalize(); aim(d.bones.upper_armR, dir, d.w); aim(d.bones.forearmR, dir, d.w); }
