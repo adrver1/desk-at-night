@@ -302,13 +302,13 @@ def build_desk_props(m):
         edge = polar(r_front(a), a, DESK_Z)
         right, ahead = Vector((math.cos(a), -math.sin(a), 0)), Vector((math.sin(a), math.cos(a), 0))
         for make, x, y, yaw, dz in STATION_PROPS:
-            if make is not props.make_keyboard and make is not props.make_mousepad and make is not props.make_mouse:
-                x = flip * x  # mirror the left/right extras, keep the mouse on the right
+            if make not in (props.make_keyboard, props.make_mousepad, props.make_mouse, props.make_notepad, props.make_pencil):
+                x = flip * x  # mirror the left/right extras, keep the mouse on the right, and the notepad clear of its pad
             pos = edge + right * x + ahead * y
             props.place(make(pm, f"S{k}{make.__name__[5:].title()}"), pos.x, pos.y, DESK_Z + dz,
                         -a + math.radians(flip * yaw))
-        p = edge + right * (flip * -0.80) + ahead * 0.30
-        props.place(props.make_deskphone(pm, f"S{k}Phone"), p.x, p.y, DESK_Z, -a + 0.3 * flip)
+        p = edge + right * (flip * -0.84) + ahead * 0.20  # all on the desk top, clear of the shelf and the notepad
+        props.place(props.make_deskphone(pm, f"S{k}Phone", handset=DESK_PHONES != "live"), p.x, p.y, DESK_Z, -a + 0.3 * flip)
         # Shallow grey drawer hung under the top, to the operator's left
         p = edge + right * (flip * -0.62) + ahead * 0.22
         box(f"Desk{k}Drawer", (0.46, 0.38, 0.07), (p.x, p.y, DESK_Z - DESK_T - 0.035), m["post"], rot_z=-a)
@@ -517,7 +517,7 @@ def build_rear(m):
     pm = props.materials()
     px, py, side = PILLAR
     props.place(props.make_pillar(pm, "Pillar", (side, side), ROOM_Z), px, py, 0.0)
-    props.place(props.make_plant(pm, "PlantRear", light=LIGHT_PLANTS), -4.85, ROOM_Y0 + 0.35, 0.0)
+    props.place(props.make_plant(pm, "PlantRear", light=LIGHT_PLANTS), -4.85, ROOM_Y0 + 0.55, 0.0)
 
 
 def build_lounge(m):
@@ -535,7 +535,8 @@ def build_lounge(m):
     props.place(props.make_fern(pm, "Fern"), kx - 0.68, NY + 0.30, 0.90, math.pi)
     for o in props.make_wall_clock(pm, "WallClock", CLOCK_STYLE, live=True):  # the hands follow the game's clock
         props.place(o, kx + 0.1, NY, 1.95, math.pi)
-    props.place(props.make_plant(pm, "PlantNook", 1.2, light=LIGHT_PLANTS), NX + 0.30, ROOM_Y0 - 0.30, 0.0)
+    # Its leaves reach about half a metre: any closer and they come through the walls
+    props.place(props.make_plant(pm, "PlantNook", 1.2, light=LIGHT_PLANTS), NX + 0.60, ROOM_Y0 - 0.60, 0.0)
     # A floor lamp at the sofa's right end, which the player switches
     fx, fy = FLOOR_LAMP
     for o in props.make_floor_lamp(pm, m["floor_lamp_glow"], m["floor_lamp_shade"], "FloorLamp", split=True):
@@ -556,8 +557,8 @@ def obstacles():
         (NOOK_X0 + 1.35, NOOK_Y0 + 0.42, 1.0, 0.43, 0.0),  # sofa
         (NOOK_X0 + 1.35, NOOK_Y0 + 1.30, 0.55, 0.28, 0.0),  # coffee table
         (ROOM_X - 0.9, NOOK_Y0 + 0.30, 0.9, 0.30, 0.0),    # counter
-        (-4.85, ROOM_Y0 + 0.35, 0.22, 0.22, 0.0),          # plants
-        (NOOK_X0 + 0.30, ROOM_Y0 - 0.30, 0.22, 0.22, 0.0),
+        (-4.85, ROOM_Y0 + 0.55, 0.22, 0.22, 0.0),          # plants
+        (NOOK_X0 + 0.60, ROOM_Y0 - 0.60, 0.22, 0.22, 0.0),
         (*FLOOR_LAMP, 0.16, 0.16, 0.0),                    # floor lamp
     ]
     for name in ("Shift", "Notes"):

@@ -1,11 +1,11 @@
 {
-  "scaleCeiling": 1.5460001230239868,
-  "scaleScreens": 0.2800203561782837,
-  "scaleSky": 0.5617212057113647,
+  "scaleCeiling": 1.5509411096572876,
+  "scaleScreens": 0.2808935344219208,
+  "scaleSky": 0.7257680296897888,
   "seaLevel": -52.7,
   "encoding": "L = pow(texel, 3) * scale",
-  "resolution": 2048,
-  "samples": 128,
+  "resolution": 3072,
+  "samples": 4096,
   "emitters": {
     "EmitScreen": {
       "color": [
@@ -75,7 +75,7 @@
     "floorlamp": {
       "map": "light_floorlamp.png",
       "body": "FloorLamp",
-      "scale": 2.0775063037872314
+      "scale": 2.209712028503418
     }
   },
   "boards": {
@@ -85,7 +85,12 @@
     "WhiteboardEsdFace": "board_esd.png",
     "WhiteboardBindersFace": "board_binders.png",
     "WhiteboardPhoto0Face": "board_photo0.png",
-    "WhiteboardPhoto1Face": "board_photo1.png"
+    "WhiteboardPhoto1Face": "board_photo1.png",
+    "S0NotepadPage": "board_notepad.png",
+    "S1NotepadPage": "board_notepad.png",
+    "AirCassette0": "board_vent.png",
+    "AirCassette1": "board_vent.png",
+    "AirCassette2": "board_vent.png"
   },
   "layout": {
     "desks": [
@@ -177,14 +182,14 @@
       ],
       [
         -4.85,
-        -3.25,
+        -3.05,
         0.22,
         0.22,
         0.0
       ],
       [
-        0.7,
-        -3.9,
+        1.0,
+        -4.2,
         0.22,
         0.22,
         0.0
@@ -221,14 +226,14 @@
     ],
     "phones": [
       [
-        -2.2226,
-        1.3048,
+        -2.1863,
+        1.2034,
         0.74,
         1.0243
       ],
       [
-        2.2226,
-        1.3048,
+        2.1863,
+        1.2034,
         0.74,
         -1.0243
       ]
@@ -239,9 +244,11 @@
     "Chair1",
     "FloorLamp",
     "S0Coffee",
+    "S0Mouse",
     "S0Mug",
     "S0TouchPanel",
     "S1Coffee",
+    "S1Mouse",
     "S1Mug",
     "S1TouchPanel",
     "WallClockHourHand",

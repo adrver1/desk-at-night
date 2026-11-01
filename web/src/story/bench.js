@@ -10,17 +10,27 @@
 //
 // URL: ?bench=1 (all), ?bench=quick (three beats, two ratios),
 // ?bench=closeup (close-up beats with the sharp close-up canvases of
-// closeups.js and without, ?closeup=0, at the page's own pixel ratio).
+// closeups.js and without, ?closeup=0, at the page's own pixel ratio),
+// ?bench=bakes and ?bench=bakesquick (the room's light maps at each size, and
+// what they cost to load; needs a server that picks the files by ?variant=,
+// so it starts and ends on today's maps to show if the laptop got hot).
 // Each pass is a reload with its own URL options (?benchpass=N).
 const BEATS = ['c.sim', 'm.build', 'm.twin', 'm.what1', 't.coffee', 'new.ctrl08', 'h.s1', 'ep.line'];
 const AA = [{ aa: 'msaa' }, { aa: 'fxaa' }, { aa: '0', label: 'no aa' }];
+const BAKES = [
+  { label: 'today' },
+  { variant: 'final_3072', label: 'new bake' },
+  { label: 'today again' },
+];
 const MODES = {
   full: { beats: BEATS, ratios: 5, passes: AA },
   quick: { beats: ['c.sim', 'm.what1', 'ep.line'], ratios: 2, passes: AA },
   closeup: { beats: ['c.step', 'c.sim', 'm.build', 'm.twin', 'ep.line', 'm.what1'], ratios: 0,
     passes: [{ closeup: '0', label: 'no closeups' }, { label: 'closeups' }] },
+  bakes: { beats: ['c.step', 'c.sim', 'm.build', 'm.twin', 'ep.line', 'm.what1'], ratios: 0, passes: BAKES, warm: 60000, post: true },
+  bakesquick: { beats: ['c.sim', 'm.what1'], ratios: 0, passes: BAKES, warm: 60000, post: true },
 };
-const OPTIONS = ['aa', 'closeup', 'sharp'];
+const OPTIONS = ['aa', 'closeup', 'sharp', 'variant'];
 const BUILD = typeof __BUILD__ === 'string' ? __BUILD__ : 'dev';   // the URL options passes set
 const SETTLE = 1500, MEASURE = 3000;   // ms per beat and setting
 const KEY = 'storyBench';
@@ -108,6 +118,25 @@ async function measure(ms, tagOf) {
   return { fps: ((frames - 1) * 1000) / (last - first), worst, worstTag, gpu: avg(gpu), room: avg(room), top };
 }
 
+// What the room's baked files cost this page load: when it was ready to play,
+// the download inside that, and the maps' size on the GPU (read from the PNG
+// headers: width × height × 4 bytes, a third more for mipmaps)
+async function loadCost(label, readyMs, capped) {
+  const baked = performance.getEntriesByType('resource').filter((e) => /\/control\/(light_\w+\.png|albedo\.png|scene\.glb)/.test(e.name));
+  const pngs = baked.filter((e) => e.name.includes('.png')).map((e) => e.name);
+  const sizes = await Promise.all(pngs.map(async (name) => {
+    const head = new DataView(await (await fetch(name, { headers: { Range: 'bytes=0-23' } })).arrayBuffer());
+    return [head.getUint32(16), head.getUint32(20)];
+  }));
+  return {
+    label, readyMs, capped,
+    downloadMs: baked.length ? Math.max(...baked.map((e) => e.responseEnd)) - Math.min(...baked.map((e) => e.startTime)) : 0,
+    fileMb: baked.reduce((n, e) => n + e.decodedBodySize, 0) / 1e6,
+    gpuMb: sizes.reduce((n, [w, h]) => n + (w * h * 4 * 4) / 3, 0) / 1e6,
+    sizes: sizes.map(([w]) => w).join(' '),
+  };
+}
+
 function show(results, info, running) {
   let el = document.getElementById('benchOut');
   if (!el) {
@@ -122,7 +151,9 @@ function show(results, info, running) {
     const b = document.createElement('button');
     b.textContent = 'Copy';
     b.style.cssText = 'display:block;margin-top:8px;font:inherit;padding:4px 12px';
-    b.onclick = () => navigator.clipboard?.writeText(text).then(() => { b.textContent = 'Copied'; }, () => { const r = document.createRange(); r.selectNodeContents(el); getSelection().removeAllRanges(); getSelection().addRange(r); });
+    const select = () => { const r = document.createRange(); r.selectNodeContents(el); getSelection().removeAllRanges(); getSelection().addRange(r); };
+    // no navigator.clipboard on plain http, as when served from another machine
+    b.onclick = () => (navigator.clipboard ? navigator.clipboard.writeText(text).then(() => { b.textContent = 'Copied'; }, select) : select());
     el.append(b);
   }
 }
@@ -143,6 +174,11 @@ function report(results, info) {
   for (const beat of [...new Set(results.map((r) => r.beat))]) {
     L.push(`${beat.padEnd(12)} ${settings.map((s) => { const r = results.find((x) => x.beat === beat && x.setting === s); return (r ? `${r.fps.toFixed(0)}/${r.gpu == null ? '–' : r.gpu.toFixed(1)}/${(r.worst ?? 0).toFixed(0)}/${(r.jump ?? 0).toFixed(0)}` : '').padStart(18); }).join('')}`);
   }
+  if (info.loads?.length) {
+    L.push('', 'load (page start to ready ms / download ms / files MB / maps on the GPU MB / map widths):');
+    for (const l of info.loads) L.push(`${l.label.padEnd(14)} ${`${l.capped ? '>' : ''}${l.readyMs.toFixed(0)}`.padStart(7)} ${l.downloadMs.toFixed(0).padStart(7)} ${l.fileMb.toFixed(1).padStart(6)} ${l.gpuMb.toFixed(0).padStart(6)}   ${l.sizes}`);
+  }
+  if (info.lost) L.push('', `WebGL context lost ${info.lost} times (out of GPU memory, most likely)`);
   // Where the GPU time goes in the slowest beats
   const slow = [...results].sort((a, b) => a.fps - b.fps).filter((r) => r.top?.length).slice(0, 4);
   if (slow.length) L.push('', 'slowest beats, top passes (gpu ms):', ...slow.map((r) => `${r.beat} · ${r.setting}: ${r.top.map(([l, ms]) => `${l} ${ms.toFixed(1)}`).join(' · ')}`));
@@ -175,7 +211,10 @@ export async function runBench(story) {
   state.builds = [...new Set([...(state.builds ?? []), BUILD])];
   // As in the presentation, where the warm-up runs behind the Begin screen:
   // otherwise the first beat's jump times shader compiles and first uploads
-  await Promise.race([story.game.hooks.warmed, wait(15000)]);
+  story.game.renderer.domElement.addEventListener('webglcontextlost', () => { state.lost = (state.lost ?? 0) + 1; save(state); });
+  const warmedBy = mode.warm ?? 15000;
+  const capped = await Promise.race([story.game.hooks.warmed.then(() => false), wait(warmedBy).then(() => true)]);
+  if (mode.post) (state.loads ??= []).push(await loadCost(label, performance.now(), capped));
   story.start();
   document.querySelector('.iris')?.remove();
   window.__perf?.setView?.('full');
@@ -203,6 +242,9 @@ export async function runBench(story) {
   save(state);
   if (pass < mode.passes.length - 1) { go(pass + 1); return; }
   info.builds = state.builds;
+  info.loads = state.loads;
+  info.lost = state.lost;
   show(state.results, info, null);
+  if (mode.post) fetch('bench-report', { method: 'POST', body: report(state.results, info) }).catch(() => { /* the Copy button still has it */ });
   try { sessionStorage.removeItem(KEY); } catch { /* fine */ }
 }

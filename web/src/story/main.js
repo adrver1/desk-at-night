@@ -55,6 +55,7 @@ const sound = new Sound();
 // The room's background life (ambience.js): dips with the aircon under every spoken line
 const ambience = new Ambience(sound, null);
 sound.onDuck = (on) => { ambience.duck(on); if (game.controls) game.controls.duck = on ? 0.5 : 1; };
+game.hooks.sip = () => { if (ambience.out) ambience.slurp(ambience.ctx.currentTime); };   // free play: the player's own sip
 const call = new Call(ui.el.call);
 const trondheim = new Trondheim(host);
 let cast = null, shots = null, epilogue = null, clockFace = null, buddy = null, workshop = null, twin = null;
@@ -737,7 +738,7 @@ function frame(dt, now) {
   // the close-up's 8 a second, which made the scroll judder (Adriaen, 2026-11-01)
   if (state.screens?.[REPORT_SCREEN] === 'report:step' && S.now - (S.chatAt.step ?? -99) < 6.5) game.room?.redrawAt?.(60, REPORT_SCREEN);
   cast?.update(dt, game.camera, S.now);
-  ambience.set(Boolean(game.room) && !game.hooks.hidden && !game.hooks.covered && state.sound !== 'silence', state.sound === 'alarm');
+  ambience.set(Boolean(game.room) && !game.hooks.hidden && !game.hooks.covered && (free || state.sound !== 'silence'), state.sound === 'alarm');   // free: a silent beat stays behind, the room and the sips are heard
   ambience.update(dt, game.camera);
   buddy?.update(dt, S.now);
   workshop?.update(dt);

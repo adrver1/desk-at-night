@@ -71,8 +71,9 @@ const PHONE_AT = [0.14, 0.785, -0.42], PHONE_GRAB = 12 / 24, PHONE_DROP = 16 / 2
 // build_desk_props), its handset in the cradle (world, three's axes, and its
 // yaw and tilt); to reach it he swivels the chair DESK_PHONE.turn to the left and
 // rolls it over until the handset is at PHONE_DESK in his space
-const DESK_PHONE = { chair: 0, at: [-2.2668, 0.805, -1.2322], yaw: 1.0243, tilt: 0.489, turn: 0.5 };
+const DESK_PHONE = { chair: 0, at: [-2.2305, 0.805, -1.1308], yaw: 1.0243, tilt: 0.489, turn: 0.5 };
 const PHONE_DESK = [-0.36, 0.82, -0.58], ROLL = [0, 0.45, 0.8, 1.3];   // s: roll over from, to; back from, to
+const MOUSE_HOLD = [12 / 24, 84 / 24];   // s: anims.py mouse_keys, the hand on the mouse
 // The live desk phone (blender/desk_phone.py, placed by deskPhones.js where the bake leaves it out;
 // Adriaen, 2026-10-30: C office in the show, rotary and push-button kept: ?phone=rotary|pushbutton).
 // Its handset rests where DESK_PHONE.at is. Held across the palm (hand-bone space), then near
@@ -195,6 +196,8 @@ export class Cast {
       const mug = this.game.room.root.getObjectByName(name), coffee = this.game.room.root.getObjectByName(name.replace('Mug', 'Coffee'));
       if (mug && coffee) this.mugsRest[name] = { mug, coffee, y: coffee.position.y, home: mug.position.clone() };
     }
+    // by chair: the mouse on that desk, moved by his hand during the mouse clips
+    this.mice = [0, 1].map((k) => { const mouse = this.game.room.root.getObjectByName(`S${k}Mouse`); return mouse && { mouse, home: mouse.position.clone() }; });
   }
 
   // Put everyone where `cast` ({ who: { at } }) says; those not named go
@@ -746,6 +749,7 @@ export class Cast {
     else if (t >= f.dur - 0.3 && p.pose === f.name) this.fade(p, f.back, 0.3);
     if (f.radio && t >= f.dur - 0.3 && p.pose === f.radio.down) this.fade(p, f.back, 0.3);
     if (f.mug) this.holdMug(p, f, t);
+    if (f.name.startsWith('mouse')) this.moveMouse(p, f, t);
     if (t >= f.dur) { this.endFidget(p); p.fidgetAt = now + IDLE_GAP[0] + Math.random() * (IDLE_GAP[1] - IDLE_GAP[0]); }
   }
   // The mug goes from the desk into the hand and back while the clip holds it
@@ -772,10 +776,25 @@ export class Cast {
       .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(side > 0 ? 1 : -1, 0, 0), 0.6 * up));
     mug.quaternion.slerpQuaternions(f.mug.rest.quat, held, k);
   }
+  // The mouse follows his hand over the desk while the clip has it on the mouse
+  // (anims.py mouse_keys, frames 12 to 84), from where the hand first lands
+  moveMouse(p, f, t) {
+    const spot = SPOTS[p.at], m = !spot?.move && this.mice?.[spot?.chair];
+    const hand = p.bones.handR ?? p.bones['hand.R'];
+    if (!m || !hand) return;
+    const k = smooth((t - MOUSE_HOLD[0]) / 0.1) * smooth((MOUSE_HOLD[1] - t) / 0.1);
+    if (k <= 0) { f.mouseFrom = null; m.mouse.position.copy(m.home); return; }
+    p.root.updateMatrixWorld(true);
+    const now = m.mouse.parent.worldToLocal(hand.getWorldPosition(new THREE.Vector3()));
+    f.mouseFrom ??= now.clone();
+    m.mouse.position.set(m.home.x + (now.x - f.mouseFrom.x) * k, m.home.y, m.home.z + (now.z - f.mouseFrom.z) * k);
+    f.mouseAt = m;
+  }
   endFidget(p) {
     const f = p.fidget;
     if (!f) return;
     p.fidget = null;
+    f.mouseAt?.mouse.position.copy(f.mouseAt.home);
     if (f.mug?.rest) { f.mug.m.mug.position.copy(f.mug.rest.pos); f.mug.m.mug.quaternion.copy(f.mug.rest.quat); }
     if (f.radio) {
       // cut off (a beat moved on): the button comes up, the made-up words stop
