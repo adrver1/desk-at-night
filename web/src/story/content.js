@@ -791,6 +791,7 @@ function applyStory(chapters) {
         const own = STORY.chats[add.chat]?.set;
         if (own) nb.set = { ...nb.set, ...own, screens: { ...nb.set.screens, ...own.screens } };
       }
+      if (add.set) nb.set = { ...nb.set, ...add.set };   // its own camera or screens (a slide on a room screen)
       if (add.card) nb.card = { text: tx(add.card), solid: !!add.solid };
       if (STORY.callouts[add.id]) nb.callouts = STORY.callouts[add.id].map((c) => ({ ...c, label: tx(c.label), text: tx(c.text) }));
       const after = ch.beats[i + 1];

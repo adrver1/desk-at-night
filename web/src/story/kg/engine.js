@@ -145,6 +145,30 @@ export function desk() {
   g.userData.h = 1.4;
   return g;
 }
+// The agents' table on the conclusion slide (deck slide 15): a dark wooden
+// top tipped towards us, the laptop they crowd round, books, two mugs, a notepad
+export function table() {
+  const g = new THREE.Group(), t = new THREE.Group();
+  const top = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.22, 2.2), mat('#5a4330'));
+  const front = new THREE.Mesh(new THREE.BoxGeometry(6.2, 1.1, 0.1), mat('#3e2e22'));
+  front.position.set(0, -0.65, 1.05);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.1, 0.42), mat('#2b3038'));
+  base.position.set(0, 0.16, 0.2);
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.42, 0.04), mat('#2b3038'));
+  lid.position.set(0, 0.36, -0.02); lid.rotation.x = -0.25;
+  const glow = new THREE.Mesh(new THREE.PlaneGeometry(0.54, 0.34), new THREE.MeshBasicMaterial({ color: '#9fd8ff' }));
+  glow.position.set(0, 0.36, 0.0); glow.rotation.x = -0.25;
+  const lap = new THREE.Group(); lap.add(base, lid, glow); lap.scale.setScalar(1.6); lap.position.set(0, 0, 0.2);
+  const bk = books(4); bk.scale.setScalar(1.05); bk.position.set(-2.4, 0.11, 0.3); bk.rotation.y = 0.3;
+  const mug = (c, x, z) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.15, 0.36, 10), mat(c)); m.position.set(x, 0.29, z); return m; };
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.04, 0.5), mat('#f3efe4'));
+  pad.position.set(1.25, 0.13, 0.45); pad.rotation.y = -0.2;
+  t.add(top, front, lap, bk, mug('#e9e6df', -1.35, 0.6), mug('#e9e6df', 2.2, 0.55), pad);
+  t.rotation.x = 0.32;   // tipped towards us, so the top shows to the flat camera
+  g.add(t);
+  g.userData.h = 1;
+  return g;
+}
 export function globe() {
   const g = new THREE.Group();
   const s = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7, 1), mat('#e9e6df'));
@@ -229,7 +253,8 @@ export class LiveSlide {
   }
 
   resize() {
-    const r = this.el.getBoundingClientRect();
+    // the layout size, not the box on screen: on a room screen (main.js screenSlide) the slide is transformed
+    const r = { width: this.el.clientWidth, height: this.el.clientHeight };
     if (!r.width) return;
     this.W = r.width; this.H = r.height;
     const dpr = this.dpr = Math.min(2, devicePixelRatio || 1);

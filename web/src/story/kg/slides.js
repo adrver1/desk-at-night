@@ -4,7 +4,7 @@
 // team), as everywhere in the public build.
 import { T } from '../lang.js';
 import { Graph } from './graph.js';
-import { books, globe, col, KG_LOOK } from './engine.js';
+import { books, globe, table, col, KG_LOOK } from './engine.js';
 import { vscodeWindow, vscodeStep, fitVSCode } from '../vscode.js';
 
 // ------------------------------------------------------------ helpers
@@ -138,6 +138,17 @@ const H08 = {
     fig(OLA, 6.3, 1.1, 2.5, 5, { seat: 'props/workstation.glb', rot: -1.05, act: () => 'typing' }),
     arrow([1.6, 2.4], [4.7, 2.75], T('Samhandler med', 'Works with'), 5, { bend: -0.25, both: true, labelOff: [0, 0.52], chunky: true }),
   ],
+};
+
+// The same team loop played out on a monitor in the room (Adriaen, 2026-11-01, a variant of
+// ctrl-08): the camera stays on the screen, and on the last click, where the orchestrator
+// works with the user, it pulls back to show the screen and Adriaen at his desk, the green
+// arrow between them drawn in the room (main.js screenSlide)
+const H08S = {
+  ...H08, id: 'ctrl-08s', glideIn: false,
+  screen: 'Desk1Mon0Screen', zoomAt: 5, zoomShot: 'agentDesk', who: 'operator',
+  roomArrow: T('Samhandler med', 'Works with'),
+  elements: H08.elements.slice(0, -2),
 };
 
 // ------------------------------------------------------------ slide 9: just .agent.md files
@@ -467,4 +478,26 @@ const H14 = {
   ],
 };
 
-export const LIVE_SLIDES = Object.fromEntries([H02, H08, H09, H01, H11, H12, H13, H14].map((s) => [s.id, s]));
+// ------------------------------------------------------------ slide 15: conclusion
+// The deck's picture (the three agents round a laptop at night) as the cast
+// itself: half portraits behind their table, the bullets one per click
+const H04 = {
+  id: 'h-04', builds: 6,
+  focus: () => [0, 0, 0],
+  elements: [
+    title(T('Konklusjon', 'Conclusion')),
+    ...[['scholar', 2.3, 0.35], ['buddy', 4.75, 0], ['nurse', 7.0, -0.35]].map(([k, x, rot]) =>
+      fig(ROBOT[k], x, -4.6, k === 'buddy' ? 6.2 : 5.6, 0, { rot, cut: HALF })),
+    prop(table, 4.7, -2.15, 0, { z: 3 }),
+    ...[
+      [T('Å sette opp agenter og agentteam er overraskende enkelt, prøv det!', 'Setting up agents and agent teams is surprisingly easy. Try it!'), 0],
+      [T('Skaper verdi på flere måter:', 'Creates value in several ways:'), 0],
+      [T('Automatiserer kjedelige oppgaver', 'Automates boring tasks'), 1],
+      [T('Personlig tilpasset læring med tålmodig lærer', 'Personal learning with a patient teacher'), 1],
+      [T('Bra for å lage korte, tilpassede (interaktive) rapporter → økt kunnskapsdeling', 'Good for short, tailored (interactive) reports → more knowledge sharing'), 1],
+      [T('«Skills» og kunnskapsbaser er lette å dele og tilpasse til nye områder', 'Skills and knowledge bases are easy to share and adapt to new areas'), 0],
+    ].map(([t, sub2], i) => text(`<ul><li>${t}</li></ul>`, sub2 ? -6.5 : -7.2, [2.9, 1.75, 1.15, 0.6, 0.05, -0.95][i], sub2 ? 7.3 : 8.0, i + 1, { cls: sub2 ? 'bullets subb' : 'bullets' })),
+  ],
+};
+
+export const LIVE_SLIDES = Object.fromEntries([H02, H08, H08S, H09, H01, H11, H12, H13, H14, H04].map((s) => [s.id, s]));

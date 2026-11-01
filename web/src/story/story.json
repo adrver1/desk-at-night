@@ -295,6 +295,15 @@
    },
    "builds": 5
   },
+  "ctrl-08s": {
+   "no": {
+    "title": "Lysbilde 8 på skjermen"
+   },
+   "en": {
+    "title": "Deck slide 8, on a screen"
+   },
+   "builds": 5
+  },
   "ctrl-09": {
    "no": {
     "title": "Lysbilde 9 fra presentasjonen"
@@ -906,6 +915,15 @@
   },
   {
    "after": "new.ctrl08",
+   "id": "new.ctrl08s",
+   "slide": "ctrl-08s",
+   "set": {
+    "shot": "monitor:Desk1Mon0Screen"
+   },
+   "notes": "Lysbilde 8 på en skjerm i rommet. Siste klikk: kameraet trekker seg ut til Adriaen ved pulten."
+  },
+  {
+   "after": "new.ctrl08s",
    "id": "new.ctrl09",
    "slide": "ctrl-09",
    "notes": "Lysbilde 9."
@@ -930,6 +948,7 @@
   }
  ],
  "hidden": [
+  "new.ctrl08",
   "m.retune",
   "c.call",
   "y.steep",
