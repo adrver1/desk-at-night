@@ -349,6 +349,7 @@ export class Sound {
   }
 
   duck(on) {
+    this.onDuck?.(on);   // the room's sounds dip too (main.js)
     if (!this.mus) return;
     const t = this.ctx.currentTime, gn = this.mus.g.gain;
     gn.cancelScheduledValues(t);

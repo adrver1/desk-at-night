@@ -38,6 +38,30 @@ URL options: `?chapter=N` (or `#chapter.beat`), `?mode=free`, `?nofs` (no
 fullscreen on Begin), `?fps=1`, `?weather=...` (prologue), `?private=1`,
 `?sola=0` (skips the Sola apron opening, on by default; see below), `?tags=a|b|c|0` (how the crew's first names and BU show as they board at Sola: lower third, default; tags over heads; roll call; off), `?ceo=1` (Trondheim: the CEO welcomes Adriaen at the Føniks steps and they shake hands; off by default, he walks straight in), `?story=full`, `?lang=en|no`, `?grade=1` (the old colour grades per act, off by default). `?kglook=c|b|deck`: how the knowledge-graph slides of chapter 6 (deck slides 7 to 14) look: `c` drawn live as a light slide with the game's figures (default), `b` the same as a hologram over a low-poly deck, `deck` the PowerPoint pictures.
 
+## Room sound
+
+`ambience.js` is the control room's background life while the room is on
+screen (mix B of the Sound Lab, picked by Adriaen 2026-11-01): the
+generators' rumble under the aircon (roomControls.js, story level 34%),
+sounds that follow the seated idles on their clip clocks (mouse slide and
+clicks, a recorded slurp and the cup going down, a chair creak), short
+typing bursts in the typing pose every 25 to 60 s, SAS alarms (1 to 4, every
+40 to 100 s) that the operator acks with his next mouse idle, and muffled
+radio calls every 50 to 120 s, half of them answered (with
+`cast.radioReply` when the cast has the radio clip). Each person does one
+thing at a time; it all dips to half under a spoken line, and goes quiet
+for `sound: 'silence'` beats; no random SAS while the scripted alarm runs.
+The coffee pour plays while the jug's stream shows, and every 3 to 6 minutes
+someone out of shot yawns (there is no yawn clip yet, so never on screen). `?ambience=0` turns it
+off (only the aircon, as before).
+
+The recordings in `public/story/sfx/` are CC0 from freesound.org:
+`slurp-5/6/7.mp3` are benkenart's "coffee slurp" 5 to 7 (568043, 568042,
+568041) and `pour.mp3` is naxxfish's "kettle pour coffee" (121211), all
+mono, trimmed, 96 kb/s; `yawn-1/2.mp3` are owlstorm's "yawn" 1 and 2 (151240,
+151239), raised to a -6 dB peak. Originals in the private project files
+(`control-room-game/sounds/`).
+
 ## Files
 
 - `content.js`: the whole script. Chapters, beats and their steps, the
