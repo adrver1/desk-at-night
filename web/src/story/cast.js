@@ -676,7 +676,7 @@ export class Cast {
     let name = sip && (!p.sipped || (p.lastIdle === mouse && Math.random() < 0.25)) ? (sip.side > 0 ? 'sip' : 'sip_left') : mouse;
     // now and then a word on the radio instead (never twice in a row)
     const radio = this.radioAt(p);
-    if (radio && (IDLE_ONLY === 'radio' || (!IDLE_ONLY && p.lastIdle !== 'radio' && Math.random() < RADIO_ODDS))) return this.startRadio(p, radio);
+    if (radio && !p.forceIdle && (IDLE_ONLY === 'radio' || (!IDLE_ONLY && p.lastIdle !== 'radio' && Math.random() < RADIO_ODDS))) return this.startRadio(p, radio);
     if (IDLE_ONLY && IDLE_ONLY !== 'radio') p.forceIdle ??= IDLE_ONLY;
     if (p.forceIdle) { name = p.forceIdle === 'mouse' ? mouse : p.forceIdle; p.forceIdle = null; if (!name.startsWith('mouse') && !sip) return; }
     if (!p.act[name]) name = 'mouse';   // a model built before the sip clips

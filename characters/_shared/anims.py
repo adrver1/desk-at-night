@@ -166,20 +166,22 @@ def lap_hands(r, side, lean=0.0):
     return r
 
 
+TYPING_WRIST = (0.098, 0.373, 0.82)   # right wrist over the keys; 5 cm above where the old pose sank the hands into the keyboard
+
+
 def typing(phase):
     """Seated, leaning in, elbows by the sides and forearms angled in over a
-    desk, palms down on a keyboard about 0.3 m wide, fingers patting."""
+    desk, palms down on a keyboard about 0.3 m wide, fingers patting. The
+    wrists sit at TYPING_WRIST (mirrored), so the mittens rest on the keys
+    rather than in them."""
     r = seated(look_down=10)
     r["spine"] = (X, -4)
     r["chest"] = (X, -2)
+    wx, wy, wz = TYPING_WRIST
     for i, side in enumerate((1, -1)):
-        d, tag = _arm(side), _tag(side)
         tap = 0.04 * math.sin(2 * math.pi * (phase * 3 + i * 0.37))
-        palm = ((-side * 0.707, 0, -0.707), (-side * 0.25, 0, -1.0))
-        aim(r, [(f"upper_arm.{tag}", d, (side * 0.06, 0.62, -0.78)),
-                (f"forearm.{tag}", d, (-side * 0.40, 0.92, -0.02 + tap * 0.3), palm),
-                (f"hand.{tag}", d, (-side * 0.10, 0.97, -0.12 - tap))],
-            Matrix.Rotation(math.radians(-6), 3, X))
+        reach(r, side, (side * wx, wy, wz + tap * 0.1), (-side * 0.10, 0.97, -0.12 - tap),
+              palm=(-side * 0.25, 0, -1.0))
     return r
 
 
