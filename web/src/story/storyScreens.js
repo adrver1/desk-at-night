@@ -336,10 +336,11 @@ function wrap(ctx, s, maxW) {
   return out;
 }
 
-// A chat with an agent: the person's messages on the right, the agent's on
-// the left, newest at the bottom; the agent types for a moment first
 // how long the agent's ••• shows before its answer (1.4 s until Adriaen, 2026-11-01: snappier)
 const AI_THINK = 0.6;
+
+// A chat with an agent: the person's messages on the right, the agent's on
+// the left, newest at the bottom; the agent types for a moment first
 function chat(ctx, w, h, id) {
   const c = CHATS[id], s = w / 640, age = S.now - (S.chatAt[id] ?? -99);
   // our own message not started yet (main.js chatTo: it waits for the camera): not there at all
