@@ -156,6 +156,7 @@ const AGENT_FILES = {
     ['---', 'name: Linter', "description: Checks the wiki's health. Front matter, broken links, contradictions, orphan notes. Owns Karpathy step 6 (Lint).", "tools: ['codebase', 'runCommands', 'search']", '---', '', '# Linter — Wiki health', '', 'Run after @Compiler has added', 'articles, before a bigger handover,', 'and weekly.', '', '## Checklist', '- Every note has `source:` and `updated:`', '- No [[links]] to notes that are missing', '- No notes without incoming links'])],
 };
 const AGENTS9 = ['buddy', 'scholar', 'nurse'];
+const H9 = 3.0 * 0.85 / (1 - HALF);   // the half portraits' whole height: their top part a little shorter than the whole figures were
 // The editor area of the 1440×810 window in slide units (activity bar 48 px +
 // Explorer 230 px on the left, chat 340 px on the right), and where an agent
 // stands in group i of n
@@ -194,7 +195,9 @@ const H09 = {
       }),
     },
     // each agent under its own file; the groups split as the files open
-    ...AGENTS9.map((k, i) => fig(ROBOT[k], groupX(i, 3), -4.1, 3.0, i + 1, {
+    // half portraits, as on h-02 and ctrl-08 (Adriaen, 2026-11-01): cut where their feet stood
+    ...AGENTS9.map((k, i) => fig(ROBOT[k], groupX(i, 3), -4.1 - HALF * H9, H9, i + 1, {
+      cut: HALF,
       rot: [0.25, 0, -0.25][i], dur: 0.7,
       at: (b) => ({ x: groupX(i, Math.max(i + 1, Math.min(b, 3))) }),
     })),

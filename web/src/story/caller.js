@@ -19,6 +19,7 @@ import { Separator, SeparatorSim } from '../separator.js';
 import { PRIVATE, PRIVATE_BASE, OVERRIDES } from '../privateNames.js';
 import { SPEAKERS } from './content.js';
 import { loadModel } from './cast.js';
+import { CONTENT } from '../screens.js';
 
 const W = 960, H = 540;   // px of the bubble's picture
 const CALLERS = { neighbour: 'story/faces/neighbour.svg' };
@@ -30,10 +31,11 @@ export class Caller {
     const el = this.el = document.createElement('div');
     el.className = 'caller';
     el.innerHTML = `<figure class="who them"><img alt=""><figcaption></figcaption></figure>
-      <div class="speech"><canvas width="${W}" height="${H}"></canvas><i class="tail"></i></div>
+      <div class="speech"><canvas width="${W}" height="${H}"></canvas><canvas class="flat"></canvas><i class="tail"></i></div>
       <figure class="who me"><img src="story/faces/adriaen.png" alt=""></figure>`;
     (document.getElementById('game') ?? document.body).append(el);
     this.canvas = el.querySelector('canvas');
+    this.flat = el.querySelector('canvas.flat');   // 'retune': the retune screen (retune.js), drawn flat
     this.who = null;
     this.on = false;
   }
@@ -41,10 +43,12 @@ export class Caller {
   // who calls (null: no call), and how far the call has come: 'ring' (the
   // operator's portrait alone in the middle, the room showing through, where
   // he picks up), 'talk' (his portrait moves right, the caller's appears),
-  // 'sep' (the separator in the speech bubble)
+  // 'sep' (the separator in the speech bubble), 'retune' (the new tuning in it instead, the call back
+  // after the retune, m.back: Adriaen, 2026-11-01; the bubble then points at the operator, who shows it)
   set(who, stage = 'sep') {
     who = who || null;
-    for (const k of ['ring', 'talk', 'sep']) this.el.classList.toggle(k, Boolean(who) && k === stage);
+    this.stage = stage;
+    for (const k of ['ring', 'talk', 'sep', 'retune']) this.el.classList.toggle(k, Boolean(who) && k === stage);
     if (who && who !== this.who) {
       const face = PRIVATE && OVERRIDES.faces?.[who] ? PRIVATE_BASE + OVERRIDES.faces[who] : CALLERS[who];
       this.el.querySelector('.them img').src = face ?? '';
@@ -125,6 +129,13 @@ export class Caller {
   // Each frame (dt in s) while shown: big slugs, one after the other
   update(dt) {
     if (!this.on || !this.built) return;
+    if (this.stage === 'retune') {
+      const c = this.flat, w = Math.round(c.clientWidth * devicePixelRatio), h = Math.round(c.clientHeight * devicePixelRatio);
+      if (!w) return;
+      if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+      CONTENT.retune?.[1](c.getContext('2d'), w, h);
+      return;
+    }
     if (!this.sim) this.reset();   // a beat entered straight at the separator
     dt = Math.min(dt, 0.05);
     const p = this.sim;

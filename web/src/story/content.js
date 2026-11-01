@@ -603,6 +603,12 @@ const SHORT_CHAPTERS = [
       { id: 'm.curve1', set: { thoughts: 'dim', curve: 'axes', curveLate: true }, notes: 'Ett år siden, kontrollrommet. Aksene: tid og læring.' },
       { id: 'm.curve2', set: { curve: 'plot' }, notes: 'Bratt læringskurve.' },
       { id: 'm.curve3', set: { curve: 'both' }, notes: 'Med CtrlBuddy: brattere, og høyere. Menneske + KI får gjort mer, raskere.' },
+    ],
+  },
+  {
+    // (Adriaen, 2026-11-01) CtrlBuddy, how he was made and what he is, is a chapter of its own
+    key: 3, id: 'ctrlbuddy', name: 'CtrlBuddy', carry: true,
+    beats: [
       // (Adriaen, 2026-10-30) how he was made: VS Code on one monitor, his agent file typed in section by
       // section, and on the one beside it Ola fitting him together part by part (workshop.js)
       { id: 'm.build', set: { curve: null, thoughts: null, call: null, phone: null, explain: null, build: true, shot: 'pair:Desk0Mon0Screen,Desk0Mon1Screen',
@@ -649,18 +655,39 @@ const SHORT_CHAPTERS = [
       { id: 'm.twin', set: { overlay: null, twin: true, thoughts: null, call: null, phone: null, explain: null, shot: 'pair:Desk0Mon0Screen,Desk0Mon1Screen',
         screens: { Desk0Mon0Screen: 'twinCode', Desk0Mon1Screen: 'twin' } },
         notes: 'Vi bygde en digital tvilling av separatoren i CasADi: geometri, massebalanser, overløp og ventiler. Hver del av koden er en del av separatoren.' },
-      // after c.sim2 and c.step, which story.json inserts before it (Adriaen, 2026-10-31)
+    ],
+  },
+  {
+    // (Adriaen, 2026-11-01) the step-test finder is a use case of its own: a title over the darkened room,
+    // then c.step (story.json inserts it after the title), the retune and their call back
+    key: 4, id: 'use-case-2', name: T('Brukstilfelle 2', 'Use case 2'), carry: true,
+    beats: [
+      { id: 'm.uc2', set: { overlay: null, twin: null, call: null, phone: null, thoughts: null, explain: null, shot: 'phoneDesk' },
+        card: { text: T('Brukstilfelle 2: Steptestfinner', 'Use case 2: Step-test finder'), small: true, dim: true },
+        notes: 'Brukstilfelle 2: steptestfinneren.' },
+      // after c.step, which story.json inserts before it (Adriaen, 2026-10-31)
       // on a monitor in the room, not full screen (Adriaen, 2026-11-01)
       { id: 'm.retune', set: { overlay: null, twin: null, retune: 'screen', shot: 'monitor:Desk0Mon1Screen', screens: { Desk0Mon1Screen: 'retune' } },
         notes: 'Gammel og ny innstilling av nivåregulatoren side om side, på den nye modellen: strømningen holdes jevn, nivået får drive innenfor båndet. S bytter hvilken separatoren viser.' },
-      // (Adriaen, 2026-11-01) they ring back, seen from the side as in the first call (m.call): he gives them
-      // the new tuning, they have tried it and it works
-      { id: 'm.back', set: { overlay: null, retune: null, thoughts: null, explain: null, call: 'neighbour', callStage: 'ring', phone: null, shot: 'phoneDesk' },
-        do: [{ sound: 'ringtone', times: 2 }, { wait: 4.6 }, { set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
-          { set: { callStage: 'talk' } }, { wait: 0.6 }, { say: 'm.call0' }, { say: 'm.back1' }, { say: 'm.back2' }, { wait: 0.4 },
-          { set: { phone: null } }, { wait: 0.65 }, { sound: 'hangup' }, { wait: 0.9 }, { set: { call: null } }],
-        end: { call: null, phone: null },
-        notes: 'Nordhav Beta ringer tilbake. Han gir dem de nye reguleringsparameterne; de har testet dem, og de fungerer.' },
+      // (Adriaen, 2026-11-01) they ring back, seen from the side and split up as the first call (m.ring, m.call,
+      // m.slug): it rings until the click, he picks up and they say who it is, then the new tuning in the
+      // call's bubble (caller.js 'retune') while he hands it over; it plays on until the click
+      { id: 'm.ring2', set: { overlay: null, retune: 'screen', thoughts: null, explain: null, call: 'neighbour', callStage: 'ring', phone: null, shot: 'phoneDesk' },
+        do: [{ sound: 'ringtone', times: 6 }],
+        notes: 'Telefonen ringer igjen. Space: han tar den.' },
+      { id: 'm.call2', set: { retune: 'screen', call: 'neighbour', callStage: 'ring', shot: 'phoneDesk' },
+        do: [{ set: { phone: 'operator' } }, { wait: 0.6 }, { sound: 'pickup' }, { wait: 0.8 },
+          { set: { callStage: 'talk' } }, { wait: 1 }, { say: 'm.call0b' }],
+        end: { callStage: 'talk', phone: 'operator' },
+        notes: 'Han tar telefonen: det er Nordhav Beta igjen.' },
+      { id: 'm.back', set: { retune: 'screen', call: 'neighbour', callStage: 'retune', phone: 'operator', shot: 'phoneDesk' },
+        do: [{ wait: 0.8 }, { say: 'm.back1' }, { say: 'm.back2' }],
+        end: { call: null, phone: null, retune: null },
+        notes: 'Han gir dem de nye reguleringsparameterne; de har testet dem, og de fungerer. Den nye innstillingen går til neste klikk.' },
+      // moved here from today's tools with m.s4 and the chats story.json hangs on it (c.pcs7, ctrl-05, c.loops):
+      // these are use cases too (Adriaen, 2026-11-01)
+      { id: 'm.scd', set: { overlay: null, retune: null, shot: 'monitor:Desk0Mon2Screen', tool: 'scd', screens: { Desk0Mon2Screen: 'scd' } }, notes: 'The I-005 logic tester: a missing interlock found on a laptop.' },
+      { id: 'm.s4', set: { overlay: 'slide:m-04' } },
     ],
   },
   {
@@ -681,10 +708,6 @@ const SHORT_CHAPTERS = [
       { id: 'm.riser', set: { overlay: null, shot: 'monitor:Desk0Mon3Screen', tool: 'riser', screens: { Desk0Mon3Screen: 'riser' } }, notes: 'The riser simulator, open loop: it fills and blows through.' },
       { id: 'm.antislug', set: { tool: 'antiSlug', screens: { Desk0Mon3Screen: 'antiSlug' } }, notes: 'Anti-slug control tuned on the model. Seeing is believing.' },
       { id: 'm.s3', set: { overlay: 'slide:m-03' } },
-      // the re-tuning outcome, after the step test and the separator model chats (c.step, c.sim, inserted
-      // after h.s2's slides and m.s3): old and new oil level tuning side by side (Adriaen, 2026-10-30)
-      { id: 'm.scd', set: { overlay: null, retune: null, shot: 'monitor:Desk0Mon2Screen', tool: 'scd', screens: { Desk0Mon2Screen: 'scd' } }, notes: 'The I-005 logic tester: a missing interlock found on a laptop.' },
-      { id: 'm.s4', set: { overlay: 'slide:m-04' } },
       { id: 'm.docs', set: { overlay: null, shot: 'monitor:Desk0Mon4Screen', tool: 'govDocs' }, notes: 'A governing-document agent answers with its sources. TODO(Adriaen): screenshot in private/tools/govDocs.png.' },
       { id: 'm.s5', set: { overlay: 'slide:m-05' } },
     ],

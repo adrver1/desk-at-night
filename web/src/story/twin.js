@@ -512,14 +512,17 @@ export class Twin {
       return S.now - this.codeAt[k] > EDIT[0];
     };
     const toward = (v, to) => (to > v ? Math.min(to, v + dt * 0.6) : Math.max(to, v - dt * 0.6));
+    // after that chat (c.step beside it), the corrections stand and the camera stays in front (Adriaen, 2026-11-01)
     f.len = toward(f.len, go('len') ? 1 : 0);
     f.valve = toward(f.valve, go('valve') ? 1 : 0);
+    if (this.settled) f.len = f.valve = 1;
     this.sep.group.scale.x = 1 - SHORT * smooth(f.len);
     // the equal-percentage valve lifts out and hangs to the side; the new one drops into its place
     const out = smooth(f.valve * 1.6);
     oldG.position.copy(oldG.userData.home).add(new THREE.Vector3(-0.6 * out, 1.4 * out, -1.6 * out));
+    if (this.settled) oldG.visible = false;   // gone once the chat about it is over
     // the valves sit behind the vessel: the camera swings round to them for the swap
-    const swing = smooth(f.valve * 2.5), v = this.sep.group.localToWorld(oldG.userData.home.clone());
+    const swing = this.settled ? 0 : smooth(f.valve * 2.5), v = this.sep.group.localToWorld(oldG.userData.home.clone());
     const target = this.home.target.clone().lerp(v.clone().add(new THREE.Vector3(-0.3, 0.6, -0.8)), swing);
     // round the vessel's end, not through it: angle, radius and height eased separately
     const back = v.clone().add(new THREE.Vector3(4.5, 3.0, -10)), from = this.home.pos;
@@ -562,7 +565,7 @@ export class Twin {
       ctx.globalAlpha = 1;
     }
     // each valve with its curve
-    if (f.valve > 0) {
+    if (f.valve > 0 && !this.settled) {
       const old = at(this.sep.valves[SWAP].group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.4, 0)));
       const neu = at(this.newValve.group.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.4, 0)));
       ctx.globalAlpha = Math.min(1, f.valve * 3);
