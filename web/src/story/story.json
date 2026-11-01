@@ -460,7 +460,7 @@
      {
       "no": "Steptest-katalog",
       "en": "Step-test catalogue",
-      "file": "step-1.mp4"
+      "page": "stepReport"
      }
     ],
     [
@@ -468,7 +468,7 @@
      {
       "no": "Den beste kandidaten",
       "en": "The best candidate",
-      "file": "step-2.mp4"
+      "page": "stepReport"
      }
     ]
    ],

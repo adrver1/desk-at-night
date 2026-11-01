@@ -13,6 +13,7 @@ import { drawGraph } from './graph.js';
 import { AGENTS, ORG, SPEAKERS, CHATS, GOV_DOCS } from './content.js';
 import { PRIVATE, PRIVATE_BASE, OVERRIDES } from '../privateNames.js';
 import { T } from './lang.js';
+import { drawStepReport } from './stepReport.js';
 
 export const S = {
   wi: 'normal', wiAt: 0,          // water injection phase and when it began (s, story clock)
@@ -420,7 +421,13 @@ function report(ctx, w, h, id) {
   const m = CHATS[id].messages.slice(0, n).filter(([who]) => who === 'show').pop();
   rect(ctx, 0, 0, w, h, '#14191f');
   if (!m) { text(ctx, T('Venter på agenten …', 'Waiting for the agent …'), w / 2, h / 2, { px: 15 * s, color: C.dim, align: 'center' }); return; }
-  const [, title, { file } = {}] = m;
+  const [, title, { file, page } = {}] = m;
+  // a report redrawn as its page (stepReport.js), at its step: which of this page's messages this is
+  if (page === 'stepReport') {
+    const stage = CHATS[id].messages.slice(0, n).filter(([, , x]) => x?.page === page).length - 1;
+    drawStepReport(ctx, w, h, stage, S.now - (S.chatAt[id] ?? -99), S.reports);
+    return;
+  }
   const media = file && S.reports ? reportMedia(file) : null;
   const iw = media?.videoWidth || media?.naturalWidth, ih = media?.videoHeight || media?.naturalHeight;
   if (iw && (media.complete || media.readyState >= 2)) {
